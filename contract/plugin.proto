@@ -1,0 +1,207 @@
+// Nilda plugin contract v1 (SPEC_98). The single source of truth for the Core<->plugin gRPC wire.
+//
+// Versioning: this contract is carried by plugin-sdk (semver) and guarded by the go-plugin handshake
+// ProtocolVersion (Terraform-style) — an incompatible plugin is rejected at load, never silently
+// broken. Within v1, fields are only ever ADDED (proto3 forward compatibility); a breaking change
+// ships nilda.plugin.v2.
+//
+// Direction 1 — PluginService (Core -> plugin): lifecycle + hook/event dispatch. Every call is made
+// with the per-call timeout (PLUGIN_CALL_TIMEOUT); a slow plugin fails the CALL, never Core.
+// Direction 2 — HostService (plugin -> Core, served over the go-plugin GRPCBroker): the ONLY door a
+// plugin has into Core. Every method is capability-enforced server-side (deny-by-default) — the
+// broker connection belongs to exactly one plugin, so the plugin identity is ambient and unforgeable.
+syntax = "proto3";
+
+package nilda.plugin.v1;
+
+option go_package = "nilda.dev/plugin-sdk/contract";
+
+// ============================== Core -> plugin ==============================
+
+service PluginService {
+  // Init hands the plugin its runtime context exactly once after the handshake: the granted
+  // capabilities, its scoped datastore DSN (empty unless granted+provisioned), and the broker
+  // stream id where Core serves HostService. The plugin answers with what it wants wired:
+  // hook names, event subscriptions, and (route plugins) its resident HTTP address.
+  rpc Init(InitRequest) returns (InitResponse);
+
+  // HandleHook dispatches one hook invocation. Filter-style: the (possibly modified) payload is
+  // returned; a plugin that doesn't modify echoes the payload back.
+  rpc HandleHook(HookRequest) returns (HookResponse);
+
+  // HandleEvent delivers one event (best-effort, timeout-bounded; delivery guarantees are a
+  // documented SPEC_98 bound — at-least-once/replay is a later SPEC).
+  rpc HandleEvent(EventRequest) returns (EventResponse);
+
+  // Health is the supervision probe.
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+message InitRequest {
+  string plugin_key = 1;                    // the manifest key (also schema/KV slug)
+  string nilda_version = 2;                 // the running Core version
+  repeated string granted_capabilities = 3; // deny-by-default: only these are callable
+  string datastore_dsn = 4;                 // scoped least-privilege DSN; empty unless `datastore`
+  string kv_namespace = 5;                  // informational (KV ops go through HostService)
+  uint32 host_broker_id = 6;                // GRPCBroker stream id serving HostService
+}
+
+message InitResponse {
+  string route_addr = 1;      // "host:port" of the plugin's resident HTTP server; empty unless `route`
+  repeated string hooks = 2;  // hook names to receive (requires `hooks` capability)
+  repeated string events = 3; // event types to receive (requires `events` capability)
+}
+
+message HookRequest {
+  string hook = 1;
+  bytes payload = 2; // JSON
+}
+
+message HookResponse {
+  bytes payload = 1; // JSON, possibly modified (filter hooks)
+}
+
+message EventRequest {
+  string type = 1;
+  bytes data_json = 2;
+}
+
+message EventResponse {}
+
+message HealthRequest {}
+
+message HealthResponse {
+  bool ok = 1;
+}
+
+// ============================== plugin -> Core ==============================
+
+service HostService {
+  // content.read — backed by the Stable API v1 (published-only reads).
+  rpc ContentSite(SiteRequest) returns (Site);
+  rpc ContentPageBySlug(PageBySlugRequest) returns (PageBySlugResponse);
+  rpc ContentList(ContentListRequest) returns (ContentListResponse);
+
+  // users.read / media.read — minimal, privacy-lean DTOs.
+  rpc UserByID(UserByIDRequest) returns (User);
+  rpc MediaByID(MediaByIDRequest) returns (Media);
+
+  // kv — the plugin's scoped Dragonfly namespace.
+  rpc KVGet(KVGetRequest) returns (KVGetResponse);
+  rpc KVSet(KVSetRequest) returns (KVSetResponse);
+  rpc KVDel(KVDelRequest) returns (KVDelResponse);
+  rpc KVIncr(KVIncrRequest) returns (KVIncrResponse);
+
+  // events — emit a plugin-originated event into Core's pipeline.
+  rpc EmitEvent(EmitEventRequest) returns (EmitEventResponse);
+}
+
+message SiteRequest {}
+
+message Site {
+  string title = 1;
+  string description = 2;
+  string base_url = 3;
+  string locale = 4;
+}
+
+message PageBySlugRequest {
+  string slug = 1;
+}
+
+message PageBySlugResponse {
+  Page page = 1;
+  bool found = 2;
+}
+
+message Page {
+  string id = 1;
+  string type = 2;
+  string title = 3;
+  string slug = 4;
+  string excerpt = 5;
+  bytes body_json = 6;
+  int64 published_at_unix = 7;
+  string author_id = 8;
+  bytes values_json = 9;
+}
+
+message ContentListRequest {
+  string type_key = 1;
+  int32 page = 2; // 1-based; Core clamps
+  int32 size = 3; // Core clamps (default 20, max 100)
+}
+
+message ListItem {
+  string id = 1;
+  string type = 2;
+  string title = 3;
+  string slug = 4;
+  string excerpt = 5;
+  int64 published_at_unix = 6;
+  string author_id = 7;
+}
+
+message ContentListResponse {
+  repeated ListItem items = 1;
+  int32 page = 2;
+  int32 size = 3;
+  int64 total = 4;
+}
+
+message UserByIDRequest {
+  string id = 1;
+}
+
+message User {
+  string id = 1;
+  string display_name = 2;
+}
+
+message MediaByIDRequest {
+  string id = 1;
+}
+
+message Media {
+  string id = 1;
+  string url = 2;
+  string mime = 3;
+}
+
+message KVGetRequest {
+  string key = 1;
+}
+
+message KVGetResponse {
+  string value = 1;
+  bool found = 2;
+}
+
+message KVSetRequest {
+  string key = 1;
+  string value = 2;
+  int64 ttl_seconds = 3; // 0 = no expiry
+}
+
+message KVSetResponse {}
+
+message KVDelRequest {
+  string key = 1;
+}
+
+message KVDelResponse {}
+
+message KVIncrRequest {
+  string key = 1;
+}
+
+message KVIncrResponse {
+  int64 value = 1;
+}
+
+message EmitEventRequest {
+  string type = 1;
+  bytes data_json = 2;
+}
+
+message EmitEventResponse {}
