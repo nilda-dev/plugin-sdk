@@ -6,7 +6,7 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 
-	"nilda.dev/plugin-sdk/contract"
+	"gitlab.com/nilda-sdk/plugin-sdk/contract"
 )
 
 // GRPCPlugin is the go-plugin gRPC glue for BOTH sides. On the plugin side (Serve) it registers the

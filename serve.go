@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 
-	"nilda.dev/plugin-sdk/contract"
+	"gitlab.com/nilda-sdk/plugin-sdk/contract"
 )
 
 // Handler is what a plugin implements — plain Go, no gRPC. Light plugins implement the hooks/events

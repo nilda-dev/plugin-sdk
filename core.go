@@ -6,7 +6,7 @@ import (
 	"slices"
 	"time"
 
-	"nilda.dev/plugin-sdk/contract"
+	"gitlab.com/nilda-sdk/plugin-sdk/contract"
 )
 
 // Core is the plugin's typed door into Nilda: plain-Go wrappers over HostService. Only the granted
