@@ -1,4 +1,4 @@
-module nilda.dev/plugin-sdk
+module gitlab.com/nilda-sdk/plugin-sdk
 
 go 1.25.0
 
