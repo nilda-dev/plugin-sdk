@@ -1736,7 +1736,7 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"\x05KVSet\x12\x1d.nilda.plugin.v1.KVSetRequest\x1a\x1e.nilda.plugin.v1.KVSetResponse\x12F\n" +
 	"\x05KVDel\x12\x1d.nilda.plugin.v1.KVDelRequest\x1a\x1e.nilda.plugin.v1.KVDelResponse\x12I\n" +
 	"\x06KVIncr\x12\x1e.nilda.plugin.v1.KVIncrRequest\x1a\x1f.nilda.plugin.v1.KVIncrResponse\x12R\n" +
-	"\tEmitEvent\x12!.nilda.plugin.v1.EmitEventRequest\x1a\".nilda.plugin.v1.EmitEventResponseB\x1fZ\x1dgitlab.com/nilda-sdk/plugin-sdk/contractb\x06proto3"
+	"\tEmitEvent\x12!.nilda.plugin.v1.EmitEventRequest\x1a\".nilda.plugin.v1.EmitEventResponseB*Z(gitlab.com/nilda-sdk/plugin-sdk/contractb\x06proto3"
 
 var (
 	file_contract_plugin_proto_rawDescOnce sync.Once
