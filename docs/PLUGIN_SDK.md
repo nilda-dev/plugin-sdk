@@ -340,6 +340,7 @@ nilda plugin trigger content.saved --data '{"title":"x"}'
 
 nilda plugin check .         # the gates Core and the marketplace apply
 nilda plugin build .         # every platform + one manifest, into dist/
+nilda plugin publish . --changelog "what changed"
 ```
 
 **`dev`** watches, rebuilds for your machine, and reloads the plugin in the running Core. It needs a token
@@ -350,6 +351,11 @@ Install the plugin once by hand first; `dev` takes over after that.
 back. Hooks are filter-style, so the response is the thing you are testing. Without this, seeing a
 content hook run meant creating real content, and seeing a scheduled callback run meant waiting for the
 schedule. Core must have `PLUGIN_DEV_TOOLS=true`; it is off by default.
+
+**`publish`** uploads the built binaries and submits the version for review. It reads each artifact's
+platform out of the file, so there are no slots to label and none to mislabel. It publishes VERSIONS: the
+listing itself — name, summary, screenshots, price — you create once on the web, because those are things you
+want to see while setting them.
 
 **Set `PLUGIN_LOG_LEVEL=debug` on Core while developing.** The default is `warn`, and go-plugin routes your
 plugin's stdout through that logger — so at the default your own log lines go nowhere and you debug by
