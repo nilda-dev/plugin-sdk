@@ -50,6 +50,16 @@ func (c *Core) HasCapability(key string) bool { return slices.Contains(c.Granted
 // bulk import, GraphQL. A plugin holding `datastore` can also query Core's published data in SQL through
 // the read-only views, joining it against its own tables in one statement.
 
+// ---- email (requires `email`) ----
+
+// SendEmail sends mail through Core's mailer. Core fixes the sender identity, so a plugin cannot forge the
+// site's address — and a booking plugin sends its own confirmations without needing SMTP credentials of its
+// own, or the owner configuring mail a second time.
+func (c *Core) SendEmail(ctx context.Context, to, subject, body string) error {
+	_, err := c.host.SendEmail(ctx, &contract.SendEmailRequest{To: to, Subject: subject, Body: body})
+	return err
+}
+
 // ---- kv (scoped Dragonfly namespace) ----
 
 func (c *Core) KVGet(ctx context.Context, key string) (string, bool, error) {

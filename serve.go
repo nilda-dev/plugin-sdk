@@ -31,7 +31,21 @@ type InitResult struct {
 	RouteAddr string   // "host:port" of the resident HTTP server; empty unless the `route` capability
 	Hooks     []string // hook names to receive (requires `hooks`)
 	Events    []string // event types to receive (requires `events`)
+	// Schedules is recurring work Core runs on the plugin's behalf (requires `schedule`). The plugin is a
+	// resident process and could run its own ticker, but Core-owned scheduling is visible to the site
+	// owner, survives a restart, and does not double-fire when the plugin is relaunched. Core calls back
+	// through HandleHook with hook = "schedule:<name>".
+	Schedules []Schedule
 }
+
+// Schedule is one recurring callback.
+type Schedule struct {
+	Name string // stable identifier, e.g. "reminders"
+	Cron string // standard cron spec, e.g. "0 9 * * *"
+}
+
+// ScheduleHook is the hook name Core uses when a schedule fires.
+func ScheduleHook(name string) string { return "schedule:" + name }
 
 // Serve is the plugin's main() entrypoint: handshake + gRPC serving, fully managed. It never returns.
 func Serve(h Handler) {
@@ -81,7 +95,11 @@ func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (*co
 	if err != nil {
 		return nil, err
 	}
-	return &contract.InitResponse{RouteAddr: res.RouteAddr, Hooks: res.Hooks, Events: res.Events}, nil
+	out := &contract.InitResponse{RouteAddr: res.RouteAddr, Hooks: res.Hooks, Events: res.Events}
+	for _, sc := range res.Schedules {
+		out.Schedules = append(out.Schedules, &contract.Schedule{Name: sc.Name, Cron: sc.Cron})
+	}
+	return out, nil
 }
 
 func (s *pluginServer) HandleHook(ctx context.Context, req *contract.HookRequest) (*contract.HookResponse, error) {

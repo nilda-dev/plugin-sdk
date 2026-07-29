@@ -283,6 +283,7 @@ const (
 	HostService_KVDel_FullMethodName     = "/nilda.plugin.v2.HostService/KVDel"
 	HostService_KVIncr_FullMethodName    = "/nilda.plugin.v2.HostService/KVIncr"
 	HostService_EmitEvent_FullMethodName = "/nilda.plugin.v2.HostService/EmitEvent"
+	HostService_SendEmail_FullMethodName = "/nilda.plugin.v2.HostService/SendEmail"
 )
 
 // HostServiceClient is the client API for HostService service.
@@ -296,6 +297,10 @@ type HostServiceClient interface {
 	KVIncr(ctx context.Context, in *KVIncrRequest, opts ...grpc.CallOption) (*KVIncrResponse, error)
 	// events — emit a plugin-originated event into Core's pipeline.
 	EmitEvent(ctx context.Context, in *EmitEventRequest, opts ...grpc.CallOption) (*EmitEventResponse, error)
+	// email — send mail through Core's mailer (requires `email`). Core fixes the sender identity, so a
+	// plugin can never forge the site's address; a booking plugin sends its own confirmations without
+	// needing SMTP credentials of its own, and without the owner configuring mail twice.
+	SendEmail(ctx context.Context, in *SendEmailRequest, opts ...grpc.CallOption) (*SendEmailResponse, error)
 }
 
 type hostServiceClient struct {
@@ -356,6 +361,16 @@ func (c *hostServiceClient) EmitEvent(ctx context.Context, in *EmitEventRequest,
 	return out, nil
 }
 
+func (c *hostServiceClient) SendEmail(ctx context.Context, in *SendEmailRequest, opts ...grpc.CallOption) (*SendEmailResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SendEmailResponse)
+	err := c.cc.Invoke(ctx, HostService_SendEmail_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // HostServiceServer is the server API for HostService service.
 // All implementations must embed UnimplementedHostServiceServer
 // for forward compatibility.
@@ -367,6 +382,10 @@ type HostServiceServer interface {
 	KVIncr(context.Context, *KVIncrRequest) (*KVIncrResponse, error)
 	// events — emit a plugin-originated event into Core's pipeline.
 	EmitEvent(context.Context, *EmitEventRequest) (*EmitEventResponse, error)
+	// email — send mail through Core's mailer (requires `email`). Core fixes the sender identity, so a
+	// plugin can never forge the site's address; a booking plugin sends its own confirmations without
+	// needing SMTP credentials of its own, and without the owner configuring mail twice.
+	SendEmail(context.Context, *SendEmailRequest) (*SendEmailResponse, error)
 	mustEmbedUnimplementedHostServiceServer()
 }
 
@@ -391,6 +410,9 @@ func (UnimplementedHostServiceServer) KVIncr(context.Context, *KVIncrRequest) (*
 }
 func (UnimplementedHostServiceServer) EmitEvent(context.Context, *EmitEventRequest) (*EmitEventResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method EmitEvent not implemented")
+}
+func (UnimplementedHostServiceServer) SendEmail(context.Context, *SendEmailRequest) (*SendEmailResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendEmail not implemented")
 }
 func (UnimplementedHostServiceServer) mustEmbedUnimplementedHostServiceServer() {}
 func (UnimplementedHostServiceServer) testEmbeddedByValue()                     {}
@@ -503,6 +525,24 @@ func _HostService_EmitEvent_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HostService_SendEmail_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SendEmailRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HostServiceServer).SendEmail(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HostService_SendEmail_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HostServiceServer).SendEmail(ctx, req.(*SendEmailRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // HostService_ServiceDesc is the grpc.ServiceDesc for HostService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -529,6 +569,10 @@ var HostService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "EmitEvent",
 			Handler:    _HostService_EmitEvent_Handler,
+		},
+		{
+			MethodName: "SendEmail",
+			Handler:    _HostService_SendEmail_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

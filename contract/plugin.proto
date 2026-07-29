@@ -74,6 +74,16 @@ message InitResponse {
   string route_addr = 1;      // "host:port" of the plugin's resident HTTP server; empty unless `route`
   repeated string hooks = 2;  // hook names to receive (requires `hooks` capability)
   repeated string events = 3; // event types to receive (requires `events` capability)
+
+  // Work Core should run on a schedule and call back for (requires `schedule`). A plugin process is
+  // resident and could run its own ticker, but Core-owned scheduling is visible to the site owner,
+  // survives a restart, and does not double-fire when a plugin is relaunched.
+  repeated Schedule schedules = 4;
+}
+
+message Schedule {
+  string name = 1; // stable identifier; Core calls back with hook "schedule:<name>"
+  string cron = 2; // standard cron spec
 }
 
 message HookRequest {
@@ -122,7 +132,20 @@ service HostService {
 
   // events — emit a plugin-originated event into Core's pipeline.
   rpc EmitEvent(EmitEventRequest) returns (EmitEventResponse);
+
+  // email — send mail through Core's mailer (requires `email`). Core fixes the sender identity, so a
+  // plugin can never forge the site's address; a booking plugin sends its own confirmations without
+  // needing SMTP credentials of its own, and without the owner configuring mail twice.
+  rpc SendEmail(SendEmailRequest) returns (SendEmailResponse);
 }
+
+message SendEmailRequest {
+  string to = 1;
+  string subject = 2;
+  string body = 3;
+}
+
+message SendEmailResponse {}
 
 message KVGetRequest {
   string key = 1;
