@@ -75,6 +75,7 @@ func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (*co
 		DatastoreDSN: req.DatastoreDsn,
 		KVNamespace:  req.KvNamespace,
 		host:         contract.NewHostServiceClient(conn),
+		api:          newAPI(req.ApiBaseUrl, req.ApiToken, req.ApiScopes),
 	}
 	res, err := s.handler.Init(ctx, core)
 	if err != nil {

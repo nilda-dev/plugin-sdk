@@ -20,6 +20,9 @@ type Core struct {
 	KVNamespace  string   // informational; KV ops go through the host
 
 	host contract.HostServiceClient
+	// api is how the plugin READS AND WRITES real data — Core's own /api/v1, with a scoped token
+	// (api.go). nil when no granted capability implies API access. See HasAPI/API.
+	api *API
 }
 
 // HasCapability reports whether a capability was granted (a convenience mirror of the server-side

@@ -42,8 +42,19 @@ type InitRequest struct {
 	DatastoreDsn        string                 `protobuf:"bytes,4,opt,name=datastore_dsn,json=datastoreDsn,proto3" json:"datastore_dsn,omitempty"`                      // scoped least-privilege DSN; empty unless `datastore`
 	KvNamespace         string                 `protobuf:"bytes,5,opt,name=kv_namespace,json=kvNamespace,proto3" json:"kv_namespace,omitempty"`                         // informational (KV ops go through HostService)
 	HostBrokerId        uint32                 `protobuf:"varint,6,opt,name=host_broker_id,json=hostBrokerId,proto3" json:"host_broker_id,omitempty"`                   // GRPCBroker stream id serving HostService
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// How the plugin reaches Core's own API. This is the plugin's route to reading and writing real data:
+	// gRPC is how Core calls the plugin, HTTP is how the plugin calls Core. Before this existed the plugin
+	// side of the contract carried five hand-picked read methods and no way to write anything, so no
+	// application-class plugin — a shop, a booking system — could be built at all.
+	//
+	// The token is scoped from the granted capabilities and rotated on every launch, so the only valid
+	// credential at any moment is the one held by the process Core just started. Empty when the plugin
+	// declared nothing that implies API access.
+	ApiBaseUrl    string   `protobuf:"bytes,7,opt,name=api_base_url,json=apiBaseUrl,proto3" json:"api_base_url,omitempty"`
+	ApiToken      string   `protobuf:"bytes,8,opt,name=api_token,json=apiToken,proto3" json:"api_token,omitempty"`
+	ApiScopes     []string `protobuf:"bytes,9,rep,name=api_scopes,json=apiScopes,proto3" json:"api_scopes,omitempty"` // what the token may attempt, so a plugin can fail fast on its own
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *InitRequest) Reset() {
@@ -116,6 +127,27 @@ func (x *InitRequest) GetHostBrokerId() uint32 {
 		return x.HostBrokerId
 	}
 	return 0
+}
+
+func (x *InitRequest) GetApiBaseUrl() string {
+	if x != nil {
+		return x.ApiBaseUrl
+	}
+	return ""
+}
+
+func (x *InitRequest) GetApiToken() string {
+	if x != nil {
+		return x.ApiToken
+	}
+	return ""
+}
+
+func (x *InitRequest) GetApiScopes() []string {
+	if x != nil {
+		return x.ApiScopes
+	}
+	return nil
 }
 
 type InitResponse struct {
@@ -1622,7 +1654,7 @@ var File_contract_plugin_proto protoreflect.FileDescriptor
 
 const file_contract_plugin_proto_rawDesc = "" +
 	"\n" +
-	"\x15contract/plugin.proto\x12\x0fnilda.plugin.v1\"\xf2\x01\n" +
+	"\x15contract/plugin.proto\x12\x0fnilda.plugin.v1\"\xd0\x02\n" +
 	"\vInitRequest\x12\x1d\n" +
 	"\n" +
 	"plugin_key\x18\x01 \x01(\tR\tpluginKey\x12#\n" +
@@ -1630,7 +1662,12 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"\x14granted_capabilities\x18\x03 \x03(\tR\x13grantedCapabilities\x12#\n" +
 	"\rdatastore_dsn\x18\x04 \x01(\tR\fdatastoreDsn\x12!\n" +
 	"\fkv_namespace\x18\x05 \x01(\tR\vkvNamespace\x12$\n" +
-	"\x0ehost_broker_id\x18\x06 \x01(\rR\fhostBrokerId\"[\n" +
+	"\x0ehost_broker_id\x18\x06 \x01(\rR\fhostBrokerId\x12 \n" +
+	"\fapi_base_url\x18\a \x01(\tR\n" +
+	"apiBaseUrl\x12\x1b\n" +
+	"\tapi_token\x18\b \x01(\tR\bapiToken\x12\x1d\n" +
+	"\n" +
+	"api_scopes\x18\t \x03(\tR\tapiScopes\"[\n" +
 	"\fInitResponse\x12\x1d\n" +
 	"\n" +
 	"route_addr\x18\x01 \x01(\tR\trouteAddr\x12\x14\n" +

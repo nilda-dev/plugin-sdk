@@ -44,6 +44,18 @@ message InitRequest {
   string datastore_dsn = 4;                 // scoped least-privilege DSN; empty unless `datastore`
   string kv_namespace = 5;                  // informational (KV ops go through HostService)
   uint32 host_broker_id = 6;                // GRPCBroker stream id serving HostService
+
+  // How the plugin reaches Core's own API. This is the plugin's route to reading and writing real data:
+  // gRPC is how Core calls the plugin, HTTP is how the plugin calls Core. Before this existed the plugin
+  // side of the contract carried five hand-picked read methods and no way to write anything, so no
+  // application-class plugin — a shop, a booking system — could be built at all.
+  //
+  // The token is scoped from the granted capabilities and rotated on every launch, so the only valid
+  // credential at any moment is the one held by the process Core just started. Empty when the plugin
+  // declared nothing that implies API access.
+  string api_base_url = 7;
+  string api_token = 8;
+  repeated string api_scopes = 9; // what the token may attempt, so a plugin can fail fast on its own
 }
 
 message InitResponse {
