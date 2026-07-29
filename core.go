@@ -101,6 +101,22 @@ func (c *Core) Emit(ctx context.Context, eventType string, data any) error {
 }
 
 // NewCoreForTest builds a Core over an existing HostService client — for tests only.
+//
+// Prefer the nildatest package, which supplies a working fake host: passing nil here means any host call —
+// KVGet, Emit, SendEmail — dereferences a nil client and panics, and the panic names gRPC internals rather
+// than the missing dependency. That is a trap for exactly the author this helper exists for.
 func NewCoreForTest(pluginKey string, granted []string, host contract.HostServiceClient) *Core {
 	return &Core{PluginKey: pluginKey, Granted: granted, host: host}
+}
+
+// NewCoreForTestWithAPI is NewCoreForTest plus an API client pointed at a test server.
+//
+// Exists because a plugin's most interesting code is what it does with core.API(), and a Core built for a
+// test had none — so the half an author most wants to test was the half they could not. baseURL is usually
+// an httptest.Server's URL; nildatest wires it for you.
+func NewCoreForTestWithAPI(pluginKey string, granted []string, host contract.HostServiceClient,
+	baseURL, token string, scopes []string) *Core {
+	c := NewCoreForTest(pluginKey, granted, host)
+	c.api = newAPI(baseURL, token, scopes)
+	return c
 }

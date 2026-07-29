@@ -1,0 +1,53 @@
+# CI for the plugin SDK.
+#
+# The `examples` job is the one with a story. docs/PLUGIN_SDK.md once described four methods that had never
+# existed — nilda.ServeApp, core.Datastore.DB(), core.Routes.Mount(), an OnContentSaved handler — and anyone
+# following it wrote code that did not compile. Core's own spec recorded that as DX1 and it went unfixed for
+# months, so the first thing a prospective plugin author met was a document that did not work.
+#
+# Prose cannot be verified. Code can. Every non-trivial snippet in the documentation now lives under
+# examples/ and is compiled and run here, so an SDK change that would quietly make the docs wrong turns this
+# pipeline red instead.
+stages: [check, test]
+
+default:
+  image: golang:1.25
+  cache:
+    key: "$CI_COMMIT_REF_SLUG"
+    paths: [.gocache]
+  before_script:
+    - export GOPATH="$CI_PROJECT_DIR/.gocache"
+    - export GOFLAGS=-mod=mod
+
+fmt:
+  stage: check
+  script:
+    - test -z "$(gofmt -l .)" || (gofmt -l . && echo "run gofmt -w ." && exit 1)
+
+vet:
+  stage: check
+  script: [go vet ./...]
+
+# The contract is generated. A hand-edit to a .pb.go is how the published v0.1.0 shipped a corrupt descriptor
+# that panicked every importing binary at init — regenerate from the .proto instead, and this proves the
+# checked-in files match it.
+contract-is-generated:
+  stage: check
+  script:
+    - apt-get update -qq && apt-get install -y -qq protobuf-compiler
+    - go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+    - go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+    - export PATH="$PATH:$GOPATH/bin"
+    - protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative contract/plugin.proto
+    - git diff --exit-code -- contract/ || (echo "contract/*.pb.go is out of date — regenerate from contract/plugin.proto" && exit 1)
+
+test:
+  stage: test
+  script: [go test -race ./...]
+
+# Named separately from `test` so a failure here reads as what it is: the documentation is now wrong.
+examples:
+  stage: test
+  script:
+    - go build ./examples/...
+    - go test ./examples/... -count=1
