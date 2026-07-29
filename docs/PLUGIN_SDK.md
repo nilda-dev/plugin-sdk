@@ -363,10 +363,35 @@ guessing.
 
 ### Unit tests
 
-`nilda.NewCoreForTest(key, grants, host)` builds a `*Core` over a fake `HostService`, so hooks and events can
-be exercised with `go test` and no running Core. Pass exactly the capabilities you want and assert what
-happens WITHOUT one too — a plugin that misbehaves when a capability is missing fails on someone else's site,
-not yours. A `Core` built this way has no API client, which is what `HasAPI()` reports.
+`nildatest` is a working fake Core. Everything below runs with `go test` and nothing else.
+
+```go
+core, host := nildatest.New("shop", "hooks", "events", "email", "kv")
+
+_, err := p.HandleHook(ctx, "content.saved", payload)
+
+host.Events()   // what the plugin emitted
+host.Emails()   // what it asked Core to send
+host.KV()       // what it wrote
+```
+
+It **enforces capabilities** the same deny-by-default way Core does, so a plugin that quietly relies on
+something its manifest never declared fails here rather than on someone else's site. `host.Grant(...)` and
+`host.Revoke(...)` let one test cover the before and the after. `host.Fail = err` covers the case nobody
+writes: what your plugin does when Core is having a bad day — one that ignores a failed `SendEmail` loses a
+customer's receipt with nothing recorded anywhere.
+
+For the API half, `nildatest.NewWithAPI(key, handler, grants...)` points `core.API()` at a test server you
+control, so you can assert the requests your plugin makes and choose what comes back — a 403 from a missing
+scope and a 500 from an outage are different bugs and a plugin should behave differently for each.
+
+`nilda.NewCoreForTest` still exists for the rare case you want your own host, but prefer `nildatest`: passing
+`nil` there gives you a `*Core` whose every host call panics on a nil pointer, and the panic names gRPC
+internals rather than the missing dependency.
+
+A worked example lives in `examples/shop` — a plugin that writes content, keeps a counter on a schedule, and
+emails a receipt, with the tests to match. **CI compiles and runs it**, which is why the snippets on this page
+can be trusted: an SDK change that would make them wrong turns the pipeline red.
 
 ---
 
