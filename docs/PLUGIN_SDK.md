@@ -1,92 +1,304 @@
-# Nilda CMS — Plugin SDK & Repo Topology
+# Nilda Plugin SDK
 
-> Companion to SPEC_98 (Plugin System). This doc is the HOME for the `plugin-sdk` module + the
-> repo-per-plugin decision referenced by SPEC_98, SPEC_112, and PLUGINS.md. It records what is
-> DECIDED and, honestly, what is still OPEN (must be resolved before coding SPEC_98).
+> The contract Core and every plugin share, and the surface a plugin author actually writes against.
 >
-> **Status:** DESIGN decided; the gRPC contract + SDK code are NOT built yet (SPEC_98 is scheduled
-> after SPEC_97; current work is earlier). English-only per the project docs rule.
+> **Status:** built and shipping. Contract **v2** (`nilda.plugin.v2`, `ProtocolVersion = 2`).
+>
+> Every code example here is real: the types, methods and field names below exist in this module. The
+> previous version of this document showed `nilda.ServeApp`, `core.Datastore.DB()`, `core.Routes.Mount()`
+> and an `OnContentSaved` handler — none of which ever existed. Someone following it wrote code that did
+> not compile. If you find a mismatch between this file and the code, the code is right and this file is a
+> bug.
 
 ---
 
-## 1. Purpose
+## 1. The shape of the system
 
-`plugin-sdk` is a standalone, versioned Go module that BOTH Core and every plugin import. It is the
-single source of truth for the Core↔plugin gRPC contract, and it hides all gRPC/protobuf plumbing so
-a plugin author writes plain Go. Same shape as Terraform providers (each provider its own repo + a
-shared `terraform-plugin-sdk`) — on the same hashicorp/go-plugin base.
+A plugin is **its own binary, in its own process**. Core spawns it, and they speak gRPC over
+`hashicorp/go-plugin`. One rule explains where everything lives:
 
-## 2. Decisions (settled)
+> **gRPC is how Core calls the plugin. HTTP is how the plugin calls Core.**
 
-- **One plugin model (no tiers).** Every plugin is a Go binary, out-of-process, over gRPC. Light vs
-  heavy = only which capabilities it declares (SPEC_98 §0).
-- **Repo-per-plugin.** Each plugin ships from its OWN git repo, built against a pinned `plugin-sdk`
-  version. Core keeps only `/plugins/_reference/` (a tiny example) for tests.
-- **Capability catalog (opt-in, deny-by-default, lazy-provisioned):**
-  `content.read` · `users.read` · `media.read` · `events` · `hooks` · `admin.pages` ·
-  `datastore` (own Postgres schema, SPEC_02) · `route` (URL prefix, SPEC_113/73) ·
-  `kv` (Dragonfly namespace, SPEC_35) · `payments` (SPEC_107).
-- **Storage tiers:** small state → `kv`; transactional data → `datastore`; nothing → light.
-- **The developer never writes gRPC.** The SDK exposes: a typed `core` client (only the granted
-  capabilities are reachable), handler registration (hooks/events/routes/widgets), and `Serve()`
-  which does the handshake + serving. gRPC is the wire, not the developer surface.
+```mermaid
+flowchart LR
+    subgraph core["Core process"]
+        H["plugin host<br/>spawn · handshake · supervise"]
+        API["/api/rest/v1<br/>REST + GraphQL"]
+        EG["egress proxy"]
+        PG[("Postgres")]
+    end
+    subgraph plug["Plugin process (its own binary)"]
+        P["your Handler"]
+    end
+    EXT["api.stripe.com<br/>and friends"]
 
-## 3. Developer surface (target shape — subject to the open questions in §5)
-
-Light plugin (declares nothing heavy → runs light):
-
-```go
-// manifest: capabilities: [content.read, hooks]
-func main() { nilda.Serve(&SeoTweak{}) }
-
-func (p *SeoTweak) OnContentSaved(ctx nilda.Ctx, c nilda.Content) error { /* react */ return nil }
+    H -- "gRPC: Init · hooks · events · health" --> P
+    P -- "HTTP + scoped token: read & write everything" --> API
+    P -- "gRPC: its own KV · emit events" --> H
+    P -- "SQL: its own schema + read-only views" --> PG
+    P -- "declared hosts only, logged" --> EG
+    EG --> EXT
 ```
 
-App plugin (declares datastore + route → resident app):
+Four doors, and each is capability-gated:
+
+| Door | Transport | What it is for | Needs |
+|---|---|---|---|
+| Core → plugin | gRPC | `Init`, hooks, events, health | — |
+| plugin → Core data | **HTTP** to `/api/rest/v1` | read *and write* content, media, taxonomy, menus | a write/read capability |
+| plugin → Core state | gRPC | its own KV namespace, emitting events | `kv`, `events` |
+| plugin → its own tables | SQL | real transactional data, joins against Core's published data | `datastore` |
+| plugin → the internet | HTTP via Core's proxy | payment gateways, SMS, exchanges | a `network` declaration |
+
+---
+
+## 2. Writing a plugin
 
 ```go
-// manifest: capabilities: [datastore, route:/shop, users.read, payments]
-func main() { nilda.ServeApp(&Shop{}) }
+package main
 
-func (s *Shop) Init(core nilda.Core) error {
-    s.db = core.Datastore.DB()              // own schema (scoped credential)
-    core.Routes.Mount("/shop", s.router())  // Core reverse-proxies /shop/* here
-    core.Events.On("content.published", s.reindex)
-    return nil
+import (
+	"context"
+	"encoding/json"
+
+	nilda "gitlab.com/nilda-sdk/plugin-sdk"
+)
+
+type Shop struct{ core *nilda.Core }
+
+func main() { nilda.Serve(&Shop{}) }
+
+// Init runs once, after the handshake. Everything the plugin was granted arrives here.
+func (s *Shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, error) {
+	s.core = core
+	return nilda.InitResult{
+		Hooks:  []string{"content.saved"}, // requires `hooks`
+		Events: []string{"order.paid"},    // requires `events`
+		// RouteAddr: addr,                // requires `route` — see §5
+	}, nil
+}
+
+func (s *Shop) HandleHook(ctx context.Context, hook string, payload []byte) ([]byte, error) {
+	// Filter-style: return the payload, modified or not.
+	return payload, nil
+}
+
+func (s *Shop) HandleEvent(ctx context.Context, eventType string, data []byte) error {
+	return nil
 }
 ```
 
-The `core` object only exposes the capabilities the manifest declared + the owner approved — the
-compiler/autocomplete guide the developer; the runtime denies anything undeclared (deny-by-default).
+`Handler` is those three methods. There is no `ServeApp` and no second plugin type — an "app" plugin is
+just one that declared `route` and `datastore`.
 
-## 4. Versioning & compatibility
+---
 
-- `plugin-sdk` is semver-versioned. The gRPC contract carries a PROTOCOL VERSION (Terraform-style):
-  Core advertises the protocol versions it supports; a plugin built against an incompatible protocol
-  is rejected at load with a clear error — no silent breakage.
-- A plugin manifest declares: sdk/protocol version, a Nilda compatibility range, and its capabilities.
+## 3. Reading and writing Nilda's data
 
-## 5. OPEN design questions (MUST resolve before coding SPEC_98)
+`core.API()` is an HTTP client already carrying this plugin's scoped token. It talks to the same surface
+any external integration talks to, so there is one API to learn and one to maintain.
 
-Not yet solved — listed here honestly so they are not discovered mid-implementation. This is the real
-remaining risk surface.
+The base URL is Core's `/api/rest/v1` — the versioned contract of SPEC_73/74, and the only surface that
+authenticates API tokens. The content type is part of the PATH.
 
-1. **The gRPC contract/proto itself** — exact services, messages, streaming vs unary for events.
-2. **`route` ↔ admin-UI integration** — the admin is a React SPA (SPEC_76). How does a plugin's admin
-   page appear inside it? Server-rendered page reverse-proxied + embedded, an iframe, or a registered
-   SPA remote — and how auth/session/CSRF propagate across the proxy. UNSOLVED, non-trivial.
-3. **`datastore` migrations** — how a plugin ships + runs migrations for its OWN schema; rollback; how
-   Core creates the scoped role and restricts `search_path` to that schema only.
-4. **Event delivery guarantees** — at-least-once? behaviour when the plugin was down (replay/backlog)?
-5. **Resource-budget negotiation** — how a `route`/`datastore` app requests a higher memory/CPU budget
-   and how Core approves + enforces it.
-6. **Payments capability surface** — exact SPEC_107 surface exposed to a plugin (tokenized, no PAN).
-7. **Hot-path reads** — a storefront page needing live price/stock is served by the plugin via
-   `route`; confirm no synchronous Core→plugin call ever sits on Core's OWN hot path.
+```go
+api := s.core.API()
 
-## 6. Relationships
+// Create — this is what no plugin could do before contract v2.
+// A single resource comes back wrapped in a `data` envelope (SPEC_74).
+var created struct {
+	Data struct {
+		ID       string `json:"id"`
+		AuthorID string `json:"author_id"` // this plugin's service account
+	} `json:"data"`
+}
+err := api.Post(ctx, "/content/product", map[string]any{
+	"title":  "Blue Widget",
+	"status": "draft",
+	"values": map[string]any{"sku": "BW-1"},
+}, &created)
 
-- **SPEC_98** — the plugin runtime (host, capabilities, sandbox) this SDK is the contract for.
-- **SPEC_112** — the first plugins (E-commerce / Form Pro / Booking), each in its own repo against this SDK.
-- **SPEC_114 (Headless SDK)** — a DIFFERENT thing (API/mobile client SDK); do not confuse with `plugin-sdk`.
-- **PLUGINS.md** — the plugin catalog. **SPEC_110** — marketplace distribution. **SPEC_115** — pre-install security scan.
+// Query, with real filters and keyset pagination.
+var page struct{ Data []map[string]any `json:"data"` }
+err = api.Get(ctx, "/content/product", url.Values{"status": {"published"}}, &page)
+
+// Edit, publish, delete.
+id := created.Data.ID
+err = api.Patch(ctx, "/content/product/"+id, map[string]any{"title": "Blue Widget v2"}, nil)
+err = api.Post(ctx, "/content/product/"+id+"/publish", nil, nil)
+err = api.Delete(ctx, "/content/product/"+id)
+
+// Many operations in one round trip — how an importer creates 500 products.
+err = api.Post(ctx, "/batch", batchOps, &batchResult)
+```
+
+Other resources: `/media`, `/media/:id`, `/users/:id`, `/taxonomies`, `/taxonomies/:key/terms`,
+`/terms/:id`, `/menus`, `/site`. GraphQL is at Core's `/api/graphql`.
+
+**Check before you use it.** `core.API()` is `nil` when the manifest declared no capability that grants
+API access:
+
+```go
+if !core.HasAPI() {
+	return nilda.InitResult{}, fmt.Errorf("this plugin needs content.write — add it to the manifest")
+}
+```
+
+A refusal comes back as `*nilda.APIError` carrying Core's own message, and `Forbidden()` marks the case
+whose fix is a manifest change rather than a retry:
+
+```go
+var apiErr *nilda.APIError
+if errors.As(err, &apiErr) && apiErr.Forbidden() {
+	// the token lacks the scope — the manifest is missing a capability
+}
+```
+
+### Real SQL, when HTTP is the wrong tool
+
+With `datastore` a plugin gets a dedicated Postgres schema, a scoped role, and a DSN — plus `SELECT` on
+read-only views over Core's **published** data. So a query that would otherwise mean pulling every row over
+HTTP is one statement:
+
+```sql
+SELECT c.title, o.qty
+FROM orders o                         -- the plugin's own table, its own schema
+JOIN public.core_content c ON c.id = o.content_id
+WHERE o.created_at > now() - interval '7 days'
+```
+
+Views, not tables: `core_content`, `core_users`, `core_media`, `core_terms`, `core_content_terms`. They
+carry published rows and public columns only — a view cannot apply per-viewer visibility, so anything
+whose answer depends on *who is asking* goes through the API, which enforces it properly. The plugin's role
+cannot read Core's tables, cannot write anywhere outside its own schema, and cannot reach another plugin's.
+
+---
+
+## 4. Capabilities
+
+Declared in the manifest, approved by the site owner at install, enforced by Core on every call.
+
+| Capability | Grants |
+|---|---|
+| `content.read` / `content.write` | read / create, edit, publish, delete content of any type |
+| `media.read` / `media.write` | read / upload and delete media |
+| `taxonomy.read` / `taxonomy.write` | read / manage terms |
+| `menus.read` / `menus.write` | read / edit navigation |
+| `users.read` | read user identity |
+| `hooks` | receive hook callbacks |
+| `events` | subscribe to and emit events |
+| `datastore` | a dedicated Postgres schema + scoped role |
+| `kv` | a scoped key-value namespace |
+| `route` | a reverse-proxied URL prefix |
+| `admin.pages` | admin menu items and pages |
+| `render.assets` | load its own scripts on public pages |
+| `widget` | contribute page-builder widgets |
+| `payments` | the tokenized payments surface |
+
+A write capability applies to **every** content type, not a declared subset. What keeps that honest is
+attribution, not narrowing: a plugin acts as its own visible service account, so everything it creates or
+edits is recorded as its work.
+
+---
+
+## 5. Manifest
+
+```json
+{
+  "key": "shop",
+  "name": "Shop",
+  "version": "1.0.0",
+  "sdk_version": "0.2.0",
+  "nilda_compat": ">=0.1.0",
+  "capabilities": ["content.write", "media.write", "datastore", "route", "hooks"],
+  "route_prefix": "/shop",
+  "network": ["api.stripe.com", "*.twilio.com"],
+  "signature": "v1:<key-id>:<sig>"
+}
+```
+
+`network` is the list of external hosts the plugin may reach. The owner reads it at install beside the
+capabilities, and Core routes outbound traffic through a proxy that enforces it and logs every attempt.
+A wildcard covers one level (`*.twilio.com` matches `api.twilio.com`, not `a.b.twilio.com`); a bare `*` is
+refused. Core's own API is always reachable and never declared.
+
+**Use the SDK's client for your own outbound calls**, or the proxy cannot tell whose declaration applies
+and refuses them:
+
+```go
+client := nilda.HTTPClient(30 * time.Second)  // carries the plugin's identity
+res, err := client.Get("https://api.stripe.com/v1/charges")
+```
+
+### Serving your own pages (`route`)
+
+```go
+func (s *Shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, error) {
+	addr, err := nilda.StartHTTP(s.router())  // your own http.Handler
+	if err != nil {
+		return nilda.InitResult{}, err
+	}
+	return nilda.InitResult{RouteAddr: addr}, nil
+}
+```
+
+Core reverse-proxies `/shop/*` to it, so a storefront serves itself without a round trip through Core per
+request.
+
+---
+
+## 6. What Core guarantees, and what it does not
+
+**Fault isolation is real.** The plugin is a separate process: a crash, hang, panic or leak cannot take
+Core with it. Memory, CPU and disk are capped and the supervisor kills and restarts on breach, disabling a
+repeat offender. The child inherits none of Core's environment — no `DATABASE_URL`, no secrets — and holds
+no handle to Core's memory or tables.
+
+**It is not a security sandbox**, and the code says so where it is implemented. The child runs as the same
+OS user as Core; nothing in-process stops a determined plugin opening a raw socket or reading a file. What
+constrains a hostile plugin is the capability gate, the scoped token, the per-plugin database role, the
+egress declaration — and, for real enforcement, deployment-level controls documented in Core's
+`internal/plugin/egress.go`.
+
+The distinction is stated plainly because the older word for it — "sandbox" — promised something that was
+never built, and readers reasonably believed it.
+
+---
+
+## 7. Versioning
+
+`plugin-sdk` is semver. The wire carries a protocol version, Terraform-style: a plugin built against an
+incompatible protocol is **rejected at the handshake** with a clear error, never silently broken.
+
+**v1 → v2 is breaking.** v1's `HostService` carried five read methods — `ContentSite`,
+`ContentPageBySlug`, `ContentList`, `UserByID`, `MediaByID` — and no way to write anything. Between them a
+plugin could fetch one page by slug and page through one content type. Porting:
+
+| v1 | v2 |
+|---|---|
+| `core.Site(ctx)` | `api.Get(ctx, "/site", nil, &out)` |
+| `core.PageBySlug(ctx, s)` | `api.Get(ctx, "/content/"+typeKey, url.Values{"slug": {s}}, &out)` |
+| `core.ContentList(ctx, t, p, n)` | `api.Get(ctx, "/content/"+t, url.Values{…}, &out)` |
+| `core.UserByID(ctx, id)` | `api.Get(ctx, "/users/"+id, nil, &out)` |
+| `core.MediaByID(ctx, id)` | `api.Get(ctx, "/media/"+id, nil, &out)` |
+| — | `api.Post` / `api.Patch` / `api.Delete`, `/batch`, media upload, GraphQL |
+
+`KVGet/KVSet/KVDel/KVIncr` and `Emit` are unchanged.
+
+---
+
+## 8. Testing
+
+`nilda.NewCoreForTest(key, grants, host)` builds a `*Core` over a fake `HostService`, so hooks and events
+can be exercised with `go test` and no running Core. A `Core` built that way has no API client, which is
+what `HasAPI()` reports — assert on it rather than discovering it as a nil dereference.
+
+---
+
+## 9. Related
+
+- **SPEC_98** (in Core, `docs/files/`) — the plugin runtime: host, capabilities, isolation, lifecycle.
+- **SPEC_73/74** — the API this SDK's client calls.
+- **SPEC_110** — marketplace distribution. **SPEC_115** — the pre-install security scan.
+- **PLUGINS.md** — the plugin catalog.
+- **SPEC_114 / `theme-sdk`** — a different thing entirely (headless client SDK); not this.
