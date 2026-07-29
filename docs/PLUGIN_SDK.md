@@ -74,6 +74,9 @@ func (s *Shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, er
 	return nilda.InitResult{
 		Hooks:  []string{"content.saved"}, // requires `hooks`
 		Events: []string{"order.paid"},    // requires `events`
+		Schedules: []nilda.Schedule{       // requires `schedule`
+			{Name: "reminders", Cron: "0 9 * * *"},
+		},
 		// RouteAddr: addr,                // requires `route` — see §5
 	}, nil
 }
@@ -194,6 +197,8 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `render.assets` | load its own scripts on public pages |
 | `widget` | contribute page-builder widgets |
 | `payments` | the tokenized payments surface |
+| `email` | send mail through the site's mailer (Core fixes the sender) |
+| `schedule` | ask Core to run recurring work and call back |
 
 A write capability applies to **every** content type, not a declared subset. What keeps that honest is
 attribution, not narrowing: a plugin acts as its own visible service account, so everything it creates or
@@ -213,9 +218,16 @@ edits is recorded as its work.
   "capabilities": ["content.write", "media.write", "datastore", "route", "hooks"],
   "route_prefix": "/shop",
   "network": ["api.stripe.com", "*.twilio.com"],
+  "os": "linux",
+  "arch": "amd64",
   "signature": "v1:<key-id>:<sig>"
 }
 ```
+
+`os` and `arch` are the platform this binary was built for. Core refuses a mismatch at install with a
+message naming both sides, instead of letting it fail later as an exec error about a bad executable format
+— after the install, from software the owner has just chosen to trust. Leave them out and the check is
+skipped; the marketplace expects them, because a version there ships one binary per platform.
 
 `network` is the list of external hosts the plugin may reach. The owner reads it at install beside the
 capabilities, and Core routes outbound traffic through a proxy that enforces it and logs every attempt.
@@ -229,6 +241,35 @@ and refuses them:
 client := nilda.HTTPClient(30 * time.Second)  // carries the plugin's identity
 res, err := client.Get("https://api.stripe.com/v1/charges")
 ```
+
+### Recurring work (`schedule`)
+
+Return schedules from `Init` and Core calls back through `HandleHook`:
+
+```go
+func (s *Shop) HandleHook(ctx context.Context, hook string, payload []byte) ([]byte, error) {
+	if hook == nilda.ScheduleHook("reminders") {
+		return payload, s.sendReminders(ctx)
+	}
+	return payload, nil
+}
+```
+
+Your process is resident, so you *could* run your own ticker — but a Core-owned schedule is visible to the
+site owner, survives a restart, does not double-fire when the plugin is relaunched, and is torn down by an
+uninstall. A timer inside your process is none of those things.
+
+A schedule that hangs fails its call and counts toward the same failure budget as a slow content hook.
+
+### Sending mail (`email`)
+
+```go
+err := core.SendEmail(ctx, buyer.Email, "Your order", body)
+```
+
+The recipient and the words are yours; the SENDER is Core's. That is deliberate — a plugin can address mail
+but never forge who it is from — and it means you need no SMTP credentials of your own, and the owner
+configures mail once for the site rather than again for every plugin.
 
 ### Serving your own pages (`route`)
 
