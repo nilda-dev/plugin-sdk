@@ -328,11 +328,39 @@ plugin could fetch one page by slug and page through one content type. Porting:
 
 ---
 
-## 8. Testing
+## 8. The loop
 
-`nilda.NewCoreForTest(key, grants, host)` builds a `*Core` over a fake `HostService`, so hooks and events
-can be exercised with `go test` and no running Core. A `Core` built that way has no API client, which is
-what `HasAPI()` reports — assert on it rather than discovering it as a nil dereference.
+```sh
+nilda plugin new shop        # a directory that compiles, with a test that passes
+cd shop
+go test ./...                # no running Core needed
+
+nilda plugin dev .           # rebuild + reload on every save
+nilda plugin trigger content.saved --data '{"title":"x"}'
+
+nilda plugin check .         # the gates Core and the marketplace apply
+nilda plugin build .         # every platform + one manifest, into dist/
+```
+
+**`dev`** watches, rebuilds for your machine, and reloads the plugin in the running Core. It needs a token
+with `plugin.manage` (`--token`, or `NILDA_TOKEN`), because reloading means stopping and starting a plugin.
+Install the plugin once by hand first; `dev` takes over after that.
+
+**`trigger`** fires one hook — or, with `--event`, one event — at the running plugin, and prints what came
+back. Hooks are filter-style, so the response is the thing you are testing. Without this, seeing a
+content hook run meant creating real content, and seeing a scheduled callback run meant waiting for the
+schedule. Core must have `PLUGIN_DEV_TOOLS=true`; it is off by default.
+
+**Set `PLUGIN_LOG_LEVEL=debug` on Core while developing.** The default is `warn`, and go-plugin routes your
+plugin's stdout through that logger — so at the default your own log lines go nowhere and you debug by
+guessing.
+
+### Unit tests
+
+`nilda.NewCoreForTest(key, grants, host)` builds a `*Core` over a fake `HostService`, so hooks and events can
+be exercised with `go test` and no running Core. Pass exactly the capabilities you want and assert what
+happens WITHOUT one too — a plugin that misbehaves when a capability is missing fails on someone else's site,
+not yours. A `Core` built this way has no API client, which is what `HasAPI()` reports.
 
 ---
 
