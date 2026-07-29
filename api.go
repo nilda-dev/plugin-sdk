@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -74,8 +75,47 @@ func newAPI(baseURL, token string, scopes []string) *API {
 		baseURL: strings.TrimRight(baseURL, "/"),
 		token:   token,
 		scopes:  scopes,
-		http:    &http.Client{Timeout: 30 * time.Second},
+		http:    &http.Client{Timeout: 30 * time.Second, Transport: NewTransport(nil)},
 	}
+}
+
+// NewTransport wraps an http.RoundTripper so requests carry this plugin's identity to Core's egress
+// proxy. Exported because a plugin author making its OWN outbound calls — to a payment gateway, an SMS
+// provider — should use it too: without the label the proxy cannot tell which manifest's declared hosts
+// apply, and the call is refused.
+//
+// Pass nil for http.DefaultTransport. Go already routes through the proxy from the environment Core sets;
+// this only adds the header that says who is asking.
+func NewTransport(base http.RoundTripper) http.RoundTripper {
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	return &pluginTransport{base: base, key: os.Getenv("NILDA_PLUGIN_KEY")}
+}
+
+// HTTPClient is a ready-made client for a plugin's own outbound calls, already carrying the identity the
+// egress proxy needs. Using it is the difference between "declared api.stripe.com and it works" and
+// "declared api.stripe.com and every call is refused".
+func HTTPClient(timeout time.Duration) *http.Client {
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
+	return &http.Client{Timeout: timeout, Transport: NewTransport(nil)}
+}
+
+type pluginTransport struct {
+	base http.RoundTripper
+	key  string
+}
+
+func (t *pluginTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	if t.key == "" {
+		return t.base.RoundTrip(r)
+	}
+	// Clone: RoundTrip must not mutate the caller's request.
+	clone := r.Clone(r.Context())
+	clone.Header.Set("X-Nilda-Plugin", t.key)
+	return t.base.RoundTrip(clone)
 }
 
 // Do performs a request against Core's API with the plugin's token attached.
