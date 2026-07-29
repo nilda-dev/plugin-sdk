@@ -29,92 +29,26 @@ type Core struct {
 // enforcement — the server is the authority).
 func (c *Core) HasCapability(key string) bool { return slices.Contains(c.Granted, key) }
 
-// ---- content.read (Stable API v1: published-only) ----
-
-type Site struct {
-	Title, Description, BaseURL, Locale string
-}
-
-type Page struct {
-	ID, Type, Title, Slug, Excerpt string
-	Body                           json.RawMessage
-	PublishedAt                    time.Time
-	AuthorID                       string
-	Values                         json.RawMessage
-}
-
-type ListItem struct {
-	ID, Type, Title, Slug, Excerpt string
-	PublishedAt                    time.Time
-	AuthorID                       string
-}
-
-type ContentList struct {
-	Items      []ListItem
-	Page, Size int
-	Total      int64
-}
-
-func (c *Core) Site(ctx context.Context) (Site, error) {
-	res, err := c.host.ContentSite(ctx, &contract.SiteRequest{})
-	if err != nil {
-		return Site{}, err
-	}
-	return Site{Title: res.Title, Description: res.Description, BaseURL: res.BaseUrl, Locale: res.Locale}, nil
-}
-
-func (c *Core) PageBySlug(ctx context.Context, slug string) (Page, bool, error) {
-	res, err := c.host.ContentPageBySlug(ctx, &contract.PageBySlugRequest{Slug: slug})
-	if err != nil {
-		return Page{}, false, err
-	}
-	if !res.Found || res.Page == nil {
-		return Page{}, false, nil
-	}
-	p := res.Page
-	return Page{
-		ID: p.Id, Type: p.Type, Title: p.Title, Slug: p.Slug, Excerpt: p.Excerpt,
-		Body: p.BodyJson, PublishedAt: time.Unix(p.PublishedAtUnix, 0).UTC(),
-		AuthorID: p.AuthorId, Values: p.ValuesJson,
-	}, true, nil
-}
-
-func (c *Core) ContentList(ctx context.Context, typeKey string, page, size int) (ContentList, error) {
-	res, err := c.host.ContentList(ctx, &contract.ContentListRequest{TypeKey: typeKey, Page: int32(page), Size: int32(size)})
-	if err != nil {
-		return ContentList{}, err
-	}
-	out := ContentList{Page: int(res.Page), Size: int(res.Size), Total: res.Total, Items: make([]ListItem, 0, len(res.Items))}
-	for _, it := range res.Items {
-		out.Items = append(out.Items, ListItem{
-			ID: it.Id, Type: it.Type, Title: it.Title, Slug: it.Slug, Excerpt: it.Excerpt,
-			PublishedAt: time.Unix(it.PublishedAtUnix, 0).UTC(), AuthorID: it.AuthorId,
-		})
-	}
-	return out, nil
-}
-
-// ---- users.read / media.read (minimal, privacy-lean DTOs) ----
-
-type User struct{ ID, DisplayName string }
-
-type Media struct{ ID, URL, MIME string }
-
-func (c *Core) UserByID(ctx context.Context, id string) (User, error) {
-	res, err := c.host.UserByID(ctx, &contract.UserByIDRequest{Id: id})
-	if err != nil {
-		return User{}, err
-	}
-	return User{ID: res.Id, DisplayName: res.DisplayName}, nil
-}
-
-func (c *Core) MediaByID(ctx context.Context, id string) (Media, error) {
-	res, err := c.host.MediaByID(ctx, &contract.MediaByIDRequest{Id: id})
-	if err != nil {
-		return Media{}, err
-	}
-	return Media{ID: res.Id, URL: res.Url, MIME: res.Mime}, nil
-}
+// Reading and writing Nilda's data is Core.API() — see api.go.
+//
+// This file used to carry typed wrappers over five gRPC read methods: Site, PageBySlug, ContentList,
+// UserByID, MediaByID. They are gone, and their removal is the point of contract v2. Between them they
+// could fetch one page by slug and page through one content type, and they could not write at all — so a
+// plugin author who needed anything else (filter by a field, create a product, upload an image, delete a
+// row) had nowhere to go, and no application-class plugin could exist.
+//
+// A plugin now calls Core's own API with a scoped token, which is the same surface every first-party
+// feature and external integration uses. What replaced each of them:
+//
+//	Site()          -> api.Get(ctx, "/site", nil, &out)
+//	PageBySlug(s)   -> api.Get(ctx, "/content", url.Values{"slug": {s}}, &out)
+//	ContentList(t)  -> api.Get(ctx, "/content", url.Values{"type": {t}, "page": {"1"}}, &out)
+//	UserByID(id)    -> api.Get(ctx, "/users/"+id, nil, &out)
+//	MediaByID(id)   -> api.Get(ctx, "/media/"+id, nil, &out)
+//
+// and, newly possible: api.Post(ctx, "/content", item, &created), api.Patch, api.Delete, media upload,
+// bulk import, GraphQL. A plugin holding `datastore` can also query Core's published data in SQL through
+// the read-only views, joining it against its own tables in one statement.
 
 // ---- kv (scoped Dragonfly namespace) ----
 

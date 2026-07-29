@@ -13,8 +13,13 @@ import (
 
 // ProtocolVersion is the Core<->plugin contract version (Terraform-style). Core rejects a plugin
 // built against an incompatible protocol AT LOAD with a clear error — never silent breakage.
-// Bump ONLY on a breaking change to contract/plugin.proto (which then becomes nilda.plugin.v2).
-const ProtocolVersion = 1
+// Bump ONLY on a breaking change to contract/plugin.proto.
+//
+// 2: HostService's five data-read methods were removed in favour of a scoped token onto Core's own API
+// (InitRequest.api_token). v1 plugins could read a page by slug and page through one content type and
+// could write nothing at all, so nothing of WooCommerce's class could be built; a v1 binary is refused at
+// the handshake with a clear message rather than failing later on a method that no longer exists.
+const ProtocolVersion = 2
 
 // PluginSetName is the key under which the Nilda plugin is served in the go-plugin plugin set.
 const PluginSetName = "nilda"

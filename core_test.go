@@ -14,33 +14,38 @@ import (
 )
 
 // fakeHost is an in-process HostService used to prove the contract + Core wrappers round-trip.
+//
+// It is small because HostService is now small: contract v2 removed the five data-read methods in favour
+// of a scoped token onto Core's own API, leaving this transport with what belongs on it — the plugin's own
+// KV namespace and event emission. Data access is covered by api_test.go instead.
 type fakeHost struct {
 	contract.UnimplementedHostServiceServer
-	kv map[string]string
+	kv       map[string]string
+	emitted  []string
+	emitFail error
 }
 
-func (f *fakeHost) ContentSite(ctx context.Context, _ *contract.SiteRequest) (*contract.Site, error) {
-	return &contract.Site{Title: "Nilda", BaseUrl: "https://example.com", Locale: "en"}, nil
-}
-
-func (f *fakeHost) KVSet(ctx context.Context, req *contract.KVSetRequest) (*contract.KVSetResponse, error) {
+func (f *fakeHost) KVSet(_ context.Context, req *contract.KVSetRequest) (*contract.KVSetResponse, error) {
 	f.kv[req.Key] = req.Value
 	return &contract.KVSetResponse{}, nil
 }
 
-func (f *fakeHost) KVGet(ctx context.Context, req *contract.KVGetRequest) (*contract.KVGetResponse, error) {
+func (f *fakeHost) KVGet(_ context.Context, req *contract.KVGetRequest) (*contract.KVGetResponse, error) {
 	v, ok := f.kv[req.Key]
 	return &contract.KVGetResponse{Value: v, Found: ok}, nil
 }
 
-func (f *fakeHost) ContentPageBySlug(ctx context.Context, req *contract.PageBySlugRequest) (*contract.PageBySlugResponse, error) {
-	if req.Slug != "hello" {
-		return &contract.PageBySlugResponse{Found: false}, nil
+func (f *fakeHost) KVDel(_ context.Context, req *contract.KVDelRequest) (*contract.KVDelResponse, error) {
+	delete(f.kv, req.Key)
+	return &contract.KVDelResponse{}, nil
+}
+
+func (f *fakeHost) EmitEvent(_ context.Context, req *contract.EmitEventRequest) (*contract.EmitEventResponse, error) {
+	if f.emitFail != nil {
+		return nil, f.emitFail
 	}
-	return &contract.PageBySlugResponse{Found: true, Page: &contract.Page{
-		Id: "p1", Type: "post", Title: "Hello", Slug: "hello",
-		BodyJson: []byte(`{"blocks":[]}`), PublishedAtUnix: 1700000000, AuthorId: "u1",
-	}}, nil
+	f.emitted = append(f.emitted, req.Type)
+	return &contract.EmitEventResponse{}, nil
 }
 
 // TestContractRoundTrip proves the generated contract + the typed Core wrappers marshal correctly
@@ -48,7 +53,8 @@ func (f *fakeHost) ContentPageBySlug(ctx context.Context, req *contract.PageBySl
 func TestContractRoundTrip(t *testing.T) {
 	ln := bufconn.Listen(1 << 20)
 	s := grpc.NewServer()
-	contract.RegisterHostServiceServer(s, &fakeHost{kv: map[string]string{}})
+	host := &fakeHost{kv: map[string]string{}}
+	contract.RegisterHostServiceServer(s, host)
 	go func() { _ = s.Serve(ln) }()
 	defer s.Stop()
 
@@ -60,14 +66,9 @@ func TestContractRoundTrip(t *testing.T) {
 	}
 	defer conn.Close()
 
-	core := NewCoreForTest("refplugin", []string{"kv", "content.read"}, contract.NewHostServiceClient(conn))
+	core := NewCoreForTest("refplugin", []string{"kv", "events"}, contract.NewHostServiceClient(conn))
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	site, err := core.Site(ctx)
-	if err != nil || site.Title != "Nilda" || site.BaseURL != "https://example.com" {
-		t.Fatalf("Site round-trip: %+v err=%v", site, err)
-	}
 
 	if err := core.KVSet(ctx, "k", "v", time.Minute); err != nil {
 		t.Fatalf("KVSet: %v", err)
@@ -76,17 +77,27 @@ func TestContractRoundTrip(t *testing.T) {
 	if err != nil || !found || v != "v" {
 		t.Fatalf("KVGet = (%q,%v,%v), want (v,true,nil)", v, found, err)
 	}
-
-	page, found, err := core.PageBySlug(ctx, "hello")
-	if err != nil || !found || page.ID != "p1" || string(page.Body) != `{"blocks":[]}` ||
-		!page.PublishedAt.Equal(time.Unix(1700000000, 0).UTC()) {
-		t.Fatalf("PageBySlug round-trip: %+v found=%v err=%v", page, found, err)
+	if err := core.KVDel(ctx, "k"); err != nil {
+		t.Fatalf("KVDel: %v", err)
 	}
-	if _, found, _ := core.PageBySlug(ctx, "missing"); found {
-		t.Fatal("missing slug must report found=false")
+	if _, found, _ := core.KVGet(ctx, "k"); found {
+		t.Fatal("a deleted key is still present")
+	}
+
+	if err := core.Emit(ctx, "shop.order.placed", map[string]any{"id": 7}); err != nil {
+		t.Fatalf("Emit: %v", err)
+	}
+	if len(host.emitted) != 1 || host.emitted[0] != "shop.order.placed" {
+		t.Fatalf("emitted = %v", host.emitted)
 	}
 
 	if !core.HasCapability("kv") || core.HasCapability("route") {
 		t.Fatal("HasCapability mirror wrong")
+	}
+
+	// A plugin built for tests has no API unless one is wired — HasAPI is the check that keeps that from
+	// surfacing as a nil dereference three calls into a handler.
+	if core.HasAPI() {
+		t.Fatal("NewCoreForTest handed out API access nobody granted")
 	}
 }

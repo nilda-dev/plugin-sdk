@@ -1,18 +1,30 @@
-// Nilda plugin contract v1 (SPEC_98). The single source of truth for the Core<->plugin gRPC wire.
+// Nilda plugin contract v2 (SPEC_98). The single source of truth for the Core<->plugin gRPC wire.
 //
 // Versioning: this contract is carried by plugin-sdk (semver) and guarded by the go-plugin handshake
 // ProtocolVersion (Terraform-style) — an incompatible plugin is rejected at load, never silently
-// broken. Within v1, fields are only ever ADDED (proto3 forward compatibility); a breaking change
-// ships nilda.plugin.v2.
+// broken. Within a version, fields are only ever ADDED (proto3 forward compatibility); a breaking
+// change ships a new package, which is what v2 is.
+//
+// WHAT CHANGED IN v2, and why it is worth a breaking change: v1's HostService carried five read
+// methods and no way to write anything, so a plugin could read a page by slug and list a content type
+// and nothing else. No shop could create a product, no importer could create a post — not because
+// out-of-process plugins are limited, but because that hand-picked subset was all anything had wired.
+// Meanwhile Core has a complete API. v2 removes the subset and hands the plugin a scoped token onto
+// that API instead.
+//
+// The resulting rule is worth stating plainly, because it is the shape of the whole system:
+//
+//     gRPC is how Core calls the plugin.  HTTP is how the plugin calls Core.
 //
 // Direction 1 — PluginService (Core -> plugin): lifecycle + hook/event dispatch. Every call is made
 // with the per-call timeout (PLUGIN_CALL_TIMEOUT); a slow plugin fails the CALL, never Core.
-// Direction 2 — HostService (plugin -> Core, served over the go-plugin GRPCBroker): the ONLY door a
-// plugin has into Core. Every method is capability-enforced server-side (deny-by-default) — the
-// broker connection belongs to exactly one plugin, so the plugin identity is ambient and unforgeable.
+// Direction 2 — HostService (plugin -> Core, over the go-plugin GRPCBroker): what genuinely belongs on
+// this transport — the plugin's own KV namespace and event emission. Capability-enforced server-side
+// (deny-by-default); the broker connection belongs to exactly one plugin, so its identity is ambient
+// and unforgeable. Data access is not here; it is the API token in InitRequest.
 syntax = "proto3";
 
-package nilda.plugin.v1;
+package nilda.plugin.v2;
 
 option go_package = "gitlab.com/nilda-sdk/plugin-sdk/contract";
 
@@ -89,14 +101,18 @@ message HealthResponse {
 // ============================== plugin -> Core ==============================
 
 service HostService {
-  // content.read — backed by the Stable API v1 (published-only reads).
-  rpc ContentSite(SiteRequest) returns (Site);
-  rpc ContentPageBySlug(PageBySlugRequest) returns (PageBySlugResponse);
-  rpc ContentList(ContentListRequest) returns (ContentListResponse);
-
-  // users.read / media.read — minimal, privacy-lean DTOs.
-  rpc UserByID(UserByIDRequest) returns (User);
-  rpc MediaByID(MediaByIDRequest) returns (Media);
+  // Data access is NOT here. It used to be — five read methods (ContentSite, ContentPageBySlug,
+  // ContentList, UserByID, MediaByID) and no way to write anything — and that subset was the reason no
+  // application-class plugin could be built on Nilda. It has been replaced by a scoped token onto Core's
+  // own /api/v1, which every first-party feature and external integration already uses: create, edit,
+  // publish, schedule, delete, media, import, GraphQL, filtering. See InitRequest.api_token.
+  //
+  // Keeping a second, thinner data API here would mean maintaining two, and the thin one would lose.
+  // What remains is what genuinely belongs on this transport: state Core holds for the plugin alone, and
+  // events flowing back into Core's pipeline.
+  //
+  // (Protocol version 2. The removed methods have no reserved marker because gRPC identifies methods by
+  // name, not number — a plugin built against v1 is rejected at the handshake, not silently mismatched.)
 
   // kv — the plugin's scoped Dragonfly namespace.
   rpc KVGet(KVGetRequest) returns (KVGetResponse);
@@ -106,78 +122,6 @@ service HostService {
 
   // events — emit a plugin-originated event into Core's pipeline.
   rpc EmitEvent(EmitEventRequest) returns (EmitEventResponse);
-}
-
-message SiteRequest {}
-
-message Site {
-  string title = 1;
-  string description = 2;
-  string base_url = 3;
-  string locale = 4;
-}
-
-message PageBySlugRequest {
-  string slug = 1;
-}
-
-message PageBySlugResponse {
-  Page page = 1;
-  bool found = 2;
-}
-
-message Page {
-  string id = 1;
-  string type = 2;
-  string title = 3;
-  string slug = 4;
-  string excerpt = 5;
-  bytes body_json = 6;
-  int64 published_at_unix = 7;
-  string author_id = 8;
-  bytes values_json = 9;
-}
-
-message ContentListRequest {
-  string type_key = 1;
-  int32 page = 2; // 1-based; Core clamps
-  int32 size = 3; // Core clamps (default 20, max 100)
-}
-
-message ListItem {
-  string id = 1;
-  string type = 2;
-  string title = 3;
-  string slug = 4;
-  string excerpt = 5;
-  int64 published_at_unix = 6;
-  string author_id = 7;
-}
-
-message ContentListResponse {
-  repeated ListItem items = 1;
-  int32 page = 2;
-  int32 size = 3;
-  int64 total = 4;
-}
-
-message UserByIDRequest {
-  string id = 1;
-}
-
-message User {
-  string id = 1;
-  string display_name = 2;
-}
-
-message MediaByIDRequest {
-  string id = 1;
-}
-
-message Media {
-  string id = 1;
-  string url = 2;
-  string mime = 3;
 }
 
 message KVGetRequest {
