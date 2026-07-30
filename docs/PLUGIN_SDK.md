@@ -59,7 +59,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 
 	nilda "gitlab.com/nilda-sdk/plugin-sdk"
 )
@@ -272,16 +271,69 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `datastore` | a dedicated Postgres schema, tables Core creates from your declaration, DML-only access |
 | `kv` | a scoped key-value namespace |
 | `route` | a reverse-proxied URL prefix |
-| `admin.pages` | admin menu items and pages |
-| `render.assets` | load its own scripts on public pages |
-| `widget` | contribute page-builder widgets |
-| `payments` | the tokenized payments surface |
+| `render.assets` | load its own scripts on public pages — see §4.1 |
+| `widget` | contribute page-builder widgets — see §4.1 |
 | `email` | send mail through the site's mailer (Core fixes the sender) |
 | `schedule` | ask Core to run recurring work and call back |
+
+That is the whole list. Every entry is dispatched by Core and has a surface in this SDK; there is nothing
+to declare that does nothing. `admin.pages` and `payments` used to appear here and were removed in v0.3.0
+— neither was ever implemented in Core, so a plugin could be granted them and receive nothing. Declaring
+either one now fails validation.
 
 A write capability applies to **every** content type, not a declared subset. What keeps that honest is
 attribution, not narrowing: a plugin acts as its own visible service account, so everything it creates or
 edits is recorded as its work.
+
+### 4.1 Putting something on a public page
+
+Two capabilities let a plugin reach a page a visitor loads. Both have typed interfaces — implement one and
+you never see a hook name or a byte slice.
+
+**`widget` — page-builder widgets.** Implement `nilda.WidgetProvider`:
+
+```go
+func (s *Shop) Widgets() []nilda.WidgetDef {
+	return []nilda.WidgetDef{{
+		Type:  "product-grid", // Core namespaces it as "<your key>.product-grid"
+		Label: "Product grid",
+		Fields: []nilda.WidgetField{
+			{Key: "count", Label: "How many", Type: nilda.FieldNumber, Required: true},
+		},
+	}}
+}
+
+func (s *Shop) RenderWidget(ctx context.Context, req nilda.WidgetRenderRequest) (string, error) {
+	return "<ul>…</ul>", nil
+}
+```
+
+`RenderWidget`'s output is **sanitized** by Core: `<script>`, inline styles, `class`, `nonce` and `data-*`
+are stripped. Anything interactive belongs in a script served from your own route, not in this string.
+Note what `WidgetRenderRequest` does *not* carry — no user, no session. Rendered pages are cached, so a
+widget that varied by viewer would serve one visitor's output to the next.
+
+**`render.assets` — your own script on every page.** Implement `nilda.AssetProvider`:
+
+```go
+func (s *Shop) FooterScripts(ctx context.Context, req nilda.RenderAssetsRequest) []nilda.ScriptAsset {
+	if req.PageKind == "notfound" {
+		return nil
+	}
+	return []nilda.ScriptAsset{{Src: "/shop/cart.js", Defer: true}}
+}
+```
+
+A **path**, never markup — Core builds the `<script>` tag itself. `Src` must be root-relative,
+same-origin, and under your own declared route prefix, so this capability needs `route` as well: a plugin
+that serves no paths owns none. An absolute URL or someone else's prefix is dropped silently.
+
+Implementing `AssetProvider` subscribes you to the hook automatically; you do not list it in `InitResult`.
+The widget hooks need no subscription at all — Core asks every plugin holding `widget`.
+
+Core's limits, published as `nilda.MaxWidgetsPerPlugin` (20), `nilda.MaxWidgetHTMLBytes` (64 KiB) and
+`nilda.MaxAssetsPerPlugin` (5). Exceeding one is not an error you are told about: the excess is dropped and
+logged on Core's side.
 
 ---
 
@@ -292,7 +344,7 @@ edits is recorded as its work.
   "key": "shop",
   "name": "Shop",
   "version": "1.0.0",
-  "sdk_version": "0.2.0",
+  "sdk_version": "0.3.0",
   "nilda_compat": ">=0.1.0",
   "capabilities": ["content.write", "media.write", "datastore", "route", "hooks"],
   "route_prefix": "/shop",

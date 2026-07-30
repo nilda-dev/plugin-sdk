@@ -99,7 +99,14 @@ func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (*co
 	if err != nil {
 		return nil, err
 	}
-	out := &contract.InitResponse{RouteAddr: res.RouteAddr, Hooks: res.Hooks, Events: res.Events}
+	out := &contract.InitResponse{
+		RouteAddr: res.RouteAddr,
+		// Subscriptions the optional interfaces imply are added here rather than left to the author, because
+		// implementing AssetProvider and forgetting to list the hook yields a plugin that runs and does
+		// nothing. See withProvidedHooks.
+		Hooks:  withProvidedHooks(s.handler, res.Hooks),
+		Events: res.Events,
+	}
 	for _, sc := range res.Schedules {
 		out.Schedules = append(out.Schedules, &contract.Schedule{Name: sc.Name, Cron: sc.Cron})
 	}
@@ -107,6 +114,15 @@ func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (*co
 }
 
 func (s *pluginServer) HandleHook(ctx context.Context, req *contract.HookRequest) (*contract.HookResponse, error) {
+	// The optional interfaces get first refusal, so a WidgetProvider never sees a hook name or a byte
+	// slice. Falls through when the handler implements neither, which is every plugin that does not
+	// contribute markup.
+	if out, ok, err := dispatchProvided(ctx, s.handler, req.Hook, req.Payload); ok {
+		if err != nil {
+			return nil, err
+		}
+		return &contract.HookResponse{Payload: out}, nil
+	}
 	out, err := s.handler.HandleHook(ctx, req.Hook, req.Payload)
 	if err != nil {
 		return nil, err
