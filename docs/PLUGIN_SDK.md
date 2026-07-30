@@ -356,7 +356,7 @@ logged on Core's side.
 
 **There is no `signature` field.** It used to live here, over the binary alone — which meant the signature
 did not cover the manifest, and the manifest is the thing a site owner approves. A package could have
-`payments` and `network: ["evil.example"]` added in transit and still verify. The signature is now a
+`content.write` and `network: ["evil.example"]` added in transit and still verify. The signature is now a
 detached entry inside the package, over a digest of the manifest AND the binary. See §5.1.
 
 Unknown fields are REFUSED rather than ignored: `"capabilties"` is a typo you want to hear about at your
