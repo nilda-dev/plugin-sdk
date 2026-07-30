@@ -35,7 +35,7 @@ flowchart LR
     H -- "gRPC: Init · hooks · events · health" --> P
     P -- "HTTP + scoped token: read & write everything" --> API
     P -- "gRPC: its own KV · emit events" --> H
-    P -- "SQL: its own schema + read-only views" --> PG
+    P -- "SQL (DML only): its schema + read-only views" --> PG
     P -- "declared hosts only, logged" --> EG
     EG --> EXT
 ```
@@ -47,7 +47,7 @@ Four doors, and each is capability-gated:
 | Core → plugin | gRPC | `Init`, hooks, events, health | — |
 | plugin → Core data | **HTTP** to `/api/rest/v1` | read *and write* content, media, taxonomy, menus | a write/read capability |
 | plugin → Core state | gRPC | its own KV namespace, emitting events | `kv`, `events` |
-| plugin → its own tables | SQL | real transactional data, joins against Core's published data | `datastore` |
+| plugin → its tables (Core-owned) | SQL | real transactional data, joins against Core's published data | `datastore` |
 | plugin → the internet | HTTP via Core's proxy | payment gateways, SMS, exchanges | a `network` declaration |
 
 ---
@@ -159,21 +159,72 @@ if errors.As(err, &apiErr) && apiErr.Forbidden() {
 
 ### Real SQL, when HTTP is the wrong tool
 
-With `datastore` a plugin gets a dedicated Postgres schema, a scoped role, and a DSN — plus `SELECT` on
-read-only views over Core's **published** data. So a query that would otherwise mean pulling every row over
-HTTP is one statement:
+**You declare your tables. Core creates them, and Core owns them.** The data is the site owner's, not
+yours — so it outlives your plugin.
+
+```json
+"capabilities": ["datastore"],
+"tables": [
+  {
+    "name": "orders",
+    "columns": [
+      {"name": "id",         "type": "uuid",        "primary_key": true, "default": "gen_random_uuid()"},
+      {"name": "content_id", "type": "uuid",        "null": true},
+      {"name": "qty",        "type": "int",         "default": "0"},
+      {"name": "sku",        "type": "text",        "unique": true, "null": true},
+      {"name": "created_at", "type": "timestamptz", "default": "now()"}
+    ],
+    "indexes": [{"columns": ["content_id"]}]
+  }
+]
+```
+
+Then query it, joined against read-only views over Core's **published** data, in one statement instead of
+pulling every row over HTTP:
 
 ```sql
 SELECT c.title, o.qty
-FROM orders o                         -- the plugin's own table, its own schema
+FROM orders o                         -- your table, in your schema, created by Core
 JOIN public.core_content c ON c.id = o.content_id
 WHERE o.created_at > now() - interval '7 days'
 ```
 
-Views, not tables: `core_content`, `core_users`, `core_media`, `core_terms`, `core_content_terms`. They
-carry published rows and public columns only — a view cannot apply per-viewer visibility, so anything
-whose answer depends on *who is asking* goes through the API, which enforces it properly. The plugin's role
-cannot read Core's tables, cannot write anywhere outside its own schema, and cannot reach another plugin's.
+**Your role has `SELECT`, `INSERT`, `UPDATE`, `DELETE` — and no DDL at all.** `CREATE TABLE` fails.
+`DROP TABLE` fails. `ALTER` fails. Postgres refuses them; this is not a rule you are asked to respect.
+
+Why it works this way: the schema used to be created `AUTHORIZATION <your role>`, which made it yours —
+and so uninstalling a shop plugin ran `DROP SCHEMA CASCADE` and destroyed every order the shop had ever
+taken. **Uninstalling a plugin must not delete the site's records.** Ownership was the bug.
+
+What that means for you day to day:
+
+- **Adding a column is additive and safe.** Declare it; the next enable runs `ADD COLUMN IF NOT EXISTS`.
+  Ship a `default` if you want `NOT NULL`, because a bare `NOT NULL` cannot be added to a populated table.
+- **You cannot drop or retype a column.** Nothing in the plugin path emits destructive DDL. Need a
+  different shape? Declare a new table and move the rows with the DML you already have.
+- **Types are a fixed set**: `uuid`, `text`, `int`, `bigint`, `numeric`, `bool`, `timestamptz`, `date`,
+  `jsonb`. Defaults are a fixed set too (`now()`, `gen_random_uuid()`, `'{}'::jsonb`, `true`, `0`, …) plus
+  plain numbers and quoted strings. A declaration cannot express `DROP TABLE users`, which is the whole
+  reason it is a declaration and not a `.sql` file you ship.
+- **`nilda plugin check` validates all of this locally**, naming the exact table and column.
+
+Views, not tables, on Core's side: `core_content`, `core_users`, `core_media`, `core_terms`,
+`core_content_terms`. They carry published rows and public columns only — a view cannot apply per-viewer
+visibility, so anything whose answer depends on *who is asking* goes through the API, which enforces it
+properly. Your role cannot read Core's tables and cannot reach another plugin's schema.
+
+### What happens when a site owner removes your plugin
+
+| | |
+|---|---|
+| Your process | stopped |
+| Your login role | dropped — nothing can connect |
+| Your tables and every row | **kept**, owned by Core |
+| Your KV namespace | purged (no schema, no export path, nothing an operator could inspect) |
+| Content you created in Core | kept, still attributed to your plugin |
+
+The owner sees retained data listed with its real size and can delete it deliberately, by retyping the
+plugin key. Reinstalling finds the tables still there.
 
 ---
 
@@ -190,7 +241,7 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `users.read` | read user identity |
 | `hooks` | receive hook callbacks |
 | `events` | subscribe to and emit events |
-| `datastore` | a dedicated Postgres schema + scoped role |
+| `datastore` | a dedicated Postgres schema, tables Core creates from your declaration, DML-only access |
 | `kv` | a scoped key-value namespace |
 | `route` | a reverse-proxied URL prefix |
 | `admin.pages` | admin menu items and pages |

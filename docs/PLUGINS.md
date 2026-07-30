@@ -7,7 +7,7 @@
 >
 > **Why plugins are separate:** Core must stay lean and extremely fast. A plugin
 > is anything that is optional, not needed by every site, or too heavy to run on
-> every request. Plugins run as separate sandboxed **gRPC** processes — if one
+> every request. Plugins run as separate **gRPC** processes — if one
 > crashes or is slow, Core and the site keep running.
 >
 > **Plugins are Go-only (for now):** per the Go-only plugin policy (SPEC_98), every
@@ -29,7 +29,7 @@ Ask two questions about a feature:
    (cache, SEO render, main redirect…)
 
 YES to either  → Core (must be native + fast, no way around it)
-NO to both     → Plugin (optional, sandboxed, only loaded if installed)
+NO to both     → Plugin (optional, fault-isolated, only loaded if installed)
 
 Never split one feature across both (no "hybrid") — it creates sync bugs,
 hard debugging, and hard testing. Each feature lives in ONE place.
@@ -45,14 +45,15 @@ carries this weight; only sites that install a plugin pay its cost.
 ```
 Core exposes a Stable API Layer (REST + GraphQL) and gRPC hooks/events.
 Plugins ONLY talk to that layer — never to Core internals or Core's DB directly.
-A plugin that needs its own data gets its OWN scoped store via capabilities
-(`kv` → Dragonfly, `datastore` → a dedicated Postgres schema) — isolated from Core's
-tables. Each plugin ships from its OWN git repo against a versioned plugin-sdk (SPEC_98).
+A plugin that needs its own data gets a scoped store via capabilities (`kv` → Dragonfly,
+`datastore` → a Postgres schema Core owns, holding tables Core created from the plugin's
+manifest declaration) — isolated from Core's tables. The plugin gets DML and no DDL, so
+uninstalling it revokes access and KEEPS the rows: the data is the site owner's. Each plugin ships from its OWN git repo against a versioned plugin-sdk (SPEC_98).
 
 ┌──────────────── Core (fast, native) ────────────────┐
 │  Stable API Layer  +  event bus  +  gRPC host       │
 └───────────────┬─────────────────────────────────────┘
-                │ gRPC (separate process, sandboxed)
+                │ gRPC (separate process, fault-isolated)
                 ▼
         ┌───────────────┐
         │    Plugin     │  ← optional, isolated
