@@ -104,6 +104,34 @@ any external integration talks to, so there is one API to learn and one to maint
 The base URL is Core's `/api/rest/v1` — the versioned contract of SPEC_73/74, and the only surface that
 authenticates API tokens. The content type is part of the PATH.
 
+**Failures worth branching on.** A 429 or a 5xx is retried for you with exponential backoff, honouring
+`Retry-After`; a 4xx is not, because repeating it changes nothing.
+
+```go
+var apiErr *nilda.APIError
+if errors.As(err, &apiErr) {
+    apiErr.Forbidden()   // the manifest is missing a capability — a backoff will not fix it
+    apiErr.NotFound()
+    apiErr.Conflict()
+    apiErr.RateLimited()
+    apiErr.Code          // Core's own error code, rather than matching on a sentence
+}
+```
+
+**Writing in bulk?** A `POST` or `PATCH` is never retried automatically, because it may have succeeded
+before the response was lost and repeating it would create a second row. Give each unit of work its own
+key and it becomes safe:
+
+```go
+for _, row := range rows {
+    err := api.WithIdempotencyKey(row.ID).Post(ctx, "/content/product", row, nil)
+}
+```
+
+An importer interrupted at row 312 can then be run again from the start without producing 312 duplicates.
+`SetMaxRetries` tunes the patience — a hook runs inside Core's ten-second budget for all subscribers, so
+less is sometimes right.
+
 ```go
 api := s.core.API()
 
@@ -270,10 +298,40 @@ edits is recorded as its work.
   "route_prefix": "/shop",
   "network": ["api.stripe.com", "*.twilio.com"],
   "os": "linux",
-  "arch": "amd64",
-  "signature": "v1:<key-id>:<sig>"
+  "arch": "amd64"
 }
 ```
+
+**There is no `signature` field.** It used to live here, over the binary alone — which meant the signature
+did not cover the manifest, and the manifest is the thing a site owner approves. A package could have
+`payments` and `network: ["evil.example"]` added in transit and still verify. The signature is now a
+detached entry inside the package, over a digest of the manifest AND the binary. See §5.1.
+
+Unknown fields are REFUSED rather than ignored: `"capabilties"` is a typo you want to hear about at your
+keyboard, not a plugin that installs with no capabilities and fails at runtime for reasons nobody traces
+back to a spelling.
+
+### 5.1 The package
+
+`nilda plugin build` writes one archive per platform, `dist/<key>_<os>_<arch>.nplug`:
+
+```
+plugin.json     your manifest, byte for byte as you wrote it
+bin/plugin      the executable
+signature       the detached publisher signature (present when you built with --sign-key)
+```
+
+The signature covers a digest of every entry keyed by its path, with `signature` itself excluded — so
+editing the manifest, swapping the binary, or renaming an entry all break it. A signature that lived
+inside the manifest could not have covered the manifest, which is the whole reason it is detached.
+
+```sh
+nilda plugin build . --sign-key ./signing.key     # or NILDA_SIGN_KEY
+```
+
+The key is read from a FILE by default rather than a flag value, because a private key passed on the
+command line lands in your shell history and in the process list. Unsigned packages are fine locally; the
+marketplace requires a signature, and `nilda plugin check` tells you so before a reviewer does.
 
 `os` and `arch` are the platform this binary was built for. Core refuses a mismatch at install with a
 message naming both sides, instead of letting it fail later as an exec error about a bad executable format
@@ -362,6 +420,18 @@ never built, and readers reasonably believed it.
 `plugin-sdk` is semver. The wire carries a protocol version, Terraform-style: a plugin built against an
 incompatible protocol is **rejected at the handshake** with a clear error, never silently broken.
 
+**The signature format is v2, and v1 is not accepted.** v1 signed a single blob and left the manifest
+outside the signature. Keeping it acceptable would be a downgrade path — an attacker picks the weakest
+format a verifier still honours — so it was removed rather than deprecated. Nothing had been published
+under it, so this costs nobody anything.
+
+**Protocol versions are negotiated.** Both sides announce every version they can speak and the handshake
+settles on the highest they share (`SupportedProtocols`, go-plugin's `VersionedPlugins`). This is why a
+future protocol 3 will not stop your plugin loading the day Core ships it — a Core that speaks 3 also
+speaks 2. `nilda plugin check` compares your `sdk_version` against the protocol your Nilda speaks and says
+which line of `go.mod` to change, rather than leaving it to surface as a handshake failure on someone
+else's server.
+
 **v1 → v2 is breaking.** v1's `HostService` carried five read methods — `ContentSite`,
 `ContentPageBySlug`, `ContentList`, `UserByID`, `MediaByID` — and no way to write anything. Between them a
 plugin could fetch one page by slug and page through one content type. Porting:
@@ -390,7 +460,7 @@ nilda plugin dev .           # rebuild + reload on every save
 nilda plugin trigger content.saved --data '{"title":"x"}'
 
 nilda plugin check .         # the gates Core and the marketplace apply
-nilda plugin build .         # every platform + one manifest, into dist/
+nilda plugin build .         # every platform, one signed .nplug each, into dist/
 nilda plugin publish . --changelog "what changed"
 ```
 
@@ -403,8 +473,10 @@ back. Hooks are filter-style, so the response is the thing you are testing. With
 content hook run meant creating real content, and seeing a scheduled callback run meant waiting for the
 schedule. Core must have `PLUGIN_DEV_TOOLS=true`; it is off by default.
 
-**`publish`** uploads the built binaries and submits the version for review. It reads each artifact's
-platform out of the file, so there are no slots to label and none to mislabel. It publishes VERSIONS: the
+**`publish`** uploads the built packages and submits the version for review. It reads each artifact's
+platform out of the binary inside it, so there are no slots to label and none to mislabel — and the
+marketplace reads your capabilities and network hosts out of the manifest inside the package rather than
+from anything the CLI typed into a JSON body, so what a reviewer approves is what a site installs. It publishes VERSIONS: the
 listing itself — name, summary, screenshots, price — you create once on the web, because those are things you
 want to see while setting them.
 

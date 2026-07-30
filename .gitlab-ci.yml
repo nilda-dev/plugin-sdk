@@ -22,6 +22,14 @@ default:
 fmt:
   stage: check
   script:
+    # The module must build with the WORKSPACE OFF.
+    #
+    # go.work is a developer's file. CI clones one repository and builds it alone, and so does anyone
+    # consuming this module — so a go.mod that is wrong is invisible from inside the workspace, which
+    # supplies the real code and never reads the pin. That is exactly how this repo came to require
+    # plugin-sdk v0.1.1, a version the SDK itself had RETRACTED for speaking a protocol Core refuses.
+    # Nothing looked broken, because locally nothing was.
+    - GOWORK=off go build ./...
     - test -z "$(gofmt -l .)" || (gofmt -l . && echo "run gofmt -w ." && exit 1)
 
 vet:

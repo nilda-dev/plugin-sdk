@@ -44,3 +44,18 @@ type PluginClient struct {
 func PluginMap(impl contract.PluginServiceServer) map[string]plugin.Plugin {
 	return map[string]plugin.Plugin{PluginSetName: &GRPCPlugin{Impl: impl}}
 }
+
+// VersionedPluginMap is the plugin set keyed by PROTOCOL VERSION, which is what both sides of the
+// handshake negotiate over.
+//
+// One entry today. It is a map rather than a single set so that adding protocol 3 later means adding a
+// line here — a Core that speaks both keeps loading every v2 plugin already published, instead of every
+// plugin in the marketplace failing on the same afternoon. See SupportedProtocols for why that matters
+// more once third parties have shipped things.
+func VersionedPluginMap(impl contract.PluginServiceServer) map[int]plugin.PluginSet {
+	out := make(map[int]plugin.PluginSet, len(SupportedProtocols))
+	for _, v := range SupportedProtocols {
+		out[v] = PluginMap(impl)
+	}
+	return out
+}

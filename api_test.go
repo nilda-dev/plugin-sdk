@@ -3,10 +3,15 @@ package nilda
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // The API client is what replaced contract v1's five read methods, so these tests are about the thing a
@@ -128,5 +133,228 @@ func TestGetEncodesQuery(t *testing.T) {
 	}
 	if gotQuery != "status=published&type=product" {
 		t.Fatalf("query = %q", gotQuery)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// retries, backoff and idempotency (D2)
+// ---------------------------------------------------------------------------
+
+// A 429 with Retry-After is waited out and the call succeeds.
+//
+// This is in the SDK rather than left to each plugin because it cannot reasonably be left to each plugin:
+// an importer creating five hundred products meets a rate limit sooner or later, and the difference
+// between "the SDK waited 200ms" and "the import died at product 312" is the whole experience of writing
+// against this platform.
+func TestARateLimitIsWaitedOutAndRetried(t *testing.T) {
+	var attempts int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if atomic.AddInt32(&attempts, 1) == 1 {
+			w.Header().Set("Retry-After", "0")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"code":"RATE_LIMITED","message":"slow down"}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":{"id":"p1"}}`))
+	}))
+	defer srv.Close()
+
+	api := newAPI(srv.URL, "tok", nil)
+	var out struct{ Data struct{ ID string } }
+	if err := api.Get(context.Background(), "/content/product", nil, &out); err != nil {
+		t.Fatalf("a rate limit should have been retried, not returned: %v", err)
+	}
+	if out.Data.ID != "p1" {
+		t.Errorf("the retried response was not decoded: %+v", out)
+	}
+	if got := atomic.LoadInt32(&attempts); got != 2 {
+		t.Errorf("attempts = %d, want exactly one retry", got)
+	}
+}
+
+// A 5xx is retried; a 4xx that is the caller's fault is not.
+//
+// Retrying a 403 is a plugin hammering a door its manifest never asked for the key to — the fix is a
+// manifest change, and no amount of backoff produces one.
+func TestOnlyTheServersProblemsAreRetried(t *testing.T) {
+	cases := map[string]struct {
+		status    int
+		wantCalls int32
+		retryable bool
+	}{
+		"server error":    {http.StatusBadGateway, 4, true},
+		"gateway timeout": {http.StatusGatewayTimeout, 4, true},
+		"forbidden":       {http.StatusForbidden, 1, false},
+		"not found":       {http.StatusNotFound, 1, false},
+		"conflict":        {http.StatusConflict, 1, false},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			var calls int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				atomic.AddInt32(&calls, 1)
+				w.WriteHeader(tc.status)
+				_, _ = w.Write([]byte(`{"code":"X"}`))
+			}))
+			defer srv.Close()
+
+			api := newAPI(srv.URL, "tok", nil)
+			err := api.Get(context.Background(), "/content/product", nil, nil)
+			if err == nil {
+				t.Fatal("expected the failure to surface")
+			}
+			var ae *APIError
+			if !errors.As(err, &ae) {
+				t.Fatalf("expected an *APIError, got %T", err)
+			}
+			if ae.Retryable() != tc.retryable {
+				t.Errorf("Retryable() = %v for %d", ae.Retryable(), tc.status)
+			}
+			if got := atomic.LoadInt32(&calls); got != tc.wantCalls {
+				t.Errorf("calls = %d, want %d", got, tc.wantCalls)
+			}
+		})
+	}
+}
+
+// THE property that makes retries safe. A POST may have created something before the response was lost,
+// so repeating it blindly is how an importer ends up with two of row 312. It is retried only when the
+// caller supplied an idempotency key — which is exactly what the key is for.
+func TestAPostIsOnlyRetriedWithAnIdempotencyKey(t *testing.T) {
+	newServer := func(calls *int32, sawKey *string) *httptest.Server {
+		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			atomic.AddInt32(calls, 1)
+			*sawKey = r.Header.Get("Idempotency-Key")
+			w.WriteHeader(http.StatusBadGateway)
+		}))
+	}
+
+	var plainCalls int32
+	var plainKey string
+	plain := newServer(&plainCalls, &plainKey)
+	defer plain.Close()
+	if err := newAPI(plain.URL, "tok", nil).
+		Post(context.Background(), "/content/product", map[string]any{"title": "x"}, nil); err == nil {
+		t.Fatal("expected the 502 to surface")
+	}
+	if plainCalls != 1 {
+		t.Errorf("a keyless POST was sent %d times — a create may have succeeded on the first", plainCalls)
+	}
+	if plainKey != "" {
+		t.Errorf("an idempotency key was sent without being asked for: %q", plainKey)
+	}
+
+	var keyedCalls int32
+	var keyedKey string
+	keyed := newServer(&keyedCalls, &keyedKey)
+	defer keyed.Close()
+	if err := newAPI(keyed.URL, "tok", nil).WithIdempotencyKey("row-312").
+		Post(context.Background(), "/content/product", map[string]any{"title": "x"}, nil); err == nil {
+		t.Fatal("expected the 502 to surface")
+	}
+	if keyedCalls != 4 {
+		t.Errorf("a keyed POST was sent %d times, want 4 (one attempt plus three retries)", keyedCalls)
+	}
+	if keyedKey != "row-312" {
+		t.Errorf("Idempotency-Key = %q", keyedKey)
+	}
+}
+
+// A key belongs to ONE operation, so WithIdempotencyKey derives a client instead of mutating the shared
+// one. Sharing a key across two creates would make the second return the first one's result.
+func TestWithIdempotencyKeyDoesNotMutateTheSharedClient(t *testing.T) {
+	api := newAPI("http://example.invalid", "tok", nil)
+	derived := api.WithIdempotencyKey("k1")
+
+	if api.idempotencyKey != "" {
+		t.Error("the shared client picked up a key belonging to one operation")
+	}
+	if derived.idempotencyKey != "k1" {
+		t.Errorf("the derived client carries %q", derived.idempotencyKey)
+	}
+	if second := api.WithIdempotencyKey("k2"); second.idempotencyKey == derived.idempotencyKey {
+		t.Error("two operations ended up sharing a key")
+	}
+}
+
+// The request body must be replayable: an io.Reader is consumed by the first attempt, and a retry that
+// sends an empty body is a bug appearing only under the conditions the retry exists for.
+func TestARetriedRequestSendsTheSameBody(t *testing.T) {
+	var bodies []string
+	var mu sync.Mutex
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		bodies = append(bodies, string(b))
+		n := len(bodies)
+		mu.Unlock()
+		if n < 2 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer srv.Close()
+
+	// With a key, because PATCH is not idempotent on its own (RFC 5789) — "add one to the stock count"
+	// applied twice is simply wrong.
+	if err := newAPI(srv.URL, "tok", nil).WithIdempotencyKey("edit-1").
+		Patch(context.Background(), "/content/product/1", map[string]any{"title": "v2"}, nil); err != nil {
+		t.Fatalf("the retry should have succeeded: %v", err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(bodies) != 2 {
+		t.Fatalf("attempts = %d", len(bodies))
+	}
+	if bodies[0] != bodies[1] {
+		t.Errorf("the retry sent a different body:\n first: %q\nsecond: %q", bodies[0], bodies[1])
+	}
+	if bodies[0] == "" {
+		t.Error("the body was empty on the first attempt")
+	}
+}
+
+// Core's own error code reaches the plugin, so it can branch on WHAT went wrong instead of pattern-matching
+// a sentence that may be reworded or translated.
+func TestTheErrorCarriesCoresCode(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte(`{"code":"FORBIDDEN","message":"the token lacks content.write"}`))
+	}))
+	defer srv.Close()
+
+	err := newAPI(srv.URL, "tok", nil).Post(context.Background(), "/content/product", map[string]any{}, nil)
+	var ae *APIError
+	if !errors.As(err, &ae) {
+		t.Fatalf("expected an *APIError, got %T", err)
+	}
+	if ae.Code != "FORBIDDEN" {
+		t.Errorf("Code = %q", ae.Code)
+	}
+	if !ae.Forbidden() {
+		t.Error("Forbidden() is false for a 403")
+	}
+}
+
+// Retries must not outlive the caller's context: a hook has an aggregate budget (Core gives every
+// subscriber ten seconds between them), and a plugin that keeps backing off past a cancelled context has
+// turned an error into a hang.
+func TestRetriesStopWhenTheContextEnds(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	err := newAPI(srv.URL, "tok", nil).Get(ctx, "/content/product", nil, nil)
+	if err == nil {
+		t.Fatal("expected a failure")
+	}
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Errorf("retries ran for %s after the context ended", elapsed)
 	}
 }

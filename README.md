@@ -15,6 +15,9 @@ every plugin imports it to be hosted. Semantically versioned. Contract **v2**
 gRPC is how Core calls the plugin.   HTTP is how the plugin calls Core.
 ```
 
+A plugin ships as ONE archive — `<key>_<os>_<arch>.nplug` — carrying `plugin.json`, `bin/plugin`, and a
+detached `signature` over a digest of both. One artifact to build, upload, review, sign and install.
+
 gRPC carries lifecycle, hooks and events. Data — creating a product, editing a post, uploading
 an image, querying with filters — goes over HTTP to Core's own API with a scoped token issued
 at `Init`. Contract v1 tried to carry data on gRPC too, in five read-only methods with no way
@@ -45,16 +48,17 @@ what Core guarantees and what it does not) · `PLUGINS.md` (plugin catalog).
 This repo is one of several. How they fit together:
 
 ```
-core        — CMS (Go backend + admin panel + default theme)   needs → plugin-sdk
-central     — nilda.dev control-plane (pay/license/market/AI)  standalone
-plugin-sdk  — plugin gRPC contract + API client (Go)           used by core + plugins
+core            — CMS (Go backend + admin panel + default theme)   needs → plugin-sdk, plugin-manifest
+central         — nilda.dev control-plane (pay/license/market)     needs → plugin-manifest
+plugin-sdk      — plugin gRPC contract + API client (Go)           used by core + plugins
+plugin-manifest — the manifest schema + package format (0 deps)    used by core + central + plugin-sdk
 theme-sdk   — headless SDK (@nilda/client, @nilda/react)       reads Core's public API
 commerce · booking · forms — paid plugins                      need → plugin-sdk
 ```
 
 Repositories:
 - `gitlab.com/nildacms/core` · `gitlab.com/nildacms/central`
-- `gitlab.com/nilda-sdk/plugin-sdk` · `gitlab.com/nilda-sdk/theme-sdk`
+- `gitlab.com/nilda-sdk/plugin-sdk` · `gitlab.com/nilda-sdk/plugin-manifest` · `gitlab.com/nilda-sdk/theme-sdk`
 - `gitlab.com/nilda-plugins/commerce` · `…/booking` · `…/forms`
 
 Ecosystem-wide docs (architecture, roadmap, spec index) live in **core** (`docs/files/`).

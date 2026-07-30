@@ -48,11 +48,15 @@ type Schedule struct {
 func ScheduleHook(name string) string { return "schedule:" + name }
 
 // Serve is the plugin's main() entrypoint: handshake + gRPC serving, fully managed. It never returns.
+//
+// VersionedPlugins rather than Plugins: the plugin announces every protocol version it can speak and the
+// handshake settles on the highest the host also understands. With a single fixed version, the day Core
+// bumps the protocol is the day every published plugin stops loading at once — see SupportedProtocols.
 func Serve(h Handler) {
 	plugin.Serve(&plugin.ServeConfig{
-		HandshakeConfig: Handshake,
-		Plugins:         PluginMap(&pluginServer{handler: h}),
-		GRPCServer:      plugin.DefaultGRPCServer,
+		HandshakeConfig:  Handshake,
+		VersionedPlugins: VersionedPluginMap(&pluginServer{handler: h}),
+		GRPCServer:       plugin.DefaultGRPCServer,
 	})
 }
 

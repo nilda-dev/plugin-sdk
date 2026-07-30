@@ -101,3 +101,40 @@ func TestContractRoundTrip(t *testing.T) {
 		t.Fatal("NewCoreForTest handed out API access nobody granted")
 	}
 }
+
+// The handshake NEGOTIATES a protocol version; it does not demand one exact number.
+//
+// This is what stops a protocol bump from being a flag day. With a single fixed version, the day Core
+// moves to 3 is the day every plugin anyone has published stops loading — simultaneously, on every site,
+// until each author rebuilds and each owner updates. go-plugin's VersionedPlugins lets a host serve
+// several versions at once and settle on the highest both ends know, so a v2 plugin keeps working on a
+// Core that also speaks v3.
+//
+// The test is about the SHAPE, because the shape is the whole change: a map keyed by version means adding
+// the next protocol is a line, and a single set means it is a migration.
+func TestTheProtocolSetIsNegotiable(t *testing.T) {
+	set := VersionedPluginMap(nil)
+	if len(set) == 0 {
+		t.Fatal("no protocol versions offered — nothing could ever handshake")
+	}
+	for _, v := range SupportedProtocols {
+		plugins, ok := set[v]
+		if !ok {
+			t.Errorf("protocol %d is declared supported but is not in the plugin set", v)
+			continue
+		}
+		if _, ok := plugins[PluginSetName]; !ok {
+			t.Errorf("protocol %d offers no %q plugin", v, PluginSetName)
+		}
+	}
+	// The current version must be among them, or a freshly built plugin could not talk to a freshly built
+	// Core — the one pairing that has to work.
+	if _, ok := set[ProtocolVersion]; !ok {
+		t.Errorf("the current protocol (%d) is not in the negotiable set", ProtocolVersion)
+	}
+	// And a version nobody supports must be absent rather than silently accepted.
+	if _, ok := set[ProtocolVersion+1]; ok {
+		t.Error("an unsupported protocol version is offered; a plugin built against it would load and then " +
+			"fail on a method that does not exist")
+	}
+}
