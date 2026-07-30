@@ -313,6 +313,16 @@ back to a spelling.
 
 ### 5.1 The package
 
+Get a signing key once, before your first release — the marketplace refuses unsigned packages:
+
+```bash
+nilda plugin keygen                        # writes nilda-signing.key, prints the public half
+nilda plugin build --sign-key nilda-signing.key
+```
+
+Keep the private key. It cannot be recovered, and losing it means every package published under it can no
+longer be matched to you. Register the PUBLIC half with the marketplace so it can verify what you send.
+
 `nilda plugin build` writes one archive per platform, `dist/<key>_<os>_<arch>.nplug`:
 
 ```
