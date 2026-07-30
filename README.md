@@ -15,8 +15,9 @@ every plugin imports it to be hosted. Semantically versioned. Contract **v2**
 gRPC is how Core calls the plugin.   HTTP is how the plugin calls Core.
 ```
 
-A plugin ships as ONE archive — `<key>_<os>_<arch>.nplug` — carrying `plugin.json`, `bin/plugin`, and a
-detached `signature` over a digest of both. One artifact to build, upload, review, sign and install.
+A plugin ships as `<key>_<os>_<arch>.nplug` — a zip carrying `plugin.json` and `bin/plugin` — with its
+signature in a `.sig` beside it, over the file's own bytes. The manifest is covered because it is inside
+the file, and neither side needs a digest algorithm the other must match.
 
 gRPC carries lifecycle, hooks and events. Data — creating a product, editing a post, uploading
 an image, querying with filters — goes over HTTP to Core's own API with a scoped token issued
@@ -48,17 +49,16 @@ what Core guarantees and what it does not) · `PLUGINS.md` (plugin catalog).
 This repo is one of several. How they fit together:
 
 ```
-core            — CMS (Go backend + admin panel + default theme)   needs → plugin-sdk, plugin-manifest
-central         — nilda.dev control-plane (pay/license/market)     needs → plugin-manifest
+core            — CMS (Go backend + admin panel + default theme)   needs → plugin-sdk
+central         — nilda.dev control-plane (pay/license/market)     standalone
 plugin-sdk      — plugin gRPC contract + API client (Go)           used by core + plugins
-plugin-manifest — the manifest schema + package format (0 deps)    used by core + central + plugin-sdk
 theme-sdk   — headless SDK (@nilda/client, @nilda/react)       reads Core's public API
 commerce · booking · forms — paid plugins                      need → plugin-sdk
 ```
 
 Repositories:
 - `gitlab.com/nildacms/core` · `gitlab.com/nildacms/central`
-- `gitlab.com/nilda-sdk/plugin-sdk` · `gitlab.com/nilda-sdk/plugin-manifest` · `gitlab.com/nilda-sdk/theme-sdk`
+- `gitlab.com/nilda-sdk/plugin-sdk` · `gitlab.com/nilda-sdk/theme-sdk`
 - `gitlab.com/nilda-plugins/commerce` · `…/booking` · `…/forms`
 
 Ecosystem-wide docs (architecture, roadmap, spec index) live in **core** (`docs/files/`).
