@@ -358,3 +358,37 @@ func TestRetriesStopWhenTheContextEnds(t *testing.T) {
 		t.Errorf("retries ran for %s after the context ended", elapsed)
 	}
 }
+
+// The backoff must be safe at any attempt number, because SetMaxRetries is exported and its own comment
+// suggests a bulk-writing plugin might raise it.
+//
+// `baseBackoff << attempt` is int64 nanoseconds, so from around attempt 36 it wrapped to a NEGATIVE
+// duration — which slipped past the `> maxBackoff` clamp, because a negative number is not greater than
+// ten seconds, and reached rand.Int64N, which panics on a non-positive argument. A plugin that followed
+// the advice in the comment crashed its own process.
+func TestBackoffIsBoundedAtAnyAttemptNumber(t *testing.T) {
+	for _, attempt := range []int{-1, 0, 1, 5, 6, 7, 20, 36, 62, 63, 64, 1000} {
+		got := backoffFor(attempt)
+		if got <= 0 {
+			t.Errorf("attempt %d produced a non-positive wait (%v) — the jitter would panic on it", attempt, got)
+		}
+		if got > maxBackoff {
+			t.Errorf("attempt %d waits %v, past the %v ceiling", attempt, got, maxBackoff)
+		}
+	}
+	// And it really does grow before it flattens, or the retries are all instant.
+	if backoffFor(0) >= backoffFor(3) {
+		t.Error("the backoff does not increase between attempts")
+	}
+}
+
+// sleepBackoff itself must not panic either, which is the path the bug actually surfaced through.
+func TestSleepBackoffSurvivesAHugeAttemptNumber(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	for _, attempt := range []int{0, 40, 63, 1000} {
+		if err := sleepBackoff(ctx, attempt, 0); err == nil {
+			t.Errorf("attempt %d: expected the context deadline to end the wait", attempt)
+		}
+	}
+}

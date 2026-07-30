@@ -424,7 +424,30 @@ func parseRetryAfter(v string) time.Duration {
 const (
 	baseBackoff = 200 * time.Millisecond
 	maxBackoff  = 10 * time.Second
+	// maxBackoffShift is where doubling stops mattering: 200ms << 6 is 12.8s, already past maxBackoff.
+	//
+	// It exists because the shift OVERFLOWS. `baseBackoff << attempt` is int64 nanoseconds, so from around
+	// attempt 36 it wraps to a negative duration — which then slips past the `> maxBackoff` clamp (a
+	// negative number is not greater than ten seconds) and reaches rand.Int64N, which panics on a
+	// non-positive argument. SetMaxRetries is exported and documented as something a bulk-writing plugin
+	// might raise, so this was reachable by following the advice in its own comment.
+	maxBackoffShift = 6
 )
+
+// backoffFor is the un-jittered wait before one attempt: exponential, clamped, and safe at any attempt
+// number a caller can produce.
+func backoffFor(attempt int) time.Duration {
+	if attempt < 0 {
+		attempt = 0
+	}
+	if attempt > maxBackoffShift {
+		attempt = maxBackoffShift
+	}
+	if wait := baseBackoff << attempt; wait < maxBackoff {
+		return wait
+	}
+	return maxBackoff
+}
 
 // sleepBackoff waits before the next attempt: the server's instruction if it gave one, otherwise
 // exponential backoff with jitter.
@@ -435,11 +458,12 @@ const (
 func sleepBackoff(ctx context.Context, attempt int, serverWait time.Duration) error {
 	wait := serverWait
 	if wait <= 0 {
-		wait = baseBackoff << attempt
-		if wait > maxBackoff {
-			wait = maxBackoff
+		wait = backoffFor(attempt)
+		// Jitter is half the wait at most. Guarded because rand.Int64N panics on a non-positive argument,
+		// and "the backoff is so small it rounds to nothing" should not be a crash.
+		if half := int64(wait / 2); half > 0 {
+			wait += time.Duration(rand.Int64N(half))
 		}
-		wait += time.Duration(rand.Int64N(int64(wait / 2)))
 	}
 	t := time.NewTimer(wait)
 	defer t.Stop()
