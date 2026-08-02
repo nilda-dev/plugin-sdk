@@ -422,6 +422,67 @@ uninstall. A timer inside your process is none of those things.
 
 A schedule that hangs fails its call and counts toward the same failure budget as a slow content hook.
 
+### Telling the AI agent what you can do (`abilities`)
+
+A hook is the site calling you. An **ability** is the reverse: you telling the site's AI agent that an
+action exists, so that when the owner types "add these fifty products" the model has something to call.
+
+Without one, the only actions in the world are the ones Core itself ships. Your plugin can know perfectly
+well how to register a product; the agent cannot see that the action exists.
+
+```go
+func (s *Shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, error) {
+	return nilda.InitResult{
+		Abilities: []nilda.Ability{{
+			Name:        "create_product",
+			Label:       "Create a product",
+			Description: "Add a product to the shop. Use when the owner asks to list something for sale.",
+			Class:       nilda.ClassWrite,
+			InputSchema: nilda.ObjectSchema(map[string]any{
+				"title": map[string]any{"type": "string", "description": "The product name."},
+				"price": map[string]any{"type": "number"},
+			}, "title", "price"),
+			Run: s.createProduct,
+		}},
+	}, nil
+}
+```
+
+Core turns that into an agent tool named `shop.create_product` — namespaced under your plugin key, so two
+plugins can both offer `create_product` without colliding.
+
+**Write the description for the model, not for a colleague.** It is the only thing the agent reads when
+deciding whether yours is the right tool for what the owner asked. "Adds a product" is a tool that never
+gets called; the version above says *when* to use it.
+
+**Declare the truest `Class`, not the most convenient one.** The class is what Core's guardrails run on:
+each connector has a risk ceiling the owner sets, and an ability above it is refused before your plugin is
+ever reached. A lower class does not make your action safer — it makes it reachable by connectors the
+owner meant to keep on a short leash. A class Core does not recognise is treated as the *most* restricted
+one, so a typo costs an owner one permission click rather than an unguarded action.
+
+| Class | For |
+|---|---|
+| `read` | returns information, changes nothing |
+| `additive` | produces a draft or suggestion; nothing goes live |
+| `write` | edits live data |
+| `publish` | makes something public, or takes it down |
+| `structural` | changes the shape of the data model |
+| `destructive` | deletes, or acts in bulk |
+| `access` | roles, permissions, credentials |
+| `infra` | maintenance, caches, backups, the install itself |
+
+`InputSchema` is required and must be a JSON Schema **object** — an agent that cannot see the shape of
+your input will call you with the wrong thing. `ObjectSchema` builds one so you do not hand-write JSON.
+
+Set `Run` and the SDK dispatches for you. Leave it nil and the call arrives at your `HandleHook` under
+`nilda.AbilityHook("create_product")`; `ability:` is a reserved hook namespace either way.
+
+`abilities` is its **own** capability, separate from `hooks`. Receiving a callback when content changes and
+letting a model decide to run one of your actions with no human in the loop are different powers, and the
+owner granting the second should be agreeing to exactly that. It appears on their consent screen as
+"Offer its actions to an AI agent, which can then run them on your behalf".
+
 ### Sending mail (`email`)
 
 ```go

@@ -79,6 +79,27 @@ message InitResponse {
   // resident and could run its own ticker, but Core-owned scheduling is visible to the site owner,
   // survives a restart, and does not double-fire when a plugin is relaunched.
   repeated Schedule schedules = 4;
+
+  // What this plugin can DO, in a form an AI agent can read (requires `abilities`). Core turns each into
+  // an ordinary agent tool named "<plugin_key>.<name>", subject to the same connector class ceiling,
+  // allowlist and confirmation gates as a built-in one.
+  //
+  // Without this, the only actions an agent knows about are the ones Core itself ships: a shop plugin
+  // could register a product all day and "add these fifty products" had nothing to call.
+  repeated Ability abilities = 5;
+}
+
+// Ability is one action the plugin offers an AI agent.
+message Ability {
+  string name = 1;         // lowercase id within the plugin, e.g. "create_product"
+  string label = 2;        // human-readable, for the admin's tool list
+  string description = 3;  // what the MODEL reads to decide whether this is the right tool — be specific
+  // Risk class, matching Core's agent guardrails: read | additive | write | publish | structural |
+  // destructive | access | infra. A class Core does not recognise is treated as the MOST restricted one,
+  // never the least — so a typo costs an owner one permission click, not an unguarded action.
+  string class = 4;
+  string input_schema = 5; // JSON Schema object describing the arguments; required
+  bool read_only = 6;      // advisory MCP annotation; the gates are driven by `class`, not by this
 }
 
 message Schedule {

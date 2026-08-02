@@ -2,6 +2,7 @@ package nilda
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -36,6 +37,10 @@ type InitResult struct {
 	// owner, survives a restart, and does not double-fire when the plugin is relaunched. Core calls back
 	// through HandleHook with hook = "schedule:<name>".
 	Schedules []Schedule
+	// Abilities is what this plugin can DO, offered to the site's AI agent (requires `abilities`). Each
+	// becomes an agent tool named "<plugin-key>.<name>". An ability with a Run function is dispatched for
+	// you; one without arrives at HandleHook under AbilityHook(name). See abilities.go.
+	Abilities []Ability
 }
 
 // Schedule is one recurring callback.
@@ -76,8 +81,11 @@ func StartHTTP(h http.Handler) (string, error) {
 type pluginServer struct {
 	contract.UnimplementedPluginServiceServer
 	handler Handler
-	broker  *plugin.GRPCBroker // injected by GRPCPlugin.GRPCServer
-	conn    *grpc.ClientConn   // the dialed HostService broker stream
+	// abilityRun holds the Run functions from Init, keyed by ability name. Written once in Init and read
+	// by HandleHook; go-plugin serialises Init before any hook arrives.
+	abilityRun map[string]func(context.Context, json.RawMessage) (any, error)
+	broker     *plugin.GRPCBroker // injected by GRPCPlugin.GRPCServer
+	conn       *grpc.ClientConn   // the dialed HostService broker stream
 }
 
 func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (*contract.InitResponse, error) {
@@ -110,10 +118,28 @@ func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (*co
 	for _, sc := range res.Schedules {
 		out.Schedules = append(out.Schedules, &contract.Schedule{Name: sc.Name, Cron: sc.Cron})
 	}
+	for _, ab := range res.Abilities {
+		out.Abilities = append(out.Abilities, &contract.Ability{
+			Name: ab.Name, Label: ab.Label, Description: ab.Description,
+			Class: string(ab.Class), InputSchema: string(ab.InputSchema), ReadOnly: ab.ReadOnly,
+		})
+	}
+	// Remember the ones that brought their own Run so HandleHook can dispatch them without the author
+	// wiring anything: declaring an ability and then forgetting to route its hook is a plugin that
+	// advertises an action and fails every time an agent tries it.
+	s.abilityRun = abilityRunners(res.Abilities)
 	return out, nil
 }
 
 func (s *pluginServer) HandleHook(ctx context.Context, req *contract.HookRequest) (*contract.HookResponse, error) {
+	// Abilities first: "ability:" is a reserved hook namespace, so it must never reach the author's
+	// HandleHook whether or not they declared a runner for that name.
+	if out, handled, err := dispatchAbility(ctx, s.abilityRun, req.Hook, req.Payload); handled {
+		if err != nil {
+			return nil, err
+		}
+		return &contract.HookResponse{Payload: out}, nil
+	}
 	// The optional interfaces get first refusal, so a WidgetProvider never sees a hook name or a byte
 	// slice. Falls through when the handler implements neither, which is every plugin that does not
 	// contribute markup.
