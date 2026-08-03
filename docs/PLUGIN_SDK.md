@@ -638,3 +638,44 @@ can be trusted: an SDK change that would make them wrong turns the pipeline red.
 - **SPEC_110** — marketplace distribution. **SPEC_115** — the pre-install security scan.
 - **PLUGINS.md** — the plugin catalog.
 - **SPEC_114 / `theme-sdk`** — a different thing entirely (headless client SDK); not this.
+
+---
+
+## Widget field vocabulary — the gap, and why it now blocks two other things (2026-08-03)
+
+**Recorded from Core's `SPEC_121 §14.20`. Not built yet; this is the specification.**
+
+This SDK already lets a plugin contribute page-builder widgets: `WidgetDef`, `WidgetField`,
+`HookWidgetDescribe`, `HookWidgetRender`, bounded by `MaxWidgetsPerPlugin` (20) and
+`MaxWidgetHTMLBytes` (64 KB). That part works.
+
+**The gap is the field vocabulary.** `WidgetField.Type` accepts seven kinds — `text`, `richtext`,
+`number`, `boolean`, `link`, `image`, `select` — while Core's own widgets declare
+`ConfigSchema []contenttype.FieldDef`, which is richer (repeaters, media references, relationships,
+conditional fields, per-field validation rules). So a plugin cannot express a control that Core's own
+widgets use freely.
+
+Until 2026-08-03 that was a fairness problem: plugin widgets are second-class, and an author hits the
+ceiling on their first non-trivial widget. Two owner decisions turned it into a blocker:
+
+1. **Nilda's widget panel covers the full third-party catalogue** (Core `SPEC_121 §14.17.2`, ~361
+   capabilities). Many of those are repeater-driven — a testimonial carousel, a pricing table, an icon
+   list are all "a list of items, each with fields". A plugin cannot build one today.
+2. **The AI must be able to drive every widget by instruction** (Core `SPEC_121 §14.18`). The AI's
+   instruction set IS the widget's declared schema. A plugin widget whose controls cannot be expressed in
+   the shared vocabulary is a widget the AI cannot drive — so the gap would produce a catalogue where
+   some widgets answer the user and others silently do not.
+
+### What to build
+
+- **Widen `WidgetField` to Core's field vocabulary**, sharing the definition rather than mirroring it.
+  A mirrored list drifts on the first field type Core adds, and the failure is silent: a plugin declares
+  a field Core does not understand, or omits one it does.
+- **Consume Core's published widget registry.** Core generates it from the live `Widgets()` registry
+  (never hand-maintained, guarded by a drift test in the way `internal/themedoc` guards
+  `THEME_CONTRACT.md`). An author should be able to see what already exists before writing a widget that
+  duplicates it — and the same document is what the AI and `theme-sdk` consume. One registry, three
+  consumers.
+- **Keep the limits.** Widening the vocabulary must not widen the safety envelope: the per-plugin widget
+  cap, the HTML byte cap, and the escape-everything render contract are unchanged. A richer field type is
+  a richer INPUT, never a route to raw markup.
