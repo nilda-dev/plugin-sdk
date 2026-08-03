@@ -679,3 +679,26 @@ ceiling on their first non-trivial widget. Two owner decisions turned it into a 
 - **Keep the limits.** Widening the vocabulary must not widen the safety envelope: the per-plugin widget
   cap, the HTML byte cap, and the escape-everything render contract are unchanged. A richer field type is
   a richer INPUT, never a route to raw markup.
+
+
+## Widget field types — the full vocabulary (2026-08-03)
+
+`WidgetField.Type` accepts **26 types**, not the seven it started with. The old list made a whole class of
+widget impossible to write as a plugin: no repeater, so no list-shaped widget at all; no media beyond a
+single image; no date, no colour, no icon. An author hitting that had no way to tell an unsupported type
+from a misspelled one, because the failure is a field DROPPED silently on Core's side.
+
+`FieldTypes()` returns the list. It is not documentation — Core walks it in a test
+(`internal/plugin/sdk_mirror_test.go`) and fails if this module names a type Core would drop, **or** if Core
+accepts one this module never names. The second direction is the one that mattered: it is how the vocabulary
+fell eighteen types behind without anyone noticing, and it caught a type added the same day this was written.
+
+Types Core has that plugins deliberately do NOT get are declared with a reason in that test rather than left
+as an undeclared gap — `relationship`, `user` and `taxonomy_term` resolve against the site's own content and
+a plugin cannot know what they point at; `password` because a widget's config is stored in the layout tree,
+which is not a secret store; `json` because an arbitrary blob defeats the typed schema the seam exists to
+provide.
+
+**Structural fields.** `FieldRepeater` and `FieldGroup` take sub-fields in `WidgetField.Fields`, which is
+what makes a list-shaped widget expressible. Nesting is bounded at two levels **by Core**, not by asking
+plugins to behave: a limit a supplier is trusted to respect is not a limit.

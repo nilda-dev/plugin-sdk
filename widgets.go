@@ -3,6 +3,7 @@ package nilda
 import (
 	"context"
 	"encoding/json"
+	"sort"
 )
 
 // The two capabilities that let a plugin put something on a PUBLIC page: `widget` and `render.assets`.
@@ -38,16 +39,86 @@ const (
 	HookRenderAssets = "render.assets"
 )
 
-// Widget field types Core's page builder understands. A field with any other type is dropped.
+// Widget field types Core's page builder understands. A field with any other type is DROPPED — silently,
+// on Core's side — so this list is the contract rather than a suggestion.
+//
+// It used to be seven types where Core accepts twenty-plus, which made a whole class of widget impossible to
+// write as a plugin: no repeater, so no list-shaped widget at all; no media beyond a single image; no date,
+// no colour, no icon. A plugin author hitting that had no way to know whether the type was unsupported or
+// their spelling was wrong, because the failure is a dropped field with no message.
+//
+// KEEPING IT IN STEP IS ENFORCED, NOT REMEMBERED. Core depends on this module, so `FieldTypes()` below is
+// walked by a test in Core (`internal/pagebuilder`) that asserts every type here is one its field registry
+// actually accepts, and that nothing Core offers plugin authors is missing here. Adding a type to Core
+// without adding it here is a build failure there, not a discovery by a plugin author.
 const (
+	// Text-like.
 	FieldText     = "text"
+	FieldTextarea = "textarea"
 	FieldRichText = "richtext"
-	FieldNumber   = "number"
-	FieldBoolean  = "boolean"
 	FieldLink     = "link"
-	FieldImage    = "image"
-	FieldSelect   = "select"
+	FieldURL      = "url"
+	FieldEmail    = "email"
+	FieldPhone    = "phone"
+	FieldColor    = "color"
+	// FieldIcon is a name from Core's bundled icon catalogue, not an arbitrary string: the picker offers
+	// what the build ships, and an unknown name renders nothing.
+	FieldIcon = "icon"
+
+	// Numeric.
+	FieldNumber = "number"
+	FieldRange  = "range"
+	// FieldScale is a bounded whole number — a rating, an NPS score, a 1-to-5 answer.
+	FieldScale = "scale"
+
+	FieldBoolean = "boolean"
+
+	// Date and time.
+	FieldDate     = "date"
+	FieldTime     = "time"
+	FieldDateTime = "datetime"
+
+	// Choice. FieldSelect and FieldRadio take one value; the other two take several.
+	FieldSelect      = "select"
+	FieldRadio       = "radio"
+	FieldMultiSelect = "multiselect"
+	FieldCheckbox    = "checkbox"
+
+	// Media. Values are Core media IDs, resolved at render — a plugin never handles the file.
+	FieldImage   = "image"
+	FieldFile    = "file"
+	FieldGallery = "gallery"
+
+	// Structural. A repeater is what makes a LIST-shaped widget possible at all: rows of sub-fields the
+	// author adds, reorders and removes. Its sub-fields go in WidgetField.Fields.
+	FieldRepeater = "repeater"
+	FieldGroup    = "group"
+
+	// FieldLikert is a matrix: statements down the side, a shared answer scale across the top. Its rows go
+	// in WidgetField.Rows and its columns in Choices.
+	FieldLikert = "likert"
+
+	// Display-only. A message shows text in the inspector and collects nothing.
+	FieldMessage = "message"
 )
+
+// FieldTypes returns every type a plugin widget may declare, sorted.
+//
+// Exported so the contract can be CHECKED rather than described: Core walks this list in a test and fails
+// if it names a type Core would drop, or omits one Core accepts. That is what makes "the vocabulary is
+// shared" a fact about the build instead of a claim in a document.
+func FieldTypes() []string {
+	out := []string{
+		FieldText, FieldTextarea, FieldRichText, FieldLink, FieldURL, FieldEmail, FieldPhone,
+		FieldColor, FieldIcon, FieldNumber, FieldRange, FieldScale, FieldBoolean,
+		FieldDate, FieldTime, FieldDateTime,
+		FieldSelect, FieldRadio, FieldMultiSelect, FieldCheckbox,
+		FieldImage, FieldFile, FieldGallery,
+		FieldRepeater, FieldGroup, FieldLikert, FieldMessage,
+	}
+	sort.Strings(out)
+	return out
+}
 
 // Limits Core enforces on these two surfaces. Exceeding one is not an error a plugin is told about — the
 // excess is dropped and logged on Core's side — so they are here to be designed against rather than
@@ -63,11 +134,30 @@ const (
 
 // WidgetField is one typed control shown in the page builder for a widget's configuration.
 type WidgetField struct {
-	Key      string   `json:"key"`
-	Label    string   `json:"label"`
-	Type     string   `json:"type"` // one of the Field* constants
-	Required bool     `json:"required,omitempty"`
-	Choices  []string `json:"choices,omitempty"` // for FieldSelect
+	Key      string `json:"key"`
+	Label    string `json:"label"`
+	Type     string `json:"type"` // one of the Field* constants
+	Required bool   `json:"required,omitempty"`
+	// Choices are the options for FieldSelect, FieldRadio, FieldMultiSelect and FieldCheckbox. A choice
+	// field with none is dropped: an empty dropdown is a control nobody can answer.
+	Choices []string `json:"choices,omitempty"`
+	// Fields are the sub-fields of a FieldRepeater or FieldGroup — the rows an author adds and reorders.
+	// This is what makes a list-shaped widget expressible at all, and it is why the type is recursive.
+	//
+	// ONE LEVEL. Core validates nested structures, but a repeater inside a repeater inside a repeater is an
+	// inspector nobody can use; the limit is stated here so it is designed against rather than discovered.
+	Fields []WidgetField `json:"fields,omitempty"`
+	// Min, Max and Step bound FieldNumber, FieldRange and FieldScale. Pointers because unset and zero are
+	// different answers: a scale starting at 0 is a real scale, and defaulting an unset Min to 0 would
+	// silently move every 1-to-5 rating down a notch.
+	Min, Max, Step *float64 `json:"min,omitempty" jsonschema:"-"`
+	// Rows are the statements of a FieldLikert — the questions down the side, answered with Choices across
+	// the top. Separate from Choices because they are different axes, and a single list cannot be both.
+	Rows []string `json:"rows,omitempty"`
+	// Placeholder and Help are inspector affordances. Help is where a plugin explains a field it could not
+	// name clearly enough — better there than in a README nobody reads while configuring a widget.
+	Placeholder string `json:"placeholder,omitempty"`
+	Help        string `json:"help,omitempty"`
 }
 
 // WidgetDef is one widget as the plugin offers it.
