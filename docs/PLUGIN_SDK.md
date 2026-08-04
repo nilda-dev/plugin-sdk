@@ -508,6 +508,28 @@ func (s *Shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, er
 Core reverse-proxies `/shop/*` to it, so a storefront serves itself without a round trip through Core per
 request.
 
+### Saying something (`Log`)
+
+No capability, no setup. Write `slog`, the standard library's logger:
+
+```go
+nilda.Log().Warn("upstream rejected the upload", "status", 502, "url", u)
+// or, from a handler that already holds core:
+core.Log().Info("indexed a page", "took_ms", 12)
+```
+
+The line arrives in **Core's** log on the site owner's server, at the level you chose, with your fields
+intact, named after your plugin — filtered by the same level the rest of the site is. That is the whole
+point: your plugin runs on machines you will never have access to, so the site owner reading their log is
+how you find out what went wrong.
+
+Do not use `fmt.Println`. **Stdout carries the go-plugin handshake** — writing to it breaks the connection.
+Anything you print to stderr without going through `Log()` still reaches Core, but as an opaque line at
+debug, with no level and no fields.
+
+Nothing is filtered inside your process, deliberately: Core applies the site's configured level. If both
+ends filtered, an owner turning the level up to debug your plugin would still see nothing.
+
 ---
 
 ## 6. What Core guarantees, and what it does not

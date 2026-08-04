@@ -156,15 +156,29 @@ them: `Core.DatastoreDSN` hands the plugin its scoped least-privilege DSN (own s
 plugin opens its own connection with whatever driver it likes; and `route` is fully equipped via
 `StartHTTP`, which binds an ephemeral localhost port that only Core's reverse proxy can reach.
 
-### `log` — a plugin has no way to say anything
+### `log` — a plugin has no way to say anything — **BUILT 2026-08-05**
 
 **Zero** logging symbols in the SDK, and no field for it in the contract. A plugin runs in a separate
-process; `fmt.Println` from there lands wherever the host happened to leave stdout pointing. Core
-already uses `hashicorp/go-hclog`, which is designed for exactly this and already on the wire — the SDK
-simply does not hand it over.
+process; `fmt.Println` from there lands wherever the host happened to leave stdout pointing — and stdout
+is not free to write to at all, because it carries the go-plugin handshake.
 
-The consequence is not aesthetic. When a plugin misbehaves on somebody's production site, there is no
+The consequence was not aesthetic. When a plugin misbehaved on somebody's production site, there was no
 supported way for its author to have left a trace, and no way for the site owner to give them one.
+
+**Built:** `nilda.Log()` / `core.Log()` return an `*slog.Logger` (`plugin-sdk/log.go`). The author writes
+`slog`, which is the standard library's logger and what Core itself uses; hclog is the wire format between
+the two processes and stays an implementation detail, so a plugin does not take hclog into its dependency
+graph for one log line. Usable before `Init` and on a nil `Core` — a plugin failing during startup is
+exactly when its author most needs to have written something down.
+
+**And it uncovered a Core defect that made the whole path moot.** Proving it end to end showed the call
+succeed, the hook run, and the line never arrive. go-plugin has *two* stderr paths: the process pipe,
+which Core read, and a gRPC **stdio stream** carrying everything the plugin writes after startup — which
+is delivered to `ClientConfig.SyncStderr` and **defaults to `io.Discard`**. Core had never set it, so every
+line any plugin had ever written was silently thrown away. Fixed in `core/internal/plugin/pluginlog.go`:
+the lines are parsed and re-emitted through Core's own logger, attributed to the plugin by a key **Core**
+sets (a line claiming another plugin's name is filed under the one that wrote it), and non-JSON output is
+kept at debug rather than dropped — printing crudely is how most people debug.
 
 ### `settings` — nowhere for the site owner to put an API key
 
