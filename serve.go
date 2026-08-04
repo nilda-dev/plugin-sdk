@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
@@ -99,6 +100,7 @@ func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (*co
 		NildaVersion: req.NildaVersion,
 		Granted:      req.GrantedCapabilities,
 		DatastoreDSN: req.DatastoreDsn,
+		logger:       newLogger(os.Stderr, req.PluginKey),
 		KVNamespace:  req.KvNamespace,
 		host:         contract.NewHostServiceClient(conn),
 		api:          newAPI(req.ApiBaseUrl, req.ApiToken, req.ApiScopes),

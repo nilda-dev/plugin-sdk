@@ -3,6 +3,7 @@ package nilda
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"slices"
 	"time"
 
@@ -18,6 +19,10 @@ type Core struct {
 	Granted      []string // the granted capability keys
 	DatastoreDSN string   // scoped least-privilege DSN (own schema only); empty unless `datastore`
 	KVNamespace  string   // informational; KV ops go through the host
+
+	// logger is this plugin's own, named after its key so a line in the operator's log says which plugin
+	// wrote it. Built at Init; Log() falls back to the unnamed process logger before that. See log.go.
+	logger *slog.Logger
 
 	host contract.HostServiceClient
 	// api is how the plugin READS AND WRITES real data — Core's own /api/v1, with a scoped token
