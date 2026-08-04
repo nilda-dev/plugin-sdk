@@ -145,6 +145,59 @@ and MinIO). Neither blocks anything else. They become worth doing when somebody 
 
 ---
 
+## 3.6 Three SDK gaps that are NOT capabilities
+
+Audited 2026-08-05 across the whole SDK (2,428 lines), the gRPC contract (`contract/plugin.proto`) and
+the three first-party plugins. These are not missing capabilities — they are missing *equipment* for
+capabilities that already exist, so they make things already promised hard to use.
+
+**Two things I expected to be missing turned out to be there**, and are recorded so nobody re-proposes
+them: `Core.DatastoreDSN` hands the plugin its scoped least-privilege DSN (own schema only), so a
+plugin opens its own connection with whatever driver it likes; and `route` is fully equipped via
+`StartHTTP`, which binds an ephemeral localhost port that only Core's reverse proxy can reach.
+
+### `log` — a plugin has no way to say anything
+
+**Zero** logging symbols in the SDK, and no field for it in the contract. A plugin runs in a separate
+process; `fmt.Println` from there lands wherever the host happened to leave stdout pointing. Core
+already uses `hashicorp/go-hclog`, which is designed for exactly this and already on the wire — the SDK
+simply does not hand it over.
+
+The consequence is not aesthetic. When a plugin misbehaves on somebody's production site, there is no
+supported way for its author to have left a trace, and no way for the site owner to give them one.
+
+### `settings` — nowhere for the site owner to put an API key
+
+The manifest has no settings schema and `InitRequest` has no config field. `WidgetDef.Config` exists
+but is per-widget instance, not per-plugin.
+
+So the moment a plugin talks to a third party — which is most of the integrations the marketplace
+exists for; Sentry, Algolia, Mux, a payment gateway — there is no answer to "where does the owner type
+the key?". The plugin's only options today are an environment variable the owner cannot set from the
+admin, or its own hand-rolled settings screen, which it also cannot have (§3.2).
+
+Shape it as: the manifest declares a schema (the same `ObjectSchema` the SDK already builds for widget
+config and ability inputs), Core renders it, stores it, and passes the values on `InitRequest` —
+**with secret-typed fields encrypted at rest and masked on read**, like every other secret setting
+(SPEC_04). A plugin config that prints an API key back to the screen is a credential leak with a UI.
+
+### `migrate` — `datastore` creates tables and cannot change them
+
+A plugin declares tables and Core provisions the schema. Version 2 wants one more column, and there is
+no mechanism at all. Its author's only route is to run DDL by hand at init, which is the pattern that
+gives two instances a race and a half-migrated schema.
+
+Core has a migration runner (`internal/db`) and the plugin has its own isolated schema, so the pieces
+exist. What is missing is the contract: ordered, versioned, applied once under a lock, recorded per
+plugin — the same properties Core's own migrations have, because a plugin's data deserves them for the
+same reasons.
+
+### Priority: these come FIRST
+
+Ahead of `field`, `admin_page` and `auth_provider`. Those three add new things a plugin can do; these
+three make things ALREADY PROMISED usable. `commerce` declares `datastore` today and has no supported
+way to evolve its schema, and no plugin can be configured by the person who installed it.
+
 ## 4. Definition of done
 
 * Every capability in the table either exists or is recorded here with the reason it does not.
