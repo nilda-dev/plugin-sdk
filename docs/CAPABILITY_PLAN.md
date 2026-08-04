@@ -198,6 +198,33 @@ Ahead of `field`, `admin_page` and `auth_provider`. Those three add new things a
 three make things ALREADY PROMISED usable. `commerce` declares `datastore` today and has no supported
 way to evolve its schema, and no plugin can be configured by the person who installed it.
 
+## 3.7 The SDK repository has to be public before the marketplace opens
+
+Not a capability and not code — a release step, recorded because it is invisible from inside the team and
+total from outside it.
+
+`plugin-sdk` is private. On a machine with SSH access to the group, the whole loop works and was verified
+end to end on 2026-08-05 from a throwaway module with `GOWORK=off` (so the workspace could not resolve the
+local copy and hide a broken pin):
+
+```
+nilda plugin new my-seo   →  5 files
+go mod tidy               →  downloads gitlab.com/nilda-sdk/plugin-sdk v0.3.0
+go build ./...            →  ok
+go test ./...             →  ok  my_seo  0.520s
+```
+
+A developer outside the group gets `unknown revision` on the first command, because `go get` cannot read a
+private repository. There is no error message that explains this and no way for them to work around it.
+
+Nothing to do while building — the owner's call, 2026-08-05 — but it gates the marketplace: on the day
+someone outside the team is invited to write a plugin, this has to already be true.
+
+*(Same day, same audit: the `v0.3.0` tag existed only locally and pointed three commits behind — before
+`abilities`, before the 7→26 field vocabulary, before the signed-package work. Moving it was safe precisely
+because it had never been pushed, so no proxy had ever cached it. `ProtocolVersion` stayed at 2: the changes
+were additive.)*
+
 ## 4. Definition of done
 
 * Every capability in the table either exists or is recorded here with the reason it does not.
