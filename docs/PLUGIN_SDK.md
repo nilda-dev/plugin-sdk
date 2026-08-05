@@ -596,6 +596,41 @@ func (p *Shop) HandleHook(ctx context.Context, hook string, payload []byte) ([]b
 Whatever you return with a `message` is what the owner reads. A button that gives no sign it did anything is
 worse than no button.
 
+### Your strings in your users' languages
+
+Core translates its own chrome — the sidebar, the buttons, the dates, the empty states — and it cannot
+translate yours. Ship them yourself, keyed by the English you declared:
+
+```json
+{
+  "translations": {
+    "fa": {
+      "Orders": "سفارش‌ها",
+      "Order": "شماره",
+      "Customer": "مشتری",
+      "Refund": "بازپرداخت",
+      "The money goes back to the customer.": "پول به مشتری برمی‌گردد."
+    },
+    "de": { "Orders": "Bestellungen", "Refund": "Erstatten" }
+  }
+}
+```
+
+Keyed by the SOURCE TEXT, which is how the admin's own catalogue works: a string you did not translate falls
+back to what you wrote — never to a blank, never to a key — and one entry covers that string everywhere it
+appears (a page label, a column heading, a button, a field's help).
+
+It applies to every string in your section: the plugin's name in the sidebar, page labels and help, field
+labels, placeholders, help and choice labels, column headings, action labels and their confirmations.
+
+What it never touches is a KEY. Your action still arrives as `refund` whatever language the owner reads it
+in, the stored value of a choice is still the declared one, and your section's place in the sidebar is keyed
+by your plugin key — so a translated name cannot scatter somebody's arrangement.
+
+Bounded, because a manifest is downloaded, stored and read on every admin page load: 12 languages, 300
+strings each, 400 characters a string. Past any of those the package is refused at install rather than
+quietly truncated.
+
 **You ship no JavaScript into the admin.** You declare; Core draws the controls. Every other CMS extends its
 admin by injecting code — a WordPress plugin enqueues a script, a Strapi plugin ships React — and pays for it
 with a panel a bad plugin can break, in a page that holds an administrator's session. A Nilda plugin is a

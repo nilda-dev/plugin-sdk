@@ -133,17 +133,14 @@ Four decisions worth keeping:
   to the PLUGIN in plaintext at Init. It cannot have a default — that would ship one shared key to every site
   that installs the plugin — and saving restarts the plugin, so no running process holds a replaced key.
 
-**Known limitation, found by opening a plugin's page in Persian: a plugin's own strings are not
-translatable.** Core's chrome around them is (the sidebar, the buttons, the dates, the empty states), but
-"Orders", "Every order placed on this site", the column headings and the action labels come from the
-manifest and render in whatever language the author wrote them. On a Persian site that is one English
-table inside a Persian panel.
-
-It is the author's strings, so Core cannot translate them — but Core could let the author SHIP
-translations, the same way a theme does: a `labels` map per locale in the manifest, resolved against the
-site's active locale with the declared string as the fallback. Not built, and not a defect in
-`admin_page`; recorded here because it is the first thing an author outside the anglosphere will hit, and
-because the marketplace is aimed at exactly those authors.
+**A plugin's own strings ARE translatable** (built 2026-08-05, the same day the gap was found by opening a
+plugin's page with the panel in Persian). The manifest carries `translations`: locale → the declared English
+text → the translation, keyed by source exactly as the admin's own catalogue is, so an untranslated string
+falls back to what the author wrote rather than to a blank or a key. Resolved in the BROWSER, because the
+authority on which language the admin is in is the admin — it is a per-user preference the server never sees
+and it changes without a reload. A key is never translated: the action on the wire, the stored value of a
+choice and the sidebar id all stay the declared ones, so a translation cannot change what a button does or
+where a section sits.
 
 Still to build on this foundation: a `list` page kind, so a shop can show Products and Orders rather than
 only Settings. The page-kind field exists and an unknown kind is dropped rather than rendered blank, so it
