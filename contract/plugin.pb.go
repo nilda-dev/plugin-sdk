@@ -77,9 +77,20 @@ type InitRequest struct {
 	//
 	// Delivered at Init and never updated in place: Core RESTARTS the plugin when its settings are saved, so
 	// a running plugin can never be holding a credential the owner has already replaced.
-	SettingsJson  []byte `protobuf:"bytes,10,opt,name=settings_json,json=settingsJson,proto3" json:"settings_json,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	SettingsJson []byte `protobuf:"bytes,10,opt,name=settings_json,json=settingsJson,proto3" json:"settings_json,omitempty"`
+	// The version this plugin last COMPLETED an Init at, or empty on a fresh install.
+	//
+	// Adding a column or a table already happens through the manifest declaration — Core applies it on
+	// update, additively and idempotently. What this is for is the DATA half: filling a new column from an
+	// old one, normalising a stored value, re-keying a row. Without it a plugin could not tell a first run
+	// from an upgrade, so a one-time step had to run on every launch or the author had to invent a private
+	// version table.
+	//
+	// Recorded by Core on COMPLETION, so a plugin the supervisor restarts after a crash is told it is running
+	// the same version it already initialised at, and the one-time step does not run twice.
+	PreviousVersion string `protobuf:"bytes,11,opt,name=previous_version,json=previousVersion,proto3" json:"previous_version,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *InitRequest) Reset() {
@@ -180,6 +191,13 @@ func (x *InitRequest) GetSettingsJson() []byte {
 		return x.SettingsJson
 	}
 	return nil
+}
+
+func (x *InitRequest) GetPreviousVersion() string {
+	if x != nil {
+		return x.PreviousVersion
+	}
+	return ""
 }
 
 type InitResponse struct {
@@ -1219,7 +1237,7 @@ var File_contract_plugin_proto protoreflect.FileDescriptor
 
 const file_contract_plugin_proto_rawDesc = "" +
 	"\n" +
-	"\x15contract/plugin.proto\x12\x0fnilda.plugin.v2\"\xf5\x02\n" +
+	"\x15contract/plugin.proto\x12\x0fnilda.plugin.v2\"\xa0\x03\n" +
 	"\vInitRequest\x12\x1d\n" +
 	"\n" +
 	"plugin_key\x18\x01 \x01(\tR\tpluginKey\x12#\n" +
@@ -1234,7 +1252,8 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"\n" +
 	"api_scopes\x18\t \x03(\tR\tapiScopes\x12#\n" +
 	"\rsettings_json\x18\n" +
-	" \x01(\fR\fsettingsJson\"\xcc\x01\n" +
+	" \x01(\fR\fsettingsJson\x12)\n" +
+	"\x10previous_version\x18\v \x01(\tR\x0fpreviousVersion\"\xcc\x01\n" +
 	"\fInitResponse\x12\x1d\n" +
 	"\n" +
 	"route_addr\x18\x01 \x01(\tR\trouteAddr\x12\x14\n" +

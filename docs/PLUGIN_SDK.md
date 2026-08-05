@@ -596,6 +596,38 @@ func (p *Shop) HandleHook(ctx context.Context, hook string, payload []byte) ([]b
 Whatever you return with a `message` is what the owner reads. A button that gives no sign it did anything is
 worse than no button.
 
+### Changing your storage between versions
+
+Your schema evolves without you. Declare the new column in `manifest.json` and it arrives on update —
+additively and idempotently, with an existing row picking up the declared default. Same for a new table and
+a new index. You write no DDL, and you could not if you wanted to: Core owns the schema, which is what stops
+a plugin from dropping the site owner's orders.
+
+What Core cannot decide for you is the DATA. That is what these are for:
+
+```go
+func (p *Shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, error) {
+	if core.IsFirstRun() {
+		p.seedDefaultCategories(ctx) // first ever start — not on an upgrade, or it overwrites their edits
+	}
+	if core.UpgradedFrom("1.0.0", "1.0.1") {
+		p.fillPriceNumFromPrice(ctx) // once, against the shape those versions actually had
+	}
+	return nilda.InitResult{}, nil
+}
+```
+
+`UpgradedFrom` is exact-match on purpose rather than a range: a data step is written against a specific
+shape, and "anything before 1.1" quietly includes versions that never existed and shapes you never shipped.
+
+**It runs once.** Core records your version only after your Init RETURNS, so a plugin the supervisor restarts
+after a crash is told it is running the version it already initialised at. If your Init fails, the record is
+not written and the step runs again next time — which is the direction you want, because half-finished is the
+one state you cannot detect from inside.
+
+**What you cannot do:** drop a column, retype one, drop a table. Declare a new table, move the rows with the
+DML you already have, and stop writing to the old one.
+
 ### Your strings in your users' languages
 
 Core translates its own chrome — the sidebar, the buttons, the dates, the empty states — and it cannot

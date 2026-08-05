@@ -238,16 +238,38 @@ Two things the design refuses on purpose: a plugin cannot choose where its secti
 goes below Core's rows; a person who uses it daily drags it up themselves), and a secret cannot have a
 default (that would ship one shared credential to every site that installs the plugin).
 
-### `migrate` — `datastore` creates tables and cannot change them
+### `migrate` — **RESOLVED 2026-08-05, and the gap was smaller than this entry claimed**
 
-A plugin declares tables and Core provisions the schema. Version 2 wants one more column, and there is
-no mechanism at all. Its author's only route is to run DDL by hand at init, which is the pattern that
-gives two instances a race and a half-migrated schema.
+What this entry said: "Version 2 wants one more column, and there is no mechanism at all." That was written
+from reading the SDK, and it is **wrong**. Checked against a real Postgres before building anything
+(`core/internal/plugin/schemaevolution_test.go`):
 
-Core has a migration runner (`internal/db`) and the plugin has its own isolated schema, so the pieces
-exist. What is missing is the contract: ordered, versioned, applied once under a lock, recorded per
-plugin — the same properties Core's own migrations have, because a plugin's data deserves them for the
-same reasons.
+* a new COLUMN arrives on update
+* a new TABLE arrives on update
+* a new INDEX arrives on update
+* an existing row picks up the declared DEFAULT rather than a NULL nobody asked for
+* re-running the same declaration three times is a no-op, so a relaunch, a re-enable and a double-clicked
+  button are all safe
+
+Core's `TableDDL` is additive and idempotent, and an update relaunches the plugin, which re-provisions. So
+the schema half was already built; nobody needed a migration runner, and building one would have been a
+second mechanism beside a working one.
+
+**What genuinely could not be done, and now can: the DATA half.** Filling a new column from an old one,
+normalising a stored value, re-keying a row — decisions only the plugin's code can make. A plugin was never
+told it had just been upgraded, so an author's choice was to re-run the work on every launch or to invent a
+private version table, and two hundred authors inventing that is two hundred chances to get it wrong.
+
+`InitRequest` now carries `previous_version`, read through `core.IsFirstRun()`, `core.UpgradedFrom(…)` and
+`core.IsUpgrade(…)`. Core records it **after Init returns**, which is the point: a plugin the supervisor
+restarts after a crash is told it is running the version it already initialised at, so a one-time step does
+not run twice. An Init that FAILS leaves the record alone and the step is retried — the right direction,
+because half-finished is the one state a plugin cannot detect from inside.
+
+**What remains impossible, deliberately.** Dropping a column, retyping one, dropping a table. No destructive
+DDL exists anywhere in the plugin path, which is what makes "could this plugin destroy the site owner's
+orders" answerable without reading any SQL. An author needing a different shape declares a new table and
+moves the rows with the DML they already have — and now knows exactly when to do it.
 
 ### Priority: these come FIRST
 

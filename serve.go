@@ -96,15 +96,16 @@ func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (*co
 	}
 	s.conn = conn
 	core := &Core{
-		PluginKey:    req.PluginKey,
-		NildaVersion: req.NildaVersion,
-		Granted:      req.GrantedCapabilities,
-		DatastoreDSN: req.DatastoreDsn,
-		logger:       newLogger(os.Stderr, req.PluginKey),
-		settings:     decodeSettings(req.GetSettingsJson(), req.PluginKey),
-		KVNamespace:  req.KvNamespace,
-		host:         contract.NewHostServiceClient(conn),
-		api:          newAPI(req.ApiBaseUrl, req.ApiToken, req.ApiScopes),
+		PluginKey:       req.PluginKey,
+		NildaVersion:    req.NildaVersion,
+		Granted:         req.GrantedCapabilities,
+		DatastoreDSN:    req.DatastoreDsn,
+		logger:          newLogger(os.Stderr, req.PluginKey),
+		settings:        decodeSettings(req.GetSettingsJson(), req.PluginKey),
+		PreviousVersion: req.GetPreviousVersion(),
+		KVNamespace:     req.KvNamespace,
+		host:            contract.NewHostServiceClient(conn),
+		api:             newAPI(req.ApiBaseUrl, req.ApiToken, req.ApiScopes),
 	}
 	res, err := s.handler.Init(ctx, core)
 	if err != nil {

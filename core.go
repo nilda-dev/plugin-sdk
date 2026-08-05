@@ -20,6 +20,10 @@ type Core struct {
 	DatastoreDSN string   // scoped least-privilege DSN (own schema only); empty unless `datastore`
 	KVNamespace  string   // informational; KV ops go through the host
 
+	// PreviousVersion is the version this plugin last COMPLETED an Init at, or "" on a fresh install.
+	// Read it with IsFirstRun / UpgradedFrom rather than comparing strings by hand.
+	PreviousVersion string
+
 	// logger is this plugin's own, named after its key so a line in the operator's log says which plugin
 	// wrote it. Built at Init; Log() falls back to the unnamed process logger before that. See log.go.
 	logger *slog.Logger
