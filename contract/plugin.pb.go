@@ -62,9 +62,22 @@ type InitRequest struct {
 	// The token is scoped from the granted capabilities and rotated on every launch, so the only valid
 	// credential at any moment is the one held by the process Core just started. Empty when the plugin
 	// declared nothing that implies API access.
-	ApiBaseUrl    string   `protobuf:"bytes,7,opt,name=api_base_url,json=apiBaseUrl,proto3" json:"api_base_url,omitempty"`
-	ApiToken      string   `protobuf:"bytes,8,opt,name=api_token,json=apiToken,proto3" json:"api_token,omitempty"`
-	ApiScopes     []string `protobuf:"bytes,9,rep,name=api_scopes,json=apiScopes,proto3" json:"api_scopes,omitempty"` // what the token may attempt, so a plugin can fail fast on its own
+	ApiBaseUrl string   `protobuf:"bytes,7,opt,name=api_base_url,json=apiBaseUrl,proto3" json:"api_base_url,omitempty"`
+	ApiToken   string   `protobuf:"bytes,8,opt,name=api_token,json=apiToken,proto3" json:"api_token,omitempty"`
+	ApiScopes  []string `protobuf:"bytes,9,rep,name=api_scopes,json=apiScopes,proto3" json:"api_scopes,omitempty"` // what the token may attempt, so a plugin can fail fast on its own
+	// The values the site owner typed on this plugin's declared admin pages, as a JSON object.
+	//
+	// JSON rather than map<string,string> because a settings field has a TYPE — a boolean that arrives as
+	// "true" and a number that arrives as "5" put the parsing back on every plugin author, and they would
+	// each get it slightly wrong.
+	//
+	// SECRETS ARE IN HERE IN PLAINTEXT, and that is the whole point: the process that has to call the payment
+	// gateway is the one that needs the key. It never travels to the browser — the admin screen is told only
+	// that a value is configured. The channel is AutoMTLS between Core and a child it just launched.
+	//
+	// Delivered at Init and never updated in place: Core RESTARTS the plugin when its settings are saved, so
+	// a running plugin can never be holding a credential the owner has already replaced.
+	SettingsJson  []byte `protobuf:"bytes,10,opt,name=settings_json,json=settingsJson,proto3" json:"settings_json,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -158,6 +171,13 @@ func (x *InitRequest) GetApiToken() string {
 func (x *InitRequest) GetApiScopes() []string {
 	if x != nil {
 		return x.ApiScopes
+	}
+	return nil
+}
+
+func (x *InitRequest) GetSettingsJson() []byte {
+	if x != nil {
+		return x.SettingsJson
 	}
 	return nil
 }
@@ -1199,7 +1219,7 @@ var File_contract_plugin_proto protoreflect.FileDescriptor
 
 const file_contract_plugin_proto_rawDesc = "" +
 	"\n" +
-	"\x15contract/plugin.proto\x12\x0fnilda.plugin.v2\"\xd0\x02\n" +
+	"\x15contract/plugin.proto\x12\x0fnilda.plugin.v2\"\xf5\x02\n" +
 	"\vInitRequest\x12\x1d\n" +
 	"\n" +
 	"plugin_key\x18\x01 \x01(\tR\tpluginKey\x12#\n" +
@@ -1212,7 +1232,9 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"apiBaseUrl\x12\x1b\n" +
 	"\tapi_token\x18\b \x01(\tR\bapiToken\x12\x1d\n" +
 	"\n" +
-	"api_scopes\x18\t \x03(\tR\tapiScopes\"\xcc\x01\n" +
+	"api_scopes\x18\t \x03(\tR\tapiScopes\x12#\n" +
+	"\rsettings_json\x18\n" +
+	" \x01(\fR\fsettingsJson\"\xcc\x01\n" +
 	"\fInitResponse\x12\x1d\n" +
 	"\n" +
 	"route_addr\x18\x01 \x01(\tR\trouteAddr\x12\x14\n" +

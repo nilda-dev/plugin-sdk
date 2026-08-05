@@ -68,6 +68,20 @@ message InitRequest {
   string api_base_url = 7;
   string api_token = 8;
   repeated string api_scopes = 9; // what the token may attempt, so a plugin can fail fast on its own
+
+  // The values the site owner typed on this plugin's declared admin pages, as a JSON object.
+  //
+  // JSON rather than map<string,string> because a settings field has a TYPE — a boolean that arrives as
+  // "true" and a number that arrives as "5" put the parsing back on every plugin author, and they would
+  // each get it slightly wrong.
+  //
+  // SECRETS ARE IN HERE IN PLAINTEXT, and that is the whole point: the process that has to call the payment
+  // gateway is the one that needs the key. It never travels to the browser — the admin screen is told only
+  // that a value is configured. The channel is AutoMTLS between Core and a child it just launched.
+  //
+  // Delivered at Init and never updated in place: Core RESTARTS the plugin when its settings are saved, so
+  // a running plugin can never be holding a credential the owner has already replaced.
+  bytes settings_json = 10;
 }
 
 message InitResponse {

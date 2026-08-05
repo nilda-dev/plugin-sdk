@@ -94,7 +94,7 @@ written down and guarded.
 **Watch:** validation must run in Core's save path, not only in the admin. A field type whose
 validation lives in the browser is a field type that stores anything a script posts.
 
-### 3.2 `admin_page` — a plugin contributes an admin screen — **32 plugins**
+### 3.2 `admin_page` — a plugin contributes an admin screen — **32 plugins** — **BUILT 2026-08-05**
 
 `admin.pages` existed and was **deleted on 2026-07-30 because it was a name with nothing behind it** —
 the capability could be declared and approved, and no code anywhere dispatched it. The deletion was
@@ -110,6 +110,32 @@ origin would hand every plugin author a session-stealing primitive.
 
 **Watch:** a capability is not done until something dispatches it. The liveness test added on
 2026-07-30 (`capability must dispatch`) exists precisely so this cannot regress into a name again.
+
+**Built, and it came back the way that note demanded — with its dispatch, in one change.** The manifest
+declares `admin_pages`; Core validates them at install, registers each field with its own settings store and
+each plugin with a `plugin.<key>.configure` permission, serves the sections over `/plugin-admin`, and the
+admin renders one screen for all of them (`web/admin/src/screens/PluginPage.tsx`). The plugin ships nothing
+into the browser — it declares, Core draws — which is the same constraint `widget` lives under, one step
+stricter: a widget returns sanitized HTML, an admin page returns no markup at all.
+
+Four decisions worth keeping:
+
+* **The section is named after the PLUGIN**, not a label it picks. That is what stops two plugins both
+  calling their sidebar row "Settings", and it means the owner can always answer "where did this come from?"
+  by reading the row.
+* **A plugin cannot choose where it sits.** Its section goes below Core's own rows, above Account, ordered by
+  name. WordPress lets every plugin pass a menu position; they collide, and the owner ends up with a rail
+  nobody arranged. Someone who uses a plugin daily drags it up themselves — the per-user arrangement built
+  the same day (`web/admin/src/layout/navlayout.ts`) is what makes that acceptable rather than a limitation.
+* **A per-plugin permission**, `plugin.<key>.configure`. Gating on `plugin.manage` would mean the only person
+  who can set the shop's payment key is the person who can uninstall Nilda's plugins.
+* **Credentials are Core's.** A `secret` field is encrypted at rest, never sent to the browser, and delivered
+  to the PLUGIN in plaintext at Init. It cannot have a default — that would ship one shared key to every site
+  that installs the plugin — and saving restarts the plugin, so no running process holds a replaced key.
+
+Still to build on this foundation: a `list` page kind, so a shop can show Products and Orders rather than
+only Settings. The page-kind field exists and an unknown kind is dropped rather than rendered blank, so it
+slots in without a redesign.
 
 ### 3.3 `auth_provider` — a plugin contributes a way to log in — **15 plugins**
 
@@ -180,20 +206,28 @@ the lines are parsed and re-emitted through Core's own logger, attributed to the
 sets (a line claiming another plugin's name is filed under the one that wrote it), and non-JSON output is
 kept at debug rather than dropped — printing crudely is how most people debug.
 
-### `settings` — nowhere for the site owner to put an API key
+### `settings` — nowhere for the site owner to put an API key — **BUILT 2026-08-05, as part of `admin_page`**
 
-The manifest has no settings schema and `InitRequest` has no config field. `WidgetDef.Config` exists
-but is per-widget instance, not per-plugin.
+The manifest had no settings schema and `InitRequest` no config field, so the moment a plugin talked to a
+third party — Sentry, Algolia, Mux, a payment gateway — there was no answer to "where does the owner type
+the key?".
 
-So the moment a plugin talks to a third party — which is most of the integrations the marketplace
-exists for; Sentry, Algolia, Mux, a payment gateway — there is no answer to "where does the owner type
-the key?". The plugin's only options today are an environment variable the owner cannot set from the
-admin, or its own hand-rolled settings screen, which it also cannot have (§3.2).
+**It turned out not to be a separate gap.** A settings form with no section to live in is a screen with no
+door: it would have had to be jammed into Core's own Settings screen, where an owner cannot tell which rows
+came from something they installed and a plugin's credentials sit among Nilda's. Settings is one PAGE inside
+§3.2's `admin_page`, and both shipped together.
 
-Shape it as: the manifest declares a schema (the same `ObjectSchema` the SDK already builds for widget
-config and ability inputs), Core renders it, stores it, and passes the values on `InitRequest` —
-**with secret-typed fields encrypted at rest and masked on read**, like every other secret setting
-(SPEC_04). A plugin config that prints an API key back to the screen is a credential leak with a UI.
+**Built:** a plugin declares `admin_pages` in its manifest (`AdminPageSpec`); Core validates it at install,
+draws it with the panel's own controls, and stores the values in **Core's own settings store** —
+`plugin.<key>.<page>.<field>`, group `plugin:<key>`. Nothing new was written for the storage, and that is the
+point: encryption at rest, masking on read, exclusion from exports and the audit event are all SPEC_04's,
+already reviewed. A `secret` field never reaches the browser (the screen is told only that a value is
+configured) and reaches the PLUGIN in plaintext at Init, which is the correct direction. Saving restarts the
+plugin, so a running process can never hold a credential the owner has replaced.
+
+Two things the design refuses on purpose: a plugin cannot choose where its section sits in the sidebar (it
+goes below Core's rows; a person who uses it daily drags it up themselves), and a secret cannot have a
+default (that would ship one shared credential to every site that installs the plugin).
 
 ### `migrate` — `datastore` creates tables and cannot change them
 

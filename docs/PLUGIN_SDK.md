@@ -508,6 +508,63 @@ func (s *Shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, er
 Core reverse-proxies `/shop/*` to it, so a storefront serves itself without a round trip through Core per
 request.
 
+### Your own section of the admin (`admin_page`)
+
+Declare it in `manifest.json`:
+
+```json
+{
+  "capabilities": ["admin_page"],
+  "admin_pages": [{
+    "key": "settings",
+    "label": "Settings",
+    "kind": "settings",
+    "help": "Connect your Kavenegar account so the site can send SMS.",
+    "fields": [
+      { "key": "api_key",  "label": "API key",  "type": "text", "secret": true, "required": true,
+        "help": "Find this under Account \u2192 API in your Kavenegar panel." },
+      { "key": "sender",   "label": "Sender number", "type": "text" },
+      { "key": "per_page", "label": "Messages per batch", "type": "number", "default": 50 }
+    ]
+  }]
+}
+```
+
+The site owner gets a row in the sidebar named after your plugin, with `Settings` inside it. You read what
+they typed:
+
+```go
+func (p *SMS) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, error) {
+	if !core.HasSetting("api_key") {
+		core.Log().Info("no Kavenegar key configured yet; not sending anything")
+		return nilda.InitResult{}, nil
+	}
+	p.client = kavenegar.New(core.Setting("api_key"), core.Setting("sender"))
+	...
+}
+```
+
+**You ship no JavaScript into the admin.** You declare; Core draws the controls. Every other CMS extends its
+admin by injecting code — a WordPress plugin enqueues a script, a Strapi plugin ships React — and pays for it
+with a panel a bad plugin can break, in a page that holds an administrator's session. A Nilda plugin is a
+separate process behind gRPC with no route to the browser at all, and the admin's CSP refuses third-party
+script. The trade is honest: you can build what `SettingFieldTypes()` expresses and nothing else. If you need
+a canvas, serve it from your own `route` and link to it.
+
+**A `secret` field is Core's to keep.** It is encrypted at rest, never sent to the browser, never exported,
+never logged. The screen learns only that a value is configured. YOU get the plaintext at Init, which is the
+right way round — the process calling the gateway needs the key, the browser never does. Do not store
+credentials in your own tables: encryption is not your job, and if two hundred authors each solve it, some
+number of them store a live payment key in plain text on somebody else's site.
+
+**Settings arrive at Init and never change under you.** Core RESTARTS your plugin when they are saved, so you
+can never be holding a credential the owner has already replaced. There is nothing to watch and no reload
+callback to write.
+
+**Not configured is the first state every integration is in.** `HasSetting` before you do work that cannot
+succeed without a value — a plugin that fails to start until it is configured cannot be configured, because
+its section is only served while it is active.
+
 ### Saying something (`Log`)
 
 No capability, no setup. Write `slog`, the standard library's logger:

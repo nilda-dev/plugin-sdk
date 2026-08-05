@@ -25,6 +25,11 @@ type Core struct {
 	logger *slog.Logger
 
 	host contract.HostServiceClient
+	// settings are the values the site owner typed on this plugin's declared admin pages (adminpage.go).
+	// Read them with Setting/SettingBool/SettingNumber/HasSetting — never by reaching in here, so a nil
+	// Core stays safe.
+	settings map[string]any
+
 	// api is how the plugin READS AND WRITES real data — Core's own /api/v1, with a scoped token
 	// (api.go). nil when no granted capability implies API access. See HasAPI/API.
 	api *API

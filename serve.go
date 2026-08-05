@@ -101,6 +101,7 @@ func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (*co
 		Granted:      req.GrantedCapabilities,
 		DatastoreDSN: req.DatastoreDsn,
 		logger:       newLogger(os.Stderr, req.PluginKey),
+		settings:     decodeSettings(req.GetSettingsJson(), req.PluginKey),
 		KVNamespace:  req.KvNamespace,
 		host:         contract.NewHostServiceClient(conn),
 		api:          newAPI(req.ApiBaseUrl, req.ApiToken, req.ApiScopes),
@@ -167,4 +168,22 @@ func (s *pluginServer) HandleEvent(ctx context.Context, req *contract.EventReque
 
 func (s *pluginServer) Health(ctx context.Context, _ *contract.HealthRequest) (*contract.HealthResponse, error) {
 	return &contract.HealthResponse{Ok: true}, nil
+}
+
+// decodeSettings turns Core's settings blob into the map the Setting* accessors read.
+//
+// Unparseable settings are a WARNING and an empty map, not a failed Init. A plugin that cannot start
+// because one stored value is malformed is a plugin the owner cannot get back to the screen to FIX it on —
+// the section in the sidebar is served by Core, but a plugin stuck in a restart loop is disabled by the
+// supervisor and its pages go with it.
+func decodeSettings(raw []byte, key string) map[string]any {
+	out := map[string]any{}
+	if len(raw) == 0 {
+		return out
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		newLogger(os.Stderr, key).Warn("this plugin's settings did not parse; starting with none", "error", err)
+		return map[string]any{}
+	}
+	return out
 }
