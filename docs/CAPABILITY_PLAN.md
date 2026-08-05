@@ -151,6 +151,7 @@ slots in without a redesign.
 Smaller by count and larger by consequence: it was what blocked three separate things at once.
 
 * **SSO (D-34)** — decided as Pro, could not be a plugin, so it either lived in Core or waited for this.
+  **Built as `nilda-sso` on 2026-08-06** (§3.4), which is what retired the built-in one.
 * **`internal/strongauth`** (passkeys + TOTP, 1,441 lines, `go-webauthn` and `pquerna/otp`) could not move out.
 * **`internal/social`** (Google/GitHub login, 953 lines) could not move out.
 
@@ -199,6 +200,28 @@ community developer's bug report.
 **This ordering is the owner's correction to an earlier suggestion of mine.** I proposed extracting
 GraphQL first, to discover the gaps. The gaps do not need discovering — the table in §1 already lists
 them — so extraction is the *verification* step, not the exploration step.
+
+#### It worked, and here is what it caught — `nilda-sso`, 2026-08-06
+
+The first real plugin written against `auth_provider` lives in its own repository, and writing it found
+**three gaps that every test fixture had missed**, because a fixture is written to fit what exists:
+
+1. **A sign-in plugin cannot name its own directory.** The issuer is a URL the site owner types after
+   installing it, different at every company — so `network` would have to be a wildcard, the exact
+   declaration the egress policy exists to make unnecessary. Core now allows the issuer host it reads from
+   its own settings store. Before the fix, `nilda-sso` could not make one HTTP call with a valid manifest.
+2. **A plugin did not know its own route prefix.** The proxy forwards the whole path, so a handler at
+   `/backchannel-logout` never saw `/sso/backchannel-logout`. `InitRequest.route_prefix` + `core.Route(...)`.
+3. **A machine could not POST to a plugin.** No CSRF token, so 403 — for an identity provider's logout
+   notice and for every payment webhook any plugin could serve. A plugin declares `webhook_paths`; Core
+   exempts exactly those and sends no identity headers on them.
+
+None of the three is about SSO. All three block any plugin that talks to a third party or receives a
+callback, which is most application-class plugins — and none would have surfaced without extracting
+something real.
+
+**The built-in generic `oidc` provider was deleted in the same pass.** It did what the plugin does, less
+well, from environment variables. Extraction that leaves the original behind is not extraction.
 
 ### 3.5 Lower priority, recorded so they are not lost
 
