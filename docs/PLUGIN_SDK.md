@@ -596,6 +596,64 @@ func (p *Shop) HandleHook(ctx context.Context, hook string, payload []byte) ([]b
 Whatever you return with a `message` is what the owner reads. A button that gives no sign it did anything is
 worse than no button.
 
+### Contributing a way to sign in (`auth_provider`)
+
+Declare the method in `manifest.json`:
+
+```json
+{
+  "capabilities": ["auth_provider", "admin_page"],
+  "auth_providers": [{ "key": "sso", "label": "Single sign-on", "flow": "oidc" }]
+}
+```
+
+And write three methods. The SDK's OIDC client does discovery, the authorization URL and the code exchange,
+so what is left is the part that is genuinely yours:
+
+```go
+func main() { nilda.ServeAuthProvider(&Plugin{}) }
+
+type Plugin struct{ client *nilda.OIDCClient }
+
+func (p *Plugin) Describe(ctx context.Context, core *nilda.Core) []nilda.AuthProviderStatus {
+	p.client = nilda.NewOIDCClient(core.Setting("issuer"), core.Setting("client_id"), core.Setting("client_secret"))
+	ready, why := p.client.Ready(ctx)
+	return []nilda.AuthProviderStatus{{Key: "sso", Ready: ready, UnreadyReason: why}}
+}
+
+func (p *Plugin) Start(ctx context.Context, core *nilda.Core, req nilda.AuthStartRequest) (string, error) {
+	return p.client.AuthorizeURL(ctx, req)
+}
+
+func (p *Plugin) Complete(ctx context.Context, core *nilda.Core, req nilda.AuthCompleteRequest) (nilda.AuthAssertion, error) {
+	return p.client.Exchange(ctx, req) // returns the RAW id_token; Core verifies it
+}
+```
+
+**You return an assertion. Core decides what follows.** You never mint a session, never name a Nilda user,
+never set a role, and never see the `state`. The reason is arithmetic rather than distrust: a plugin that
+could say "this person is the owner" would be a takeover primitive guarded by one capability string.
+
+**On the `oidc` flow you hand over the identity provider's own signed token**, and Core verifies it against
+the keys that provider publishes — signature, issuer, audience, expiry, and the nonce Core minted. Do not
+parse it yourself and do not copy claims out of it into the assertion's attribute fields: a claim you copied
+is a claim Core would have to take your word for, and handing over the token is precisely so it does not
+have to. You could not forge it if you wanted to, which is a better property than a promise.
+
+**`flow: "oauth2"` is for a provider with no ID token** — GitHub is the usual example. You return the
+attributes you fetched, Core cannot check them, and a new site therefore trusts them for nothing: that
+provider signs in somebody who has already linked it by hand from their account page, and nobody else. The
+site owner raises that deliberately, per plugin, after reading what it means.
+
+**`Describe` is how an unconfigured plugin stays honest.** Answer `Ready: false` with a reason written for
+the SITE OWNER and your button does not appear at all — a button that always fails reads to a visitor as
+"this site is broken", not "this plugin has no API key yet". Pair it with an `admin_page` so there is
+somewhere to type the issuer and the client secret.
+
+**Your section's place is not yours to choose.** Core namespaces your provider key with your plugin key, so
+two plugins can both offer "sso" and neither can read the other's identities — and no plugin can name itself
+`google` and inherit the accounts somebody already linked.
+
 ### Changing your storage between versions
 
 Your schema evolves without you. Declare the new column in `manifest.json` and it arrives on update —
