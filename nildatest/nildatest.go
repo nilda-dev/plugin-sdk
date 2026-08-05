@@ -74,6 +74,16 @@ func New(pluginKey string, granted ...string) (*nilda.Core, *Host) {
 	return nilda.NewCoreForTest(pluginKey, granted, h), h
 }
 
+// SetSettings puts the values a SITE OWNER would have typed on your admin pages into a test Core.
+//
+// A Core built for a test had none, which meant the half of a plugin an author most wants to test — what it
+// does with the API key, the issuer, the account id somebody entered — was the half they could not reach.
+// The keys are the bare field keys your manifest declares ("issuer"), the same shape Core delivers at Init.
+//
+// Call it before the code under test reads a setting; a real plugin is RESTARTED when settings change, so
+// mid-run mutation is not a state production can be in.
+func SetSettings(core *nilda.Core, values map[string]any) { nilda.SetSettingsForTest(core, values) }
+
 // NewWithAPI is New plus an API client pointed at handler.
 //
 // The returned server must be closed by the caller — `defer srv.Close()`. handler stands in for Core's

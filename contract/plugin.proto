@@ -94,6 +94,15 @@ message InitRequest {
   // Recorded by Core on COMPLETION, so a plugin the supervisor restarts after a crash is told it is running
   // the same version it already initialised at, and the one-time step does not run twice.
   string previous_version = 11;
+
+  // The URL prefix Core reverse-proxies to this plugin, from its manifest ("/sso"). Empty unless `route`
+  // was granted.
+  //
+  // Sent because the proxy forwards the FULL path — a plugin serving "/backchannel-logout" gets a request
+  // for "/sso/backchannel-logout" and answers 404. Without this the author has to hard-code the prefix a
+  // second time, in Go, matching a manifest nobody will remember to keep in step; the first plugin written
+  // against this capability got it wrong exactly that way.
+  string route_prefix = 12;
 }
 
 message InitResponse {

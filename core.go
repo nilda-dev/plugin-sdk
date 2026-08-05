@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"slices"
+	"strings"
 	"time"
 
 	"gitlab.com/nilda-sdk/plugin-sdk/contract"
@@ -18,7 +19,13 @@ type Core struct {
 	NildaVersion string
 	Granted      []string // the granted capability keys
 	DatastoreDSN string   // scoped least-privilege DSN (own schema only); empty unless `datastore`
-	KVNamespace  string   // informational; KV ops go through the host
+	// RoutePrefix is the URL prefix Core proxies to this plugin, from your manifest ("/sso"). Empty unless
+	// `route` was granted.
+	//
+	// Use it when you register your handlers: the proxy forwards the FULL path, so a mux entry for
+	// "/backchannel-logout" never matches. `core.Route("/backchannel-logout")` builds the right one.
+	RoutePrefix string
+	KVNamespace string // informational; KV ops go through the host
 
 	// PreviousVersion is the version this plugin last COMPLETED an Init at, or "" on a fresh install.
 	// Read it with IsFirstRun / UpgradedFrom rather than comparing strings by hand.
@@ -150,6 +157,33 @@ func (c *Core) Emit(ctx context.Context, eventType string, data any) error {
 // than the missing dependency. That is a trap for exactly the author this helper exists for.
 func NewCoreForTest(pluginKey string, granted []string, host contract.HostServiceClient) *Core {
 	return &Core{PluginKey: pluginKey, Granted: granted, host: host}
+}
+
+// Route is the full path one of your handlers should be registered at.
+//
+//	mux.HandleFunc(core.Route("/backchannel-logout"), p.logout)   // -> "/sso/backchannel-logout"
+//
+// Core proxies your declared prefix and forwards the whole path, so a handler registered at the bare name
+// is never reached. This exists so the prefix is written once, in your manifest, rather than twice.
+func (c *Core) Route(path string) string {
+	if c == nil || c.RoutePrefix == "" {
+		return path
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return strings.TrimRight(c.RoutePrefix, "/") + path
+}
+
+// SetSettingsForTest fills in the values an owner would have typed on this plugin's admin pages.
+//
+// Exported for nildatest.SetSettings, which is what an author should call. Here rather than there because
+// `settings` is unexported and giving it a setter of its own would be a second way to write it.
+func SetSettingsForTest(c *Core, values map[string]any) {
+	if c == nil {
+		return
+	}
+	c.settings = values
 }
 
 // NewCoreForTestWithAPI is NewCoreForTest plus an API client pointed at a test server.

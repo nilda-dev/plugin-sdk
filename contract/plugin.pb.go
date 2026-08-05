@@ -89,8 +89,16 @@ type InitRequest struct {
 	// Recorded by Core on COMPLETION, so a plugin the supervisor restarts after a crash is told it is running
 	// the same version it already initialised at, and the one-time step does not run twice.
 	PreviousVersion string `protobuf:"bytes,11,opt,name=previous_version,json=previousVersion,proto3" json:"previous_version,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// The URL prefix Core reverse-proxies to this plugin, from its manifest ("/sso"). Empty unless `route`
+	// was granted.
+	//
+	// Sent because the proxy forwards the FULL path — a plugin serving "/backchannel-logout" gets a request
+	// for "/sso/backchannel-logout" and answers 404. Without this the author has to hard-code the prefix a
+	// second time, in Go, matching a manifest nobody will remember to keep in step; the first plugin written
+	// against this capability got it wrong exactly that way.
+	RoutePrefix   string `protobuf:"bytes,12,opt,name=route_prefix,json=routePrefix,proto3" json:"route_prefix,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *InitRequest) Reset() {
@@ -196,6 +204,13 @@ func (x *InitRequest) GetSettingsJson() []byte {
 func (x *InitRequest) GetPreviousVersion() string {
 	if x != nil {
 		return x.PreviousVersion
+	}
+	return ""
+}
+
+func (x *InitRequest) GetRoutePrefix() string {
+	if x != nil {
+		return x.RoutePrefix
 	}
 	return ""
 }
@@ -1347,7 +1362,7 @@ var File_contract_plugin_proto protoreflect.FileDescriptor
 
 const file_contract_plugin_proto_rawDesc = "" +
 	"\n" +
-	"\x15contract/plugin.proto\x12\x0fnilda.plugin.v2\"\xa0\x03\n" +
+	"\x15contract/plugin.proto\x12\x0fnilda.plugin.v2\"\xc3\x03\n" +
 	"\vInitRequest\x12\x1d\n" +
 	"\n" +
 	"plugin_key\x18\x01 \x01(\tR\tpluginKey\x12#\n" +
@@ -1363,7 +1378,8 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"api_scopes\x18\t \x03(\tR\tapiScopes\x12#\n" +
 	"\rsettings_json\x18\n" +
 	" \x01(\fR\fsettingsJson\x12)\n" +
-	"\x10previous_version\x18\v \x01(\tR\x0fpreviousVersion\"\xcc\x01\n" +
+	"\x10previous_version\x18\v \x01(\tR\x0fpreviousVersion\x12!\n" +
+	"\froute_prefix\x18\f \x01(\tR\vroutePrefix\"\xcc\x01\n" +
 	"\fInitResponse\x12\x1d\n" +
 	"\n" +
 	"route_addr\x18\x01 \x01(\tR\trouteAddr\x12\x14\n" +

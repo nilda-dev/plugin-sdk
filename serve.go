@@ -104,6 +104,7 @@ func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (*co
 		settings:        decodeSettings(req.GetSettingsJson(), req.PluginKey),
 		PreviousVersion: req.GetPreviousVersion(),
 		KVNamespace:     req.KvNamespace,
+		RoutePrefix:     req.GetRoutePrefix(),
 		host:            contract.NewHostServiceClient(conn),
 		api:             newAPI(req.ApiBaseUrl, req.ApiToken, req.ApiScopes),
 	}

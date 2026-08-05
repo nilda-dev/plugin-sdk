@@ -680,6 +680,17 @@ document names as its authorization endpoint; on `oauth2` it is your manifest's 
 else is refused and the person lands back on the login page. The start endpoint is public and
 unauthenticated, so an unchecked answer would be an open redirect wearing the site's domain.
 
+**Reaching your identity provider.** Declare NO hosts in `network` for it. Nilda allows the issuer the site
+owner typed on your settings page, and nothing else — you cannot name it in advance, because it is different
+at every company that installs you.
+
+**Serving a route?** Register your handlers with `core.Route("/thing")`, not the bare path. Nilda proxies
+your declared prefix and forwards the WHOLE path, so a handler at `"/thing"` never sees a request for
+`"/sso/thing"`. And if a MACHINE posts to it — an identity provider's logout notice, a payment callback —
+declare it in `webhook_paths`, or Nilda refuses it with 403 for want of a CSRF token no external system can
+send. On a declared webhook path Nilda tells you nothing about who called: that is what makes exempting it
+safe, and it means those handlers must not depend on the caller's identity.
+
 **Making your own outbound calls?** Use `nilda.HTTPClient(...)` or `nilda.NewTransport(...)` rather than a
 bare `&http.Client{}`. The egress proxy allows a host only if YOUR manifest declared it, which means it has
 to know who is calling, and that label is what these add — on the request and, for HTTPS, on the CONNECT
