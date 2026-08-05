@@ -70,7 +70,7 @@ copied.
 
 ## 3. The work, in priority order
 
-### 3.1 `field` — a plugin contributes a content-type field type — **73 plugins**
+### 3.1 `field` — a plugin contributes a content-type field type — **73 plugins** — ✅ **BUILT 2026-08-06**
 
 The single largest category, and the one where the pattern already exists.
 
@@ -83,9 +83,20 @@ config schema and `widget.render` returns sanitized markup, namespaced under the
 plugin can never shadow a Core widget (`internal/plugin/widgets.go`). `field` is that shape pointed at
 `internal/contenttype` instead of `internal/pagebuilder`:
 
-* `field.describe` → the field type's key, label, and its own settings schema
-* `field.render` → the admin control (sanitized, namespaced)
-* `field.validate` → accept or reject a value, with a message
+**As built, and the middle line above is wrong.** `field.render` cannot exist: the admin is a React
+application, so markup a plugin sends can be displayed but captures no value, and the only thing that would
+actually work is the plugin's own JavaScript in the admin origin — a session-stealing primitive handed to
+every author. Nothing in this catalogue ships code into a browser, and a field type is not the place to
+start.
+
+So a field type is DECLARED, like everything else here. It names one of Core's 26 controls as its `base` and
+Core draws that; two hooks carry what a declaration cannot:
+
+* `field.choices` → a picker whose options come from the plugin (a country list, a warehouse list)
+* `field.validate` → accept or reject a value, with a message, in CORE's save path
+
+The declaration itself carries the key, the label, the help, the base, and the plugin's own per-field
+settings — everything the third hook was for.
 
 The existing field vocabulary is 26 types (`plugin-sdk/widgets.go`, mirrored by
 `internal/plugin/sdk_mirror_test.go` in both directions), so the seam for "what a field IS" is already
@@ -93,6 +104,12 @@ written down and guarded.
 
 **Watch:** validation must run in Core's save path, not only in the admin. A field type whose
 validation lives in the browser is a field type that stores anything a script posts.
+
+*It did run there, and still almost did not.* The registered validator captured the context of the
+lifecycle request that triggered the refresh, which is cancelled the moment that request returns — so every
+validation afterwards failed with "context canceled" and, by the rule that keeps a crashed plugin from
+blocking writers, accepted the value. Silent, total, and invisible to every unit test, because a test's
+context is alive when the check runs. Found by installing a real plugin and watching a refused value save.
 
 ### 3.2 `admin_page` — a plugin contributes an admin screen — **32 plugins** — **BUILT 2026-08-05**
 
