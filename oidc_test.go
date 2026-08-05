@@ -236,3 +236,33 @@ func TestDiscoveryHappensOnce(t *testing.T) {
 		t.Fatal("the metadata was not cached")
 	}
 }
+
+// TestTheClientIdentifiesItselfToTheEgressProxy.
+//
+// The regression, and it was invisible exactly where it mattered. This client shipped with a bare
+// `&http.Client{}`; every test passed, because a test has no egress proxy. On a real install every call was
+// refused with "this plugin did not declare that host" — from a proxy that could not tell WHICH plugin was
+// asking, while the manifest declared the host perfectly. The plugin reported itself not ready and the
+// button never appeared.
+//
+// Asserted on the header a real proxy reads, against a real server, because that is the only place the
+// mistake is visible.
+func TestTheClientIdentifiesItselfToTheEgressProxy(t *testing.T) {
+	t.Setenv("NILDA_PLUGIN_KEY", "signin_demo")
+
+	var seen string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = r.Header.Get("X-Nilda-Plugin")
+		_ = json.NewEncoder(w).Encode(map[string]any{"keys": []any{}})
+	}))
+	defer srv.Close()
+
+	// Built AFTER the env var is set, the way a real plugin is: the transport reads it once.
+	c := NewOIDCClient(srv.URL, "cid", "csecret")
+	_ = c.Discover(context.Background())
+
+	if seen != "signin_demo" {
+		t.Fatalf("X-Nilda-Plugin = %q — the egress proxy cannot tell who is calling, so every request "+
+			"to a declared host is refused", seen)
+	}
+}

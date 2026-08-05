@@ -278,12 +278,13 @@ var PluginService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	HostService_KVGet_FullMethodName     = "/nilda.plugin.v2.HostService/KVGet"
-	HostService_KVSet_FullMethodName     = "/nilda.plugin.v2.HostService/KVSet"
-	HostService_KVDel_FullMethodName     = "/nilda.plugin.v2.HostService/KVDel"
-	HostService_KVIncr_FullMethodName    = "/nilda.plugin.v2.HostService/KVIncr"
-	HostService_EmitEvent_FullMethodName = "/nilda.plugin.v2.HostService/EmitEvent"
-	HostService_SendEmail_FullMethodName = "/nilda.plugin.v2.HostService/SendEmail"
+	HostService_KVGet_FullMethodName          = "/nilda.plugin.v2.HostService/KVGet"
+	HostService_KVSet_FullMethodName          = "/nilda.plugin.v2.HostService/KVSet"
+	HostService_KVDel_FullMethodName          = "/nilda.plugin.v2.HostService/KVDel"
+	HostService_KVIncr_FullMethodName         = "/nilda.plugin.v2.HostService/KVIncr"
+	HostService_EmitEvent_FullMethodName      = "/nilda.plugin.v2.HostService/EmitEvent"
+	HostService_SendEmail_FullMethodName      = "/nilda.plugin.v2.HostService/SendEmail"
+	HostService_RevokeIdentity_FullMethodName = "/nilda.plugin.v2.HostService/RevokeIdentity"
 )
 
 // HostServiceClient is the client API for HostService service.
@@ -301,6 +302,23 @@ type HostServiceClient interface {
 	// plugin can never forge the site's address; a booking plugin sends its own confirmations without
 	// needing SMTP credentials of its own, and without the owner configuring mail twice.
 	SendEmail(ctx context.Context, in *SendEmailRequest, opts ...grpc.CallOption) (*SendEmailResponse, error)
+	// auth — end every session of somebody an identity provider has deprovisioned (requires
+	// `auth_provider`).
+	//
+	// THE ONE ASYMMETRY WORTH STATING OUTRIGHT: a plugin may never create authority, and may destroy it.
+	//
+	// Nothing on this service lets a plugin sign anybody in — that is the whole shape of `auth_provider`,
+	// where the plugin returns an assertion and Core decides. This method is the mirror image, and it is
+	// safe for exactly that reason: the worst a hostile plugin achieves with it is signing people out.
+	//
+	// It is also what makes SSO mean what it claims. "Someone leaves the company and their access here ends
+	// in the same second" cannot be delivered by anything that only runs at sign-in; it needs the directory
+	// to be able to reach in. The provider's back-channel logout token arrives on the plugin's own route,
+	// the plugin validates it, and this is how it tells Core.
+	//
+	// Core enforces ownership: `provider` is your LOCAL key, and a plugin can only ever revoke identities
+	// recorded under a provider it owns.
+	RevokeIdentity(ctx context.Context, in *RevokeIdentityRequest, opts ...grpc.CallOption) (*RevokeIdentityResponse, error)
 }
 
 type hostServiceClient struct {
@@ -371,6 +389,16 @@ func (c *hostServiceClient) SendEmail(ctx context.Context, in *SendEmailRequest,
 	return out, nil
 }
 
+func (c *hostServiceClient) RevokeIdentity(ctx context.Context, in *RevokeIdentityRequest, opts ...grpc.CallOption) (*RevokeIdentityResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeIdentityResponse)
+	err := c.cc.Invoke(ctx, HostService_RevokeIdentity_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // HostServiceServer is the server API for HostService service.
 // All implementations must embed UnimplementedHostServiceServer
 // for forward compatibility.
@@ -386,6 +414,23 @@ type HostServiceServer interface {
 	// plugin can never forge the site's address; a booking plugin sends its own confirmations without
 	// needing SMTP credentials of its own, and without the owner configuring mail twice.
 	SendEmail(context.Context, *SendEmailRequest) (*SendEmailResponse, error)
+	// auth — end every session of somebody an identity provider has deprovisioned (requires
+	// `auth_provider`).
+	//
+	// THE ONE ASYMMETRY WORTH STATING OUTRIGHT: a plugin may never create authority, and may destroy it.
+	//
+	// Nothing on this service lets a plugin sign anybody in — that is the whole shape of `auth_provider`,
+	// where the plugin returns an assertion and Core decides. This method is the mirror image, and it is
+	// safe for exactly that reason: the worst a hostile plugin achieves with it is signing people out.
+	//
+	// It is also what makes SSO mean what it claims. "Someone leaves the company and their access here ends
+	// in the same second" cannot be delivered by anything that only runs at sign-in; it needs the directory
+	// to be able to reach in. The provider's back-channel logout token arrives on the plugin's own route,
+	// the plugin validates it, and this is how it tells Core.
+	//
+	// Core enforces ownership: `provider` is your LOCAL key, and a plugin can only ever revoke identities
+	// recorded under a provider it owns.
+	RevokeIdentity(context.Context, *RevokeIdentityRequest) (*RevokeIdentityResponse, error)
 	mustEmbedUnimplementedHostServiceServer()
 }
 
@@ -413,6 +458,9 @@ func (UnimplementedHostServiceServer) EmitEvent(context.Context, *EmitEventReque
 }
 func (UnimplementedHostServiceServer) SendEmail(context.Context, *SendEmailRequest) (*SendEmailResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendEmail not implemented")
+}
+func (UnimplementedHostServiceServer) RevokeIdentity(context.Context, *RevokeIdentityRequest) (*RevokeIdentityResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RevokeIdentity not implemented")
 }
 func (UnimplementedHostServiceServer) mustEmbedUnimplementedHostServiceServer() {}
 func (UnimplementedHostServiceServer) testEmbeddedByValue()                     {}
@@ -543,6 +591,24 @@ func _HostService_SendEmail_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HostService_RevokeIdentity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeIdentityRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HostServiceServer).RevokeIdentity(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HostService_RevokeIdentity_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HostServiceServer).RevokeIdentity(ctx, req.(*RevokeIdentityRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // HostService_ServiceDesc is the grpc.ServiceDesc for HostService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -573,6 +639,10 @@ var HostService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SendEmail",
 			Handler:    _HostService_SendEmail_Handler,
+		},
+		{
+			MethodName: "RevokeIdentity",
+			Handler:    _HostService_RevokeIdentity_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

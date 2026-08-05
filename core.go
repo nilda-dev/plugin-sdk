@@ -74,6 +74,35 @@ func (c *Core) SendEmail(ctx context.Context, to, subject, body string) error {
 	return err
 }
 
+// ---- auth (requires `auth_provider`) ----
+
+// RevokeIdentity ends every session of the person linked to one identity of yours.
+//
+// You cannot sign anybody IN through this door — that is the whole shape of a sign-in plugin, where you
+// return an assertion and Core decides what it means. You can sign somebody OUT, and the asymmetry is
+// deliberate: creating authority has to be Core's, destroying it is safe to delegate, because the worst a
+// hostile plugin does with it is log people out.
+//
+// It is what makes deprovisioning real. Somebody leaves the company, the directory disables them, and your
+// back-channel logout endpoint hears about it — this is how you make their session here end in the same
+// second rather than at whatever hour it happened to expire.
+//
+//	// on your own route, after validating the provider's logout token
+//	n, err := core.RevokeIdentity(ctx, "sso", claims.Subject, "back-channel logout from "+claims.Issuer)
+//
+// `provider` is your LOCAL key. Core will only revoke identities recorded under a provider you own, so
+// naming somebody else's is refused rather than obeyed. Returns how many sessions ended; zero is not an
+// error — the person may simply not have been signed in.
+func (c *Core) RevokeIdentity(ctx context.Context, provider, subject, reason string) (int, error) {
+	res, err := c.host.RevokeIdentity(ctx, &contract.RevokeIdentityRequest{
+		Provider: provider, Subject: subject, Reason: reason,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return int(res.SessionsEnded), nil
+}
+
 // ---- kv (scoped Dragonfly namespace) ----
 
 func (c *Core) KVGet(ctx context.Context, key string) (string, bool, error) {

@@ -146,20 +146,48 @@ Still to build on this foundation: a `list` page kind, so a shop can show Produc
 only Settings. The page-kind field exists and an unknown kind is dropped rather than rendered blank, so it
 slots in without a redesign.
 
-### 3.3 `auth_provider` — a plugin contributes a way to log in — **15 plugins**
+### 3.3 `auth_provider` — a plugin contributes a way to log in — **15 plugins** — ✅ **BUILT 2026-08-05**
 
-Smaller by count and larger by consequence: **it is what currently blocks three separate things.**
+Smaller by count and larger by consequence: it was what blocked three separate things at once.
 
-Nothing in the nineteen lets a plugin say "this person authenticated, mint them a session". So:
+* **SSO (D-34)** — decided as Pro, could not be a plugin, so it either lived in Core or waited for this.
+* **`internal/strongauth`** (passkeys + TOTP, 1,441 lines, `go-webauthn` and `pquerna/otp`) could not move out.
+* **`internal/social`** (Google/GitHub login, 953 lines) could not move out.
 
-* **SSO (D-34)** — decided as Pro, cannot be a plugin, so it either lives in Core or waits for this.
-* **`internal/strongauth`** (passkeys + TOTP, 1,441 lines, pulls `go-webauthn` and `pquerna/otp`)
-  cannot move out.
-* **`internal/social`** (Google/GitHub login, 953 lines) cannot move out.
+Built on the owner's instruction — **do not write SSO into Core because the plugin system is short; finish
+the plugin system so SSO lives in its own repository from day one.** SPEC_98 §5.15 is the record; what
+matters for an author is the shape.
 
-This is the capability with the highest security bar in the whole list. A plugin that can mint
-sessions can impersonate anyone, so the seam has to hand Core a *verified identity claim* and let
-**Core** decide whether a session follows — never let the plugin construct one.
+**The seam, and why it can be trusted.** A plugin returns an ASSERTION and Core decides everything that
+follows. It cannot mint a session, name a Nilda user, set a role, or see the CSRF `state`. On the `oidc`
+flow it hands Core the identity provider's own signed `id_token` and CORE verifies it against the keys that
+provider publishes — so the guarantee is arithmetic rather than a promise: a hostile plugin would need the
+IdP's private key. The `oauth2` flow, for a provider with no signed token, returns attributes marked as
+unverifiable.
+
+Four invariants, each of which is a way somebody signs in as a person they are not if it is missing:
+
+1. **Core assigns the namespace** (`<plugin_key>.<local>`), from the ambient plugin key. `user_identities`
+   is keyed on the provider name, so a plugin naming itself `google` would inherit everybody who ever
+   linked Google — before any email check runs.
+2. **The claims come from a verified token**, never from the plugin's attribute fields when a token exists.
+3. **The redirect target is validated** against the issuer's discovery document (`oidc`) or the declared
+   `network` list (`oauth2`). The start endpoint is public, so an unchecked answer is an open redirect from
+   the site's own login button.
+4. **The site owner chooses the verifier.** The manifest names WHERE the issuer and client id are typed;
+   the values live in Core's settings store, writable only by an administrator.
+
+**Revocation, and the rule to remember: never mint, may revoke.** `core.RevokeIdentity(provider, subject,
+reason)` ends every session of the person behind one of your own identities — for back-channel logout, or
+whatever your directory tells you. It is safe to delegate for exactly one reason: nothing on the plugin
+channel creates authority, so the worst a hostile plugin achieves is signing people out. It is also what
+makes SSO mean what it promises, because login-time-only integration cannot deliver "deprovisioned there,
+revoked here".
+
+**And the SDK does the protocol for you.** `nilda.ServeAuthProvider` dispatches the three hooks so you write
+three methods, and `nilda.NewOIDCClient` does discovery, the authorize URL and the code exchange — the three
+HTTP calls every author re-derives and some get wrong. Nilda has the evidence: Core shipped a function
+called `OIDC` for a year that threw the ID token away.
 
 ### 3.4 Then, and only then, prove it by extraction
 

@@ -603,9 +603,30 @@ Declare the method in `manifest.json`:
 ```json
 {
   "capabilities": ["auth_provider", "admin_page"],
-  "auth_providers": [{ "key": "sso", "label": "Single sign-on", "flow": "oidc" }]
+  "network": ["acme.okta.com"],
+  "admin_pages": [{
+    "key": "connection", "label": "Connection", "kind": "settings",
+    "fields": [
+      { "key": "issuer",        "label": "Issuer URL", "type": "text", "required": true },
+      { "key": "client_id",     "label": "Client ID",  "type": "text", "required": true },
+      { "key": "client_secret", "label": "Client secret", "type": "text", "secret": true }
+    ]
+  }],
+  "auth_providers": [{
+    "key": "sso", "label": "Single sign-on", "flow": "oidc",
+    "issuer_setting": "connection.issuer",
+    "client_id_setting": "connection.client_id",
+    "groups_claim": "groups"
+  }]
 }
 ```
+
+**`issuer_setting` and `client_id_setting` are required on the `oidc` flow, and it is worth being clear
+about why.** Core verifies the ID token itself, so it needs the issuer and the audience — and taking either
+from your ANSWER would mean the party being verified chose its own verifier. Taking them from your
+admin-page settings is different in kind: those values live in Core's settings store and only an
+administrator can write them. **You declare where the owner types it; the owner supplies what.** Name a
+field that does not exist and the plugin is refused at install, with the field named.
 
 And write three methods. The SDK's OIDC client does discovery, the authorization URL and the code exchange,
 so what is left is the part that is genuinely yours:
@@ -650,9 +671,38 @@ the SITE OWNER and your button does not appear at all — a button that always f
 "this site is broken", not "this plugin has no API key yet". Pair it with an `admin_page` so there is
 somewhere to type the issuer and the client secret.
 
-**Your section's place is not yours to choose.** Core namespaces your provider key with your plugin key, so
+**Your provider's name is not yours to choose.** Core namespaces your provider key with your plugin key, so
 two plugins can both offer "sso" and neither can read the other's identities — and no plugin can name itself
 `google` and inherit the accounts somebody already linked.
+
+**Where you may send a browser is bounded.** On `oidc` it is whatever host the issuer's own discovery
+document names as its authorization endpoint; on `oauth2` it is your manifest's `network` list. Anything
+else is refused and the person lands back on the login page. The start endpoint is public and
+unauthenticated, so an unchecked answer would be an open redirect wearing the site's domain.
+
+**Making your own outbound calls?** Use `nilda.HTTPClient(...)` or `nilda.NewTransport(...)` rather than a
+bare `&http.Client{}`. The egress proxy allows a host only if YOUR manifest declared it, which means it has
+to know who is calling, and that label is what these add — on the request and, for HTTPS, on the CONNECT
+that opens the tunnel. `NewOIDCClient` already does this. A hand-rolled client is refused on every call
+with "this plugin did not declare that host" while your manifest declares it perfectly.
+
+### Signing somebody out when your directory says they are gone
+
+```go
+// on your own route, after validating the provider's back-channel logout token
+n, err := core.RevokeIdentity(ctx, "sso", claims.Subject, "back-channel logout from "+claims.Issuer)
+```
+
+You cannot sign anybody IN through this door — that is the whole shape above. You can sign somebody OUT,
+and the asymmetry is deliberate: **never mint, may revoke.** Creating authority has to be Core's; destroying
+it is safe to delegate, because the worst a hostile plugin does with it is log people out.
+
+It is also what makes SSO mean what it promises. Somebody leaves the company, the directory disables them,
+and your logout endpoint hears about it — this is how their session here ends in the same second rather than
+at whatever hour it happened to expire. Nothing that only runs at sign-in can do that.
+
+`provider` is your LOCAL key; Core namespaces it, so you can only ever revoke identities you own. Zero
+sessions ended is not an error — the person may simply not have been signed in.
 
 ### Changing your storage between versions
 

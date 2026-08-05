@@ -59,6 +59,7 @@ type Host struct {
 	kv      map[string]string
 	events  []Event
 	emails  []Email
+	revoked []Revocation
 	// Fail, when set, makes every host call return it. For asserting what a plugin does when Core is having
 	// a bad day — a plugin that ignores a failed SendEmail loses a customer's receipt silently.
 	Fail error
@@ -237,6 +238,38 @@ func (h *Host) EmitEvent(_ context.Context, in *contract.EmitEventRequest, _ ...
 	defer h.mu.Unlock()
 	h.events = append(h.events, Event{Type: in.Type, Data: in.DataJson})
 	return &contract.EmitEventResponse{}, nil
+}
+
+// Revocation is one identity a plugin asked Core to sign out.
+type Revocation struct {
+	Provider string
+	Subject  string
+	Reason   string
+}
+
+// Revocations is every identity the plugin asked to have signed out, in order.
+//
+// Worth asserting on. A back-channel logout handler that validates the provider's token perfectly and then
+// forgets to call RevokeIdentity is the failure this whole path exists to prevent, and it looks exactly
+// like success from the outside: the endpoint returns 200 and nobody is signed out.
+func (h *Host) Revocations() []Revocation {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return append([]Revocation(nil), h.revoked...)
+}
+
+// SessionsPerIdentity is what RevokeIdentity reports back. Default 1; set it to 0 to rehearse revoking
+// somebody who was not signed in, which must not read as a failure.
+var SessionsPerIdentity = 1
+
+func (h *Host) RevokeIdentity(_ context.Context, in *contract.RevokeIdentityRequest, _ ...grpc.CallOption) (*contract.RevokeIdentityResponse, error) {
+	if err := h.enforce("auth_provider"); err != nil {
+		return nil, err
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.revoked = append(h.revoked, Revocation{Provider: in.Provider, Subject: in.Subject, Reason: in.Reason})
+	return &contract.RevokeIdentityResponse{SessionsEnded: int32(SessionsPerIdentity)}, nil
 }
 
 func (h *Host) SendEmail(_ context.Context, in *contract.SendEmailRequest, _ ...grpc.CallOption) (*contract.SendEmailResponse, error) {

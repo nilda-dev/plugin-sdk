@@ -97,12 +97,50 @@ func newAPI(baseURL, token string, scopes []string) *API {
 // apply, and the call is refused.
 //
 // Pass nil for http.DefaultTransport. Go already routes through the proxy from the environment Core sets;
-// this only adds the header that says who is asking.
+// this adds the label that says who is asking.
+//
+// # Why the label goes on in TWO places
+//
+// For a plain http request the proxy reads the request's own headers, so setting one is enough. For an
+// HTTPS request it is not, and the reason is easy to miss: Go opens the tunnel with a CONNECT request and
+// then sends everything else INSIDE the TLS session. The proxy never sees the request's headers at all —
+// it sees only the CONNECT. So the identity has to be on the CONNECT itself, which is what
+// ProxyConnectHeader is for.
+//
+// Shipping only the request header meant identification worked for exactly the calls nobody makes and
+// failed for every call to a real provider. It surfaced against a live install: the manifest declared
+// accounts.google.com, the proxy logged "host not declared" with an EMPTY plugin key, and the plugin
+// reported itself unusable. Both halves are set here so an author who uses this transport is identified
+// on both kinds of call.
 func NewTransport(base http.RoundTripper) http.RoundTripper {
+	key := os.Getenv("NILDA_PLUGIN_KEY")
 	if base == nil {
-		base = http.DefaultTransport
+		// A clone of the default rather than the default itself: ProxyConnectHeader is per-transport state,
+		// and mutating http.DefaultTransport would label every request the PROCESS makes, including ones
+		// made by code that never asked for this.
+		def, _ := http.DefaultTransport.(*http.Transport)
+		if def != nil {
+			base = withConnectIdentity(def.Clone(), key)
+		} else {
+			base = http.DefaultTransport
+		}
+	} else if tr, ok := base.(*http.Transport); ok {
+		base = withConnectIdentity(tr.Clone(), key)
 	}
-	return &pluginTransport{base: base, key: os.Getenv("NILDA_PLUGIN_KEY")}
+	return &pluginTransport{base: base, key: key}
+}
+
+// withConnectIdentity puts the plugin's key on the CONNECT request that opens an HTTPS tunnel, which is
+// the only part of such a request the egress proxy can read.
+func withConnectIdentity(tr *http.Transport, key string) *http.Transport {
+	if key == "" {
+		return tr
+	}
+	if tr.ProxyConnectHeader == nil {
+		tr.ProxyConnectHeader = http.Header{}
+	}
+	tr.ProxyConnectHeader.Set("X-Nilda-Plugin", key)
+	return tr
 }
 
 // HTTPClient is a ready-made client for a plugin's own outbound calls, already carrying the identity the

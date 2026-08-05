@@ -71,9 +71,19 @@ func NewOIDCClient(issuer, clientID, clientSecret string, scopes ...string) *OID
 	return &OIDCClient{
 		issuer: strings.TrimRight(issuer, "/"), clientID: clientID, clientSecret: clientSecret,
 		scopes: scopes,
-		// Short, because this runs inside somebody's login. A provider that takes half a minute has already
-		// failed and holding a browser that long is worse than saying so.
-		http: &http.Client{Timeout: 10 * time.Second},
+		// HTTPClient, not a bare http.Client: the egress proxy identifies the caller by a header the SDK's
+		// transport adds, and without it every call is refused as "this plugin did not declare that host"
+		// — even when the manifest declares it perfectly.
+		//
+		// This client shipped with a bare `&http.Client{}` and the mistake was invisible in tests, which
+		// have no proxy, and fatal in production, which does. It surfaced on a live install: the plugin
+		// reported itself not ready, and the reason was Forbidden from a proxy that could not tell who was
+		// asking. Every author writing outbound calls by hand can make the same mistake — which is exactly
+		// why this client exists.
+		//
+		// The timeout is short because this runs inside somebody's login: a provider taking half a minute
+		// has already failed, and holding a browser that long is worse than saying so.
+		http: HTTPClient(10 * time.Second),
 	}
 }
 
