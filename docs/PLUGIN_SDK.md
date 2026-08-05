@@ -540,7 +540,7 @@ func (p *SMS) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, err
 		return nilda.InitResult{}, nil
 	}
 	p.client = kavenegar.New(core.Setting("api_key"), core.Setting("sender"))
-	...
+	return nilda.InitResult{Hooks: []string{"content.published"}}, nil
 }
 ```
 
@@ -574,14 +574,23 @@ bypassed by your own admin screen. So Core shows the row and you change it. Pres
 hook:
 
 ```go
-case nilda.AdminActionHook: // "admin.action"
-	var req struct{ Page, Action, ID string }
-	_ = json.Unmarshal(payload, &req)
-	if req.Action == "refund" {
-		amount, err := p.refund(ctx, req.ID)   // your logic: the gateway, the email, the stock
-		if err != nil { return nil, err }
-		return json.Marshal(map[string]string{"message": "Refunded " + amount})
+func (p *Shop) HandleHook(ctx context.Context, hook string, payload []byte) ([]byte, error) {
+	switch hook {
+	case nilda.AdminActionHook: // "admin.action"
+		var req struct{ Page, Action, ID string }
+		if err := json.Unmarshal(payload, &req); err != nil {
+			return nil, err
+		}
+		if req.Action == "refund" {
+			amount, err := p.refund(ctx, req.ID) // your logic: the gateway, the email, the stock
+			if err != nil {
+				return nil, err
+			}
+			return json.Marshal(map[string]string{"message": "Refunded " + amount})
+		}
 	}
+	return nil, nil
+}
 ```
 
 Whatever you return with a `message` is what the owner reads. A button that gives no sign it did anything is
