@@ -544,6 +544,49 @@ func (p *SMS) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, err
 }
 ```
 
+Show your own rows with a `list` page:
+
+```json
+{
+  "key": "orders",
+  "label": "Orders",
+  "kind": "list",
+  "table": "orders",
+  "columns": [
+    { "key": "reference", "label": "Order" },
+    { "key": "total",     "label": "Total",  "type": "number" },
+    { "key": "status",    "label": "Status" },
+    { "key": "created_at","label": "Placed", "type": "datetime" }
+  ],
+  "order_by": "created_at",
+  "order": "desc",
+  "search": ["reference", "status"],
+  "actions": [{ "key": "refund", "label": "Refund", "confirm": "The money goes back to the customer." }]
+}
+```
+
+`table` must be one of YOUR declared tables — Core created it and owns it, so a list page can only ever show
+storage the owner already approved at install.
+
+**It is read-only, and that is deliberate.** If Core let an administrator edit that row, it would set
+`status = 'refunded'` with no refund happening, no email going out and no stock coming back — your logic
+bypassed by your own admin screen. So Core shows the row and you change it. Pressing an action calls your
+hook:
+
+```go
+case nilda.AdminActionHook: // "admin.action"
+	var req struct{ Page, Action, ID string }
+	_ = json.Unmarshal(payload, &req)
+	if req.Action == "refund" {
+		amount, err := p.refund(ctx, req.ID)   // your logic: the gateway, the email, the stock
+		if err != nil { return nil, err }
+		return json.Marshal(map[string]string{"message": "Refunded " + amount})
+	}
+```
+
+Whatever you return with a `message` is what the owner reads. A button that gives no sign it did anything is
+worse than no button.
+
 **You ship no JavaScript into the admin.** You declare; Core draws the controls. Every other CMS extends its
 admin by injecting code — a WordPress plugin enqueues a script, a Strapi plugin ships React — and pays for it
 with a panel a bad plugin can break, in a page that holds an administrator's session. A Nilda plugin is a

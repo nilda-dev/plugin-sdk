@@ -106,6 +106,26 @@ type AdminPage struct {
 	Fields []SettingField `json:"fields,omitempty"`
 	// Help is shown at the top of the page — one or two sentences on what this page is for.
 	Help string `json:"help,omitempty"`
+
+	// --- kind: "list" ---
+
+	// Table is one of YOUR OWN declared tables. Core created it from your manifest and owns it, so a list
+	// page can only ever show storage the site owner already approved at install.
+	Table   string       `json:"table,omitempty"`
+	Columns []ListColumn `json:"columns,omitempty"`
+	// OrderBy is one of that table's columns; Order is "asc" or "desc".
+	OrderBy string `json:"order_by,omitempty"`
+	Order   string `json:"order,omitempty"`
+	// Search are the TEXT columns the search box looks in. Empty means no search box, which is better than
+	// one that silently matches nothing.
+	Search []string `json:"search,omitempty"`
+	// Actions are buttons on each row, and they are why a list page is READ-ONLY.
+	//
+	// If Core let an administrator edit your orders row directly, it would set `status = 'refunded'` without
+	// the refund happening, the email going out or the stock coming back — YOUR logic bypassed by YOUR admin
+	// screen, with nobody able to tell. So Core shows the row and you change it: pressing an action calls
+	// your `admin.action` hook with the row's primary key, and what happens next is yours.
+	Actions []RowAction `json:"actions,omitempty"`
 }
 
 // AdminPageKind values.
@@ -113,7 +133,32 @@ const (
 	// AdminPageSettings is a form: Core renders the fields, validates what is typed, stores it, and hands
 	// the values to your plugin at Init.
 	AdminPageSettings = "settings"
+	// AdminPageList shows rows from one of your own declared tables.
+	AdminPageList = "list"
 )
+
+// ListColumn is one column of a list page. Key names a column of the page's table; Type is how to RENDER it
+// (text, number, datetime, boolean) and never changes what is fetched.
+type ListColumn struct {
+	Key   string `json:"key"`
+	Label string `json:"label"`
+	Type  string `json:"type,omitempty"`
+}
+
+// RowAction is one button on a row of a list page.
+//
+// Pressing it calls your `admin.action` hook with the row's primary key. Core never writes your table
+// itself — see the note on AdminPage.Actions.
+type RowAction struct {
+	Key   string `json:"key"`
+	Label string `json:"label"`
+	// Confirm is the question asked first. Set it for anything the owner cannot undo.
+	Confirm string `json:"confirm,omitempty"`
+}
+
+// AdminActionHook is the hook Core calls when somebody presses a row action. The payload is
+// `{"page":"…","action":"…","id":"…"}`; return whatever you want the owner told.
+const AdminActionHook = "admin.action"
 
 // Setting returns one of this plugin's stored settings, as a string.
 //
