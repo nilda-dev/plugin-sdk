@@ -34,7 +34,7 @@ what. Sorted by what each one needs the host to let it do:
 | **An admin UI page or panel** | **32** | ✅ `admin_page` — **BUILT 2026-08-05** |
 | **A login / auth provider** | **15** | ✅ `auth_provider` — **BUILT 2026-08-05** |
 | Events / webhooks / monitoring | 10 | ✅ `events` + `hooks` |
-| A search provider | 6 | ❌ none |
+| **A search provider** | **6** | ✅ `search_provider` — **BUILT 2026-08-06** |
 | Media / image processing | 4 | ✅ `media.write` |
 | Translation | 4 | partial (`content.write`) |
 | A storage / upload provider | 3 | ❌ none |
@@ -45,23 +45,25 @@ what. Sorted by what each one needs the host to let it do:
 The three biggest gaps were the first three rows, and they were 120 of the 219 between them.
 
 > **Where it stands, 2026-08-05 (end of day).** All three were built. What remains blocked is
-> `search_provider` (6) and `storage_provider` (3) — **9 of 219, or 4%** — the two smallest rows, both
-> deferred deliberately in §3.5. The rest of this document is kept as written, because the reasoning is
-> what makes the shapes reviewable; the per-section BUILT markers are the current state.
+> `storage_provider` (3) — **3 of 219, under 2%** — the last row, deferred deliberately in §3.5 with the
+> design question that has to be answered first. `search_provider` was built the same day this note was
+> written. The rest of this document is kept as written, because the reasoning is what makes the shapes
+> reviewable; the per-section BUILT markers are the current state.
 
 ---
 
 ## 2. What Nilda has, and where it stops
 
-Twenty-two capabilities exist (registered in `internal/plugin/schema_capabilities.go`; `field` and
-`auth_provider` declare their constants next to their dispatch, in `fields.go` and `authproviders.go`):
+Twenty-three capabilities exist (registered in `internal/plugin/schema_capabilities.go`; `field`,
+`auth_provider` and `search_provider` declare their constants next to their dispatch, in `fields.go`,
+`authproviders.go` and `searchprovider.go`):
 
 ```
 content.read   users.read     media.read      taxonomy.read   menus.read
 content.write  media.write    taxonomy.write  menus.write
 events         hooks          datastore       kv              schedule
 route          widget         render.assets   email           abilities
-admin_page     auth_provider  field
+admin_page     auth_provider  field           search_provider
 ```
 
 That is a real vocabulary — richer than the "widget only" a first reading of `main.go` suggests, and
