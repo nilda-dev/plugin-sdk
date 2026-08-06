@@ -163,6 +163,25 @@ Fire-and-forget notification. Nothing waits for your answer.
 
 Answer promptly. Nilda supervises you: repeated failures disable the plugin.
 
+### What Nilda does when you are slow or failing
+
+Worth knowing before you tune anything on your side, because two of these mean Nilda stops calling you and
+that is not a bug you should work around.
+
+- **A 5-second ceiling per call**, above.
+- **A circuit breaker.** If more than half your calls fail over a two-minute window — with at least five
+  calls in it, so a quiet site cannot trip you on one bad answer — Nilda stops calling you for 30 seconds,
+  then lets ONE call through. Two clean answers and it is fully back; a failed probe and the 30 seconds
+  start again. **You do not need to expose a recovery endpoint or ask anybody to re-enable you.** Just be
+  healthy when the probe arrives.
+- **A concurrency bound of 16.** Nilda will never have more than 16 calls open to your process at once, and
+  it refuses the 17th on its own side rather than queueing it. So you can size your worker pool to 16 and
+  stop there — and if you are a language with a single-threaded runtime, know that you may still be asked
+  16 things at once.
+- **A shared budget when several plugins build one response.** A public page gives ALL plugins 1.5s
+  together and an admin screen 3s, so your deadline on those paths may be much tighter than 5 seconds.
+  Honour the gRPC deadline on the context you are handed — do not assume you have the full timeout.
+
 ---
 
 ## 4. What you call: `HostService`
