@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"log/slog"
 	"strings"
 	"sync"
@@ -189,4 +190,109 @@ func TestLogIsUsableBeforeInit(t *testing.T) {
 		t.Fatal("Core.Log must be nil-safe")
 	}
 	Log().Info("this must not panic")
+}
+
+// TestDerivedLoggersDoNotShredEachOthersLines.
+//
+// `With(...)` returns a new handler over the SAME writer. With a mutex by value each derived logger got its
+// own, so two goroutines could interleave bytes on one file descriptor — and go-plugin parses a plugin's
+// stderr LINE BY LINE, so a torn line is not cosmetic: the host cannot parse it, re-emits it as an opaque
+// debug string, and the record is lost.
+//
+// TWO assertions, because only one of them can actually fail on demand.
+//
+// The concurrency half below checks that sixteen goroutines holding sixteen DIFFERENT derived loggers
+// produce sixteen well-formed lines. It is a real end-to-end check and it is NOT proof of the mutex: a
+// torn write needs a real pipe and a line over PIPE_BUF, and even then it is a race that may not happen —
+// a test that only sometimes fails is worse than none. Reintroducing the bug leaves this half green.
+//
+// So the invariant is asserted DIRECTLY, in the sibling test below: a derived handler must share its
+// parent's mutex. That is deterministic, it is the actual property, and it fails the moment somebody
+// writes `mu: &sync.Mutex{}` in WithAttrs again.
+func TestDerivedLoggersDoNotShredEachOthersLines(t *testing.T) {
+	var buf lockedBuffer
+	base := newLogger(&buf, "acme")
+	long := strings.Repeat("x", 8192)
+
+	var wg sync.WaitGroup
+	for i := range 16 {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			// Every goroutine holds a DIFFERENT derived logger, which is the shape the bug had.
+			base.With("worker", n).With("stage", "run").Info("a long line", "payload", long)
+		}(i)
+	}
+	wg.Wait()
+
+	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+	if len(lines) != 16 {
+		t.Fatalf("wrote %d lines for 16 records — they interleaved", len(lines))
+	}
+	for i, l := range lines {
+		var rec map[string]any
+		if err := json.Unmarshal([]byte(l), &rec); err != nil {
+			t.Fatalf("line %d is not parseable JSON, so the host would drop it: %v", i, err)
+		}
+		if rec["@message"] != "a long line" || rec["plugin"] != "acme" {
+			t.Errorf("line %d lost its fields: %v", i, rec["@message"])
+		}
+		if s, _ := rec["payload"].(string); len(s) != len(long) {
+			t.Errorf("line %d's payload is %d bytes, want %d — it was truncated by an interleave", i, len(s), len(long))
+		}
+	}
+}
+
+// lockedBuffer stands in for the stderr pipe: it records what was written without adding synchronisation
+// the handler is supposed to provide, so an unsynchronised handler shows up as garbled content rather than
+// as a race on the buffer itself.
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+// TestADerivedHandlerSharesItsParentsMutex is the deterministic half of the pair above: `With(...)` builds
+// a handler over the SAME writer, so it must not bring its own lock. This is what actually fails if the
+// sharing is undone.
+func TestADerivedHandlerSharesItsParentsMutex(t *testing.T) {
+	base := &hostHandler{w: io.Discard, name: "acme", mu: &sync.Mutex{}}
+
+	withAttrs, ok := base.WithAttrs([]slog.Attr{slog.String("a", "1")}).(*hostHandler)
+	if !ok {
+		t.Fatal("WithAttrs must return a *hostHandler")
+	}
+	if withAttrs.mu != base.mu {
+		t.Error("WithAttrs gave the derived handler its own mutex — two loggers over one writer, each " +
+			"locking something the other does not")
+	}
+
+	withGroup, ok := base.WithGroup("http").(*hostHandler)
+	if !ok {
+		t.Fatal("WithGroup must return a *hostHandler")
+	}
+	if withGroup.mu != base.mu {
+		t.Error("WithGroup gave the derived handler its own mutex")
+	}
+
+	// And a chain of them, which is what an author actually writes.
+	chained := base.WithAttrs([]slog.Attr{slog.Int("n", 1)}).WithGroup("db").WithAttrs([]slog.Attr{slog.Bool("ok", true)})
+	if chained.(*hostHandler).mu != base.mu {
+		t.Error("a chain of derivations lost the shared mutex")
+	}
+
+	// newLogger must supply one at all — a nil mutex is a panic on the first line written.
+	fresh := newLogger(io.Discard, "acme")
+	fresh.Info("this must not panic")
 }

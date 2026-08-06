@@ -68,7 +68,7 @@ func defaultLogger() *slog.Logger {
 // `name` is the plugin key, added as a field so a line is attributable even if the host's own naming ever
 // changes; empty before Init has said what the key is.
 func newLogger(w io.Writer, name string) *slog.Logger {
-	return slog.New(&hostHandler{w: w, name: name})
+	return slog.New(&hostHandler{w: w, name: name, mu: &sync.Mutex{}})
 }
 
 // hostHandler writes each record as one JSON line in the shape go-plugin parses.
@@ -81,7 +81,19 @@ type hostHandler struct {
 	name  string
 	attrs []slog.Attr
 	group string
-	mu    sync.Mutex
+	// mu is SHARED with every handler derived from this one, by pointer.
+	//
+	// `With("order", id)` returns a new handler over the SAME writer. With a mutex by value each derived
+	// logger got its own, so two goroutines holding different derived loggers could interleave their bytes
+	// on one file descriptor. go-plugin parses the plugin's stderr LINE BY LINE, so a torn line is not a
+	// cosmetic problem: the host cannot parse it, re-emits it as an opaque debug string, and the record is
+	// effectively lost.
+	//
+	// It matters most exactly when it hurts most. Core's bulkhead allows sixteen concurrent calls, and the
+	// longest thing this SDK ever writes is a panic report with its stack — kilobytes, well past any
+	// single-write atomicity a pipe offers. The one line an author needs after a crash is the one most
+	// likely to be shredded.
+	mu *sync.Mutex
 }
 
 func (h *hostHandler) Enabled(context.Context, slog.Level) bool { return true }
@@ -126,13 +138,13 @@ func (h *hostHandler) Handle(_ context.Context, r slog.Record) error {
 }
 
 func (h *hostHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	next := &hostHandler{w: h.w, name: h.name, group: h.group}
+	next := &hostHandler{w: h.w, name: h.name, group: h.group, mu: h.mu}
 	next.attrs = append(append([]slog.Attr(nil), h.attrs...), attrs...)
 	return next
 }
 
 func (h *hostHandler) WithGroup(name string) slog.Handler {
-	next := &hostHandler{w: h.w, name: h.name, group: h.group}
+	next := &hostHandler{w: h.w, name: h.name, group: h.group, mu: h.mu}
 	next.attrs = append([]slog.Attr(nil), h.attrs...)
 	if name != "" {
 		if next.group != "" {
