@@ -30,9 +30,9 @@ what. Sorted by what each one needs the host to let it do:
 | What the plugin wants to contribute | Plugins | Nilda today |
 |---|---:|---|
 | **An HTTP route / API surface** | **88** | ✅ `route` |
-| **A custom FIELD type** | **73** | ❌ **no capability exists** |
-| **An admin UI page or panel** | **32** | ❌ **removed 2026-07-30** |
-| **A login / auth provider** | **15** | ❌ **no capability exists** |
+| **A custom FIELD type** | **73** | ✅ `field` — **BUILT 2026-08-05** |
+| **An admin UI page or panel** | **32** | ✅ `admin_page` — **BUILT 2026-08-05** |
+| **A login / auth provider** | **15** | ✅ `auth_provider` — **BUILT 2026-08-05** |
 | Events / webhooks / monitoring | 10 | ✅ `events` + `hooks` |
 | A search provider | 6 | ❌ none |
 | Media / image processing | 4 | ✅ `media.write` |
@@ -40,21 +40,28 @@ what. Sorted by what each one needs the host to let it do:
 | A storage / upload provider | 3 | ❌ none |
 | *(uncategorised)* | 26 | — |
 
-**120 of the 219 categorised plugins — 55% — could not be built against Nilda today.**
+**120 of the 219 categorised plugins — 55% — could not be built against Nilda when this was written.**
 
-The three biggest gaps are the first three rows, and they are 120 of the 219 between them.
+The three biggest gaps were the first three rows, and they were 120 of the 219 between them.
+
+> **Where it stands, 2026-08-05 (end of day).** All three were built. What remains blocked is
+> `search_provider` (6) and `storage_provider` (3) — **9 of 219, or 4%** — the two smallest rows, both
+> deferred deliberately in §3.5. The rest of this document is kept as written, because the reasoning is
+> what makes the shapes reviewable; the per-section BUILT markers are the current state.
 
 ---
 
 ## 2. What Nilda has, and where it stops
 
-Nineteen capabilities exist (`internal/plugin/schema_capabilities.go`):
+Twenty-two capabilities exist (registered in `internal/plugin/schema_capabilities.go`; `field` and
+`auth_provider` declare their constants next to their dispatch, in `fields.go` and `authproviders.go`):
 
 ```
 content.read   users.read     media.read      taxonomy.read   menus.read
 content.write  media.write    taxonomy.write  menus.write
 events         hooks          datastore       kv              schedule
 route          widget         render.assets   email           abilities
+admin_page     auth_provider  field
 ```
 
 That is a real vocabulary — richer than the "widget only" a first reading of `main.go` suggests, and
@@ -70,7 +77,7 @@ copied.
 
 ## 3. The work, in priority order
 
-### 3.1 `field` — a plugin contributes a content-type field type — **73 plugins** — ✅ **BUILT 2026-08-06**
+### 3.1 `field` — a plugin contributes a content-type field type — **73 plugins** — ✅ **BUILT 2026-08-05**
 
 The single largest category, and the one where the pattern already exists.
 
@@ -111,7 +118,7 @@ validation afterwards failed with "context canceled" and, by the rule that keeps
 blocking writers, accepted the value. Silent, total, and invisible to every unit test, because a test's
 context is alive when the check runs. Found by installing a real plugin and watching a refused value save.
 
-### 3.2 `admin_page` — a plugin contributes an admin screen — **32 plugins** — **BUILT 2026-08-05**
+### 3.2 `admin_page` — a plugin contributes an admin screen — **32 plugins** — ✅ **BUILT 2026-08-05**
 
 `admin.pages` existed and was **deleted on 2026-07-30 because it was a name with nothing behind it** —
 the capability could be declared and approved, and no code anywhere dispatched it. The deletion was
