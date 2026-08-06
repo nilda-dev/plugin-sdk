@@ -79,12 +79,12 @@ For Nilda that is:
 
 | field | value |
 |---|---|
-| `CORE-PROTOCOL-VERSION` | `1` — go-plugin's own wire version, not ours |
+| `CORE-PROTOCOL-VERSION` | `1` — go-plugin's own wire version, not ours. Any other value and you will not load |
 | `APP-PROTOCOL-VERSION` | `2` — Nilda's `ProtocolVersion` |
 | `NETWORK-TYPE` | `tcp` or `unix` |
 | `NETWORK-ADDR` | where your gRPC server is listening |
 | `PROTOCOL` | `grpc` |
-| `SERVER-CERT` | your TLS certificate, DER, base64 **raw-url** encoded (see below) |
+| `SERVER-CERT` | your TLS certificate, DER, base64 **RawStd** encoded — no padding, no PEM header (see below) |
 
 Example:
 
@@ -98,13 +98,21 @@ own log (see §5).
 
 ### 2c. AutoMTLS
 
-Nilda enables `AutoMTLS`, so the control channel is encrypted and mutually authenticated. Your side:
+Nilda enables `AutoMTLS`, so the control channel is encrypted and mutually authenticated. This is the part
+an SDK earns its keep on; every value below is from go-plugin v1.8.0's `server.go`, not from memory.
 
-1. Read Nilda's client certificate from the environment variable `PLUGIN_CLIENT_CERT` (PEM).
-2. Generate your own self-signed certificate and key at startup, in memory. Do not write them to disk.
-3. Serve gRPC with TLS: your cert/key, `ClientAuth: RequireAndVerifyClientCert`, and a pool containing
-   only Nilda's certificate.
-4. Put your certificate — DER bytes, base64 raw-url, no PEM header — in the handshake line's last field.
+1. Read Nilda's client certificate from the environment variable **`PLUGIN_CLIENT_CERT`** — PEM, one
+   certificate. Its presence is what tells you AutoMTLS is on; if it is empty, serve without TLS.
+2. Generate your own self-signed certificate and key at startup, **in memory**. Do not write them to disk:
+   they are valid for one run of one process, and a file is a copy somebody can steal.
+3. Serve gRPC with TLS configured as:
+   - your certificate and key
+   - `ClientAuth: RequireAndVerifyClientCert`
+   - `ClientCAs` **and** `RootCAs`: a pool containing only Nilda's certificate
+   - `MinVersion: TLS 1.2`
+   - `ServerName: "localhost"`
+4. Put your certificate's **leaf DER bytes**, base64 `RawStdEncoding` (standard alphabet, **no padding**),
+   in the handshake line's last field. Not PEM — the handshake is one line and cannot carry newlines.
 
 Both sides then trust exactly one certificate: each other's. Nothing else on the machine can talk to your
 plugin, and you will not talk to anything claiming to be Nilda.
@@ -308,7 +316,7 @@ def main():
     port = server.add_secure_port("127.0.0.1:0", creds)
     server.start()
 
-    b64 = base64.urlsafe_b64encode(cert_der).decode().rstrip("=")
+    b64 = base64.standard_b64encode(cert_der).decode().rstrip("=")   # RawStd: standard alphabet, no padding
     print(f"1|2|tcp|127.0.0.1:{port}|grpc|{b64}", flush=True)   # the ONLY stdout line
     server.wait_for_termination()
 

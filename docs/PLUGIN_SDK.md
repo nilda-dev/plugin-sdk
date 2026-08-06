@@ -1,3 +1,7 @@
+> **Not writing Go?** You do not have to. Nilda talks to plugins over gRPC, which is not a Go idea — see
+> [ANY_LANGUAGE.md](ANY_LANGUAGE.md) for the whole contract: the handshake, AutoMTLS, the proto, and a
+> working Python sketch. This guide is the Go SDK, which hides all of it.
+
 # Nilda Plugin SDK
 
 > The contract Core and every plugin share, and the surface a plugin author actually writes against.
