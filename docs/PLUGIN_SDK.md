@@ -279,6 +279,11 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `widget` | contribute page-builder widgets — see §4.1 |
 | `email` | send mail through the site's mailer (Core fixes the sender) |
 | `schedule` | ask Core to run recurring work and call back |
+| `abilities` | offer your actions to the site's AI agent — see §4.2 |
+| `admin_page` | your own section of the admin sidebar: settings forms and list pages — see §5 |
+| `field` | contribute a kind of field to content types and forms — see §5 |
+| `auth_provider` | put a sign-in button on the login page — see §5 |
+| `search_provider` | be the site's search engine — see §5 |
 
 That is the whole list. Every entry is dispatched by Core and has a surface in this SDK; there is nothing
 to declare that does nothing. `admin.pages` and `payments` used to appear here and were removed in v0.3.0
@@ -579,26 +584,30 @@ hook:
 
 ```go
 func (p *Shop) HandleHook(ctx context.Context, hook string, payload []byte) ([]byte, error) {
-	switch hook {
-	case nilda.AdminActionHook: // "admin.action"
-		var req struct{ Page, Action, ID string }
-		if err := json.Unmarshal(payload, &req); err != nil {
-			return nil, err
-		}
-		if req.Action == "refund" {
-			amount, err := p.refund(ctx, req.ID) // your logic: the gateway, the email, the stock
-			if err != nil {
-				return nil, err
-			}
-			return json.Marshal(map[string]string{"message": "Refunded " + amount})
-		}
+	if out, handled, err := nilda.DispatchAdminAction(ctx, hook, payload, p.onAction); handled {
+		return out, err
 	}
+	// … your own hooks
 	return nil, nil
+}
+
+func (p *Shop) onAction(ctx context.Context, a nilda.AdminAction) (nilda.AdminActionResult, error) {
+	switch a.Action {
+	case "refund":
+		amount, err := p.refund(ctx, a.ID) // your logic: the gateway, the email, the stock
+		if err != nil {
+			return nilda.AdminActionResult{}, err // the owner is told this, so write it for them
+		}
+		return nilda.AdminActionResult{Message: "Refunded " + amount}, nil
+	}
+	return nilda.AdminActionResult{}, fmt.Errorf("unknown action %q", a.Action)
 }
 ```
 
-Whatever you return with a `message` is what the owner reads. A button that gives no sign it did anything is
-worse than no button.
+**`Message` is the field the admin shows, and it is the only one.** An action that returns
+`{"result":"refunded"}` runs perfectly and the person who pressed the button is told "Done" — which is why
+the reply is a typed struct now rather than a map you fill in from memory. A button that gives no sign it
+did anything is worse than no button.
 
 ### Being the site's search engine (`search_provider`)
 

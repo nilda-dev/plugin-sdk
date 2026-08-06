@@ -1,6 +1,11 @@
 package nilda
 
-import "sort"
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"sort"
+)
 
 // A PLUGIN'S OWN CORNER OF THE ADMIN.
 //
@@ -156,9 +161,67 @@ type RowAction struct {
 	Confirm string `json:"confirm,omitempty"`
 }
 
-// AdminActionHook is the hook Core calls when somebody presses a row action. The payload is
-// `{"page":"…","action":"…","id":"…"}`; return whatever you want the owner told.
+// AdminActionHook is the hook Core calls when somebody presses a row action.
 const AdminActionHook = "admin.action"
+
+// AdminAction is one press of a row action: which page, which button, and which row.
+//
+// The id is the row's PRIMARY KEY, as text, from your own table. Nilda read it out of the row it showed;
+// it never invents one and never sends you a row you did not declare a page for.
+type AdminAction struct {
+	Page   string `json:"page"`
+	Action string `json:"action"`
+	ID     string `json:"id"`
+}
+
+// AdminActionResult is what the owner is told. `Message` is the field the admin reads — anything else you
+// return is ignored, and an empty message shows "Done".
+//
+// Worth being exact about, because the failure is silent: an action that returns `{"result":"refunded"}`
+// runs perfectly and the person who pressed the button sees "Done", with no way to learn what happened.
+// Say what happened.
+type AdminActionResult struct {
+	Message string `json:"message,omitempty"`
+}
+
+// DispatchAdminAction routes a row-action press to your handler and shapes the reply Nilda expects.
+//
+//	func (p *Plugin) HandleHook(ctx context.Context, hook string, payload []byte) ([]byte, error) {
+//		if out, handled, err := nilda.DispatchAdminAction(ctx, hook, payload, p.onAction); handled {
+//			return out, err
+//		}
+//		// … your own hooks
+//	}
+//
+//	func (p *Plugin) onAction(ctx context.Context, a nilda.AdminAction) (nilda.AdminActionResult, error) {
+//		switch a.Action {
+//		case "refund":
+//			return nilda.AdminActionResult{Message: "Refunded order " + a.ID}, p.refund(ctx, a.ID)
+//		}
+//		return nilda.AdminActionResult{}, fmt.Errorf("unknown action %q", a.Action)
+//	}
+//
+// An error you return reaches the owner as the reason the action did not run, so make it a sentence they
+// can act on. handled=false means the hook was not a row action, so a plugin with hooks of its own passes
+// it on rather than failing it.
+func DispatchAdminAction(ctx context.Context, hook string, payload []byte, fn func(context.Context, AdminAction) (AdminActionResult, error)) (out []byte, handled bool, err error) {
+	if hook != AdminActionHook {
+		return nil, false, nil
+	}
+	if fn == nil {
+		return nil, true, fmt.Errorf("nilda: a row action was pressed and this plugin registered no handler")
+	}
+	var a AdminAction
+	if err := json.Unmarshal(payload, &a); err != nil {
+		return nil, true, fmt.Errorf("nilda: admin.action payload: %w", err)
+	}
+	res, err := fn(ctx, a)
+	if err != nil {
+		return nil, true, err
+	}
+	b, err := json.Marshal(res)
+	return b, true, err
+}
 
 // Setting returns one of this plugin's stored settings, as a string.
 //
