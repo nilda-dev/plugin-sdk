@@ -247,11 +247,35 @@ something real.
 **The built-in generic `oidc` provider was deleted in the same pass.** It did what the plugin does, less
 well, from environment variables. Extraction that leaves the original behind is not extraction.
 
-### 3.5 Lower priority, recorded so they are not lost
+### 3.5 `search_provider` — **BUILT 2026-08-05** — and `storage_provider`, still open
 
-`search_provider` (6) and `storage_provider` (3) are small categories, and both already have a Core
-seam shape (`internal/search` has a Postgres and a Meilisearch backend; `pkg/storage` has filesystem
-and MinIO). Neither blocks anything else. They become worth doing when somebody asks.
+`search_provider` (6 plugins) is built. `storage_provider` (3) is not, and is the last row in the table.
+
+**What made search the easy one, and what it cost.** `internal/search` already had the two properties this
+capability needs: a `Backend` interface with a small surface (configure / index / remove / truncate / query
+/ healthy), and Postgres wired as a permanent FALLBACK. So a plugin that crashes, times out or answers with
+nonsense makes the site's search worse for a moment and never absent — the site degrades and says so.
+
+Two things had to be built rather than reused:
+
+* **A runtime swap.** The backend was chosen at boot and read without a lock; a plugin becomes the engine
+  when it starts and stops being it when the owner disables it, and neither moment is boot.
+  `search.Service.SetBackend` is that seam, guarded, with `SetBackend(nil)` restoring what Core booted
+  with — the case that otherwise leaves a site's search pointed at a process that is gone.
+* **A resolve step that the Meilisearch backend does not have** (`internal/pluginsearch`). Core TRUSTS
+  Meilisearch, which is correct: it is infrastructure the operator configured. A marketplace plugin is a
+  stranger's binary that somebody clicked install on. So the ids a provider returns are looked up in
+  Core's own database under the searcher's own visibility, and every displayed field — title, excerpt,
+  type, date — is read from that row. A provider that ignores the visibility it was given surfaces
+  nothing; one that invents a title displays nothing. What survives from the plugin is what only it knows:
+  which items matched, in what order, and a highlight.
+
+`storage_provider` has the same seam shape available (`pkg/storage` has filesystem and MinIO behind a
+`Storage` interface) but a real design fork that search did not have: `Get` returns an `io.ReadCloser`, and
+streaming a 50 MB video through gRPC to a plugin and back on every request is not a storage backend, it is
+a bottleneck with a plugin in it. The shape that works is presign-and-redirect — the plugin answers with a
+URL and the bytes never cross the boundary — which is what `storage.Presigner` already exists for. Worth
+doing when somebody asks, with that decided first.
 
 ---
 

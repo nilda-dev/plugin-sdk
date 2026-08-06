@@ -600,6 +600,64 @@ func (p *Shop) HandleHook(ctx context.Context, hook string, payload []byte) ([]b
 Whatever you return with a `message` is what the owner reads. A button that gives no sign it did anything is
 worse than no button.
 
+### Being the site's search engine (`search_provider`)
+
+Nilda ships Postgres full-text on every install and Meilisearch for sites that outgrow it. Your plugin can
+be a third — Typesense, Elasticsearch, a vector index — and once the owner grants the capability, the
+site's search box, the theme's search API and the admin's own search all run through you.
+
+Declare it:
+
+```json
+{
+  "capabilities": ["search_provider"],
+  "search": { "name": "Typesense" }
+}
+```
+
+The name is what an operator sees when they ask what is answering search, so give it the one a person
+would say out loud. Only ONE plugin per install may provide search — two would each hold half an index and
+neither would know it, so Nilda refuses the second at install rather than at the first empty result page.
+
+Implement the engine:
+
+```go
+type engine struct{ client *typesense.Client }
+
+func (e *engine) Configure(ctx context.Context) error { /* create/settle the index; idempotent */ return nil }
+func (e *engine) Index(ctx context.Context, docs []nilda.SearchDoc) error { /* upsert by ID */ return nil }
+func (e *engine) Remove(ctx context.Context, ids []string) error { return nil }
+func (e *engine) Truncate(ctx context.Context) error { return nil }
+func (e *engine) Healthy(ctx context.Context) bool { return true }
+
+func (e *engine) Query(ctx context.Context, q nilda.SearchQuery) (nilda.SearchResults, error) {
+	// q.Statuses / q.PublicOnly / q.AuthorID are the VISIBILITY. Filter on them.
+	return nilda.SearchResults{Hits: []nilda.SearchHit{{ID: "…", Score: 1}}, Total: 1}, nil
+}
+
+func main() { nilda.ServeSearchProvider(&engine{}) }
+```
+
+**Three things worth knowing before you write it.**
+
+**You cannot take the site's search down.** Postgres stays wired as the fallback. If your `Query` returns
+an error, or your process is restarting, Nilda answers the same search from Postgres and marks the result
+degraded. Deploy whenever you like.
+
+**Nilda resolves what you return, so return ids and ranking — not content.** The ids you hand back are
+looked up in Nilda's own database under the same visibility, and every field the page DISPLAYS — title,
+excerpt, type, author, date — comes from that row. An id the searcher may not see is dropped. A title you
+invent is never shown. What survives from you is which items matched, in what order, and a highlight
+snippet (rendered as text, never as markup).
+
+That is not a reason to skip filtering. A result Nilda drops is a result the visitor does not get, so a
+provider that ignores `q.Statuses` returns a page of nothing. Filter properly; the resolve step is a
+backstop against a bug, not a substitute for the work.
+
+**Index what decides visibility.** Each `SearchDoc` carries `Status`, `Unlisted` and `EmbargoUntil` — an
+item can be published and still invisible, because it is unlisted or its publish date has not arrived.
+Store them, so a `PublicOnly` query can be answered inside your engine instead of over the wire.
+
 ### Contributing a way to sign in (`auth_provider`)
 
 Declare the method in `manifest.json`:
