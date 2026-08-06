@@ -82,6 +82,24 @@ type FieldValidateRequest struct {
 	Options map[string]any `json:"options"`
 }
 
+// FieldChoicesResponse is what a plugin answers `field.choices` with.
+//
+// A named type rather than an inline map, and that is the whole point of it: this contract crosses a
+// process boundary as JSON, and until 2026-08-06 BOTH sides built it from `map[string]any`. Nothing in
+// either repository could compare them, so a renamed key would have compiled, passed every test on both
+// sides, and shown an editor an empty picker. `internal/plugin/sdk_mirror_test.go` holds the two together
+// now, the way it already held widgets, search and row actions.
+type FieldChoicesResponse struct {
+	Choices []FieldChoice `json:"choices"`
+}
+
+// FieldValidateResponse is what a plugin answers `field.validate` with. OK is the verdict; Message is what
+// the EDITOR reads when it is false.
+type FieldValidateResponse struct {
+	OK      bool   `json:"ok"`
+	Message string `json:"message,omitempty"`
+}
+
 // FieldProvider is what you implement.
 //
 // A type that declares neither `choices` nor `validates` needs neither method to do anything: return nil
@@ -123,7 +141,7 @@ func DispatchFieldHook(ctx context.Context, core *Core, p FieldProvider, hook st
 		if choices == nil {
 			choices = []FieldChoice{}
 		}
-		body, err := json.Marshal(map[string]any{"choices": choices})
+		body, err := json.Marshal(FieldChoicesResponse{Choices: choices})
 		return body, true, err
 
 	case HookFieldValidate:
@@ -132,7 +150,7 @@ func DispatchFieldHook(ctx context.Context, core *Core, p FieldProvider, hook st
 			return nil, true, fmt.Errorf("field.validate: %w", err)
 		}
 		msg := p.Validate(ctx, core, req)
-		body, err := json.Marshal(map[string]any{"ok": msg == "", "message": msg})
+		body, err := json.Marshal(FieldValidateResponse{OK: msg == "", Message: msg})
 		return body, true, err
 	}
 	return nil, false, nil
