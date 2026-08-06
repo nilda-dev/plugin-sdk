@@ -3,10 +3,12 @@ package nilda
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
@@ -69,12 +71,41 @@ func Serve(h Handler) {
 // StartHTTP starts the plugin's resident HTTP server on an ephemeral localhost port and returns its
 // address for InitResult.RouteAddr. Localhost-only: the ONLY way traffic reaches it in production is
 // Core's reverse proxy of the declared prefix.
+//
+// # The timeouts, and why they are not yours to forget
+//
+// `http.Serve` applies NONE by default, and this server sits behind a proxy carrying PUBLIC traffic. A
+// client that opens a connection and dribbles a request header holds a goroutine and a file descriptor for
+// as long as it likes; enough of them and the plugin stops answering while looking perfectly healthy —
+// Core's circuit breaker then trips on a plugin that has no bug in it.
+//
+// Every author writing `http.Serve` by hand makes the same omission, which is the argument for this helper
+// existing at all. ReadHeaderTimeout is the one that closes the slowloris; the others bound a body that
+// never ends and a client that never reads its answer. A long-running handler is unaffected: WriteTimeout
+// starts at the request, and a plugin doing minute-long work should be answering on a queue, not holding a
+// proxied HTTP connection open.
+//
+// A serve error is LOGGED rather than dropped. It was `_ = http.Serve(...)`, so a listener that died took
+// the plugin's whole route surface with it in silence: every request 502'd through Core and the plugin's
+// own log said nothing at all.
 func StartHTTP(h http.Handler) (string, error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return "", fmt.Errorf("plugin http listen: %w", err)
 	}
-	go func() { _ = http.Serve(ln, h) }()
+	srv := &http.Server{
+		Handler:           h,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	go func() {
+		if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			newLogger(os.Stderr, os.Getenv("NILDA_PLUGIN_KEY")).Error(
+				"this plugin's HTTP server stopped; every proxied request will now fail", "error", err)
+		}
+	}()
 	return ln.Addr().String(), nil
 }
 

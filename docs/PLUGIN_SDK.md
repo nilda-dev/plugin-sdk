@@ -132,7 +132,7 @@ for _, row := range rows {
 ```
 
 An importer interrupted at row 312 can then be run again from the start without producing 312 duplicates.
-`SetMaxRetries` tunes the patience — a hook runs inside Core's ten-second budget for all subscribers, so
+`WithMaxRetries` tunes the patience — a hook runs inside Core's ten-second budget for all subscribers, so
 less is sometimes right.
 
 ```go

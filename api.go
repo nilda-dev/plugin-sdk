@@ -377,16 +377,28 @@ func (e *APIError) Retryable() bool {
 // into a hang, and a hang is harder to diagnose than the error was.
 const defaultMaxRetries = 3
 
-// SetMaxRetries overrides how many times a retryable failure is re-attempted. Zero disables retries.
+// WithMaxRetries returns a client that re-attempts a retryable failure at most n times. Zero disables
+// retries.
 //
-// Exported because a plugin doing bulk work may want more patience, and one on a request path may want
-// none at all — a hook has an aggregate budget it must not blow through (Core's dispatcher gives every
-// subscriber ten seconds between them).
-func (a *API) SetMaxRetries(n int) {
+// A plugin doing bulk work may want more patience; one on a request path may want none at all, because a
+// hook has an aggregate budget it must not blow through (Core's dispatcher gives every subscriber ten
+// seconds between them). Both wants are per-CALL-SITE, which is why this returns a derived client the way
+// WithIdempotencyKey does:
+//
+//	bulk := core.API().WithMaxRetries(10)
+//	fast := core.API().WithMaxRetries(0)
+//
+// It was `SetMaxRetries(n)`, mutating the one *API that core.API() hands to everybody. Core's bulkhead
+// allows SIXTEEN concurrent calls into a plugin, so one handler tuning retries while another was mid-flight
+// was a data race on a shared int — silent in production, and the kind of thing a library must not hand an
+// author who did exactly what the doc suggested.
+func (a *API) WithMaxRetries(n int) *API {
 	if a == nil || n < 0 {
-		return
+		return a
 	}
-	a.maxRetries = n
+	clone := *a
+	clone.maxRetries = n
+	return &clone
 }
 
 // encodeBody renders a request body to bytes ONCE, so every attempt sends the same thing.
@@ -467,7 +479,7 @@ const (
 	// It exists because the shift OVERFLOWS. `baseBackoff << attempt` is int64 nanoseconds, so from around
 	// attempt 36 it wraps to a negative duration — which then slips past the `> maxBackoff` clamp (a
 	// negative number is not greater than ten seconds) and reaches rand.Int64N, which panics on a
-	// non-positive argument. SetMaxRetries is exported and documented as something a bulk-writing plugin
+	// non-positive argument. WithMaxRetries is exported and documented as something a bulk-writing plugin
 	// might raise, so this was reachable by following the advice in its own comment.
 	maxBackoffShift = 6
 )

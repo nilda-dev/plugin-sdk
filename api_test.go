@@ -359,7 +359,7 @@ func TestRetriesStopWhenTheContextEnds(t *testing.T) {
 	}
 }
 
-// The backoff must be safe at any attempt number, because SetMaxRetries is exported and its own comment
+// The backoff must be safe at any attempt number, because WithMaxRetries is exported and its own comment
 // suggests a bulk-writing plugin might raise it.
 //
 // `baseBackoff << attempt` is int64 nanoseconds, so from around attempt 36 it wrapped to a NEGATIVE
@@ -391,4 +391,54 @@ func TestSleepBackoffSurvivesAHugeAttemptNumber(t *testing.T) {
 			t.Errorf("attempt %d: expected the context deadline to end the wait", attempt)
 		}
 	}
+}
+
+// TestWithMaxRetriesDerivesRatherThanMutates.
+//
+// It was SetMaxRetries, mutating the one *API that core.API() returns to every handler. Core's bulkhead
+// allows sixteen concurrent calls into a plugin, so a handler tuning retries while another was mid-request
+// raced on a shared int — and the doc actively suggested per-call-site tuning, which is the racy use.
+//
+// Run under -race with concurrent readers, because that is the shape the bug had.
+func TestWithMaxRetriesDerivesRatherThanMutates(t *testing.T) {
+	shared := newAPI("http://core.test/api/v1", "t", []string{"content:write"})
+	if shared.maxRetries != defaultMaxRetries {
+		t.Fatalf("default = %d, want %d", shared.maxRetries, defaultMaxRetries)
+	}
+
+	patient := shared.WithMaxRetries(10)
+	none := shared.WithMaxRetries(0)
+
+	if shared.maxRetries != defaultMaxRetries {
+		t.Errorf("deriving a client must not touch the shared one (now %d)", shared.maxRetries)
+	}
+	if patient.maxRetries != 10 || none.maxRetries != 0 {
+		t.Errorf("derived clients carry the wrong value: %d / %d", patient.maxRetries, none.maxRetries)
+	}
+	// The rest of the client comes with it — a derived client that lost its token is worse than no helper.
+	if patient.token != shared.token || patient.baseURL != shared.baseURL || patient.http != shared.http {
+		t.Error("a derived client must carry the token, base URL and http client")
+	}
+
+	// A negative is refused rather than turned into "never retry", which would silently disable the
+	// resilience an author thought they were tuning.
+	if got := shared.WithMaxRetries(-1); got.maxRetries != defaultMaxRetries {
+		t.Errorf("a negative must be ignored, got %d", got.maxRetries)
+	}
+	if (*API)(nil).WithMaxRetries(3) != nil {
+		t.Error("a nil API must stay nil")
+	}
+
+	// Concurrent derivation + reads: the race detector is the assertion.
+	var wg sync.WaitGroup
+	for i := range 16 {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			c := shared.WithMaxRetries(n)
+			_ = c.maxRetries
+			_ = shared.maxRetries
+		}(i)
+	}
+	wg.Wait()
 }

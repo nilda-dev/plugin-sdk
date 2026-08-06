@@ -118,8 +118,26 @@ func abilityRunners(list []Ability) map[string]func(context.Context, json.RawMes
 	return out
 }
 
-// dispatchAbility runs a declared ability if the hook names one. Returns handled=false for any other
-// hook, so the author's own HandleHook still sees everything that is not an ability.
+// dispatchAbility runs a declared ability if the hook names one AND the author gave it a Run.
+//
+// Returns handled=false for any other hook — and for an `ability:` hook with NO runner, which is the
+// documented way to handle abilities yourself:
+//
+//	Abilities: []nilda.Ability{{Name: "reindex", …}},   // no Run
+//
+//	func (p *Plugin) HandleHook(ctx context.Context, hook string, payload []byte) ([]byte, error) {
+//		if hook == nilda.AbilityHook("reindex") { … }
+//	}
+//
+// It used to answer handled=true with "no runner for ability", on the reasoning that a reserved hook name
+// must never reach the author. That reasoning made `AbilityHook` — a function exported for exactly this
+// path — unreachable, made `Run` "optional" only in the sense that omitting it broke the ability, and
+// contradicted three separate doc comments including this file's own on `Ability.Run`. An author following
+// the documentation declared an ability, handled it in HandleHook, and watched every agent call fail with
+// an error naming their own ability.
+//
+// The confusion it guarded against cannot happen: Core dispatches `ability:<name>` only for abilities THIS
+// plugin declared at Init, so the only names that arrive are the author's own.
 func dispatchAbility(ctx context.Context, runners map[string]func(context.Context, json.RawMessage) (any, error),
 	hook string, payload []byte) (out []byte, handled bool, err error) {
 	name, ok := strings.CutPrefix(hook, "ability:")
@@ -128,10 +146,8 @@ func dispatchAbility(ctx context.Context, runners map[string]func(context.Contex
 	}
 	run, ok := runners[name]
 	if !ok {
-		// The hook names an ability this plugin did not declare a runner for. Handled=true regardless:
-		// falling through would hand a reserved hook name to the author's HandleHook, which is not what
-		// "ability:" means.
-		return nil, true, fmt.Errorf("no runner for ability %q", name)
+		// Declared without a Run — the author handles it themselves. Fall through.
+		return nil, false, nil
 	}
 	res, err := run(ctx, payload)
 	if err != nil {

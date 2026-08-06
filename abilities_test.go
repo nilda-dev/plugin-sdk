@@ -82,15 +82,21 @@ func TestOrdinaryHooksArePassedThrough(t *testing.T) {
 }
 
 // "ability:" is a reserved namespace. A hook in it that names an ability with no runner must NOT fall
-// through to the author's HandleHook — passing it on would mean a plugin could receive a hook that looks
-// like an agent action and treat it as an ordinary one.
-func TestUnknownAbilityIsAnErrorNotAPassThrough(t *testing.T) {
-	_, handled, err := dispatchAbility(context.Background(), abilityRunners(nil), AbilityHook("nope"), nil)
-	if !handled {
-		t.Fatal("a reserved ability hook must never reach the author's HandleHook")
+// An `ability:` hook the author did not give a Run to falls THROUGH to their HandleHook. That is the
+// documented way to handle abilities yourself, it is the only reason `AbilityHook` is exported, and it is
+// what makes `Ability.Run` genuinely optional.
+//
+// This asserted the opposite until 2026-08-06 — handled=true with "no runner for ability" — which made the
+// documented pattern fail at runtime with an error naming the author's own ability. The reserved-namespace
+// worry it was written for cannot happen: Core dispatches `ability:<name>` only for abilities this plugin
+// declared at Init, so the only names that arrive are the author's.
+func TestAnAbilityWithNoRunReachesTheAuthorsHandleHook(t *testing.T) {
+	out, handled, err := dispatchAbility(context.Background(), abilityRunners(nil), AbilityHook("manual"), nil)
+	if handled {
+		t.Fatal("an ability declared without a Run must reach the author's HandleHook")
 	}
-	if err == nil || !strings.Contains(err.Error(), "nope") {
-		t.Fatalf("the error must name the missing ability, got %v", err)
+	if err != nil || out != nil {
+		t.Fatalf("a fall-through answers nothing: out=%s err=%v", out, err)
 	}
 }
 
