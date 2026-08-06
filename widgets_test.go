@@ -195,3 +195,28 @@ func TestTheAssetSubscriptionIsAddedForYou(t *testing.T) {
 		t.Fatalf("subscribed a plugin that provides no assets: %v", got)
 	}
 }
+
+// TestANumericWidgetFieldKeepsItsBOUNDS.
+//
+// `Min, Max, Step *float64 ` + "`json:\"min,omitempty\"`" + “ gave all three fields the tag "min", and Go's
+// encoder drops a duplicated tag rather than picking one — so the whole group serialised as `{}`. A 1-to-5
+// rating with 0.5 steps reached Core as a number field with no bounds at all, in every direction, for as
+// long as the field has existed. `go vet` names it; no test did, because no test looked at the JSON.
+func TestANumericWidgetFieldKeepsItsBounds(t *testing.T) {
+	one, five, half := 1.0, 5.0, 0.5
+	b, err := json.Marshal(WidgetField{
+		Key: "rating", Type: FieldNumber, Min: &one, Max: &five, Step: &half,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(b, &got); err != nil {
+		t.Fatal(err)
+	}
+	for k, want := range map[string]float64{"min": 1, "max": 5, "step": 0.5} {
+		if got[k] != want {
+			t.Errorf("%s = %v, want %v — the bound never reached Core: %s", k, got[k], want, b)
+		}
+	}
+}

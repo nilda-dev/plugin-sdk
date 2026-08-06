@@ -150,7 +150,13 @@ type WidgetField struct {
 	// Min, Max and Step bound FieldNumber, FieldRange and FieldScale. Pointers because unset and zero are
 	// different answers: a scale starting at 0 is a real scale, and defaulting an unset Min to 0 would
 	// silently move every 1-to-5 rating down a notch.
-	Min, Max, Step *float64 `json:"min,omitempty" jsonschema:"-"`
+	// One declaration per line, and not for style: `Min, Max, Step *float64 \`json:"min,omitempty"\`` gives
+	// all THREE the tag "min", and Go's encoder drops a duplicated tag entirely — so a 1-to-5 scale with
+	// 0.5 steps serialised as `{}`. Every numeric bound a widget could declare was silently discarded, in
+	// every direction, since the field was written. `go vet` names it; nothing else did.
+	Min  *float64 `json:"min,omitempty" jsonschema:"-"`
+	Max  *float64 `json:"max,omitempty" jsonschema:"-"`
+	Step *float64 `json:"step,omitempty" jsonschema:"-"`
 	// Rows are the statements of a FieldLikert — the questions down the side, answered with Choices across
 	// the top. Separate from Choices because they are different axes, and a single list cannot be both.
 	Rows []string `json:"rows,omitempty"`
