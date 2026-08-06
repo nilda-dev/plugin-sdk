@@ -64,7 +64,7 @@ package main
 import (
 	"context"
 
-	nilda "gitlab.com/nilda-sdk/plugin-sdk"
+	nilda "gitlab.com/nildalabs/nilda-sdk/plugin-sdk"
 )
 
 type Shop struct{ core *nilda.Core }

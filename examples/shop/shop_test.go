@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"gitlab.com/nilda-sdk/plugin-sdk/nildatest"
+	"gitlab.com/nildalabs/nilda-sdk/plugin-sdk/nildatest"
 )
 
 // This file is the point of DX6. The example next door is the code the documentation shows, and these tests

@@ -387,7 +387,7 @@ local copy and hide a broken pin):
 
 ```
 nilda plugin new my-seo   →  5 files
-go mod tidy               →  downloads gitlab.com/nilda-sdk/plugin-sdk v0.3.0
+go mod tidy               →  downloads gitlab.com/nildalabs/nilda-sdk/plugin-sdk v0.3.0
 go build ./...            →  ok
 go test ./...             →  ok  my_seo  0.520s
 ```
@@ -397,6 +397,40 @@ private repository. There is no error message that explains this and no way for 
 
 Nothing to do while building — the owner's call, 2026-08-05 — but it gates the marketplace: on the day
 someone outside the team is invited to write a plugin, this has to already be true.
+
+### The module path did not name this repository — fixed 2026-08-06
+
+Worse than private, and separate from it: the module was `gitlab.com/nilda-sdk/plugin-sdk`, and the
+repository is at `gitlab.com/nildalabs/nilda-sdk/plugin-sdk`. On GitLab an import path must carry the
+subgroups, so that path named a top-level group that does not exist. Making the repository public would
+not have helped — `go get` would have looked somewhere else and reported `unknown revision`, the same
+message a private repo gives, which is how this survived: two different causes wearing one error.
+
+Found by running the developer's first five minutes rather than reading them:
+
+```
+nilda plugin new "Star Rating"   →  6 files
+go build ./...                   →  unknown revision v0.6.0
+```
+
+**Decided (owner, 2026-08-06): the module path moves to the repository, not the other way round.** The
+alternative — creating a top-level `nilda-sdk` group and moving the repo into it — leaves the same rename
+to do, in a place that is harder to undo. Renamed across all eight modules that reference it: the SDK, Core,
+`sso`, the three first-party plugins, the generated `contract/plugin.proto` and the scaffold's own pin.
+
+Two things worth knowing, because both would have shipped silently:
+
+* `contract/plugin.pb.go` embeds the file descriptor as a length-prefixed byte string, and the package path
+  is INSIDE it. A text replace corrupted the lengths and every binary that imported the contract panicked
+  at init with `slice bounds out of range` — before `main` ran, so no test in that package could have
+  caught it. Regenerated with `protoc` instead; the diff is one line.
+* The `go.sum` entries carried hashes computed for the OLD path. A string replace leaves a hash attached to
+  a name it was never computed for, which is a verification failure waiting for the first real fetch. They
+  are deleted; Go rewrites them correctly the first time the module is actually downloaded.
+
+**What is still left, and it is now a one-line operation.** The remote's tags stop at `v0.3.0`. `v0.5.0`,
+`v0.5.1` and `v0.6.0` — the last of which is what `nilda plugin new` pins into every new plugin — exist only
+on the owner's machine. Push them, make the repository public, and the loop above works for a stranger.
 
 *(Same day, same audit: the `v0.3.0` tag existed only locally and pointed three commits behind — before
 `abilities`, before the 7→26 field vocabulary, before the signed-package work. Moving it was safe precisely

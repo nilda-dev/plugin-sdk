@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"gitlab.com/nilda-sdk/plugin-sdk/contract"
+	"gitlab.com/nildalabs/nilda-sdk/plugin-sdk/contract"
 )
 
 // Core is the plugin's typed door into Nilda: plain-Go wrappers over HostService. Only the granted

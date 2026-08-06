@@ -26,7 +26,7 @@ to write anything, and no application-class plugin could be built against them.
 
 ## Use
 ```go
-import nilda "gitlab.com/nilda-sdk/plugin-sdk"
+import nilda "gitlab.com/nildalabs/nilda-sdk/plugin-sdk"
 
 func main() { nilda.Serve(&MyPlugin{}) }
 
@@ -58,7 +58,7 @@ commerce · booking · forms — paid plugins                      need → plug
 
 Repositories:
 - `gitlab.com/nildacms/core` · `gitlab.com/nildacms/central`
-- `gitlab.com/nilda-sdk/plugin-sdk` · `gitlab.com/nilda-sdk/theme-sdk`
+- `gitlab.com/nildalabs/nilda-sdk/plugin-sdk` · `gitlab.com/nilda-sdk/theme-sdk`
 - `gitlab.com/nilda-plugins/commerce` · `…/booking` · `…/forms`
 
 Ecosystem-wide docs (architecture, roadmap, spec index) live in **core** (`docs/files/`).
