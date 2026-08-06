@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"github.com/hashicorp/go-plugin"
@@ -120,7 +121,10 @@ type pluginServer struct {
 	conn       *grpc.ClientConn   // the dialed HostService broker stream
 }
 
-func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (*contract.InitResponse, error) {
+func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (resp *contract.InitResponse, err error) {
+	// Init too: a panic here is a plugin that cannot start, and Core saying "init failed: <the panic>" is a
+	// diagnosis. A process that dies during the handshake is a puzzle.
+	defer s.recoverCall("Init", &err)
 	conn, err := s.broker.Dial(req.HostBrokerId)
 	if err != nil {
 		return nil, fmt.Errorf("dial host service: %w", err)
@@ -167,7 +171,34 @@ func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (*co
 	return out, nil
 }
 
-func (s *pluginServer) HandleHook(ctx context.Context, req *contract.HookRequest) (*contract.HookResponse, error) {
+// recoverCall turns a panic in the author's own code into an error for THAT call.
+//
+// Without it, one nil-map access in a widget render kills the plugin PROCESS. Core supervises and restarts,
+// so the plugin comes back — but every other capability it serves goes down with it: its sign-in button,
+// its search engine, its field validation, its admin pages. And Core counts a crash toward the failure
+// budget, so a widget that panics on one malformed config eventually gets the whole plugin disabled. A bug
+// in the least important thing a plugin does takes out the most important one.
+//
+// This is the boundary that recovers, for the same reason `net/http` recovers per connection rather than
+// letting one handler end the server: the code on the other side is not ours, and the blast radius of its
+// mistakes should be the one call it made them in.
+//
+// It is NOT swallowed. The panic and its stack go to the plugin's own log — the operator's log, named after
+// the plugin — and the call returns an error, so Core fails it exactly as it fails any other bad answer.
+// An author sees a loud message about their bug instead of a process that vanished.
+func (s *pluginServer) recoverCall(what string, err *error) {
+	r := recover()
+	if r == nil {
+		return
+	}
+	stack := string(debug.Stack())
+	newLogger(os.Stderr, os.Getenv("NILDA_PLUGIN_KEY")).Error(
+		"this plugin panicked; the call failed and the process kept running", "in", what, "panic", r, "stack", stack)
+	*err = fmt.Errorf("plugin panicked in %s: %v", what, r)
+}
+
+func (s *pluginServer) HandleHook(ctx context.Context, req *contract.HookRequest) (resp *contract.HookResponse, err error) {
+	defer s.recoverCall("hook "+req.Hook, &err)
 	// Abilities first: "ability:" is a reserved hook namespace, so it must never reach the author's
 	// HandleHook whether or not they declared a runner for that name.
 	if out, handled, err := dispatchAbility(ctx, s.abilityRun, req.Hook, req.Payload); handled {
@@ -192,7 +223,8 @@ func (s *pluginServer) HandleHook(ctx context.Context, req *contract.HookRequest
 	return &contract.HookResponse{Payload: out}, nil
 }
 
-func (s *pluginServer) HandleEvent(ctx context.Context, req *contract.EventRequest) (*contract.EventResponse, error) {
+func (s *pluginServer) HandleEvent(ctx context.Context, req *contract.EventRequest) (resp *contract.EventResponse, err error) {
+	defer s.recoverCall("event "+req.Type, &err)
 	if err := s.handler.HandleEvent(ctx, req.Type, req.DataJson); err != nil {
 		return nil, err
 	}

@@ -214,3 +214,53 @@ func TestASingleCapabilityHandlerRefusesAHookThatIsNotItsOwn(t *testing.T) {
 		}
 	}
 }
+
+// panickyHandler is a plugin author having a bad day in exactly one of their capabilities.
+type panickyHandler struct{ recordingHandler }
+
+func (h *panickyHandler) HandleHook(_ context.Context, hook string, _ []byte) ([]byte, error) {
+	var m map[string]string
+	m["boom"] = hook // nil map write — the ordinary way author code panics
+	return nil, nil
+}
+func (h *panickyHandler) HandleEvent(context.Context, string, []byte) error {
+	panic("author panicked in an event handler")
+}
+
+// TestAPanicInTheAuthorsCodeFailsTheCallNotTheProcess.
+//
+// Without the boundary recover, one nil-map access in a widget render kills the plugin PROCESS — and takes
+// down every other capability that plugin serves: its sign-in button, its search engine, its field
+// validation. Core supervises and restarts, but it also counts a crash toward the failure budget, so a
+// widget that panics on one malformed config eventually gets the whole plugin disabled.
+//
+// The test asserts the two halves that matter: the call FAILS (never a silent success), and the process is
+// still answering afterwards.
+func TestAPanicInTheAuthorsCodeFailsTheCallNotTheProcess(t *testing.T) {
+	s := &pluginServer{handler: &panickyHandler{}}
+
+	res, err := s.HandleHook(context.Background(), &contract.HookRequest{Hook: "content.saved"})
+	if err == nil {
+		t.Fatal("a panic must surface as an error — a silent success tells Core the plugin handled it")
+	}
+	if res != nil {
+		t.Errorf("no response may be returned alongside the error, got %+v", res)
+	}
+	if !strings.Contains(err.Error(), "panicked") || !strings.Contains(err.Error(), "content.saved") {
+		t.Errorf("the error must say it panicked and in which hook, got %q", err)
+	}
+
+	// An event handler too — fire-and-forget on Core's side, so a panic here would otherwise kill the
+	// process for a notification nobody was waiting on.
+	if _, err := s.HandleEvent(context.Background(), &contract.EventRequest{Type: "content.published"}); err == nil {
+		t.Error("a panic in an event handler must fail the delivery, not the process")
+	}
+
+	// Still alive and still dispatching: the whole point.
+	ok := &recordingHandler{answer: []byte(`{"still":"here"}`)}
+	alive := &pluginServer{handler: ok}
+	out, err := alive.HandleHook(context.Background(), &contract.HookRequest{Hook: "content.saved"})
+	if err != nil || string(out.Payload) != `{"still":"here"}` {
+		t.Fatalf("the process must keep serving after a panic: %s %v", out.GetPayload(), err)
+	}
+}

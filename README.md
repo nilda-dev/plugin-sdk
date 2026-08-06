@@ -43,7 +43,9 @@ err := p.api.Post(ctx, "/content/product", map[string]any{"title": "Blue Widget"
 
 ## Docs
 `docs/` — **`PLUGIN_SDK.md`** (the contract, the developer surface, capabilities, the manifest,
-what Core guarantees and what it does not) · `PLUGINS.md` (plugin catalog).
+what Core guarantees and what it does not) · `ANY_LANGUAGE.md` (the raw protocol, for a plugin
+written in something other than Go) · `CAPABILITY_PLAN.md` (which capabilities exist, which are
+deliberately missing, and why) · `PLUGINS.md` (plugin catalog).
 
 ## Nilda ecosystem
 This repo is one of several. How they fit together:
@@ -53,13 +55,13 @@ core            — CMS (Go backend + admin panel + default theme)   needs → p
 central         — nilda.dev control-plane (pay/license/market)     standalone
 plugin-sdk      — plugin gRPC contract + API client (Go)           used by core + plugins
 theme-sdk   — headless SDK (@nilda/client, @nilda/react)       reads Core's public API
-commerce · booking · forms — paid plugins                      need → plugin-sdk
+commerce · booking · forms · sso — plugins                      need → plugin-sdk
 ```
 
-Repositories:
-- `gitlab.com/nildacms/core` · `gitlab.com/nildacms/central`
-- `gitlab.com/nildalabs/nilda-sdk/plugin-sdk` · `gitlab.com/nilda-sdk/theme-sdk`
-- `gitlab.com/nilda-plugins/commerce` · `…/booking` · `…/forms`
+Repositories — every one under the `nildalabs` group, checked against the remotes on 2026-08-06:
+- `gitlab.com/nildalabs/nildacms/core` · `gitlab.com/nildalabs/nildacms/central`
+- `gitlab.com/nildalabs/nilda-sdk/plugin-sdk` · `gitlab.com/nildalabs/nilda-sdk/theme-sdk`
+- `gitlab.com/nildalabs/nilda-plugins/commerce` · `…/booking` · `…/forms` · `…/sso`
 
 Ecosystem-wide docs (architecture, roadmap, spec index) live in **core** (`docs/files/`).
 
