@@ -41,6 +41,31 @@ Creating content:
 err := p.api.Post(ctx, "/content/product", map[string]any{"title": "Blue Widget"}, &out)
 ```
 
+## Releasing — a pin is only real if the tag is pushed AND carries this module path
+
+`pins_test.go` checks what the four plugin repositories require of this one. It is **red today**, and the
+reason is worth reading before cutting the next tag.
+
+Every published tag — `v0.1.0` through `v0.6.0` — was cut before commit `4ec856d`, which renamed the module
+from `gitlab.com/nilda-sdk/plugin-sdk` to `gitlab.com/nildalabs/nilda-sdk/plugin-sdk` (the group was
+missing, so the old path served nothing). `go` resolves a requirement by reading the go.mod **at** the
+version, so a plugin requiring the new path against any existing tag fails with a non-matching module path
+— and a directory `replace` fails the same way, so cloning this repo at the tag does not rescue it either.
+
+On top of that, `v0.4.0`–`v0.6.0` exist on one developer's disk and were never pushed; the newest tag on
+`origin` is `v0.3.0`. From inside the go.work workspace both faults are invisible, because the workspace
+supplies this directory and never reads a pin.
+
+So the next release is not optional bookkeeping — it is what makes the four plugins buildable by anyone who
+is not us:
+
+1. tag a commit **at or after `4ec856d`**, so the tag's go.mod declares `gitlab.com/nildalabs/…`;
+2. `git push --tags` — an unpushed tag is indistinguishable from a correct pin, from in here;
+3. move `commerce`, `forms`, `booking` and `sso` to that version.
+
+`pins_test.go` goes green when all three are done, and each plugin's own CI clones this repo at the version
+its go.mod names, which is the check that cannot be skipped.
+
 ## Docs
 `docs/` — **`PLUGIN_SDK.md`** (the contract, the developer surface, capabilities, the manifest,
 what Core guarantees and what it does not) · `ANY_LANGUAGE.md` (the raw protocol, for a plugin

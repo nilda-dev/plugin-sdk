@@ -51,7 +51,12 @@ contract-is-generated:
 
 test:
   stage: test
-  script: [go test -race ./...]
+  script:
+    # pins_test.go reads the go.mod AT each tag to prove the four plugin pins could resolve. A shallow
+    # clone arrives with no tags, and that test skips rather than lies when it finds none — so fetch them,
+    # or the one check that knows which versions exist quietly stops running.
+    - git fetch --tags --force --quiet
+    - go test -race ./...
 
 # Named separately from `test` so a failure here reads as what it is: the documentation is now wrong.
 examples:
