@@ -1,4 +1,4 @@
-# Nilda CMS — Plugins (NOT Core — build LATER)
+# Nilda — Plugins (NOT Core — build LATER)
 
 > **⚠️ Read this first:** Nothing in this file is Core. **Do NOT build any of it
 > until Core is 100% finished.** This file exists only so the
