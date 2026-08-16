@@ -91,4 +91,8 @@ Repositories — every one under the `nildalabs` group, checked against the remo
 Ecosystem-wide docs (architecture, roadmap, spec index) live in **core** (`docs/files/`).
 
 ## License
-Public. © Mohsen Khorrami.
+
+**MIT** — see [LICENSE](LICENSE). © Mohsen Khorrami.
+
+Inbound = outbound: a contribution is offered under the same terms. The NAME is not licensed with the
+code — see Core's `TRADEMARKS.md`; a fork renames.
