@@ -100,6 +100,14 @@ const (
 
 	// Display-only. A message shows text in the inspector and collects nothing.
 	FieldMessage = "message"
+
+	// FieldHTML is the other display-only one: a block of formatted text rather than a line of it — an
+	// explanation with a list in it, or a consent line with a link. It is sanitised on Core's side at
+	// render, so a plugin declares it exactly as it declares a message and is not trusted with markup.
+	//
+	// Both exist because an author uses them for different things, and giving them one type means the
+	// short instruction inherits whatever the block was styled with.
+	FieldHTML = "html"
 )
 
 // FieldTypes returns every type a plugin widget may declare, sorted.
@@ -114,7 +122,7 @@ func FieldTypes() []string {
 		FieldDate, FieldTime, FieldDateTime,
 		FieldSelect, FieldRadio, FieldMultiSelect, FieldCheckbox,
 		FieldImage, FieldFile, FieldGallery,
-		FieldRepeater, FieldGroup, FieldLikert, FieldMessage,
+		FieldRepeater, FieldGroup, FieldLikert, FieldMessage, FieldHTML,
 	}
 	sort.Strings(out)
 	return out
