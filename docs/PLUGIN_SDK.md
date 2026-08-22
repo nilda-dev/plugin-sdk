@@ -1025,7 +1025,8 @@ can be trusted: an SDK change that would make them wrong turns the pipeline red.
 - **SPEC_73/74** — the API this SDK's client calls.
 - **SPEC_110** — marketplace distribution. **SPEC_115** — the pre-install security scan.
 - **PLUGINS.md** — the plugin catalog.
-- **SPEC_114 / `theme-sdk`** — a different thing entirely (headless client SDK); not this.
+- **SPEC_114 / `theme-sdk`** — was a different thing entirely (headless client SDK); not this. That
+  repository was deleted 2026-08-22 and the headless theme path is cancelled.
 
 ---
 
@@ -1062,7 +1063,8 @@ ceiling on their first non-trivial widget. Two owner decisions turned it into a 
 - **Consume Core's published widget registry.** Core generates it from the live `Widgets()` registry
   (never hand-maintained, guarded by a drift test in the way `internal/themedoc` guards
   `THEME_CONTRACT.md`). An author should be able to see what already exists before writing a widget that
-  duplicates it — and the same document is what the AI and `theme-sdk` consume. One registry, three
+  duplicates it — and the same document is what the AI and a THEME AUTHOR consume (`theme-sdk` was
+  deleted 2026-08-22; a Nilda theme is `trees/*.json`, so its author is still the reader). One registry, three
   consumers.
 - **Keep the limits.** Widening the vocabulary must not widen the safety envelope: the per-plugin widget
   cap, the HTML byte cap, and the escape-everything render contract are unchanged. A richer field type is

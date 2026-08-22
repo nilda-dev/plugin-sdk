@@ -79,13 +79,12 @@ This repo is one of several. How they fit together:
 core            — CMS (Go backend + admin panel + default theme)   needs → plugin-sdk
 central         — nilda.dev control-plane (pay/license/market)     standalone
 plugin-sdk      — plugin gRPC contract + API client (Go)           used by core + plugins
-theme-sdk   — headless SDK (@nilda/client, @nilda/react)       reads Core's public API
 commerce · booking · forms · sso — plugins                      need → plugin-sdk
 ```
 
 Repositories — every one under the `nildalabs` group, checked against the remotes on 2026-08-06:
 - `gitlab.com/nildalabs/nildacms/core` · `gitlab.com/nildalabs/nildacms/central`
-- `gitlab.com/nildalabs/nilda-sdk/plugin-sdk` · `gitlab.com/nildalabs/nilda-sdk/theme-sdk`
+- `gitlab.com/nildalabs/nilda-sdk/plugin-sdk`
 - `gitlab.com/nildalabs/nilda-plugins/commerce` · `…/booking` · `…/forms` · `…/sso`
 
 Ecosystem-wide docs (architecture, roadmap, spec index) live in **core** (`docs/files/`).
