@@ -103,6 +103,22 @@ message InitRequest {
   // second time, in Go, matching a manifest nobody will remember to keep in step; the first plugin written
   // against this capability got it wrong exactly that way.
   string route_prefix = 12;
+
+  // WHEN A FIELD IS REMOVED FROM THIS MESSAGE, ITS NUMBER GOES ON A `reserved` LINE IN THE SAME COMMIT.
+  //
+  // protobuf identifies a field by its NUMBER, not its name. So the day a field is dropped here and its
+  // number is later reused for something else, every plugin already published keeps writing and reading
+  // the OLD type into that number — silently, with no handshake to catch it, because an additive change
+  // does not move the protocol version. It is the one protobuf mistake with no remedy after
+  // distribution, because the binaries are on other people's machines.
+  //
+  // The removed HostService METHODS needed no marker for the opposite reason — gRPC matches by name, see
+  // the note there. Fields are the case that does.
+  //
+  // Nothing has been removed from this message yet, so there is nothing to reserve. Reserving numbers
+  // "for the future" would be backwards: `reserved` makes a number unusable, so it BLOCKS the additive
+  // fields it was meant to protect. The rule is what carries; TestRemovedProtoFieldsStayReserved is what
+  // enforces it.
 }
 
 message InitResponse {
