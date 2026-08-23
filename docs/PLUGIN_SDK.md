@@ -284,6 +284,7 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `field` | contribute a kind of field to content types and forms — see §5 |
 | `auth_provider` | put a sign-in button on the login page — see §5 |
 | `search_provider` | be the site's search engine — see §5 |
+| `commerce` | be the site's shop: supply the products, prices and cart the storefront widgets draw — see §5 |
 
 That is the whole list. Every entry is dispatched by Core and has a surface in this SDK; there is nothing
 to declare that does nothing. `admin.pages` and `payments` used to appear here and were removed in v0.3.0
@@ -666,6 +667,75 @@ backstop against a bug, not a substitute for the work.
 **Index what decides visibility.** Each `SearchDoc` carries `Status`, `Unlisted` and `EmbargoUntil` — an
 item can be published and still invisible, because it is unlisted or its publish date has not arrived.
 Store them, so a `PublicOnly` query can be answered inside your engine instead of over the wire.
+
+### Being the site's shop (`commerce`)
+
+Nilda ships eight storefront widgets — Products, Product Field, Product Categories, Cart, Cart Count, Add
+To Cart, Checkout, Product Loop — and no commerce code at all. Your plugin supplies the products, the
+prices and the cart URLs; the widgets stay Nilda's.
+
+**Why the widgets are not yours, and why that is in your interest.** The obvious design is for a shop
+plugin to ship its own thirty widgets. That is what WooCommerce does, and it produces a world where a site
+that switches shops loses every page it built, no theme can style a product grid because it does not know
+what the grid is called, and a new shop has to write thirty widgets before it can compete on the one thing
+that matters. So the vocabulary lives in Nilda, once, and you supply the data: a site migrating to your
+plugin keeps its pages, a theme that styles `.pb-product-grid` styles yours, and you implement one
+interface instead of a widget library.
+
+Declare it:
+
+```json
+{
+  "capabilities": ["commerce", "route"],
+  "route_prefix": "/shop"
+}
+```
+
+Only ONE plugin per install may be the shop — two would each answer half the catalogue and neither would
+know it, so Nilda refuses the second at install rather than at the first missing product.
+
+Implement it:
+
+```go
+type shop struct{ /* your catalogue */ }
+
+func (s *shop) Products(ctx context.Context, q nilda.CommerceQuery) ([]nilda.CommerceProduct, error) {
+	// q.Term / q.Search / q.Sort / q.Featured are what an AUTHOR chose in a panel.
+	return []nilda.CommerceProduct{{
+		ID: "sku-1", Title: "Kettle", URL: "/shop/kettle", Image: "/media/kettle.jpg",
+		Price: "£49.00", OldPrice: "£59.00", InStock: true, Badge: "Sale",
+	}}, nil
+}
+
+func (s *shop) Product(ctx context.Context, id string) (nilda.CommerceProduct, bool) { … }
+
+func (s *shop) Endpoints(ctx context.Context) nilda.CommerceEndpoints {
+	return nilda.CommerceEndpoints{Cart: "/shop/cart", AddToCart: "/shop/add", Checkout: "/shop/checkout"}
+}
+
+func main() { nilda.ServeCommerce(&shop{}) }
+```
+
+**Three things worth knowing before you write it.**
+
+**Price is a string you have already formatted, symbol and all.** Nilda never parses it, compares it or
+adds it up, and there is no money arithmetic anywhere in Core. Currency, rounding, tax display and locale
+are decisions your shop owns and gets right; a Nilda that formatted money would be wrong for every shop
+with a rule nobody anticipated. The same reasoning removes the stock COUNT: you send `InStock`, because
+"3 left" has a stock-accounting model behind it and a shop that reserves at checkout answers it
+differently from one that does not.
+
+**The cart cannot be rendered on the server, and that is not about you.** Public pages are cached per URL
+and shared between visitors, so a server-rendered cart would serve one shopper's basket to everybody.
+Nilda renders shells that call your endpoints from the browser. That constraint would apply just as much
+to a widget living inside your plugin, so nothing is lost by the widgets being Nilda's.
+
+**Your endpoints must be same-origin rooted paths** under your own route prefix. A shell posts a shopper's
+basket to whatever you name, so Nilda drops anything else — an absolute URL, a protocol-relative one — and
+logs which endpoint it dropped.
+
+**Counting is optional.** Implement `CountProducts` and a catalogue that pages says "showing 1–12 of 240";
+skip it, or return `ok=false`, and it loses that line rather than printing a wrong total.
 
 ### Contributing a way to sign in (`auth_provider`)
 

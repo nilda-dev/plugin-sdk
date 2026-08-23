@@ -54,21 +54,22 @@ The three biggest gaps were the first three rows, and they were 120 of the 219 b
 
 ## 2. What Nilda has, and where it stops
 
-Twenty-three capabilities exist (registered in `internal/plugin/schema_capabilities.go`; `field`,
-`auth_provider` and `search_provider` declare their constants next to their dispatch, in `fields.go`,
-`authproviders.go` and `searchprovider.go`):
+Twenty-four capabilities exist (registered in `internal/plugin/schema_capabilities.go`; `field`,
+`auth_provider`, `search_provider` and `commerce` declare their constants next to their dispatch, in
+`fields.go`, `authproviders.go`, `searchprovider.go` and `commerce.go`):
 
 ```
 content.read   users.read     media.read      taxonomy.read   menus.read
 content.write  media.write    taxonomy.write  menus.write
 events         hooks          datastore       kv              schedule
 route          widget         render.assets   email           abilities
-admin_page     auth_provider  field           search_provider
+admin_page     auth_provider  field           search_provider commerce
 ```
 
-That is a real vocabulary — richer than the "widget only" a first reading of `main.go` suggests, and
-`commerce` uses six of them (`datastore`, `route`, `content.read`, `events`, `hooks`, and `payments`,
-of which see §5).
+That is a real vocabulary — richer than the "widget only" a first reading of `main.go` suggests. A shop
+plugin now declares `commerce` for the catalogue itself and combines it with `route` for its cart
+endpoints, `datastore` for its own tables and `content.read`/`events`/`hooks` for the rest; `payments`
+was removed in 2026-07-30 and is not part of the shape.
 
 The shape of the gap is specific: **a plugin can serve its own pages and own its own data, but it
 cannot add anything to a screen Core already renders.** `widget` is the one exception — it puts a

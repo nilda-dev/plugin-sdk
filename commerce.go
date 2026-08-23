@@ -1,0 +1,285 @@
+package nilda
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+)
+
+// BEING THE SITE'S SHOP.
+//
+// Nilda ships eight storefront widgets — Products, Product Field, Product Categories, Cart, Cart Count,
+// Add To Cart, Checkout, Product Loop — and no commerce code at all. Your plugin supplies the products,
+// the prices and the cart URLs; the WIDGETS stay Core's.
+//
+// # Why the widgets are not yours, and why that is in your interest
+//
+// The obvious design is for a shop plugin to ship its own thirty widgets. It is what WooCommerce does,
+// and it produces a world where a site that switches shops loses every page it built, no theme can style
+// a product grid because it does not know what the grid is called, and a new shop has to write thirty
+// widgets before it can compete on the one thing that matters.
+//
+// So the VOCABULARY lives in Core, once, and you supply the data. A site migrating to your plugin keeps
+// its pages. A theme that styles `.pb-product-grid` styles yours. And you implement one interface instead
+// of a widget library.
+//
+// # What Core will never ask you, and never do itself
+//
+// Core learns what a widget DRAWS. It does not learn how a shop WORKS — no tax rules, no coupon logic, no
+// order state, and above all NO MONEY ARITHMETIC.
+//
+// Price is a STRING you have already formatted, symbol and all. Currency, rounding, tax display and locale
+// are decisions your shop owns and gets right; a Core that formatted money would be wrong for every shop
+// with a rule nobody anticipated. Core never parses it, compares it, or adds it up.
+//
+// There is no stock COUNT either, only InStock. "3 left" is a merchandising decision with a stock
+// accounting model behind it, and a shop that reserves stock at checkout answers it differently from one
+// that does not.
+//
+// # The cart cannot be rendered on the server, and that is not about you
+//
+// Public pages are cached per URL and shared between visitors, so a server-rendered cart would serve one
+// shopper's basket to everybody. Core renders SHELLS that call your endpoints from the browser instead.
+// That constraint would apply just as much to a widget living inside your plugin, so nothing is lost by
+// the widgets being Core's — and the page cache stays correct by construction.
+//
+// Your endpoints must be SAME-ORIGIN ROOTED PATHS under your own route prefix ("/shop/cart"). Core drops
+// anything else and logs which one, because a shell posts a shopper's basket to whatever you name.
+//
+// # The shape
+//
+//	type shop struct{ /* your catalogue */ }
+//
+//	func (s *shop) Products(ctx context.Context, q CommerceQuery) ([]CommerceProduct, error) { … }
+//	func (s *shop) Product(ctx context.Context, id string) (CommerceProduct, bool) { … }
+//	func (s *shop) Endpoints(ctx context.Context) CommerceEndpoints { … }
+//	func (s *shop) CountProducts(ctx context.Context, q CommerceQuery) (int, bool) { … } // optional
+//
+//	func main() { nilda.ServeCommerce(&shop{}) }
+//
+// Declare it in the manifest:
+//
+//	"capabilities": ["commerce", "route"],
+//	"route_prefix": "/shop"
+//
+// At most ONE plugin on an install may provide the shop. Two would each answer half the catalogue and
+// neither would know it, so Core refuses the second at install time rather than at the first missing
+// product.
+
+// Commerce hook names. The Core side of this contract is core/internal/plugin/commerce.go.
+const (
+	HookCommerceProducts  = "commerce.products"
+	HookCommerceProduct   = "commerce.product"
+	HookCommerceEndpoints = "commerce.endpoints"
+	HookCommerceCount     = "commerce.count"
+)
+
+// CommerceTerm is one product category, carrying the archive URL a chip links to.
+type CommerceTerm struct {
+	Label string `json:"label"`
+	URL   string `json:"url"`
+	// Taxonomy is which vocabulary this belongs to — "product_cat", "brand". Empty means unspecified, and
+	// a widget filtering by taxonomy then matches it either way.
+	Taxonomy string `json:"taxonomy,omitempty"`
+	// Slug is your own key for the term. Carried because a query-string selection has no archive path in
+	// it, and parsing the slug back out of a URL breaks the day the permalink scheme changes.
+	Slug string `json:"slug,omitempty"`
+}
+
+// CommerceVariation is one axis of choice a shopper answers before the item is addable — "Size", with its
+// options.
+//
+// The options are STRINGS, not priced variants: a per-combination price belongs to your pricing rules, and
+// Core holding a matrix of them would be Core re-implementing your catalogue. What Core owns is asking the
+// question and handing the answer back to your add-to-cart endpoint.
+type CommerceVariation struct {
+	// Name is what the shopper is choosing — the control's label.
+	Name string `json:"name"`
+	// Key is what your endpoint receives. Empty falls back to a slug of Name.
+	Key string `json:"key,omitempty"`
+	// Options are the answers, in the order you want them offered.
+	Options []string `json:"options,omitempty"`
+	// Selected opens the control on a particular option. Empty means the first.
+	Selected string `json:"selected,omitempty"`
+}
+
+// CommerceProduct is a product as a WIDGET DRAWS IT.
+type CommerceProduct struct {
+	// ID is your own id for the item, and what comes back to you on Product and on add-to-cart.
+	ID string `json:"id"`
+	// Title and URL are the tile's text and its link.
+	Title string `json:"title"`
+	URL   string `json:"url,omitempty"`
+	// Excerpt is the short description a card shows. PLAIN TEXT — a card is not the place for markup, and
+	// the full description belongs to the product page.
+	Excerpt string `json:"excerpt,omitempty"`
+	// Image is an already-resolved URL. You know your own media; a second lookup here would be Core
+	// guessing at somebody else's storage.
+	Image string `json:"image,omitempty"`
+	// Price and OldPrice are FORMATTED BY YOU, symbol and all. An empty OldPrice strikes nothing through.
+	Price    string `json:"price,omitempty"`
+	OldPrice string `json:"old_price,omitempty"`
+	// InStock drives the one piece of state a storefront must show honestly.
+	InStock bool `json:"in_stock,omitempty"`
+	// Badge is your own word for whatever you want flagged — "Sale", "New", "Bundle".
+	Badge string `json:"badge,omitempty"`
+	// SKU is your code for the item, shown on a product page: somebody ordering by phone, checking a
+	// parcel or matching a spreadsheet needs it, and Core cannot derive it from anything it holds.
+	SKU string `json:"sku,omitempty"`
+	// Rating is 0–5 and RatingCount is how many people said so. 0 means you did not answer, not "nobody
+	// liked it" — leave both alone and the widget draws nothing. A NUMBER rather than your own stars,
+	// because Core already draws a row of marks and two implementations disagree about half a star.
+	Rating      float64 `json:"rating,omitempty"`
+	RatingCount int     `json:"rating_count,omitempty"`
+	// Terms are the product's categories.
+	Terms []CommerceTerm `json:"terms,omitempty"`
+	// Variations are the choices a shopper must make. A shop with variations and no way to express them
+	// is the case that actually breaks: the button adds the default variant silently, and the shopper
+	// finds out what size they bought when it arrives.
+	Variations []CommerceVariation `json:"variations,omitempty"`
+}
+
+// CommerceQuery is what a catalogue widget asks for. Deliberately small: you own querying, and every field
+// here is something an AUTHOR chose in a panel rather than a filter language Core would have to define and
+// keep compatible across plugins.
+type CommerceQuery struct {
+	// Term is a category/collection slug or name; empty means everything.
+	Term   string `json:"term,omitempty"`
+	Search string `json:"search,omitempty"`
+	Limit  int    `json:"limit,omitempty"`
+	Offset int    `json:"offset,omitempty"`
+	// Sort is "" | newest | price-asc | price-desc | name. Anything you do not support: fall back to your
+	// own default order rather than returning nothing.
+	Sort     string `json:"sort,omitempty"`
+	Featured bool   `json:"featured,omitempty"`
+}
+
+// CommerceEndpoints are the same-origin paths your plugin serves. Core renders shells that call them; it
+// never proxies, parses or caches their responses.
+//
+// Rooted paths only ("/shop/cart"). Core drops an absolute URL and logs which one.
+type CommerceEndpoints struct {
+	// Cart is a GET returning this visitor's cart as an HTML fragment.
+	Cart string `json:"cart,omitempty"`
+	// AddToCart is a POST. It receives the product id and, when the product has them, the shopper's
+	// variation answers.
+	AddToCart string `json:"add_to_cart,omitempty"`
+	// Checkout and Account are pages you own.
+	Checkout string `json:"checkout,omitempty"`
+	Account  string `json:"account,omitempty"`
+}
+
+// Commerce is the interface a shop plugin implements.
+type Commerce interface {
+	// Products answers a catalogue widget. The same answer for every visitor, so its output is cacheable
+	// with the page — never vary it by who is asking, because you are not told and the page is shared.
+	Products(ctx context.Context, q CommerceQuery) ([]CommerceProduct, error)
+	// Product resolves the item a single-product page is about. found=false renders nothing rather than
+	// an empty frame.
+	Product(ctx context.Context, id string) (p CommerceProduct, found bool)
+	// Endpoints are the URLs the client shells call.
+	Endpoints(ctx context.Context) CommerceEndpoints
+}
+
+// CommerceCounter is an OPTIONAL extra: how many products a query matches, so a catalogue that pages can
+// say "showing 1–12 of 240". Return ok=false if your engine cannot count cheaply — the widget loses that
+// one line, which is better than a wrong total.
+//
+// The query you receive has no Limit or Offset: the count is about the whole result set.
+type CommerceCounter interface {
+	CountProducts(ctx context.Context, q CommerceQuery) (total int, ok bool)
+}
+
+// ServeCommerce runs a plugin whose whole job is the shop. Use Serve with your own Handler and
+// DispatchCommerceHook when your plugin does other things too — which most shops will, since a shop also
+// needs `route` for its cart endpoints.
+func ServeCommerce(c Commerce) {
+	Serve(&commerceOnlyHandler{c: c})
+}
+
+type commerceOnlyHandler struct {
+	c    Commerce
+	core *Core
+}
+
+func (h *commerceOnlyHandler) Init(ctx context.Context, core *Core) (InitResult, error) {
+	h.core = core
+	// Subscribed unconditionally, like the search and auth hooks: Core delivers them only to a plugin
+	// granted `commerce`, so asking without the capability is harmless — and not asking WITH it would be
+	// a plugin that installs cleanly and is then never asked for a single product.
+	return InitResult{Hooks: []string{
+		HookCommerceProducts, HookCommerceProduct, HookCommerceEndpoints, HookCommerceCount,
+	}}, nil
+}
+
+func (h *commerceOnlyHandler) HandleHook(ctx context.Context, hook string, payload []byte) ([]byte, error) {
+	out, handled, err := DispatchCommerceHook(ctx, h.core, h.c, hook, payload)
+	if !handled {
+		return nil, fmt.Errorf("unknown hook %q", hook)
+	}
+	return out, err
+}
+
+func (h *commerceOnlyHandler) HandleEvent(context.Context, string, []byte) error { return nil }
+
+// DispatchCommerceHook routes one commerce hook to c. handled=false means it was not a commerce hook, so
+// a plugin that does several things can pass it on rather than failing it.
+func DispatchCommerceHook(ctx context.Context, _ *Core, c Commerce, hook string, payload []byte) (out []byte, handled bool, err error) {
+	switch hook {
+	case HookCommerceProducts:
+		var q CommerceQuery
+		if err := json.Unmarshal(payload, &q); err != nil {
+			return nil, true, fmt.Errorf("nilda: commerce.products payload: %w", err)
+		}
+		products, err := c.Products(ctx, q)
+		if err != nil {
+			return nil, true, err
+		}
+		// A nil slice marshals as null, and a caller reading `.products[0]` on null is a crash in
+		// whatever language reads it next. An empty catalogue is a list with nothing in it.
+		if products == nil {
+			products = []CommerceProduct{}
+		}
+		b, err := json.Marshal(map[string]any{"products": products})
+		return b, true, err
+
+	case HookCommerceProduct:
+		var in struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal(payload, &in); err != nil {
+			return nil, true, fmt.Errorf("nilda: commerce.product payload: %w", err)
+		}
+		p, found := c.Product(ctx, in.ID)
+		if !found {
+			// An explicit null, not an omitted key: "we looked and there is no such product" and "the
+			// plugin did not answer" must not be the same bytes.
+			return []byte(`{"product":null}`), true, nil
+		}
+		b, err := json.Marshal(map[string]any{"product": p})
+		return b, true, err
+
+	case HookCommerceEndpoints:
+		b, err := json.Marshal(c.Endpoints(ctx))
+		return b, true, err
+
+	case HookCommerceCount:
+		counter, ok := c.(CommerceCounter)
+		if !ok {
+			// Not an error: counting is optional, and an error here would be logged on every page of
+			// every catalogue that pages.
+			return []byte(`{}`), true, nil
+		}
+		var q CommerceQuery
+		if err := json.Unmarshal(payload, &q); err != nil {
+			return nil, true, fmt.Errorf("nilda: commerce.count payload: %w", err)
+		}
+		total, answered := counter.CountProducts(ctx, q)
+		if !answered {
+			return []byte(`{}`), true, nil
+		}
+		b, err := json.Marshal(map[string]any{"total": total})
+		return b, true, err
+	}
+	return nil, false, nil
+}
