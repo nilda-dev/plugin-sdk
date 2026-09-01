@@ -292,3 +292,18 @@ func diffSets(want, got []string) (added, removed []string) {
 func printExpr(w *strings.Builder, fset *token.FileSet, e ast.Expr) error {
 	return printer.Fprint(w, fset, e)
 }
+
+// TestTheReadmeCountsTheSurfaceItPromises. README.md states how many entries the promise covers, and a
+// number written in prose drifts the first time somebody exports something. A compatibility policy whose
+// own figure is stale is the kind of document a reader stops trusting for the parts that still matter.
+func TestTheReadmeCountsTheSurfaceItPromises(t *testing.T) {
+	raw, err := os.ReadFile("README.md")
+	if err != nil {
+		t.Fatalf("reading README.md: %v", err)
+	}
+	want := fmt.Sprintf("%d entries today", len(publicSurface(t)))
+	if !strings.Contains(string(raw), want) {
+		t.Errorf("README.md's compatibility section does not say %q — the surface moved and the promise "+
+			"still describes the old one", want)
+	}
+}

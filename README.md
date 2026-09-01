@@ -41,6 +41,47 @@ Creating content:
 err := p.api.Post(ctx, "/content/product", map[string]any{"title": "Blue Widget"}, &out)
 ```
 
+## What v1.0 will promise — and what it deliberately will not
+
+This module is `v0`. In Go that is a stated absence of a compatibility promise, and it is the only reason
+the surface can still be changed at all. **Tagging `v1.0.0` is not a version bump, it is the promise** —
+so it is written down here first, before anyone can hold us to something nobody decided.
+
+**Two numbers, on purpose.**
+
+| | what it versions | what moves it |
+|---|---|---|
+| the module version (`v0.6.0`) | the **Go API** — the names and signatures a plugin author compiles against | a breaking change to any of them |
+| `ProtocolVersion` (`2`) | the **wire contract** — `contract/plugin.proto` | a breaking change to the proto |
+
+They are independent, and confusing them is the mistake this section exists to prevent. A plugin built
+against protocol 2 keeps loading on a Core that also speaks 3 (`SupportedProtocols`), which is what stops
+every published plugin failing on one afternoon. That only works while the generated types are **not**
+part of the Go API — see below.
+
+**Covered by the promise from v1.0.** Everything in `surface.txt`, except what the next paragraph names.
+That file is generated from the AST and checked on every run: exported funcs, types, consts, vars, and the
+exported methods and fields of exported types — 391 entries today. Adding to it is a normal change and
+stays cheap. Removing from it after v1.0 is a breaking change for somebody, and the guard says so in those
+words.
+
+**NOT covered, and named rather than left ambiguous:**
+
+- **`contract/`** — generated from `plugin.proto`. It moves with `ProtocolVersion`, not with the module
+  version. Three exported names unavoidably mention its types and are listed as exceptions in
+  `surface_test.go`: `GRPCPlugin.Impl` and `PluginClient.Plugin`, which are the Core↔plugin transport
+  seam and therefore *are* the protobuf, and `NewCoreForTest`, which no other package can write because
+  `Core`'s fields are unexported.
+- **`NewCoreForTest`** — plumbing for `nildatest`. Write plugin tests against `nildatest`; it is the
+  supported kit and it does not name a gRPC type.
+- **`_examples/`** — not a package of this module (the underscore keeps the Go tool out), so it is not
+  importable and not frozen. It changes whenever the thing it teaches changes. CI still builds and runs it.
+
+**Before the tag.** `ProtocolForSDK` must already know the version being tagged — Core's
+`TestTheScaffoldedSDKVersionSpeaksThisProtocol` fails the build if the scaffold's pin lands in a range the
+compatibility checker cannot classify. That check exists because the first answer for `v1.0.0` was
+"not a version this Nilda knows about", to an author holding exactly what our own scaffold gave them.
+
 ## Releasing — a pin is only real if the tag is pushed AND carries this module path
 
 `pins_test.go` checks what the four plugin repositories require of this one. It is **red today**, and the
