@@ -209,8 +209,15 @@ func (s *pluginServer) recoverCall(what string, err *error) {
 
 func (s *pluginServer) HandleHook(ctx context.Context, req *contract.HookRequest) (resp *contract.HookResponse, err error) {
 	defer s.recoverCall("hook "+req.Hook, &err)
-	// Abilities first: "ability:" is a reserved hook namespace, so it must never reach the author's
-	// HandleHook whether or not they declared a runner for that name.
+	// Abilities first, for the ones that brought a Run. An `ability:` hook whose name has NO runner falls
+	// through to the author's HandleHook on purpose — that is the documented way to handle an ability
+	// yourself, it is the only reason AbilityHook is exported, and it is what makes Ability.Run optional.
+	//
+	// This comment used to say the namespace "must never reach the author's HandleHook whether or not they
+	// declared a runner", which is the rule that was tried and removed on 2026-08-06: it made the
+	// documented pattern fail at runtime with an error naming the author's own ability. The worry behind
+	// it cannot happen — Core dispatches `ability:<name>` only for abilities this plugin declared at Init,
+	// so the only names that arrive are the author's own.
 	if out, handled, err := dispatchAbility(ctx, s.abilityRun, req.Hook, req.Payload); handled {
 		if err != nil {
 			return nil, err

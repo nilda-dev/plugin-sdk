@@ -162,6 +162,14 @@ type RowAction struct {
 }
 
 // AdminActionHook is the hook Core calls when somebody presses a row action.
+//
+// SUBSCRIBE IT. There is no interface to imply it — DispatchAdminAction takes a function, not a provider
+// — so `admin.action` has to be in your InitResult.Hooks or Core answers "plugin is not subscribed to
+// hook admin.action" and every button on your list does nothing:
+//
+//	return nilda.InitResult{Hooks: []string{nilda.AdminActionHook}}, nil
+//
+// The grant is `admin_page`, the same one that buys the page. It is not `hooks`.
 const AdminActionHook = "admin.action"
 
 // AdminAction is one press of a row action: which page, which button, and which row.

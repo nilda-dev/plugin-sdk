@@ -81,7 +81,6 @@ func TestOrdinaryHooksArePassedThrough(t *testing.T) {
 	}
 }
 
-// "ability:" is a reserved namespace. A hook in it that names an ability with no runner must NOT fall
 // An `ability:` hook the author did not give a Run to falls THROUGH to their HandleHook. That is the
 // documented way to handle abilities yourself, it is the only reason `AbilityHook` is exported, and it is
 // what makes `Ability.Run` genuinely optional.
