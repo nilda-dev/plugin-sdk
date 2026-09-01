@@ -93,9 +93,12 @@ missing, so the old path served nothing). `go` resolves a requirement by reading
 version, so a plugin requiring the new path against any existing tag fails with a non-matching module path
 — and a directory `replace` fails the same way, so cloning this repo at the tag does not rescue it either.
 
-On top of that, `v0.4.0`–`v0.6.0` exist on one developer's disk and were never pushed; the newest tag on
-`origin` is `v0.3.0`. From inside the go.work workspace both faults are invisible, because the workspace
-supplies this directory and never reads a pin.
+This was also recorded as "`v0.4.0`–`v0.6.0` exist on one developer's disk and were never pushed; the
+newest tag on `origin` is `v0.3.0`". **Measured 2026-09-01 and no longer true** — `git ls-remote --tags`
+shows every tag through `v0.6.0` on `origin`, at the same commits as the local ones. Whether that was
+fixed or never right, the surviving fault is the one above and only that one: the tags are published and
+every one of them carries the old module path. From inside the go.work workspace it stays invisible,
+because the workspace supplies this directory and never reads a pin.
 
 So the next release is not optional bookkeeping — it is what makes the four plugins buildable by anyone who
 is not us:
