@@ -6,8 +6,8 @@
 # months, so the first thing a prospective plugin author met was a document that did not work.
 #
 # Prose cannot be verified. Code can. Every non-trivial snippet in the documentation now lives under
-# examples/ and is compiled and run here, so an SDK change that would quietly make the docs wrong turns this
-# pipeline red instead.
+# _examples/ and is compiled and run here, so an SDK change that would quietly make the docs wrong turns
+# this pipeline red instead.
 stages: [check, test]
 
 default:
@@ -59,8 +59,13 @@ test:
     - go test -race ./...
 
 # Named separately from `test` so a failure here reads as what it is: the documentation is now wrong.
+#
+# `_examples`, with the underscore, so the worked example is not an importable package of this module:
+# anything a consumer can import is frozen by a v1.0 tag, and an example is written to be READ. The Go
+# tool ignores an underscore directory, which is exactly why it must be named here — `go test ./...`
+# above no longer reaches it, and an example that stops compiling is documentation that lies.
 examples:
   stage: test
   script:
-    - go build ./examples/...
-    - go test ./examples/... -count=1
+    - go build ./_examples/...
+    - go test ./_examples/... -count=1

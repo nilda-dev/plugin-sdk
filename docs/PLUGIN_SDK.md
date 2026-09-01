@@ -1083,7 +1083,7 @@ scope and a 500 from an outage are different bugs and a plugin should behave dif
 `nil` there gives you a `*Core` whose every host call panics on a nil pointer, and the panic names gRPC
 internals rather than the missing dependency.
 
-A worked example lives in `examples/shop` — a plugin that writes content, keeps a counter on a schedule, and
+A worked example lives in `_examples/shop` — a plugin that writes content, keeps a counter on a schedule, and
 emails a receipt, with the tests to match. **CI compiles and runs it**, which is why the snippets on this page
 can be trusted: an SDK change that would make them wrong turns the pipeline red.
 
