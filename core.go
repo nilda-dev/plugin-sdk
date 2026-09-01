@@ -150,13 +150,25 @@ func (c *Core) Emit(ctx context.Context, eventType string, data any) error {
 	return err
 }
 
-// NewCoreForTest builds a Core over an existing HostService client — for tests only.
+// NewCoreForTest builds a Core over an existing HostService client — the plumbing behind the nildatest
+// package, NOT the way to write a plugin test.
 //
-// Prefer the nildatest package, which supplies a working fake host: passing nil here means any host call —
-// KVGet, Emit, SendEmail — dereferences a nil client and panics, and the panic names gRPC internals rather
-// than the missing dependency. That is a trap for exactly the author this helper exists for.
-func NewCoreForTest(pluginKey string, granted []string, host contract.HostServiceClient) *Core {
-	return &Core{PluginKey: pluginKey, Granted: granted, host: host}
+// Prefer nildatest, which supplies a working fake host: passing nil here means any host call — KVGet,
+// Emit, SendEmail — dereferences a nil client and panics, and the panic names gRPC internals rather than
+// the missing dependency. That is a trap for exactly the author this helper exists for.
+//
+// ONE constructor, taking the API arguments. There were two, and the shorter one was the trap twice over:
+// it had no API client at all, so a Core built with it could not exercise core.API() — the half of a
+// plugin most worth testing. An author who found the short name first got the useless Core, which is what
+// a name being available does. baseURL/token empty means no API client, which is what the plugin-side
+// half of nildatest wants; newAPI already reads it that way.
+//
+// It cannot live in nildatest: Core's fields here are unexported, and a second package cannot set them.
+// That is also why it stays exported, and why the compatibility policy in README.md scopes it out of the
+// stable surface along with contract/.
+func NewCoreForTest(pluginKey string, granted []string, host contract.HostServiceClient,
+	baseURL, token string, scopes []string) *Core {
+	return &Core{PluginKey: pluginKey, Granted: granted, host: host, api: newAPI(baseURL, token, scopes)}
 }
 
 // Route is the full path one of your handlers should be registered at.
@@ -186,14 +198,6 @@ func SetSettingsForTest(c *Core, values map[string]any) {
 	c.settings = values
 }
 
-// NewCoreForTestWithAPI is NewCoreForTest plus an API client pointed at a test server.
-//
-// Exists because a plugin's most interesting code is what it does with core.API(), and a Core built for a
-// test had none — so the half an author most wants to test was the half they could not. baseURL is usually
-// an httptest.Server's URL; nildatest wires it for you.
-func NewCoreForTestWithAPI(pluginKey string, granted []string, host contract.HostServiceClient,
-	baseURL, token string, scopes []string) *Core {
-	c := NewCoreForTest(pluginKey, granted, host)
-	c.api = newAPI(baseURL, token, scopes)
-	return c
-}
+// NewCoreForTestWithAPI was folded into NewCoreForTest, which now takes the API arguments. Two spellings
+// of one constructor meant the shorter name built the Core that could not reach core.API() — and the
+// shorter name is the one an author finds first.

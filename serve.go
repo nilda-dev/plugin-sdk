@@ -64,7 +64,7 @@ func ScheduleHook(name string) string { return "schedule:" + name }
 func Serve(h Handler) {
 	plugin.Serve(&plugin.ServeConfig{
 		HandshakeConfig:  Handshake,
-		VersionedPlugins: VersionedPluginMap(&pluginServer{handler: h}),
+		VersionedPlugins: versionedPluginMap(&pluginServer{handler: h}),
 		GRPCServer:       plugin.DefaultGRPCServer,
 	})
 }

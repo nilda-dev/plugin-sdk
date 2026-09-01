@@ -66,7 +66,7 @@ func TestContractRoundTrip(t *testing.T) {
 	}
 	defer conn.Close()
 
-	core := NewCoreForTest("refplugin", []string{"kv", "events"}, contract.NewHostServiceClient(conn))
+	core := NewCoreForTest("refplugin", []string{"kv", "events"}, contract.NewHostServiceClient(conn), "", "", nil)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -113,7 +113,7 @@ func TestContractRoundTrip(t *testing.T) {
 // The test is about the SHAPE, because the shape is the whole change: a map keyed by version means adding
 // the next protocol is a line, and a single set means it is a migration.
 func TestTheProtocolSetIsNegotiable(t *testing.T) {
-	set := VersionedPluginMap(nil)
+	set := HostPluginMap()
 	if len(set) == 0 {
 		t.Fatal("no protocol versions offered — nothing could ever handshake")
 	}

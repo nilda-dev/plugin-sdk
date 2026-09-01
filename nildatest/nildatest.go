@@ -71,7 +71,7 @@ type Host struct {
 // same way a real install would when the plugin reaches for something it never asked for.
 func New(pluginKey string, granted ...string) (*nilda.Core, *Host) {
 	h := newHost(granted)
-	return nilda.NewCoreForTest(pluginKey, granted, h), h
+	return nilda.NewCoreForTest(pluginKey, granted, h, "", "", nil), h
 }
 
 // SetSettings puts the values a SITE OWNER would have typed on your admin pages into a test Core.
@@ -93,7 +93,7 @@ func SetSettings(core *nilda.Core, values map[string]any) { nilda.SetSettingsFor
 func NewWithAPI(pluginKey string, handler http.Handler, granted ...string) (*nilda.Core, *Host, *httptest.Server) {
 	h := newHost(granted)
 	srv := httptest.NewServer(handler)
-	core := nilda.NewCoreForTestWithAPI(pluginKey, granted, h, srv.URL, "test-token", scopesFor(granted))
+	core := nilda.NewCoreForTest(pluginKey, granted, h, srv.URL, "test-token", scopesFor(granted))
 	return core, h, srv
 }
 
