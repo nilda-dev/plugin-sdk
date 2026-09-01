@@ -67,5 +67,7 @@ test:
 examples:
   stage: test
   script:
-    - go build ./_examples/...
-    - go test ./_examples/... -count=1
+    # `cd`, not `go test ./_examples/...`. The Go tool ignores an underscore directory even when the
+    # pattern names it: `./_examples/...` matches NO packages and exits 0, which is a job that agrees with
+    # anything. From inside the directory the same packages build and run normally.
+    - cd _examples && go build ./... && go test ./... -count=1
