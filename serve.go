@@ -58,6 +58,16 @@ func ScheduleHook(name string) string { return "schedule:" + name }
 
 // Serve is the plugin's main() entrypoint: handshake + gRPC serving, fully managed. It never returns.
 //
+// IMPLEMENTING A PROVIDER INTERFACE IS ENOUGH. Core only delivers a hook a plugin SUBSCRIBED to, so
+// WidgetProvider, AuthProvider, FieldProvider, SearchProvider, Commerce and AssetProvider each need their
+// hooks listed in InitResult — and Serve adds them for you, from the interfaces your Handler satisfies
+// (withProvidedHooks). Listing them yourself as well is harmless; they are not subscribed twice.
+//
+// What Serve does NOT do is dispatch the four that arrive as raw hooks: call DispatchAuthHook,
+// DispatchFieldHook, DispatchSearchHook or DispatchCommerceHook from your HandleHook, or use the
+// single-purpose ServeAuthProvider / ServeField / ServeSearchProvider / ServeCommerce if that is all your
+// plugin does. Widget and asset hooks need neither — they are answered before your HandleHook sees them.
+//
 // VersionedPlugins rather than Plugins: the plugin announces every protocol version it can speak and the
 // handshake settles on the highest the host also understands. With a single fixed version, the day Core
 // bumps the protocol is the day every published plugin stops loading at once — see SupportedProtocols.

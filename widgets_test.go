@@ -180,19 +180,45 @@ func (plain) HandleHook(_ context.Context, _ string, p []byte) ([]byte, error) {
 }
 
 // TestTheAssetSubscriptionIsAddedForYou covers the footgun the interface exists to remove.
+//
+// Membership, not position. This asserted `len(got) == 2 && got[1] == HookRenderAssets`, which held only
+// while render.assets was the ONE subscription added for anybody — and that was the defect: `provider`
+// here implements WidgetProvider too, and its widget hooks were never subscribed, so Core answered "not
+// subscribed" every time it asked what widgets this plugin had. A positional assertion on a set fails the
+// moment the set is right.
 func TestTheAssetSubscriptionIsAddedForYou(t *testing.T) {
+	has := func(list []string, want string) bool {
+		for _, s := range list {
+			if s == want {
+				return true
+			}
+		}
+		return false
+	}
+
 	got := withProvidedHooks(&provider{}, []string{"content.saved"})
-	if len(got) != 2 || got[1] != HookRenderAssets {
+	if !has(got, HookRenderAssets) {
 		t.Fatalf("render.assets was not subscribed: %v", got)
 	}
-	// Declared by hand as well? Still exactly one — a duplicate subscription is a double dispatch.
+	if !has(got, "content.saved") {
+		t.Fatalf("the plugin's own subscription was dropped: %v", got)
+	}
+
+	// Declared by hand as well? Still exactly once — a duplicate subscription is a double dispatch.
 	got = withProvidedHooks(&provider{}, []string{HookRenderAssets})
-	if len(got) != 1 {
+	n := 0
+	for _, s := range got {
+		if s == HookRenderAssets {
+			n++
+		}
+	}
+	if n != 1 {
 		t.Fatalf("duplicated the subscription: %v", got)
 	}
-	// A plugin with no AssetProvider gets nothing added.
+
+	// A plugin with no provider interface gets nothing added.
 	if got := withProvidedHooks(&plain{}, nil); got != nil {
-		t.Fatalf("subscribed a plugin that provides no assets: %v", got)
+		t.Fatalf("subscribed a plugin that provides nothing: %v", got)
 	}
 }
 

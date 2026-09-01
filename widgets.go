@@ -313,20 +313,72 @@ func dispatchProvided(ctx context.Context, h Handler, hook string, payload []byt
 
 // withProvidedHooks adds the subscriptions the optional interfaces imply.
 //
-// Only `render.assets` needs this. The widget hooks are dispatched to every plugin holding the capability,
-// so listing them would be noise; this one is a subscription Core reads from InitResult, and forgetting it
-// produces a plugin that is wired, granted, running, and silent.
+// EVERY PROVIDER INTERFACE NEEDS THIS, AND FOR A WHILE ONLY ONE OF THEM GOT IT.
 //
-// Nothing is added for a plugin that already listed it, and an ungranted subscription is dropped by Core
-// rather than refused — so this can never turn a working plugin into a failing one.
+// This used to add `render.assets` alone, on the reasoning that "the widget hooks are dispatched to every
+// plugin holding the capability, so listing them would be noise". Core does not work that way. Host.Call
+// refuses anything the plugin did not subscribe to, by name, before the capability is even consulted:
+//
+//	if !subscribed {
+//	    return nil, fmt.Errorf("plugin %q is not subscribed to hook %q", key, hook)
+//	}
+//
+// The grant is the SECOND filter (filterHooks trims the subscription list to what was granted), not a
+// substitute for the first. So implementing WidgetProvider and calling Serve produced a plugin that
+// compiled, loaded, was granted `widget`, ran — and answered "not subscribed" every time Core asked what
+// widgets it had. dispatchProvided intercepted that hook perfectly, for a call that never arrived. There
+// is no ServeWidgetProvider either, so nothing anywhere subscribed it.
+//
+// The single-purpose Serve wrappers (ServeAuthProvider, ServeField, ServeSearchProvider, ServeCommerce)
+// each subscribe their own hooks and are unaffected — but their documentation tells a plugin that does
+// more than one thing to use Serve and call DispatchXHook by hand, and that path subscribed nothing.
+// ServeAuthProvider's own comment names the outcome: "a plugin that installs cleanly and then never
+// hears from the login page."
+//
+// Adding a hook the plugin was not granted is harmless: Core drops it rather than refusing the plugin, so
+// this can never turn a working plugin into a failing one. Duplicates are skipped, because a repeated
+// subscription is a double dispatch.
 func withProvidedHooks(h Handler, hooks []string) []string {
-	if _, is := h.(AssetProvider); !is {
-		return hooks
-	}
+	have := make(map[string]bool, len(hooks)+len(providerHooks))
 	for _, existing := range hooks {
-		if existing == HookRenderAssets {
-			return hooks
+		have[existing] = true
+	}
+	for _, p := range providerHooks {
+		if !p.implemented(h) {
+			continue
+		}
+		for _, hook := range p.hooks {
+			if have[hook] {
+				continue
+			}
+			have[hook] = true
+			hooks = append(hooks, hook)
 		}
 	}
-	return append(hooks, HookRenderAssets)
+	return hooks
+}
+
+// providerHooks is the whole table: one row per optional interface, naming what Core has to be told to
+// send it. A new provider interface adds a row here — TestEveryProviderInterfaceSubscribesItsHooks fails
+// if one is declared and forgotten, which is how the widget row came to be missing.
+var providerHooks = []struct {
+	name        string
+	implemented func(Handler) bool
+	hooks       []string
+}{
+	{"AssetProvider", func(h Handler) bool { _, is := h.(AssetProvider); return is },
+		[]string{HookRenderAssets}},
+	{"WidgetProvider", func(h Handler) bool { _, is := h.(WidgetProvider); return is },
+		[]string{HookWidgetDescribe, HookWidgetRender}},
+	{"AuthProvider", func(h Handler) bool { _, is := h.(AuthProvider); return is },
+		[]string{HookAuthDescribe, HookAuthStart, HookAuthComplete}},
+	{"FieldProvider", func(h Handler) bool { _, is := h.(FieldProvider); return is },
+		[]string{HookFieldChoices, HookFieldValidate}},
+	{"SearchProvider", func(h Handler) bool { _, is := h.(SearchProvider); return is },
+		[]string{HookSearchConfigure, HookSearchIndex, HookSearchRemove, HookSearchTruncate,
+			HookSearchQuery, HookSearchHealthy}},
+	// CommerceCounter rides on Commerce: commerce.count is only ever asked of a plugin that answers
+	// commerce.products, and DispatchCommerceHook returns "not handled" when the counter is absent.
+	{"Commerce", func(h Handler) bool { _, is := h.(Commerce); return is },
+		[]string{HookCommerceProducts, HookCommerceProduct, HookCommerceEndpoints, HookCommerceCount}},
 }
