@@ -697,7 +697,7 @@ know it, so Nilda refuses the second at install rather than at the first missing
 Implement it:
 
 ```go
-type shop struct{ /* your catalogue */ }
+type shop struct{ catalogue map[string]nilda.CommerceProduct }
 
 func (s *shop) Products(ctx context.Context, q nilda.CommerceQuery) ([]nilda.CommerceProduct, error) {
 	// q.Term / q.Search / q.Sort / q.Featured are what an AUTHOR chose in a panel.
@@ -707,7 +707,12 @@ func (s *shop) Products(ctx context.Context, q nilda.CommerceQuery) ([]nilda.Com
 	}}, nil
 }
 
-func (s *shop) Product(ctx context.Context, id string) (nilda.CommerceProduct, bool) { … }
+// One product by id. The bool is "found" — return false and Core renders the not-found state rather
+// than an empty card.
+func (s *shop) Product(ctx context.Context, id string) (nilda.CommerceProduct, bool) {
+	p, ok := s.catalogue[id]
+	return p, ok
+}
 
 func (s *shop) Endpoints(ctx context.Context) nilda.CommerceEndpoints {
 	return nilda.CommerceEndpoints{Cart: "/shop/cart", AddToCart: "/shop/add", Checkout: "/shop/checkout"}
