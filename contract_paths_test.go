@@ -23,7 +23,15 @@ func TestProtocolForSDKDecidesCompatibility(t *testing.T) {
 		{"v0.6.0-rc1", 2, true},
 		{"v0.6.0+build7", 2, true},
 		{"  v0.6.0  ", 2, true},
-		{"v1.0.0", 0, false}, // does not exist yet; guessing would let a check pass for an untried pairing
+		// v1 SPEAKS PROTOCOL 2. This row said (0, false) with the note "does not exist yet", which was the
+		// right answer for an unbuilt future version and the wrong one for the very next tag: v1.0.0 would
+		// have made `nilda plugin check` answer "sdk_version v1.0.0 is not a version this Nilda knows
+		// about" to an author holding the SDK our own scaffold pinned for them. Changed deliberately, not
+		// to make code pass — tagging v1.0.0 is a promise about the GO API, and the wire contract moves
+		// when ProtocolVersion moves, which is a different number on purpose.
+		{"v1.0.0", 2, true},
+		{"v1.4.2", 2, true},
+		{"v2.0.0", 0, false}, // still nobody's build; a check that passes for an untried pairing is worse
 		{"", 0, false},
 		{"v1", 0, false}, // one number is not a version
 		{"vX.Y", 0, false},
@@ -34,11 +42,11 @@ func TestProtocolForSDKDecidesCompatibility(t *testing.T) {
 			t.Errorf("ProtocolForSDK(%q) = (%d, %v), want (%d, %v)", c.in, proto, known, c.proto, c.known)
 		}
 	}
-	// The version this SDK IS must be one this SDK claims to speak — otherwise `plugin check` tells every
-	// author their own scaffold is incompatible.
-	if p, ok := ProtocolForSDK("v0.6.0"); !ok || p != ProtocolVersion {
-		t.Errorf("this SDK's own version maps to protocol %d (known=%v) and it speaks %d", p, ok, ProtocolVersion)
-	}
+	// "The version this SDK IS must be one it claims to speak" used to be asserted here against the
+	// literal "v0.6.0" — a hand-written copy of the version, which is why it went on passing while the
+	// answer for the NEXT one was wrong. A module cannot read its own tag, so the check belongs where
+	// both numbers are real: TestTheScaffoldedSDKVersionSpeaksThisProtocol in Core reads the version the
+	// scaffold pins and asks this function about it.
 }
 
 // TestTheUpgradeHelpersDecideWhetherADataStepRuns. Getting these wrong runs somebody's one-time data

@@ -62,6 +62,23 @@ var Handshake = plugin.HandshakeConfig{
 // author believes it is protecting them.
 //
 // Only the MINOR is significant while the SDK is v0: that is where a v0 module's breaking changes land.
+// From v1 the MAJOR carries them, which is what the second case below is for.
+//
+// THE ANSWER FOR V1 IS WRITTEN NOW, NOT ON THE DAY OF THE TAG.
+//
+// This used to end at `default: return 0, false` with the note "a v1+ SDK does not exist yet". Honest for
+// an unknown FUTURE version, wrong for the next one: tagging v1.0.0 made `nilda plugin check` answer
+// "sdk_version v1.0.0 is not a version this Nilda knows about" to an author holding the exact SDK the
+// scaffold had just written into their go.mod. The failure fires on the tag, and the tag is the one moment
+// nobody is looking at this function.
+//
+// v1 speaks protocol 2 because tagging v1.0.0 is a promise about the GO API, not a contract change: the
+// wire protocol moves when contract/plugin.proto moves, and ProtocolVersion is what says so. The two
+// numbers are deliberately independent, and this is the table that keeps them from being confused.
+//
+// v2+ is still "unknown", and that is still the honest answer — but it is now the only unknown, and
+// TestTheScaffoldedSDKVersionSpeaksThisProtocol in Core fails the build if the version the scaffold hands
+// out ever falls into it.
 func ProtocolForSDK(sdkVersion string) (int, bool) {
 	major, minor, ok := majorMinor(sdkVersion)
 	if !ok {
@@ -72,9 +89,11 @@ func ProtocolForSDK(sdkVersion string) (int, bool) {
 		return 1, true // contract v1: five read-only methods, no writes. Retracted; Core refuses it.
 	case major == 0:
 		return 2, true // contract v2: scoped API token, real reads and writes.
+	case major == 1:
+		return 2, true // v1.x: the Go API froze; the wire contract did not move with it.
 	default:
-		// A v1+ SDK does not exist yet. Reporting "unknown" is the honest answer — guessing would let a
-		// check pass for a pairing nobody has ever tried.
+		// A v2+ SDK does not exist. Reporting "unknown" beats guessing: a check that passed for a pairing
+		// nobody has ever run is worse than one that says it cannot tell.
 		return 0, false
 	}
 }
