@@ -1,0 +1,391 @@
+const AdminActionHook
+const AdminPageList
+const AdminPageSettings
+const ClassAccess
+const ClassAdditive
+const ClassDestructive
+const ClassInfra
+const ClassPublish
+const ClassRead
+const ClassStructural
+const ClassWrite
+const FieldBoolean
+const FieldCheckbox
+const FieldColor
+const FieldDate
+const FieldDateTime
+const FieldEmail
+const FieldFile
+const FieldGallery
+const FieldGroup
+const FieldHTML
+const FieldIcon
+const FieldImage
+const FieldLikert
+const FieldLink
+const FieldMessage
+const FieldMultiSelect
+const FieldNumber
+const FieldPhone
+const FieldRadio
+const FieldRange
+const FieldRepeater
+const FieldRichText
+const FieldScale
+const FieldSelect
+const FieldText
+const FieldTextarea
+const FieldTime
+const FieldURL
+const HookAuthComplete
+const HookAuthDescribe
+const HookAuthStart
+const HookCommerceCount
+const HookCommerceEndpoints
+const HookCommerceProduct
+const HookCommerceProducts
+const HookFieldChoices
+const HookFieldValidate
+const HookRenderAssets
+const HookSearchConfigure
+const HookSearchHealthy
+const HookSearchIndex
+const HookSearchQuery
+const HookSearchRemove
+const HookSearchTruncate
+const HookWidgetDescribe
+const HookWidgetRender
+const MaxAssetsPerPlugin
+const MaxWidgetHTMLBytes
+const MaxWidgetsPerPlugin
+const PluginSetName
+const ProtocolVersion
+const SettingBoolean
+const SettingColor
+const SettingEmail
+const SettingMessage
+const SettingNumber
+const SettingPhone
+const SettingRadio
+const SettingSelect
+const SettingText
+const SettingTextarea
+const SettingURL
+field APIError.Body string
+field APIError.Code string
+field APIError.Method string
+field APIError.Path string
+field APIError.RetryAfter time.Duration
+field APIError.Status int
+field Ability.Class Class
+field Ability.Description string
+field Ability.InputSchema json.RawMessage
+field Ability.Label string
+field Ability.Name string
+field Ability.ReadOnly bool
+field Ability.Run func(ctx context.Context, args json.RawMessage) (any, error)
+field AdminAction.Action string
+field AdminAction.ID string
+field AdminAction.Page string
+field AdminActionResult.Message string
+field AdminPage.Actions []RowAction
+field AdminPage.Columns []ListColumn
+field AdminPage.Fields []SettingField
+field AdminPage.Help string
+field AdminPage.Icon string
+field AdminPage.Key string
+field AdminPage.Kind string
+field AdminPage.Label string
+field AdminPage.Order string
+field AdminPage.OrderBy string
+field AdminPage.Search []string
+field AdminPage.Table string
+field AuthAssertion.AvatarURL string
+field AuthAssertion.Email string
+field AuthAssertion.EmailVerified bool
+field AuthAssertion.Groups []string
+field AuthAssertion.IDToken string
+field AuthAssertion.Name string
+field AuthAssertion.Subject string
+field AuthCompleteRequest.Code string
+field AuthCompleteRequest.Nonce string
+field AuthCompleteRequest.Provider string
+field AuthCompleteRequest.RedirectURI string
+field AuthCompleteRequest.Verifier string
+field AuthProviderStatus.Key string
+field AuthProviderStatus.Ready bool
+field AuthProviderStatus.UnreadyReason string
+field AuthStartRequest.Challenge string
+field AuthStartRequest.Link bool
+field AuthStartRequest.Locale string
+field AuthStartRequest.Nonce string
+field AuthStartRequest.Provider string
+field AuthStartRequest.RedirectURI string
+field AuthStartRequest.State string
+field CommerceEndpoints.Account string
+field CommerceEndpoints.AddToCart string
+field CommerceEndpoints.Cart string
+field CommerceEndpoints.Checkout string
+field CommerceProduct.Badge string
+field CommerceProduct.Excerpt string
+field CommerceProduct.ID string
+field CommerceProduct.Image string
+field CommerceProduct.InStock bool
+field CommerceProduct.OldPrice string
+field CommerceProduct.Price string
+field CommerceProduct.Rating float64
+field CommerceProduct.RatingCount int
+field CommerceProduct.SKU string
+field CommerceProduct.Terms []CommerceTerm
+field CommerceProduct.Title string
+field CommerceProduct.URL string
+field CommerceProduct.Variations []CommerceVariation
+field CommerceQuery.Featured bool
+field CommerceQuery.Limit int
+field CommerceQuery.Offset int
+field CommerceQuery.Search string
+field CommerceQuery.Sort string
+field CommerceQuery.Term string
+field CommerceTerm.Label string
+field CommerceTerm.Slug string
+field CommerceTerm.Taxonomy string
+field CommerceTerm.URL string
+field CommerceVariation.Key string
+field CommerceVariation.Name string
+field CommerceVariation.Options []string
+field CommerceVariation.Selected string
+field Core.DatastoreDSN string
+field Core.Granted []string
+field Core.KVNamespace string
+field Core.NildaVersion string
+field Core.PluginKey string
+field Core.PreviousVersion string
+field Core.RoutePrefix string
+field FieldChoice.Label string
+field FieldChoice.Value string
+field FieldChoicesRequest.Field string
+field FieldChoicesRequest.Options map[string]any
+field FieldChoicesResponse.Choices []FieldChoice
+field FieldValidateRequest.Field string
+field FieldValidateRequest.Key string
+field FieldValidateRequest.Options map[string]any
+field FieldValidateRequest.Value any
+field FieldValidateResponse.Message string
+field FieldValidateResponse.OK bool
+field GRPCPlugin.Impl contract.PluginServiceServer
+field InitResult.Abilities []Ability
+field InitResult.Events []string
+field InitResult.Hooks []string
+field InitResult.RouteAddr string
+field InitResult.Schedules []Schedule
+field ListColumn.Key string
+field ListColumn.Label string
+field ListColumn.Type string
+field PluginClient.Broker *plugin.GRPCBroker
+field PluginClient.Plugin contract.PluginServiceClient
+field RenderAssetsRequest.Locale string
+field RenderAssetsRequest.PageKind string
+field RowAction.Confirm string
+field RowAction.Key string
+field RowAction.Label string
+field Schedule.Cron string
+field Schedule.Name string
+field ScriptAsset.Async bool
+field ScriptAsset.Defer bool
+field ScriptAsset.Src string
+field SearchDoc.Author string
+field SearchDoc.AuthorID string
+field SearchDoc.Body string
+field SearchDoc.EmbargoUntil int64
+field SearchDoc.Excerpt string
+field SearchDoc.ID string
+field SearchDoc.Lang string
+field SearchDoc.PublishedAt int64
+field SearchDoc.Status string
+field SearchDoc.Terms []string
+field SearchDoc.Title string
+field SearchDoc.Type string
+field SearchDoc.Unlisted bool
+field SearchHit.ID string
+field SearchHit.Score float64
+field SearchHit.Snippet string
+field SearchQuery.Author string
+field SearchQuery.AuthorID string
+field SearchQuery.Lang string
+field SearchQuery.Limit int
+field SearchQuery.Offset int
+field SearchQuery.PublicOnly bool
+field SearchQuery.Q string
+field SearchQuery.Statuses []string
+field SearchQuery.Type string
+field SearchResults.Hits []SearchHit
+field SearchResults.Total int64
+field SettingField.Choices []string
+field SettingField.Default any
+field SettingField.Help string
+field SettingField.Key string
+field SettingField.Label string
+field SettingField.Placeholder string
+field SettingField.Required bool
+field SettingField.Secret bool
+field SettingField.Type string
+field WidgetDef.Category string
+field WidgetDef.Fields []WidgetField
+field WidgetDef.Label string
+field WidgetDef.Type string
+field WidgetField.Choices []string
+field WidgetField.Fields []WidgetField
+field WidgetField.Help string
+field WidgetField.Key string
+field WidgetField.Label string
+field WidgetField.Max *float64
+field WidgetField.Min *float64
+field WidgetField.Placeholder string
+field WidgetField.Required bool
+field WidgetField.Rows []string
+field WidgetField.Step *float64
+field WidgetField.Type string
+field WidgetRenderRequest.Config map[string]any
+field WidgetRenderRequest.Kind string
+field WidgetRenderRequest.Locale string
+field WidgetRenderRequest.RTL bool
+field WidgetRenderRequest.SiteURL string
+field WidgetRenderRequest.Title string
+field WidgetRenderRequest.Type string
+field WidgetRenderRequest.URL string
+func AbilityHook(string) (string)
+func DispatchAdminAction(context.Context, string, []byte, func(context.Context, AdminAction) (AdminActionResult, error)) ([]byte, bool, error)
+func DispatchAuthHook(context.Context, *Core, AuthProvider, string, []byte) ([]byte, bool, error)
+func DispatchCommerceHook(context.Context, *Core, Commerce, string, []byte) ([]byte, bool, error)
+func DispatchFieldHook(context.Context, *Core, FieldProvider, string, []byte) ([]byte, bool, error)
+func DispatchSearchHook(context.Context, *Core, SearchProvider, string, []byte) ([]byte, bool, error)
+func FieldTypes() ([]string)
+func HTTPClient(time.Duration) (*http.Client)
+func HostPluginMap() (map[int]plugin.PluginSet)
+func Log() (*slog.Logger)
+func NewCoreForTest(string, []string, contract.HostServiceClient, string, string, []string) (*Core)
+func NewOIDCClient(string, string, string, ...string) (*OIDCClient)
+func NewTransport(http.RoundTripper) (http.RoundTripper)
+func ObjectSchema(map[string]any, ...string) (json.RawMessage)
+func ProtocolForSDK(string) (int, bool)
+func ScheduleHook(string) (string)
+func Serve(Handler)
+func ServeAuthProvider(AuthProvider)
+func ServeCommerce(Commerce)
+func ServeField(FieldProvider)
+func ServeSearchProvider(SearchProvider)
+func SetSettingsForTest(*Core, map[string]any)
+func SettingFieldTypes() ([]string)
+func StartHTTP(http.Handler) (string, error)
+imethod AssetProvider.FooterScripts(context.Context, RenderAssetsRequest) ([]ScriptAsset)
+imethod AuthProvider.Complete(context.Context, *Core, AuthCompleteRequest) (AuthAssertion, error)
+imethod AuthProvider.Describe(context.Context, *Core) ([]AuthProviderStatus)
+imethod AuthProvider.Start(context.Context, *Core, AuthStartRequest) (string, error)
+imethod Commerce.Endpoints(context.Context) (CommerceEndpoints)
+imethod Commerce.Product(context.Context, string) (CommerceProduct, bool)
+imethod Commerce.Products(context.Context, CommerceQuery) ([]CommerceProduct, error)
+imethod CommerceCounter.CountProducts(context.Context, CommerceQuery) (int, bool)
+imethod FieldProvider.Choices(context.Context, *Core, FieldChoicesRequest) ([]FieldChoice, error)
+imethod FieldProvider.Validate(context.Context, *Core, FieldValidateRequest) (string)
+imethod Handler.HandleEvent(context.Context, string, []byte) (error)
+imethod Handler.HandleHook(context.Context, string, []byte) ([]byte, error)
+imethod Handler.Init(context.Context, *Core) (InitResult, error)
+imethod SearchProvider.Configure(context.Context) (error)
+imethod SearchProvider.Healthy(context.Context) (bool)
+imethod SearchProvider.Index(context.Context, []SearchDoc) (error)
+imethod SearchProvider.Query(context.Context, SearchQuery) (SearchResults, error)
+imethod SearchProvider.Remove(context.Context, []string) (error)
+imethod SearchProvider.Truncate(context.Context) (error)
+imethod WidgetProvider.RenderWidget(context.Context, WidgetRenderRequest) (string, error)
+imethod WidgetProvider.Widgets() ([]WidgetDef)
+method (*API) Delete(context.Context, string) (error)
+method (*API) Do(context.Context, string, string, any) (*http.Response, error)
+method (*API) Get(context.Context, string, url.Values, any) (error)
+method (*API) HasScope(string) (bool)
+method (*API) JSON(context.Context, string, string, any, any) (error)
+method (*API) Patch(context.Context, string, any, any) (error)
+method (*API) Post(context.Context, string, any, any) (error)
+method (*API) Scopes() ([]string)
+method (*API) WithIdempotencyKey(string) (*API)
+method (*API) WithMaxRetries(int) (*API)
+method (*APIError) Conflict() (bool)
+method (*APIError) Error() (string)
+method (*APIError) Forbidden() (bool)
+method (*APIError) NotFound() (bool)
+method (*APIError) RateLimited() (bool)
+method (*APIError) Retryable() (bool)
+method (*Core) API() (*API)
+method (*Core) Emit(context.Context, string, any) (error)
+method (*Core) HasAPI() (bool)
+method (*Core) HasCapability(string) (bool)
+method (*Core) HasSetting(string) (bool)
+method (*Core) IsFirstRun() (bool)
+method (*Core) IsUpgrade(string) (bool)
+method (*Core) KVDel(context.Context, string) (error)
+method (*Core) KVGet(context.Context, string) (string, bool, error)
+method (*Core) KVIncr(context.Context, string) (int64, error)
+method (*Core) KVSet(context.Context, string, string, time.Duration) (error)
+method (*Core) Log() (*slog.Logger)
+method (*Core) RevokeIdentity(context.Context, string, string, string) (int, error)
+method (*Core) Route(string) (string)
+method (*Core) SendEmail(context.Context, string, string, string) (error)
+method (*Core) Setting(string) (string)
+method (*Core) SettingBool(string) (bool)
+method (*Core) SettingNumber(string) (float64)
+method (*Core) UpgradedFrom(...string) (bool)
+method (*GRPCPlugin) GRPCClient(context.Context, *plugin.GRPCBroker, *grpc.ClientConn) (interface{}, error)
+method (*GRPCPlugin) GRPCServer(*plugin.GRPCBroker, *grpc.Server) (error)
+method (*OIDCClient) AuthorizeURL(context.Context, AuthStartRequest) (string, error)
+method (*OIDCClient) Discover(context.Context) (error)
+method (*OIDCClient) EndSessionURL(context.Context) (string)
+method (*OIDCClient) Exchange(context.Context, AuthCompleteRequest) (AuthAssertion, error)
+method (*OIDCClient) Ready(context.Context) (bool, string)
+type API
+type APIError
+type Ability
+type AdminAction
+type AdminActionResult
+type AdminPage
+type AssetProvider
+type AuthAssertion
+type AuthCompleteRequest
+type AuthProvider
+type AuthProviderStatus
+type AuthStartRequest
+type Class
+type Commerce
+type CommerceCounter
+type CommerceEndpoints
+type CommerceProduct
+type CommerceQuery
+type CommerceTerm
+type CommerceVariation
+type Core
+type FieldChoice
+type FieldChoicesRequest
+type FieldChoicesResponse
+type FieldProvider
+type FieldValidateRequest
+type FieldValidateResponse
+type GRPCPlugin
+type Handler
+type InitResult
+type ListColumn
+type OIDCClient
+type PluginClient
+type RenderAssetsRequest
+type RowAction
+type Schedule
+type ScriptAsset
+type SearchDoc
+type SearchHit
+type SearchProvider
+type SearchQuery
+type SearchResults
+type SettingField
+type WidgetDef
+type WidgetField
+type WidgetProvider
+type WidgetRenderRequest
+var Handshake
+var SupportedProtocols
