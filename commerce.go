@@ -9,7 +9,7 @@ import (
 // BEING THE SITE'S SHOP.
 //
 // Nilda ships eight storefront widgets — Products, Product Field, Product Categories, Cart, Cart Count,
-// Add To Cart, Checkout, Product Loop — and no commerce code at all. Your plugin supplies the products,
+// Add To Cart, Checkout, My Account — and no commerce code at all. Your plugin supplies the products,
 // the prices and the cart URLs; the WIDGETS stay Core's.
 //
 // # Why the widgets are not yours, and why that is in your interest
@@ -35,6 +35,14 @@ import (
 // There is no stock COUNT either, only InStock. "3 left" is a merchandising decision with a stock
 // accounting model behind it, and a shop that reserves stock at checkout answers it differently from one
 // that does not.
+//
+// # "But my shop has a field yours does not" — CommerceProduct.Extra
+//
+// It will, and that is expected rather than a problem to raise with us. The named fields are the ones every
+// shop has; everything else goes in Extra under your own keys, and an author places it with the Product
+// Field widget by typing the key. You do not need a Core release, a new capability or our agreement to
+// invent one — which matters, because Core does not change for any single plugin, so a vocabulary with no
+// way out would leave you waiting on a release that is never coming.
 //
 // # The cart cannot be rendered on the server, and that is not about you
 //
@@ -137,6 +145,23 @@ type CommerceProduct struct {
 	// is the case that actually breaks: the button adds the default variant silently, and the shopper
 	// finds out what size they bought when it arrives.
 	Variations []CommerceVariation `json:"variations,omitempty"`
+	// Extra is ANYTHING ELSE YOUR SHOP SELLS ON, and it is the reason this struct does not have to grow a
+	// field every time somebody's catalogue is different from somebody else's.
+	//
+	// The fields above are the ones every shop has. Yours will have some nobody else does — "Delivery in 3
+	// days", "Minimum order 5", "Serves 4", "2.4 kg", a licence term, a lead time. Put them here under
+	// your own keys and an author picks one in the Product Field widget by typing the key. No Core release,
+	// no capability, no permission: a key you invent this afternoon works on this afternoon's Core.
+	//
+	// STRINGS, formatted by you, exactly like Price. Core escapes the value and prints it, and it never
+	// parses, compares, sorts or does arithmetic on anything in here — which is precisely why you may put
+	// whatever you like in it without Core ever being wrong about what it means.
+	//
+	// Keep it to the handful an author would actually place on a page. Core sorts the keys and keeps the
+	// first 20, and trims a value past 200 characters, because this is rendered into a page that is then
+	// CACHED and shared: it is a place for a short fact beside a price, not for your product's full
+	// description or a blob of JSON you meant to parse on the other side.
+	Extra map[string]string `json:"extra,omitempty"`
 }
 
 // CommerceQuery is what a catalogue widget asks for. Deliberately small: you own querying, and every field

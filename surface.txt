@@ -128,6 +128,7 @@ field CommerceEndpoints.Cart string
 field CommerceEndpoints.Checkout string
 field CommerceProduct.Badge string
 field CommerceProduct.Excerpt string
+field CommerceProduct.Extra map[string]string
 field CommerceProduct.ID string
 field CommerceProduct.Image string
 field CommerceProduct.InStock bool
