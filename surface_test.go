@@ -7,6 +7,7 @@ import (
 	"go/printer"
 	"go/token"
 	"os"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -203,11 +204,34 @@ func structFields(fset *token.FileSet, s *ast.TypeSpec) []string {
 	for _, f := range st.Fields.List {
 		for _, n := range f.Names {
 			if n.IsExported() {
-				out = append(out, "field "+s.Name.Name+"."+n.Name+" "+typeString(fset, f.Type))
+				out = append(out, "field "+s.Name.Name+"."+n.Name+" "+typeString(fset, f.Type)+jsonTagSuffix(f))
 			}
 		}
 	}
 	return out
+}
+
+// jsonTagSuffix puts the WIRE NAME on the ledger line, and it is not decoration.
+//
+// The Go name and the json tag are two different promises to two different audiences. A plugin recompiled
+// against a new SDK follows a renamed Go FIELD; a plugin already built and deployed sends the old TAG
+// forever. So renaming a tag while keeping the Go name breaks every installed plugin and changes nothing a
+// compiler, a type check or this ledger could see — which was exactly true here until this line existed:
+// `json:"badge"` was renamed to `json:"flag"` on both sides of the wire, the whole suite stayed green, and
+// every deployed shop's badge would have gone silently blank.
+//
+// Recorded for every tagged field rather than for commerce's, because every wire struct in this module has
+// the same property and picking one would guard the instance instead of the class.
+func jsonTagSuffix(f *ast.Field) string {
+	if f.Tag == nil {
+		return ""
+	}
+	tag := reflect.StructTag(strings.Trim(f.Tag.Value, "`")).Get("json")
+	name, _, _ := strings.Cut(tag, ",")
+	if name == "" || name == "-" {
+		return ""
+	}
+	return " json:" + name
 }
 
 func interfaceMethods(fset *token.FileSet, s *ast.TypeSpec) []string {

@@ -82,6 +82,23 @@ const (
 	HookCommerceCount     = "commerce.count"
 )
 
+// EventCommerceCatalogChanged is what you EMIT when your catalogue moves, and you must.
+//
+// Nilda caches a rendered page for an hour, and it drops one when something it depends on changes. Your
+// catalogue is the one dependency Nilda does not own: a merchant fixing a price in your admin touches
+// nothing Core can see, so without this event the storefront serves the old price for the rest of the hour
+// and the merchant reports that saving is broken.
+//
+//	core.EmitEvent(ctx, nilda.EventCommerceCatalogChanged, nil)
+//
+// Emit it after a price edit, a stock movement, a publish or unpublish, and at the end of an import — once
+// for the batch, not once per row. There is no payload: the message is "something is different", and Core
+// answers by dropping every page that drew any of your catalogue. Declare the `events` capability to use it.
+//
+// Only the plugin that provides the shop is obeyed. Core ignores it from anyone else, because a purge any
+// plugin could trigger is a cache stampede one bad plugin away.
+const EventCommerceCatalogChanged = "commerce.catalog.changed"
+
 // CommerceTerm is one product category, carrying the archive URL a chip links to.
 type CommerceTerm struct {
 	Label string `json:"label"`

@@ -61,7 +61,7 @@ part of the Go API — see below.
 
 **Covered by the promise from v1.0.** Everything in `surface.txt`, except what the next paragraph names.
 That file is generated from the AST and checked on every run: exported funcs, types, consts, vars, and the
-exported methods and fields of exported types — 392 entries today. Adding to it is a normal change and
+exported methods and fields of exported types — 393 entries today. Adding to it is a normal change and
 stays cheap. Removing from it after v1.0 is a breaking change for somebody, and the guard says so in those
 words.
 

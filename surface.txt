@@ -9,6 +9,7 @@ const ClassPublish
 const ClassRead
 const ClassStructural
 const ClassWrite
+const EventCommerceCatalogChanged
 const FieldBoolean
 const FieldCheckbox
 const FieldColor
@@ -84,77 +85,77 @@ field Ability.Label string
 field Ability.Name string
 field Ability.ReadOnly bool
 field Ability.Run func(ctx context.Context, args json.RawMessage) (any, error)
-field AdminAction.Action string
-field AdminAction.ID string
-field AdminAction.Page string
-field AdminActionResult.Message string
-field AdminPage.Actions []RowAction
-field AdminPage.Columns []ListColumn
-field AdminPage.Fields []SettingField
-field AdminPage.Help string
-field AdminPage.Icon string
-field AdminPage.Key string
-field AdminPage.Kind string
-field AdminPage.Label string
-field AdminPage.Order string
-field AdminPage.OrderBy string
-field AdminPage.Search []string
-field AdminPage.Table string
-field AuthAssertion.AvatarURL string
-field AuthAssertion.Email string
-field AuthAssertion.EmailVerified bool
-field AuthAssertion.Groups []string
-field AuthAssertion.IDToken string
-field AuthAssertion.Name string
-field AuthAssertion.Subject string
-field AuthCompleteRequest.Code string
-field AuthCompleteRequest.Nonce string
-field AuthCompleteRequest.Provider string
-field AuthCompleteRequest.RedirectURI string
-field AuthCompleteRequest.Verifier string
-field AuthProviderStatus.Key string
-field AuthProviderStatus.Ready bool
-field AuthProviderStatus.UnreadyReason string
-field AuthStartRequest.Challenge string
-field AuthStartRequest.Link bool
-field AuthStartRequest.Locale string
-field AuthStartRequest.Nonce string
-field AuthStartRequest.Provider string
-field AuthStartRequest.RedirectURI string
-field AuthStartRequest.State string
-field CommerceEndpoints.Account string
-field CommerceEndpoints.AddToCart string
-field CommerceEndpoints.Cart string
-field CommerceEndpoints.Checkout string
-field CommerceProduct.Badge string
-field CommerceProduct.Excerpt string
-field CommerceProduct.Extra map[string]string
-field CommerceProduct.ID string
-field CommerceProduct.Image string
-field CommerceProduct.InStock bool
-field CommerceProduct.OldPrice string
-field CommerceProduct.Price string
-field CommerceProduct.Rating float64
-field CommerceProduct.RatingCount int
-field CommerceProduct.SKU string
-field CommerceProduct.Terms []CommerceTerm
-field CommerceProduct.Title string
-field CommerceProduct.URL string
-field CommerceProduct.Variations []CommerceVariation
-field CommerceQuery.Featured bool
-field CommerceQuery.Limit int
-field CommerceQuery.Offset int
-field CommerceQuery.Search string
-field CommerceQuery.Sort string
-field CommerceQuery.Term string
-field CommerceTerm.Label string
-field CommerceTerm.Slug string
-field CommerceTerm.Taxonomy string
-field CommerceTerm.URL string
-field CommerceVariation.Key string
-field CommerceVariation.Name string
-field CommerceVariation.Options []string
-field CommerceVariation.Selected string
+field AdminAction.Action string json:action
+field AdminAction.ID string json:id
+field AdminAction.Page string json:page
+field AdminActionResult.Message string json:message
+field AdminPage.Actions []RowAction json:actions
+field AdminPage.Columns []ListColumn json:columns
+field AdminPage.Fields []SettingField json:fields
+field AdminPage.Help string json:help
+field AdminPage.Icon string json:icon
+field AdminPage.Key string json:key
+field AdminPage.Kind string json:kind
+field AdminPage.Label string json:label
+field AdminPage.Order string json:order
+field AdminPage.OrderBy string json:order_by
+field AdminPage.Search []string json:search
+field AdminPage.Table string json:table
+field AuthAssertion.AvatarURL string json:avatar_url
+field AuthAssertion.Email string json:email
+field AuthAssertion.EmailVerified bool json:email_verified
+field AuthAssertion.Groups []string json:groups
+field AuthAssertion.IDToken string json:id_token
+field AuthAssertion.Name string json:name
+field AuthAssertion.Subject string json:subject
+field AuthCompleteRequest.Code string json:code
+field AuthCompleteRequest.Nonce string json:nonce
+field AuthCompleteRequest.Provider string json:provider
+field AuthCompleteRequest.RedirectURI string json:redirect_uri
+field AuthCompleteRequest.Verifier string json:verifier
+field AuthProviderStatus.Key string json:key
+field AuthProviderStatus.Ready bool json:ready
+field AuthProviderStatus.UnreadyReason string json:unready_reason
+field AuthStartRequest.Challenge string json:challenge
+field AuthStartRequest.Link bool json:link
+field AuthStartRequest.Locale string json:locale
+field AuthStartRequest.Nonce string json:nonce
+field AuthStartRequest.Provider string json:provider
+field AuthStartRequest.RedirectURI string json:redirect_uri
+field AuthStartRequest.State string json:state
+field CommerceEndpoints.Account string json:account
+field CommerceEndpoints.AddToCart string json:add_to_cart
+field CommerceEndpoints.Cart string json:cart
+field CommerceEndpoints.Checkout string json:checkout
+field CommerceProduct.Badge string json:badge
+field CommerceProduct.Excerpt string json:excerpt
+field CommerceProduct.Extra map[string]string json:extra
+field CommerceProduct.ID string json:id
+field CommerceProduct.Image string json:image
+field CommerceProduct.InStock bool json:in_stock
+field CommerceProduct.OldPrice string json:old_price
+field CommerceProduct.Price string json:price
+field CommerceProduct.Rating float64 json:rating
+field CommerceProduct.RatingCount int json:rating_count
+field CommerceProduct.SKU string json:sku
+field CommerceProduct.Terms []CommerceTerm json:terms
+field CommerceProduct.Title string json:title
+field CommerceProduct.URL string json:url
+field CommerceProduct.Variations []CommerceVariation json:variations
+field CommerceQuery.Featured bool json:featured
+field CommerceQuery.Limit int json:limit
+field CommerceQuery.Offset int json:offset
+field CommerceQuery.Search string json:search
+field CommerceQuery.Sort string json:sort
+field CommerceQuery.Term string json:term
+field CommerceTerm.Label string json:label
+field CommerceTerm.Slug string json:slug
+field CommerceTerm.Taxonomy string json:taxonomy
+field CommerceTerm.URL string json:url
+field CommerceVariation.Key string json:key
+field CommerceVariation.Name string json:name
+field CommerceVariation.Options []string json:options
+field CommerceVariation.Selected string json:selected
 field Core.DatastoreDSN string
 field Core.Granted []string
 field Core.KVNamespace string
@@ -162,98 +163,98 @@ field Core.NildaVersion string
 field Core.PluginKey string
 field Core.PreviousVersion string
 field Core.RoutePrefix string
-field FieldChoice.Label string
-field FieldChoice.Value string
-field FieldChoicesRequest.Field string
-field FieldChoicesRequest.Options map[string]any
-field FieldChoicesResponse.Choices []FieldChoice
-field FieldValidateRequest.Field string
-field FieldValidateRequest.Key string
-field FieldValidateRequest.Options map[string]any
-field FieldValidateRequest.Value any
-field FieldValidateResponse.Message string
-field FieldValidateResponse.OK bool
+field FieldChoice.Label string json:label
+field FieldChoice.Value string json:value
+field FieldChoicesRequest.Field string json:field
+field FieldChoicesRequest.Options map[string]any json:options
+field FieldChoicesResponse.Choices []FieldChoice json:choices
+field FieldValidateRequest.Field string json:field
+field FieldValidateRequest.Key string json:key
+field FieldValidateRequest.Options map[string]any json:options
+field FieldValidateRequest.Value any json:value
+field FieldValidateResponse.Message string json:message
+field FieldValidateResponse.OK bool json:ok
 field GRPCPlugin.Impl contract.PluginServiceServer
 field InitResult.Abilities []Ability
 field InitResult.Events []string
 field InitResult.Hooks []string
 field InitResult.RouteAddr string
 field InitResult.Schedules []Schedule
-field ListColumn.Key string
-field ListColumn.Label string
-field ListColumn.Type string
+field ListColumn.Key string json:key
+field ListColumn.Label string json:label
+field ListColumn.Type string json:type
 field PluginClient.Broker *plugin.GRPCBroker
 field PluginClient.Plugin contract.PluginServiceClient
-field RenderAssetsRequest.Locale string
-field RenderAssetsRequest.PageKind string
-field RowAction.Confirm string
-field RowAction.Key string
-field RowAction.Label string
+field RenderAssetsRequest.Locale string json:locale
+field RenderAssetsRequest.PageKind string json:page_kind
+field RowAction.Confirm string json:confirm
+field RowAction.Key string json:key
+field RowAction.Label string json:label
 field Schedule.Cron string
 field Schedule.Name string
-field ScriptAsset.Async bool
-field ScriptAsset.Defer bool
-field ScriptAsset.Src string
-field SearchDoc.Author string
-field SearchDoc.AuthorID string
-field SearchDoc.Body string
-field SearchDoc.EmbargoUntil int64
-field SearchDoc.Excerpt string
-field SearchDoc.ID string
-field SearchDoc.Lang string
-field SearchDoc.PublishedAt int64
-field SearchDoc.Status string
-field SearchDoc.Terms []string
-field SearchDoc.Title string
-field SearchDoc.Type string
-field SearchDoc.Unlisted bool
-field SearchHit.ID string
-field SearchHit.Score float64
-field SearchHit.Snippet string
-field SearchQuery.Author string
-field SearchQuery.AuthorID string
-field SearchQuery.Lang string
-field SearchQuery.Limit int
-field SearchQuery.Offset int
-field SearchQuery.PublicOnly bool
-field SearchQuery.Q string
-field SearchQuery.Statuses []string
-field SearchQuery.Type string
-field SearchResults.Hits []SearchHit
-field SearchResults.Total int64
-field SettingField.Choices []string
-field SettingField.Default any
-field SettingField.Help string
-field SettingField.Key string
-field SettingField.Label string
-field SettingField.Placeholder string
-field SettingField.Required bool
-field SettingField.Secret bool
-field SettingField.Type string
-field WidgetDef.Category string
-field WidgetDef.Fields []WidgetField
-field WidgetDef.Label string
-field WidgetDef.Type string
-field WidgetField.Choices []string
-field WidgetField.Fields []WidgetField
-field WidgetField.Help string
-field WidgetField.Key string
-field WidgetField.Label string
-field WidgetField.Max *float64
-field WidgetField.Min *float64
-field WidgetField.Placeholder string
-field WidgetField.Required bool
-field WidgetField.Rows []string
-field WidgetField.Step *float64
-field WidgetField.Type string
-field WidgetRenderRequest.Config map[string]any
-field WidgetRenderRequest.Kind string
-field WidgetRenderRequest.Locale string
-field WidgetRenderRequest.RTL bool
-field WidgetRenderRequest.SiteURL string
-field WidgetRenderRequest.Title string
-field WidgetRenderRequest.Type string
-field WidgetRenderRequest.URL string
+field ScriptAsset.Async bool json:async
+field ScriptAsset.Defer bool json:defer
+field ScriptAsset.Src string json:src
+field SearchDoc.Author string json:author
+field SearchDoc.AuthorID string json:author_id
+field SearchDoc.Body string json:body
+field SearchDoc.EmbargoUntil int64 json:embargo_until
+field SearchDoc.Excerpt string json:excerpt
+field SearchDoc.ID string json:id
+field SearchDoc.Lang string json:lang
+field SearchDoc.PublishedAt int64 json:published_at
+field SearchDoc.Status string json:status
+field SearchDoc.Terms []string json:terms
+field SearchDoc.Title string json:title
+field SearchDoc.Type string json:type
+field SearchDoc.Unlisted bool json:unlisted
+field SearchHit.ID string json:id
+field SearchHit.Score float64 json:score
+field SearchHit.Snippet string json:snippet
+field SearchQuery.Author string json:author
+field SearchQuery.AuthorID string json:author_id
+field SearchQuery.Lang string json:lang
+field SearchQuery.Limit int json:limit
+field SearchQuery.Offset int json:offset
+field SearchQuery.PublicOnly bool json:public_only
+field SearchQuery.Q string json:q
+field SearchQuery.Statuses []string json:statuses
+field SearchQuery.Type string json:type
+field SearchResults.Hits []SearchHit json:hits
+field SearchResults.Total int64 json:total
+field SettingField.Choices []string json:choices
+field SettingField.Default any json:default
+field SettingField.Help string json:help
+field SettingField.Key string json:key
+field SettingField.Label string json:label
+field SettingField.Placeholder string json:placeholder
+field SettingField.Required bool json:required
+field SettingField.Secret bool json:secret
+field SettingField.Type string json:type
+field WidgetDef.Category string json:category
+field WidgetDef.Fields []WidgetField json:fields
+field WidgetDef.Label string json:label
+field WidgetDef.Type string json:type
+field WidgetField.Choices []string json:choices
+field WidgetField.Fields []WidgetField json:fields
+field WidgetField.Help string json:help
+field WidgetField.Key string json:key
+field WidgetField.Label string json:label
+field WidgetField.Max *float64 json:max
+field WidgetField.Min *float64 json:min
+field WidgetField.Placeholder string json:placeholder
+field WidgetField.Required bool json:required
+field WidgetField.Rows []string json:rows
+field WidgetField.Step *float64 json:step
+field WidgetField.Type string json:type
+field WidgetRenderRequest.Config map[string]any json:config
+field WidgetRenderRequest.Kind string json:kind
+field WidgetRenderRequest.Locale string json:locale
+field WidgetRenderRequest.RTL bool json:rtl
+field WidgetRenderRequest.SiteURL string json:site_url
+field WidgetRenderRequest.Title string json:title
+field WidgetRenderRequest.Type string json:type
+field WidgetRenderRequest.URL string json:url
 func AbilityHook(string) (string)
 func DispatchAdminAction(context.Context, string, []byte, func(context.Context, AdminAction) (AdminActionResult, error)) ([]byte, bool, error)
 func DispatchAuthHook(context.Context, *Core, AuthProvider, string, []byte) ([]byte, bool, error)
