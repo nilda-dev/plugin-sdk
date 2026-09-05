@@ -103,11 +103,19 @@ type AdminPage struct {
 	// Icon is a name from Core's bundled icon set; unknown names fall back to a generic one rather than
 	// rendering nothing.
 	Icon string `json:"icon,omitempty"`
-	// Kind is what the page IS. Today: "settings" — a form Core renders, validates and stores.
+	// Kind is what the page IS: "settings" — a form Core renders, validates and stores; "list" — read-only
+	// rows from one of your own declared tables; "report" — read-only rows YOU compute, for anything a
+	// "list" page cannot show because it is not one table's rows (a total, a GROUP BY, a number joined
+	// across several of your own tables).
 	//
 	// A page whose kind Core does not recognise is dropped rather than rendered blank, so a plugin built
 	// against a newer Nilda degrades to its other pages instead of showing an owner an empty screen.
-	Kind   string         `json:"kind"`
+	Kind string `json:"kind"`
+	// Fields means two different things depending on Kind. On a "settings" page they are STORED
+	// configuration, read back at your next Init. On a "report" page they are FILTER INPUTS — a date
+	// range, a choice of which report to show — sent to you fresh on every request and never stored at
+	// all; there is nothing to persist about "which report am I looking at right now." Same vocabulary
+	// either way, so an author learns one set of controls for both.
 	Fields []SettingField `json:"fields,omitempty"`
 	// Help is shown at the top of the page — one or two sentences on what this page is for.
 	Help string `json:"help,omitempty"`
@@ -140,6 +148,8 @@ const (
 	AdminPageSettings = "settings"
 	// AdminPageList shows rows from one of your own declared tables.
 	AdminPageList = "list"
+	// AdminPageReport shows rows YOU compute and hand back fresh on every open — see AdminReportHook.
+	AdminPageReport = "report"
 )
 
 // ListColumn is one column of a list page. Key names a column of the page's table; Type is how to RENDER it
@@ -224,6 +234,75 @@ func DispatchAdminAction(ctx context.Context, hook string, payload []byte, fn fu
 		return nil, true, fmt.Errorf("nilda: admin.action payload: %w", err)
 	}
 	res, err := fn(ctx, a)
+	if err != nil {
+		return nil, true, err
+	}
+	b, err := json.Marshal(res)
+	return b, true, err
+}
+
+// AdminReportHook is the hook Core calls to fetch a "report" page's data, fresh, every time the page is
+// opened or its filters change — the read equivalent of AdminActionHook.
+//
+// SUBSCRIBE IT, the same way and for the same reason:
+//
+//	return nilda.InitResult{Hooks: []string{nilda.AdminReportHook}}, nil
+//
+// The grant is `admin_page`, not `hooks`.
+const AdminReportHook = "admin.report"
+
+// AdminReportRequest is one open of a report page. Params is the CURRENT value of every field the page
+// declared — its Fields work as filter inputs on a report page (see AdminPage.Fields), never stored
+// settings, so there is nothing to read back from Init and everything arrives here instead. A field the
+// owner left blank is simply absent from Params; default what an absent one means yourself, the same way
+// you would default a missing argument to an ability.
+type AdminReportRequest struct {
+	Page   string            `json:"page"`
+	Params map[string]string `json:"params,omitempty"`
+}
+
+// AdminReportResult is a report's answer: a table, in the SAME column vocabulary a "list" page's Columns
+// already use (so Core draws both with the one component it already has), plus optional headline numbers
+// shown above it — a total, a count, an average. Columns describes the shape; Rows is the data, one
+// map per row keyed by each column's Key exactly the way a "list" page's own rows already are.
+type AdminReportResult struct {
+	Columns []ListColumn     `json:"columns"`
+	Rows    []map[string]any `json:"rows"`
+	Summary map[string]any   `json:"summary,omitempty"`
+}
+
+// DispatchAdminReport routes a report-page open to your handler, the same shape DispatchAdminAction uses:
+//
+//	func (p *Plugin) HandleHook(ctx context.Context, hook string, payload []byte) ([]byte, error) {
+//		if out, handled, err := nilda.DispatchAdminReport(ctx, hook, payload, p.onReport); handled {
+//			return out, err
+//		}
+//		// … your own hooks
+//	}
+//
+//	func (p *Plugin) onReport(ctx context.Context, req nilda.AdminReportRequest) (nilda.AdminReportResult, error) {
+//		from, to := req.Params["from"], req.Params["to"]
+//		rows, total := p.salesBetween(ctx, from, to)
+//		return nilda.AdminReportResult{
+//			Columns: []nilda.ListColumn{{Key: "day", Label: "Day"}, {Key: "total", Label: "Revenue", Type: "number"}},
+//			Rows:    rows,
+//			Summary: map[string]any{"total_revenue": total},
+//		}, nil
+//	}
+//
+// handled=false means the hook was not a report open, so a plugin with hooks of its own passes it on.
+func DispatchAdminReport(ctx context.Context, hook string, payload []byte, fn func(context.Context, AdminReportRequest) (AdminReportResult, error)) (out []byte, handled bool, err error) {
+	if hook != AdminReportHook {
+		return nil, false, nil
+	}
+	if fn == nil {
+		return nil, true, fmt.Errorf("nilda: a report page was opened and this plugin registered no handler")
+	}
+	var req AdminReportRequest
+	if err := json.Unmarshal(payload, &req); err != nil {
+		return nil, true, fmt.Errorf("nilda: admin.report payload: %w", err)
+	}
+	res, err := fn(ctx, req)
 	if err != nil {
 		return nil, true, err
 	}

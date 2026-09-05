@@ -1,6 +1,8 @@
 const AdminActionHook
 const AdminPageList
+const AdminPageReport
 const AdminPageSettings
+const AdminReportHook
 const ClassAccess
 const ClassAdditive
 const ClassDestructive
@@ -101,6 +103,11 @@ field AdminPage.Order string json:order
 field AdminPage.OrderBy string json:order_by
 field AdminPage.Search []string json:search
 field AdminPage.Table string json:table
+field AdminReportRequest.Page string json:page
+field AdminReportRequest.Params map[string]string json:params
+field AdminReportResult.Columns []ListColumn json:columns
+field AdminReportResult.Rows []map[string]any json:rows
+field AdminReportResult.Summary map[string]any json:summary
 field AuthAssertion.AvatarURL string json:avatar_url
 field AuthAssertion.Email string json:email
 field AuthAssertion.EmailVerified bool json:email_verified
@@ -260,6 +267,7 @@ field WidgetRenderRequest.URL string json:url
 func AbilityHook(string) (string)
 func CurrentUser(*http.Request) (Viewer, bool)
 func DispatchAdminAction(context.Context, string, []byte, func(context.Context, AdminAction) (AdminActionResult, error)) ([]byte, bool, error)
+func DispatchAdminReport(context.Context, string, []byte, func(context.Context, AdminReportRequest) (AdminReportResult, error)) ([]byte, bool, error)
 func DispatchAuthHook(context.Context, *Core, AuthProvider, string, []byte) ([]byte, bool, error)
 func DispatchCommerceHook(context.Context, *Core, Commerce, string, []byte) ([]byte, bool, error)
 func DispatchFieldHook(context.Context, *Core, FieldProvider, string, []byte) ([]byte, bool, error)
@@ -351,6 +359,8 @@ type Ability
 type AdminAction
 type AdminActionResult
 type AdminPage
+type AdminReportRequest
+type AdminReportResult
 type AssetProvider
 type AuthAssertion
 type AuthCompleteRequest
