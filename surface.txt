@@ -231,6 +231,8 @@ field SettingField.Placeholder string json:placeholder
 field SettingField.Required bool json:required
 field SettingField.Secret bool json:secret
 field SettingField.Type string json:type
+field Viewer.DisplayName string
+field Viewer.UserID string
 field WidgetDef.Category string json:category
 field WidgetDef.Fields []WidgetField json:fields
 field WidgetDef.Label string json:label
@@ -256,6 +258,7 @@ field WidgetRenderRequest.Title string json:title
 field WidgetRenderRequest.Type string json:type
 field WidgetRenderRequest.URL string json:url
 func AbilityHook(string) (string)
+func CurrentUser(*http.Request) (Viewer, bool)
 func DispatchAdminAction(context.Context, string, []byte, func(context.Context, AdminAction) (AdminActionResult, error)) ([]byte, bool, error)
 func DispatchAuthHook(context.Context, *Core, AuthProvider, string, []byte) ([]byte, bool, error)
 func DispatchCommerceHook(context.Context, *Core, Commerce, string, []byte) ([]byte, bool, error)
@@ -385,6 +388,7 @@ type SearchProvider
 type SearchQuery
 type SearchResults
 type SettingField
+type Viewer
 type WidgetDef
 type WidgetField
 type WidgetProvider
