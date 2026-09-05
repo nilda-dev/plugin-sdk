@@ -249,6 +249,11 @@ message SendEmailRequest {
   string to = 1;
   string subject = 2;
   string body = 3;
+  // lang: a BCP-47-ish language tag ("fa", "ar", "en") the wrapping HTML's dir/lang attributes should
+  // carry (Core's own internal/email/direction.go — the fix for KNOWN_ISSUES E-5, "email had no idea
+  // which way its text ran", already built for Core's own account mail and now reachable from a plugin
+  // too). Empty means no hint: the message renders exactly as it always has.
+  string lang = 4;
 }
 
 message SendEmailResponse {}

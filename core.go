@@ -81,6 +81,17 @@ func (c *Core) SendEmail(ctx context.Context, to, subject, body string) error {
 	return err
 }
 
+// SendLocalizedEmail is SendEmail with an explicit language, so the message carries the right `dir`/`lang`
+// instead of rendering as direction-less HTML — the exact KNOWN_ISSUES E-5 fix Core's own account mail
+// already has (internal/email/direction.go), now reachable from here too. Pass the recipient's actual
+// language if you know it ("fa", "ar", "en", ...); an empty string is identical to calling SendEmail.
+//
+//	core.SendLocalizedEmail(ctx, order.CustomerEmail, subject, body, "fa")
+func (c *Core) SendLocalizedEmail(ctx context.Context, to, subject, body, lang string) error {
+	_, err := c.host.SendEmail(ctx, &contract.SendEmailRequest{To: to, Subject: subject, Body: body, Lang: lang})
+	return err
+}
+
 // ---- auth (requires `auth_provider`) ----
 
 // RevokeIdentity ends every session of the person linked to one identity of yours.
