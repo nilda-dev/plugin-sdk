@@ -174,6 +174,7 @@ field CommerceQuery.Featured bool json:featured
 field CommerceQuery.Limit int json:limit
 field CommerceQuery.Offset int json:offset
 field CommerceQuery.Search string json:search
+field CommerceQuery.ShowPricesIncludingTax bool json:show_prices_including_tax
 field CommerceQuery.Sort string json:sort
 field CommerceQuery.Term string json:term
 field CommerceTerm.Label string json:label
@@ -317,6 +318,7 @@ func ServePayment(Gateway)
 func ServeSearchProvider(SearchProvider)
 func SetSettingsForTest(*Core, map[string]any)
 func SettingFieldTypes() ([]string)
+func ShowPricesIncludingTax(context.Context) (bool)
 func StartHTTP(http.Handler) (string, error)
 imethod AssetProvider.FooterScripts(context.Context, RenderAssetsRequest) ([]ScriptAsset)
 imethod AuthProvider.Complete(context.Context, *Core, AuthCompleteRequest) (AuthAssertion, error)

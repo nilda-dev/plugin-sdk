@@ -194,6 +194,25 @@ type CommerceQuery struct {
 	// own default order rather than returning nothing.
 	Sort     string `json:"sort,omitempty"`
 	Featured bool   `json:"featured,omitempty"`
+	// ShowPricesIncludingTax is Core telling you HOW THE PRICE MUST READ on this site, and it is a
+	// DECISION rather than a fact for you to interpret.
+	//
+	// EU Directive 98/6/EC says the selling price shown to a consumer is the final price including VAT.
+	// Whether that binds this site is a legal question about where it operates, and Core answers it —
+	// `internal/compliance` holds the one country table in the product, precisely so a second one does
+	// not appear in every shop plugin and drift from it. You never learn the country and you should not
+	// want to: your shipping zones are the merchant's configuration and your tax rates are matched
+	// against the BUYER'S address, and neither of those answers this.
+	//
+	// IT ARRIVES ON THE QUERY RATHER THAN AT INIT, deliberately. An owner correcting their address must
+	// change what the next page renders, not what the next RESTART renders — a value frozen at Init is
+	// the same defect as a base URL read once at boot.
+	//
+	// Price and OldPrice are formatted by YOU, symbol and all, so honouring this means rendering the
+	// gross figure in those strings. Core never parses a price and cannot do it for you. If your shop
+	// genuinely cannot compute a gross figure, render what you have rather than nothing: a missing price
+	// is a broken page, and a net price is at worst the gap this flag exists to close.
+	ShowPricesIncludingTax bool `json:"show_prices_including_tax,omitempty"`
 }
 
 // CommerceEndpoints are the same-origin paths your plugin serves. Core renders shells that call them; it
@@ -230,6 +249,32 @@ type Commerce interface {
 // The query you receive has no Limit or Offset: the count is about the whole result set.
 type CommerceCounter interface {
 	CountProducts(ctx context.Context, q CommerceQuery) (total int, ok bool)
+}
+
+// grossPricesKey carries Core's price-display decision to a hook whose Go signature cannot take it.
+//
+// THE PAYLOAD IS THE WIRE TRUTH and this is only the Go surface of it. Every commerce hook receives
+// `show_prices_including_tax` in its JSON, because a plugin written in another language reads the payload
+// and has no Go context to read; DispatchCommerceHook lifts it into the context so `Product(ctx, id)` —
+// whose signature is published and may not change under existing plugins (additive only) — can still see
+// it. One fact, one place on the wire, two ways to reach it in-process.
+type grossPricesKey struct{}
+
+// ShowPricesIncludingTax reports whether Core says a consumer price on this site must include tax.
+//
+// It answers false when nothing set it, which is the safe direction: a shop rendering net prices where
+// gross is wanted is the state every install is in today.
+func ShowPricesIncludingTax(ctx context.Context) bool {
+	v, _ := ctx.Value(grossPricesKey{}).(bool)
+	return v
+}
+
+// withGrossPrices is how the dispatcher puts it there.
+func withGrossPrices(ctx context.Context, v bool) context.Context {
+	if !v {
+		return ctx
+	}
+	return context.WithValue(ctx, grossPricesKey{}, true)
 }
 
 // ServeCommerce runs a plugin whose whole job is the shop. Use Serve with your own Handler and
@@ -273,7 +318,7 @@ func DispatchCommerceHook(ctx context.Context, _ *Core, c Commerce, hook string,
 		if err := json.Unmarshal(payload, &q); err != nil {
 			return nil, true, fmt.Errorf("nilda: commerce.products payload: %w", err)
 		}
-		products, err := c.Products(ctx, q)
+		products, err := c.Products(withGrossPrices(ctx, q.ShowPricesIncludingTax), q)
 		if err != nil {
 			return nil, true, err
 		}
@@ -287,12 +332,13 @@ func DispatchCommerceHook(ctx context.Context, _ *Core, c Commerce, hook string,
 
 	case HookCommerceProduct:
 		var in struct {
-			ID string `json:"id"`
+			ID                     string `json:"id"`
+			ShowPricesIncludingTax bool   `json:"show_prices_including_tax,omitempty"`
 		}
 		if err := json.Unmarshal(payload, &in); err != nil {
 			return nil, true, fmt.Errorf("nilda: commerce.product payload: %w", err)
 		}
-		p, found := c.Product(ctx, in.ID)
+		p, found := c.Product(withGrossPrices(ctx, in.ShowPricesIncludingTax), in.ID)
 		if !found {
 			// An explicit null, not an omitted key: "we looked and there is no such product" and "the
 			// plugin did not answer" must not be the same bytes.
