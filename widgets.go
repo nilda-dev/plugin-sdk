@@ -381,4 +381,9 @@ var providerHooks = []struct {
 	// commerce.products, and DispatchCommerceHook returns "not handled" when the counter is absent.
 	{"Commerce", func(h Handler) bool { _, is := h.(Commerce); return is },
 		[]string{HookCommerceProducts, HookCommerceProduct, HookCommerceEndpoints, HookCommerceCount}},
+	// A gateway is subscribed the same way, and for the same reason it matters more here than anywhere
+	// else in this table: a plugin that implements Gateway, installs cleanly and is never asked to charge
+	// anything is a checkout that stops at the last step, with nothing anywhere saying why.
+	{"Gateway", func(h Handler) bool { _, is := h.(Gateway); return is },
+		[]string{HookPaymentMethods, HookPaymentStart, HookPaymentStatus, HookPaymentRefund}},
 }

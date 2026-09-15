@@ -54,9 +54,9 @@ The three biggest gaps were the first three rows, and they were 120 of the 219 b
 
 ## 2. What Nilda has, and where it stops
 
-Twenty-four capabilities exist (registered in `internal/plugin/schema_capabilities.go`; `field`,
-`auth_provider`, `search_provider` and `commerce` declare their constants next to their dispatch, in
-`fields.go`, `authproviders.go`, `searchprovider.go` and `commerce.go`):
+Twenty-five capabilities exist (registered in `internal/plugin/schema_capabilities.go`; `field`,
+`auth_provider`, `search_provider`, `commerce` and `payment` declare their constants next to their
+dispatch, in `fields.go`, `authproviders.go`, `searchprovider.go`, `commerce.go` and `payment.go`):
 
 ```
 content.read   users.read     media.read      taxonomy.read   menus.read
@@ -64,12 +64,17 @@ content.write  media.write    taxonomy.write  menus.write
 events         hooks          datastore       kv              schedule
 route          widget         render.assets   email           abilities
 admin_page     auth_provider  field           search_provider commerce
+payment
 ```
 
 That is a real vocabulary — richer than the "widget only" a first reading of `main.go` suggests. A shop
 plugin now declares `commerce` for the catalogue itself and combines it with `route` for its cart
-endpoints, `datastore` for its own tables and `content.read`/`events`/`hooks` for the rest; `payments`
-was removed in 2026-07-30 and is not part of the shape.
+endpoints, `datastore` for its own tables and `content.read`/`events`/`hooks` for the rest.
+
+`payments` (plural) was removed on 2026-07-30 as a reserved word with no code behind it. `payment`
+(singular) is a different thing and arrived on 2026-09-15 with both sides written: a four-method
+`Gateway` seam, so a plugin can take money **without being a shop**. That distinction is the point — a
+blog selling one ebook needs an amount, a reason, a payer and a receipt, not a catalogue and a basket.
 
 The shape of the gap is specific: **a plugin can serve its own pages and own its own data, but it
 cannot add anything to a screen Core already renders.** `widget` is the one exception — it puts a

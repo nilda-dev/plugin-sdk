@@ -285,6 +285,7 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `auth_provider` | put a sign-in button on the login page — see §5 |
 | `search_provider` | be the site's search engine — see §5 |
 | `commerce` | be the site's shop: supply the products, prices and cart the storefront widgets draw — see §5 |
+| `payment` | take payments: offer a way to pay, and tell the site when the money arrived. NOT the same capability as `commerce` — a blog selling one ebook needs this and not a shop. Implement `Gateway` (`payment.go`) and run `ServePayment`. Several plugins may hold it: an owner taking cards through one provider and bank transfers through another is the ordinary setup |
 
 That is the whole list. Every entry is dispatched by Core and has a surface in this SDK; there is nothing
 to declare that does nothing. `admin.pages` and `payments` used to appear here and were removed in v0.3.0

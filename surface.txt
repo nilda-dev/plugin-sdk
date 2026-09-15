@@ -49,6 +49,10 @@ const HookCommerceProduct
 const HookCommerceProducts
 const HookFieldChoices
 const HookFieldValidate
+const HookPaymentMethods
+const HookPaymentRefund
+const HookPaymentStart
+const HookPaymentStatus
 const HookRenderAssets
 const HookSearchConfigure
 const HookSearchHealthy
@@ -61,6 +65,11 @@ const HookWidgetRender
 const MaxAssetsPerPlugin
 const MaxWidgetHTMLBytes
 const MaxWidgetsPerPlugin
+const PaymentCancelled
+const PaymentFailed
+const PaymentPaid
+const PaymentPending
+const PaymentRefunded
 const PluginSetName
 const ProtocolVersion
 const SettingBoolean
@@ -130,6 +139,18 @@ field AuthStartRequest.Nonce string json:nonce
 field AuthStartRequest.Provider string json:provider
 field AuthStartRequest.RedirectURI string json:redirect_uri
 field AuthStartRequest.State string json:state
+field Charge.AmountMinor int64 json:amount_minor
+field Charge.Currency string json:currency
+field Charge.Description string json:description
+field Charge.Email string json:email
+field Charge.Locale string json:locale
+field Charge.Method string json:method
+field Charge.Reference string json:reference
+field Charge.ReturnURL string json:return_url
+field ChargeResult.GatewayRef string json:gateway_ref
+field ChargeResult.Message string json:message
+field ChargeResult.RedirectURL string json:redirect_url
+field ChargeResult.Status string json:status
 field CommerceEndpoints.Account string json:account
 field CommerceEndpoints.AddToCart string json:add_to_cart
 field CommerceEndpoints.Cart string json:cart
@@ -190,6 +211,11 @@ field InitResult.Schedules []Schedule
 field ListColumn.Key string json:key
 field ListColumn.Label string json:label
 field ListColumn.Type string json:type
+field PaymentMethod.Currencies []string json:currencies
+field PaymentMethod.Description string json:description
+field PaymentMethod.Key string json:key
+field PaymentMethod.Label string json:label
+field PaymentMethod.Offline bool json:offline
 field PluginClient.Broker *plugin.GRPCBroker
 field PluginClient.Plugin contract.PluginServiceClient
 field RenderAssetsRequest.Locale string json:locale
@@ -271,6 +297,7 @@ func DispatchAdminReport(context.Context, string, []byte, func(context.Context, 
 func DispatchAuthHook(context.Context, *Core, AuthProvider, string, []byte) ([]byte, bool, error)
 func DispatchCommerceHook(context.Context, *Core, Commerce, string, []byte) ([]byte, bool, error)
 func DispatchFieldHook(context.Context, *Core, FieldProvider, string, []byte) ([]byte, bool, error)
+func DispatchPaymentHook(context.Context, *Core, Gateway, string, []byte) ([]byte, bool, error)
 func DispatchSearchHook(context.Context, *Core, SearchProvider, string, []byte) ([]byte, bool, error)
 func FieldTypes() ([]string)
 func HTTPClient(time.Duration) (*http.Client)
@@ -286,6 +313,7 @@ func Serve(Handler)
 func ServeAuthProvider(AuthProvider)
 func ServeCommerce(Commerce)
 func ServeField(FieldProvider)
+func ServePayment(Gateway)
 func ServeSearchProvider(SearchProvider)
 func SetSettingsForTest(*Core, map[string]any)
 func SettingFieldTypes() ([]string)
@@ -300,6 +328,10 @@ imethod Commerce.Products(context.Context, CommerceQuery) ([]CommerceProduct, er
 imethod CommerceCounter.CountProducts(context.Context, CommerceQuery) (int, bool)
 imethod FieldProvider.Choices(context.Context, *Core, FieldChoicesRequest) ([]FieldChoice, error)
 imethod FieldProvider.Validate(context.Context, *Core, FieldValidateRequest) (string)
+imethod Gateway.Methods(context.Context) ([]PaymentMethod, error)
+imethod Gateway.Refund(context.Context, string, int64) (ChargeResult, error)
+imethod Gateway.Start(context.Context, Charge) (ChargeResult, error)
+imethod Gateway.Status(context.Context, string) (ChargeResult, error)
 imethod Handler.HandleEvent(context.Context, string, []byte) (error)
 imethod Handler.HandleHook(context.Context, string, []byte) ([]byte, error)
 imethod Handler.Init(context.Context, *Core) (InitResult, error)
@@ -368,6 +400,8 @@ type AuthCompleteRequest
 type AuthProvider
 type AuthProviderStatus
 type AuthStartRequest
+type Charge
+type ChargeResult
 type Class
 type Commerce
 type CommerceCounter
@@ -384,10 +418,12 @@ type FieldProvider
 type FieldValidateRequest
 type FieldValidateResponse
 type GRPCPlugin
+type Gateway
 type Handler
 type InitResult
 type ListColumn
 type OIDCClient
+type PaymentMethod
 type PluginClient
 type RenderAssetsRequest
 type RowAction
