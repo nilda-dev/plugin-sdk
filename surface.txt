@@ -144,10 +144,12 @@ field CommerceProduct.OldPrice string json:old_price
 field CommerceProduct.Price string json:price
 field CommerceProduct.Rating float64 json:rating
 field CommerceProduct.RatingCount int json:rating_count
+field CommerceProduct.RelatedIDs []string json:related_ids
 field CommerceProduct.SKU string json:sku
 field CommerceProduct.Terms []CommerceTerm json:terms
 field CommerceProduct.Title string json:title
 field CommerceProduct.URL string json:url
+field CommerceProduct.UpsellIDs []string json:upsell_ids
 field CommerceProduct.Variations []CommerceVariation json:variations
 field CommerceQuery.Featured bool json:featured
 field CommerceQuery.Limit int json:limit

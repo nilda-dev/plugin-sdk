@@ -162,6 +162,19 @@ type CommerceProduct struct {
 	// is the case that actually breaks: the button adds the default variant silently, and the shopper
 	// finds out what size they bought when it arrives.
 	Variations []CommerceVariation `json:"variations,omitempty"`
+	// RelatedIDs are OTHER products (your own ids) a shopper is offered alongside this one because they are
+	// alike — same category, "customers who viewed this also viewed", or however your catalogue decides
+	// it. Core resolves each one through your own Product(ctx, id), exactly as a single-product page
+	// already does, so a related tile is drawn by the SAME code that draws every other one — nothing about
+	// it is invented on Core's side. Leave it empty and the Related Products row draws nothing, the way an
+	// absent Badge already does.
+	RelatedIDs []string `json:"related_ids,omitempty"`
+	// UpsellIDs are the products YOU chose to put beside this one — "You may also like", a merchant's own
+	// curated list, as distinct from RelatedIDs' algorithmic pick. Kept as a separate field rather than
+	// folded into RelatedIDs because that is a real, useful distinction to a shopper and the reference
+	// builder's own Elementor widgets keep it too (a "Product Related" widget and a separate "Upsells"
+	// one) — collapsing the two would mean a shop that wants both cannot have them.
+	UpsellIDs []string `json:"upsell_ids,omitempty"`
 	// Extra is ANYTHING ELSE YOUR SHOP SELLS ON, and it is the reason this struct does not have to grow a
 	// field every time somebody's catalogue is different from somebody else's.
 	//
