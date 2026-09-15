@@ -285,12 +285,18 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `auth_provider` | put a sign-in button on the login page — see §5 |
 | `search_provider` | be the site's search engine — see §5 |
 | `commerce` | be the site's shop: supply the products, prices and cart the storefront widgets draw — see §5 |
-| `payment` | take payments: offer a way to pay, and tell the site when the money arrived. NOT the same capability as `commerce` — a blog selling one ebook needs this and not a shop. Implement `Gateway` (`payment.go`) and run `ServePayment`. Several plugins may hold it: an owner taking cards through one provider and bank transfers through another is the ordinary setup |
 
 That is the whole list. Every entry is dispatched by Core and has a surface in this SDK; there is nothing
 to declare that does nothing. `admin.pages` and `payments` used to appear here and were removed in v0.3.0
 — neither was ever implemented in Core, so a plugin could be granted them and receive nothing. Declaring
 either one now fails validation.
+
+**There is no payment capability, and that is deliberate.** A singular `payment` was added and removed on
+2026-09-15: Core already takes money in the two places it makes sense to, and a third seam only spread the
+decision out. To take one payment from one page — an ebook, a donation, a deposit — the site owner drops
+a PayPal or Stripe button widget in the page builder; no plugin is involved. To take payment for a basket,
+the gateway belongs to the shop plugin, which owns its own `PaymentGateway` interface and its own list of
+providers. Write a gateway for the shop you are extending, not for Core.
 
 A write capability applies to **every** content type, not a declared subset. What keeps that honest is
 attribution, not narrowing: a plugin acts as its own visible service account, so everything it creates or
