@@ -92,9 +92,11 @@ plugin. A crashing/slow plugin can't take down the site.
 ## Other plugins (us or third parties, later)
 
 - CRM
-- ~~A/B Testing~~ — **built into Core** (SPEC_121 R8): an A/B section in the page builder, a sticky
-  per-visitor pick, and a per-variant readout, all on the Pro page-builder key. Struck rather than
-  deleted because it was listed here as a plugin's job for long enough that somebody may go looking.
+- ~~A/B Testing~~ — **built into Core**: the A/B section and its sticky per-visitor pick shipped with
+  SPEC_121 R8 and have been gated on the Pro page-builder key since 2026-07-24; the per-variant readout
+  was built 2026-08-02 and joined that same key on 2026-09-20, so the two halves of one capability sit
+  on one entitlement. Struck rather than deleted because it was listed here as a plugin's job for long
+  enough that somebody may go looking.
 - AI Visibility Monitoring (track how your content appears in ChatGPT / Perplexity / AI Overviews — needs an external service)
 - AI Full-Site Builder Agent (autonomous "build my whole site from a brief" agent, Angie-style; runs on Core's AI Abilities — heavier, so it's a plugin)
 - AI Sentiment Analysis dashboards (sentiment trends across content + comments)
