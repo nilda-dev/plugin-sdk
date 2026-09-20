@@ -78,7 +78,7 @@ plugin. A crashing/slow plugin can't take down the site.
 | **Digital File Sales** | Sell + deliver downloadable files, license keys | Paid |
 | **Video / Media Pro** | Heavy media beyond Core: video transcoding, HLS adaptive streaming, auto-subtitles (speech-to-text), custom video player, asset rights-management/expiry (enterprise DAM) | Paid |
 | **Enterprise Auth / SSO** | Enterprise identity beyond Core auth: SAML SSO, OIDC provider, SCIM directory sync, LDAP/Active Directory, adaptive/risk-based auth. (Core already ships passkeys, TOTP, magic link, social login, RBAC — this is for enterprise buyers with an IdP.) | Paid |
-| **Analytics (privacy-first)** | Heavier analytics beyond built-in: heatmaps, session recording, A/B testing, real-user site-speed monitoring (RUM), deeper product analytics | Paid/Freemium |
+| **Analytics (privacy-first)** | Heavier analytics beyond built-in: heatmaps, session recording, deeper product analytics. (A/B testing and real-user site-speed monitoring are **in Core** — the A/B section and its readout ship with the Pro page builder, and RUM vitals are free in `perfvitals`. Both were on this list before they were built.) | Paid/Freemium |
 | **AI Support Chatbot (visitor-facing)** | Public site chatbot answering from your content — conversation memory, multi-operator handoff, ticketing. (The ADMIN assistant chatbot is in Core; this heavier visitor/support one is the plugin.) | Paid |
 | **Multi-language (advanced)** | Beyond Core i18n — translation management extras | Paid/Freemium |
 | **Crypto Dashboard** | Niche industry example | Paid |
@@ -92,7 +92,9 @@ plugin. A crashing/slow plugin can't take down the site.
 ## Other plugins (us or third parties, later)
 
 - CRM
-- A/B Testing
+- ~~A/B Testing~~ — **built into Core** (SPEC_121 R8): an A/B section in the page builder, a sticky
+  per-visitor pick, and a per-variant readout, all on the Pro page-builder key. Struck rather than
+  deleted because it was listed here as a plugin's job for long enough that somebody may go looking.
 - AI Visibility Monitoring (track how your content appears in ChatGPT / Perplexity / AI Overviews — needs an external service)
 - AI Full-Site Builder Agent (autonomous "build my whole site from a brief" agent, Angie-style; runs on Core's AI Abilities — heavier, so it's a plugin)
 - AI Sentiment Analysis dashboards (sentiment trends across content + comments)
