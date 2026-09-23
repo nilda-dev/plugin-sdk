@@ -373,8 +373,9 @@ logged on Core's side.
 
 **There is no `signature` field.** It used to live here, over the binary alone — which meant the signature
 did not cover the manifest, and the manifest is the thing a site owner approves. A package could have
-`content.write` and `network: ["evil.example"]` added in transit and still verify. The signature is now a
-detached entry inside the package, over a digest of the manifest AND the binary. See §5.1.
+`content.write` and `network: ["evil.example"]` added in transit and still verify. The signature now lives
+in a separate file BESIDE the package, over the package's own bytes — and the manifest is inside those
+bytes, so it is covered. See §5.1.
 
 Unknown fields are REFUSED rather than ignored: `"capabilties"` is a typo you want to hear about at your
 keyboard, not a plugin that installs with no capabilities and fails at runtime for reasons nobody traces
@@ -382,17 +383,19 @@ back to a spelling.
 
 ### 5.1 The package
 
-`nilda plugin build` writes one archive per platform, `dist/<key>_<os>_<arch>.nplug`:
+`nilda plugin build` writes one archive per platform, `dist/<key>_<os>_<arch>.nplug`, holding exactly two
+entries — Core's installer refuses any other:
 
 ```
 plugin.json     your manifest, byte for byte as you wrote it
 bin/plugin      the executable
-signature       the detached publisher signature (present when you built with --sign-key)
 ```
 
-The signature covers a digest of every entry keyed by its path, with `signature` itself excluded — so
-editing the manifest, swapping the binary, or renaming an entry all break it. A signature that lived
-inside the manifest could not have covered the manifest, which is the whole reason it is detached.
+When you build with `--sign-key`, the publisher signature is written BESIDE the archive as
+`dist/<key>_<os>_<arch>.nplug.sig`, over the archive file's own bytes. Editing the manifest, swapping the
+binary or renaming an entry changes those bytes, so all of them break it — and neither side needs a digest
+scheme the other must reproduce. A `signature` entry INSIDE the archive is refused at install: a signature
+cannot cover the file that contains it.
 
 ```sh
 nilda plugin build . --sign-key ./signing.key     # or NILDA_SIGN_KEY
@@ -527,7 +530,7 @@ request.
 
 ### Your own section of the admin (`admin_page`)
 
-Declare it in `manifest.json`:
+Declare it in `plugin.json`:
 
 ```json
 {
@@ -693,10 +696,12 @@ Declare it:
 
 ```json
 {
-  "capabilities": ["commerce", "route"],
+  "capabilities": ["commerce", "route", "events"],
   "route_prefix": "/shop"
 }
 ```
+
+`events` is not optional for a shop — see "Tell Nilda when your catalogue changes" below.
 
 Only ONE plugin per install may be the shop — two would each answer half the catalogue and neither would
 know it, so Nilda refuses the second at install rather than at the first missing product.
@@ -749,9 +754,23 @@ logs which endpoint it dropped.
 **Counting is optional.** Implement `CountProducts` and a catalogue that pages says "showing 1–12 of 240";
 skip it, or return `ok=false`, and it loses that line rather than printing a wrong total.
 
+**Tell Nilda when your catalogue changes — this one is not optional.** Nilda caches a rendered page for an
+hour and drops it when something it depends on changes, but your catalogue is the one dependency it cannot
+see: a merchant fixing a price in YOUR admin touches nothing in Nilda, so the storefront keeps the old price
+for the rest of the hour and the merchant reports that saving is broken. Emit the event after a price edit,
+a stock movement, a publish or unpublish, and once at the end of an import:
+
+```go
+core.Emit(ctx, nilda.EventCommerceCatalogChanged, nil)
+```
+
+There is no payload — Nilda answers by dropping every page that drew any of your catalogue. It needs the
+`events` capability (without it the call is refused with `PermissionDenied`), and Nilda obeys it only from
+the plugin that is the shop, because a purge any plugin could trigger is a cache stampede one bad plugin away.
+
 ### Contributing a way to sign in (`auth_provider`)
 
-Declare the method in `manifest.json`:
+Declare the method in `plugin.json`:
 
 ```json
 {
@@ -870,7 +889,7 @@ sessions ended is not an error — the person may simply not have been signed in
 
 ### Changing your storage between versions
 
-Your schema evolves without you. Declare the new column in `manifest.json` and it arrives on update —
+Your schema evolves without you. Declare the new column in `plugin.json` and it arrives on update —
 additively and idempotently, with an existing row picking up the declared default. Same for a new table and
 a new index. You write no DDL, and you could not if you wanted to: Core owns the schema, which is what stops
 a plugin from dropping the site owner's orders.

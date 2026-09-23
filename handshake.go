@@ -45,8 +45,11 @@ var SupportedProtocols = []int{ProtocolVersion}
 const PluginSetName = "nilda"
 
 // Handshake is the go-plugin handshake shared by Core (client) and every plugin (server). The magic
-// cookie is NOT security (the sandbox is); it only prevents a user from executing a plugin binary
-// directly and getting a confusing gRPC dump instead of a clear "run me under Nilda" error.
+// cookie is NOT security, and neither is anything else in this handshake: a plugin is a separate process
+// running as the SAME operating-system user as Core — fault isolation, not a security sandbox (see
+// docs/PLUGIN_SDK.md, "What Core guarantees, and what it does not"). The cookie only stops a user from
+// executing a plugin binary directly and getting a confusing gRPC dump instead of a clear "run me under
+// Nilda" error.
 var Handshake = plugin.HandshakeConfig{
 	ProtocolVersion:  ProtocolVersion,
 	MagicCookieKey:   "NILDA_PLUGIN",

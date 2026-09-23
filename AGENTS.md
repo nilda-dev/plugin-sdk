@@ -34,17 +34,18 @@ yourself adding a data method to `contract/plugin.proto`, you are rebuilding v1.
 
 ## Releasing: a pin is only real if the tag is PUSHED and carries this module path
 
-This is the live problem in this repository, `pins_test.go` is what asserts it, and it is red today.
 Read the README section before cutting anything. In short:
 
-1. The module was renamed to `gitlab.com/nildalabs/nilda-sdk/plugin-sdk` in `4ec856d`, and every
-   published tag predates it — so `go` reads the go.mod **at the tag** and refuses the requirement.
-2. `v0.4.0`–`v0.6.0` exist only on one developer's disk. The newest tag on `origin` is `v0.3.0`.
-3. **From inside the go.work workspace both faults are invisible**, because the workspace supplies
-   this directory and never reads a pin. A green local build proves nothing about whether anyone else
-   can compile the plugins.
+1. `go` reads the go.mod **at the tag**. A consumer's pin resolves only if that tag exists and its go.mod
+   declares `gitlab.com/nildalabs/nilda-sdk/plugin-sdk`. Tags before `v0.7.0` carry the old path
+   (renamed in `4ec856d`), so nothing may pin below `v0.7.0`.
+2. **From inside the go.work workspace a bad pin is invisible**, because the workspace supplies this
+   directory and never reads a pin. A green local build proves nothing about whether anyone else can
+   compile a plugin.
+3. `pins_test.go` checks every module checked out beside this one that requires it — it finds them
+   itself — so a new plugin cannot slip past it by not being on a list.
 
-So: verify a release by cloning at the tag, not by building here.
+So: prove a release from OUTSIDE the workspace (`GOWORK=off`, `go get …@<tag>`), not by building here.
 
 ## What "the plugin has an API" does not mean
 
@@ -66,7 +67,8 @@ go test ./...
 go vet ./...
 ```
 
-`pins_test.go` is red for the reason above; do not "fix" it by loosening what it checks. If you change
+If `pins_test.go` goes red, a consumer's pin cannot resolve — fix the pin or cut the tag; never "fix" it by
+loosening what it checks. If you change
 the contract or the developer surface, `docs/PLUGIN_SDK.md` changes in the same pass — it is the
 document plugin authors build against, and a contract whose documentation lags is a contract nobody
 can rely on.

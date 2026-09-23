@@ -5,13 +5,15 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 )
 
 // TestEveryPluginPinNamesAnSDKVersionThatCouldResolve.
 //
-// Four plugin repositories require this module by version. Not one of them ever reads that requirement:
+// Every module checked out beside this one that requires it — the plugins, and Core itself — names it by
+// version. Not one of the plugins ever reads that requirement:
 // each has `replace gitlab.com/nildalabs/nilda-sdk/plugin-sdk => ../plugin-sdk`, and every developer works
 // inside a go.work workspace that supplies this directory anyway. So the pin is consulted by exactly one
 // kind of reader — someone who clones ONE repository: CI, the marketplace build, an outside contributor —
@@ -23,8 +25,8 @@ import (
 // because locally nothing was.
 //
 // This test lives HERE, in the SDK, rather than once per plugin, because the SDK is what owns the answer:
-// which versions exist, and what module path each of them declares. A copy in four repositories would be
-// four copies to keep in step, which is the shape of the problem, not a fix for it.
+// which versions exist, and what module path each of them declares. A copy in every consumer would be
+// one more copy per repository to keep in step, which is the shape of the problem, not a fix for it.
 //
 // Two facts are checked, and both have been false:
 //
@@ -50,30 +52,43 @@ func TestEveryPluginPinNamesAnSDKVersionThatCouldResolve(t *testing.T) {
 	// Any require of a plugin-sdk under SOME other path — the mistake this ecosystem keeps making.
 	strayRE := regexp.MustCompile(`(?m)^\s*(\S*plugin-sdk)\s+(v\S+)`)
 
+	// THE CONSUMERS ARE DISCOVERED, NOT LISTED. This loop used to walk a fixed
+	// []string{"commerce", "forms", "booking", "sso"}: two of those never became repositories, and `frames`
+	// — which pins this module — was never added, so its pin went unchecked while the log said "2 plugin
+	// pins checked". Any sibling module whose go.mod names a plugin-sdk is a consumer, Core included.
+	gomods, err := filepath.Glob(filepath.Join("..", "*", "go.mod"))
+	if err != nil {
+		t.Fatalf("listing the sibling modules: %v", err)
+	}
+	sort.Strings(gomods)
+	selfModule := regexp.MustCompile(`(?m)^module\s+` + regexp.QuoteMeta(modulePath) + `\s*$`)
+
 	var checked int
-	for _, name := range []string{"commerce", "forms", "booking", "sso"} {
-		gomod := filepath.Join("..", name, "go.mod")
+	var names []string
+	for _, gomod := range gomods {
+		name := filepath.Base(filepath.Dir(gomod))
 		raw, err := os.ReadFile(gomod)
-		if os.IsNotExist(err) {
-			continue // not every checkout has every sibling
-		}
 		if err != nil {
 			t.Fatalf("reading %s: %v", gomod, err)
 		}
 		src := string(raw)
-		checked++
+		if selfModule.MatchString(src) {
+			continue // this repository
+		}
 
 		m := requireRE.FindStringSubmatch(src)
 		if m == nil {
 			if stray := strayRE.FindStringSubmatch(src); stray != nil {
+				checked++
+				names = append(names, name)
 				t.Errorf("%s requires %q — this SDK's module path is %q. A path that resolves to no host "+
 					"reports itself as `unknown revision`, which reads exactly like a private-repo error, "+
 					"and the two hide behind each other.", name, stray[1], modulePath)
-				continue
 			}
-			t.Errorf("%s does not require %s at all", name, modulePath)
-			continue
+			continue // requires no plugin-sdk at all: not a consumer
 		}
+		checked++
+		names = append(names, name)
 		version := m[1]
 
 		if !tags[version] {
@@ -93,10 +108,10 @@ func TestEveryPluginPinNamesAnSDKVersionThatCouldResolve(t *testing.T) {
 	}
 
 	if checked == 0 {
-		t.Skip("no plugin repository is checked out beside plugin-sdk — the pins cannot be checked from " +
-			"here; run this from a full nilda checkout")
+		t.Skip("no module that requires plugin-sdk is checked out beside it — the pins cannot be checked " +
+			"from here; run this from a full nilda checkout")
 	}
-	t.Logf("%d plugin pins checked against %d tags", checked, len(tags))
+	t.Logf("%d pins checked against %d tags: %s", checked, len(tags), strings.Join(names, ", "))
 }
 
 // ownModulePath is this module's path, read from go.mod rather than hard-coded: hard-coding it would make

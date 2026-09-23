@@ -84,31 +84,27 @@ compatibility checker cannot classify. That check exists because the first answe
 
 ## Releasing — a pin is only real if the tag is pushed AND carries this module path
 
-`pins_test.go` checks what the four plugin repositories require of this one. It is **red today**, and the
-reason is worth reading before cutting the next tag.
+`go` resolves a requirement by reading the go.mod **at** the version, so a pin is only real when the tag
+exists AND that tag's go.mod declares the module path the consumer requires. From inside the go.work
+workspace neither fact is ever consulted — the workspace supplies this directory — so a green local build
+says nothing about whether anyone else can compile a plugin.
 
-Every published tag — `v0.1.0` through `v0.6.0` — was cut before commit `4ec856d`, which renamed the module
-from `gitlab.com/nilda-sdk/plugin-sdk` to `gitlab.com/nildalabs/nilda-sdk/plugin-sdk` (the group was
-missing, so the old path served nothing). `go` resolves a requirement by reading the go.mod **at** the
-version, so a plugin requiring the new path against any existing tag fails with a non-matching module path
-— and a directory `replace` fails the same way, so cloning this repo at the tag does not rescue it either.
+`pins_test.go` checks both facts for every module checked out beside this one that requires it (it finds
+them; nobody keeps a list): the plugins and Core itself. Whether the tag is PUSHED it deliberately leaves to
+each plugin's own CI, which clones this repo at the pinned version (`git clone --branch "$SDK_VERSION"`) and
+fails loudly on a tag that exists on one disk only.
 
-This was also recorded as "`v0.4.0`–`v0.6.0` exist on one developer's disk and were never pushed; the
-newest tag on `origin` is `v0.3.0`". **Measured 2026-09-01 and no longer true** — `git ls-remote --tags`
-shows every tag through `v0.6.0` on `origin`, at the same commits as the local ones. Whether that was
-fixed or never right, the surviving fault is the one above and only that one: the tags are published and
-every one of them carries the old module path. From inside the go.work workspace it stays invisible,
-because the workspace supplies this directory and never reads a pin.
+Cutting a release:
 
-So the next release is not optional bookkeeping — it is what makes the four plugins buildable by anyone who
-is not us:
+1. tag the commit, `git push --tags`;
+2. prove it from OUTSIDE the workspace: a throwaway module with `GOWORK=off` that runs
+   `go get gitlab.com/nildalabs/nilda-sdk/plugin-sdk@<tag>` and builds — the only view an outside
+   developer ever gets;
+3. move the consumers' pins to it, and `pins_test.go` confirms each one resolves.
 
-1. tag a commit **at or after `4ec856d`**, so the tag's go.mod declares `gitlab.com/nildalabs/…`;
-2. `git push --tags` — an unpushed tag is indistinguishable from a correct pin, from in here;
-3. move `commerce`, `forms`, `booking` and `sso` to that version.
-
-`pins_test.go` goes green when all three are done, and each plugin's own CI clones this repo at the version
-its go.mod names, which is the check that cannot be skipped.
+**History worth keeping:** the module was renamed from `gitlab.com/nilda-sdk/plugin-sdk` in `4ec856d`, and
+every tag before `v0.7.0` still declares the old path — so no consumer may pin below `v0.7.0` under the
+current path. That fault is closed; the rule it taught is the section above.
 
 ## Docs
 `docs/` — **`PLUGIN_SDK.md`** (the contract, the developer surface, capabilities, the manifest,

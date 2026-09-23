@@ -65,9 +65,9 @@ import (
 //
 //	func main() { nilda.ServeCommerce(&shop{}) }
 //
-// Declare it in the manifest:
+// Declare it in the manifest — `events` too, because the catalogue-changed event below is not optional:
 //
-//	"capabilities": ["commerce", "route"],
+//	"capabilities": ["commerce", "route", "events"],
 //	"route_prefix": "/shop"
 //
 // At most ONE plugin on an install may provide the shop. Two would each answer half the catalogue and
@@ -89,7 +89,7 @@ const (
 // nothing Core can see, so without this event the storefront serves the old price for the rest of the hour
 // and the merchant reports that saving is broken.
 //
-//	core.EmitEvent(ctx, nilda.EventCommerceCatalogChanged, nil)
+//	core.Emit(ctx, nilda.EventCommerceCatalogChanged, nil)
 //
 // Emit it after a price edit, a stock movement, a publish or unpublish, and at the end of an import — once
 // for the batch, not once per row. There is no payload: the message is "something is different", and Core

@@ -1,8 +1,13 @@
 # Writing a Nilda plugin in a language that is not Go
 
 Nilda talks to plugins over **gRPC**, and gRPC is not a Go idea. If your language can serve a gRPC
-service and write a line to standard output, it can be a Nilda plugin — with the same capabilities, the
-same isolation and the same marketplace listing as one written in Go.
+service and write a line to standard output, it can be a Nilda plugin — with the same capabilities and the
+same isolation as one written in Go.
+
+**One thing differs today, and it is said here rather than discovered after you have built it: marketplace
+distribution is Go-only.** Nilda's publish step and the marketplace identify an artifact from the build
+information a Go compiler writes into it, which a Python or Rust executable does not carry, so they refuse
+it. A plugin in any other language installs by **sideload** — the site owner uploads the package (§9).
 
 This document is the whole contract. It exists because the Go SDK hides all of it, and hiding something is
 not the same as requiring it.
@@ -64,8 +69,10 @@ Nilda sets an environment variable before starting you:
 NILDA_PLUGIN=1b6cf7a2e4nilda98d3f5c0a9b8e7d61
 ```
 
-If it is absent or different, exit with a human-readable error. This is **not** security — the sandbox is.
-It exists so somebody who runs your binary directly gets "run me under Nilda" instead of a gRPC dump.
+If it is absent or different, exit with a human-readable error. This is **not** security, and nothing else
+in the handshake is either: your process runs as the SAME operating-system user as Nilda. What Nilda gives
+you is fault isolation — your crash is yours — not a security boundary. The cookie exists so somebody who
+runs your binary directly gets "run me under Nilda" instead of a gRPC dump.
 
 ### 2b. Write one line to stdout, then never write to stdout again
 
@@ -245,25 +252,30 @@ company that installs you.
 
 ## 7. Your manifest
 
-`manifest.json`, beside your binary, in a directory named after your key. Same for every language:
+`plugin.json` — that is the name Nilda's installer reads, whatever language you write in. It goes into the
+package beside your executable (§9):
 
 ```json
 {
   "key": "acme_thing",
   "name": "Acme Thing",
   "version": "1.0.0",
-  "sdk_version": "0.6.0",
+  "sdk_version": "0.9.0",
   "nilda_compat": ">=0.1.0",
+  "os": "linux",
+  "arch": "amd64",
   "capabilities": ["hooks", "kv"],
   "network": ["api.acme.com"]
 }
 ```
 
-`sdk_version` declares which protocol you speak (0.2–0.6 → protocol 2). If you are not using an SDK, set it
-to the version whose protocol you implement.
+`sdk_version` declares which protocol you speak: every v0 from 0.2 on, and v1, speak protocol 2 —
+`ProtocolForSDK` in `handshake.go` is the table. If you are not using an SDK, set it to a version whose
+protocol you implement.
 
-Nilda reads the real OS and architecture **out of your binary**, not out of your manifest — `os`/`arch`
-there are a cross-check, not the answer.
+**Declare `os` and `arch`.** Nilda reads the platform out of a Go binary's build information; yours has
+none, so on a sideload Nilda falls back to what your manifest says. Left out, the install is still permitted
+— and a binary built for another platform simply fails to start.
 
 ---
 
@@ -342,8 +354,11 @@ def main():
 main()
 ```
 
-Package it as an executable (`pyinstaller`, a shebang script, whatever your platform runs) plus
-`manifest.json`, and it installs like any other plugin.
+Package it as a **`.nplug`**: a zip with exactly two entries at its root — `plugin.json` and `bin/plugin`,
+your executable (a `pyinstaller` build, a shebang script, whatever your platform runs). Anything else in the
+archive is refused. By convention it is named `<key>_<os>_<arch>.nplug`. A publisher signature, if you have one, travels
+BESIDE the file as `<file>.nplug.sig`, over the archive's own bytes — never inside it. The site owner
+installs it by uploading the file; the marketplace does not take it (see the top of this document).
 
 ---
 
