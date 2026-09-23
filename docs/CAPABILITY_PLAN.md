@@ -79,6 +79,12 @@ page with no plugin at all, and a basket's gateway belongs to the shop plugin's 
 The rule it broke is not "must it dispatch" (it did) but "is this a second path beside an existing one".
 Check the second question before the first.
 
+**Superseded 2026-09-23 (Nilda D-84).** "A basket's gateway belongs to the shop plugin's own
+`PaymentGateway`" named a door no separate plugin can use: plugins cannot call each other, and that interface
+lives inside the shop's process. Core will own the payment CONTRACT — `payment_gateway` for each gateway
+plugin, `payment_session` for whatever takes the money — with no provider code, key or outbound call of its
+own, and Rule 0 is met by deleting the parallel paths once it exists. Decided, not built.
+
 The shape of the gap is specific: **a plugin can serve its own pages and own its own data, but it
 cannot add anything to a screen Core already renders.** `widget` is the one exception — it puts a
 plugin's markup on the page-builder canvas — and it is exactly the pattern the two biggest gaps need

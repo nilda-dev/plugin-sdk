@@ -297,12 +297,15 @@ to declare that does nothing. `admin.pages` and `payments` used to appear here a
 — neither was ever implemented in Core, so a plugin could be granted them and receive nothing. Declaring
 either one now fails validation.
 
-**There is no payment capability, and that is deliberate.** A singular `payment` was added and removed on
-2026-09-15: Core already takes money in the two places it makes sense to, and a third seam only spread the
-decision out. To take one payment from one page — an ebook, a donation, a deposit — the site owner drops
-a PayPal or Stripe button widget in the page builder; no plugin is involved. To take payment for a basket,
-the gateway belongs to the shop plugin, which owns its own `PaymentGateway` interface and its own list of
-providers. Write a gateway for the shop you are extending, not for Core.
+**There is no payment capability YET — a Core contract is decided, not built** (Nilda's D-84, 2026-09-23).
+Every gateway (Stripe, PayPal, …) will be its own plugin declaring `payment_gateway`, and whatever takes the
+money — the shop, a booking deposit, a donation — will declare `payment_session` and talk only to Core,
+which routes each payment to the gateway the site uses. Plugins never call each other. Until that ships, a
+separate plugin cannot be a payment gateway at all: the shop's own `PaymentGateway` is an interface inside
+the shop's process, which no other plugin can implement. What works today: to take one payment from one
+page — an ebook, a donation, a deposit — the site owner drops a PayPal or Stripe button widget in the page
+builder, with no plugin involved. The names `payment` and `payments` stay refused, so a manifest cannot
+claim a capability before it exists.
 
 A write capability applies to **every** content type, not a declared subset. What keeps that honest is
 attribution, not narrowing: a plugin acts as its own visible service account, so everything it creates or

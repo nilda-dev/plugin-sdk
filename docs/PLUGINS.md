@@ -71,7 +71,7 @@ plugin. A crashing/slow plugin can't take down the site.
 | Plugin | What it does | Model |
 |--------|-------------|-------|
 | **Newsletter & Membership** (flagship) | Ghost-style: bulk newsletters, visual drag-drop email builder (MJML), A/B subject testing, campaign analytics, free/paid membership tiers, paywall/content gating, Stripe payments, offers/promotions, subscriber analytics. (Core ships the full transactional email layer + deliverability + base signup form + basic subscriber count; this plugin adds marketing-email tooling.) | Paid |
-| **E-commerce** | Products, cart, orders, checkout, Stripe + PayPal gateways, inventory. Also brings e-commerce SEO: Product schema (price/stock/GTIN/MPN), shopping/merchant feed, variant canonicals, out-of-stock handling. | Paid |
+| **E-commerce** | Products, cart, orders, checkout, inventory. Card payment comes from the site's gateway plugins (Stripe, PayPal — each its own plugin, through Core's payment contract, D-84 — decided, not built). Also brings e-commerce SEO: Product schema (price/stock/GTIN/MPN), shopping/merchant feed, variant canonicals, out-of-stock handling. | Paid |
 | **SEO Pro** | The Pro tier of the built-in SEO (also sold standalone). Adds off-site tools that need external data: backlink monitoring, disavow, competitor analysis. | Paid |
 | **Local SEO** | Google Business Profile sync, NAP consistency, store locator + map, multi-location landing pages, per-location schema | Paid |
 | **Booking & Reservation** | Appointments, slots, calendar, reminders | Paid |
