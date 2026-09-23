@@ -123,8 +123,9 @@ type AdminPage struct {
 	//
 	// A page whose kind Core does not recognise is dropped at install rather than rendered blank — and the
 	// install reports it among the fields that Nilda does not know — so a plugin built against a newer Nilda
-	// degrades to its other pages instead of being refused. `nilda plugin check` still refuses it, since there
-	// the author is the one reading the error.
+	// degrades to its other pages instead of being refused. When no page is left, the `admin_page` grant is
+	// dropped (and reported) with the last one, since Core refuses the grant without a page. `nilda plugin
+	// check` still refuses an unknown kind, since there the author is the one reading the error.
 	Kind string `json:"kind"`
 	// Fields means two different things depending on Kind. On a "settings" page they are STORED
 	// configuration, read back at your next Init. On a "report" page they are FILTER INPUTS — a date

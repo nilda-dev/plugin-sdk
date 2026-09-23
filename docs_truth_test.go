@@ -413,3 +413,56 @@ func TestTheTimeBudgetsTheDocsNameAreCores(t *testing.T) {
 		}
 	}
 }
+
+// M23–M34 (2026-09-23 plugin hunt): what the admin_page section tells an author Core does and refuses — each
+// sentence beside the Core source that makes it true, and each number held to Core's constant, so the section
+// cannot keep a rule Core dropped or a bound Core moved.
+func TestTheAdminPageRulesTheDocsNameAreCores(t *testing.T) {
+	read := func(file string) string {
+		raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "plugin", file))
+		if os.IsNotExist(err) {
+			t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(raw)
+	}
+	manifest, report, list, tables := read("schema_manifest.go"), read("adminreport.go"), read("adminlist.go"), read("tables.go")
+	num := func(src, name string) string {
+		m := regexp.MustCompile(`\b` + name + `\s*=\s*([0-9]+)\b`).FindStringSubmatch(src)
+		if m == nil {
+			t.Fatalf("core no longer declares %s as a number — repoint this guard", name)
+		}
+		return m[1]
+	}
+	section := strings.Join(strings.Fields(mdSection(t, "docs/PLUGIN_SDK.md", "### Your own section of the admin")), " ")
+	for _, c := range []struct{ src, marker, says string }{
+		{manifest, "the 'admin_page' capability is declared but no admin page is", "and the capability without a page"},
+		{manifest, "admin pages are declared but the 'admin_page' capability is not", "`admin_pages` without the `admin_page` capability"},
+		{manifest, "is also a field of the settings page", "One field key on two settings pages"},
+		{list, "ReasonActionOutcomeUnknown", "Core cannot tell \"never started\" from \"finished, answer lost\""},
+		{list, "primaryKeyOf(table)", "then by the table's primary key"},
+		{tables, "func TablesWithListIndexes", "Core creates one with your tables"},
+	} {
+		if !strings.Contains(c.src, c.marker) {
+			t.Errorf("core no longer has %q — re-read the admin_page section's sentence %q", c.marker, c.says)
+		}
+		if !strings.Contains(section, c.says) {
+			t.Errorf("the admin_page section no longer says %q, which core's %q makes true", c.says, c.marker)
+		}
+	}
+	for _, want := range []string{
+		"More than " + num(manifest, "maxAdminPages") + " pages",
+		num(manifest, "maxPageFields") + " fields on a settings page",
+		num(report, "maxReportParams") + " filters on a report page",
+		num(manifest, "maxListColumns") + " columns or " + num(manifest, "maxListColumns") + " search columns",
+		num(manifest, "maxRowActions") + " row actions",
+		num(manifest, "maxSettingChoices") + " choices on a field",
+		"longer than " + num(manifest, "maxDeclaredLabelLen") + " characters",
+	} {
+		if !strings.Contains(section, want) {
+			t.Errorf("the admin_page section does not say %q, which is Core's bound", want)
+		}
+	}
+}

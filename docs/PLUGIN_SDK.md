@@ -656,6 +656,24 @@ func (p *Shop) onAction(ctx context.Context, a nilda.AdminAction) (nilda.AdminAc
 the reply is a typed struct now rather than a map you fill in from memory. A button that gives no sign it
 did anything is worse than no button.
 
+**An action that runs out of time may still have run.** When your answer does not arrive within the call
+budget (`PLUGIN_CALL_TIMEOUT`), Core cannot tell "never started" from "finished, answer lost", so it tells
+the owner exactly that — check the row before pressing again — instead of a failure that reads as "nothing
+happened". Make every action safe to press twice: a refund reads the row's state before it moves money.
+
+**A list page is always in a stable order.** Core sorts by your `order_by`, then by the table's primary key,
+so paging never shows a row twice or skips one; and if no index of yours covers `order_by`, Core creates one
+with your tables.
+
+**What Core refuses at install** (and `nilda plugin check` on your machine):
+
+- `admin_pages` without the `admin_page` capability, and the capability without a page.
+- One field key on two settings pages. Your settings reach you as ONE map keyed by field key
+  (`core.Setting("api_key")`), so the second page would silently hand you the first page's value.
+- More than 12 pages, 48 fields on a settings page, 20 filters on a report page, 20 columns or 20 search
+  columns on a list page, 8 row actions, or 100 choices on a field; or a name or label longer than 120
+  characters.
+
 ### Being the site's search engine (`search_provider`)
 
 Nilda ships Postgres full-text on every install and Meilisearch for sites that outgrow it. Your plugin can
