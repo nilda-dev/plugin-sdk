@@ -1,0 +1,33 @@
+field Email.Body string
+field Email.Lang string
+field Email.Subject string
+field Email.To string
+field Event.Data []byte
+field Event.Type string
+field Host.Fail error
+field Revocation.Provider string
+field Revocation.Reason string
+field Revocation.Subject string
+func New(string, ...string) (*nilda.Core, *Host)
+func NewWithAPI(string, http.Handler, ...string) (*nilda.Core, *Host, *httptest.Server)
+func SetSettings(*nilda.Core, map[string]any)
+method (*Host) Advance(time.Duration)
+method (*Host) Emails() ([]Email)
+method (*Host) EmitEvent(context.Context, *contract.EmitEventRequest, ...grpc.CallOption) (*contract.EmitEventResponse, error)
+method (*Host) Events() ([]Event)
+method (*Host) Grant(string)
+method (*Host) KV() (map[string]string)
+method (*Host) KVDel(context.Context, *contract.KVDelRequest, ...grpc.CallOption) (*contract.KVDelResponse, error)
+method (*Host) KVGet(context.Context, *contract.KVGetRequest, ...grpc.CallOption) (*contract.KVGetResponse, error)
+method (*Host) KVIncr(context.Context, *contract.KVIncrRequest, ...grpc.CallOption) (*contract.KVIncrResponse, error)
+method (*Host) KVSet(context.Context, *contract.KVSetRequest, ...grpc.CallOption) (*contract.KVSetResponse, error)
+method (*Host) Revocations() ([]Revocation)
+method (*Host) Revoke(string)
+method (*Host) RevokeIdentity(context.Context, *contract.RevokeIdentityRequest, ...grpc.CallOption) (*contract.RevokeIdentityResponse, error)
+method (*Host) SendEmail(context.Context, *contract.SendEmailRequest, ...grpc.CallOption) (*contract.SendEmailResponse, error)
+method (*Host) SetSessionsPerIdentity(int)
+type Email
+type Event
+type Host
+type Revocation
+var SessionsPerIdentity

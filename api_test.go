@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -441,4 +442,46 @@ func TestWithMaxRetriesDerivesRatherThanMutates(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
+}
+
+// M19 (2026-09-23 plugin hunt): the SDK promised plugins "media upload" over Core's API, and its client could
+// send only JSON — Core's POST /media reads a multipart `file` field, so no plugin could upload anything.
+// This server reads the request the way Core's uploadMedia does; a retried attempt must carry the same file.
+func TestAPluginCanUploadMedia(t *testing.T) {
+	attempts := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if r.Method != http.MethodPost || r.URL.Path != "/media" {
+			t.Errorf("upload went to %s %s", r.Method, r.URL.Path)
+		}
+		file, fh, err := r.FormFile("file")
+		if err != nil {
+			http.Error(w, `{"error":{"code":"VALIDATION","message":"a multipart file field is required"}}`, http.StatusUnprocessableEntity)
+			return
+		}
+		body, _ := io.ReadAll(file)
+		if fh.Filename != "kettle.png" || string(body) != "PNGBYTES" || r.FormValue("alt") != "A kettle" {
+			t.Errorf("upload carried %q %q alt=%q", fh.Filename, body, r.FormValue("alt"))
+		}
+		if attempts == 1 {
+			w.WriteHeader(http.StatusServiceUnavailable) // Core restarting: retried, with the same bytes
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"data":{"id":"m1"}}`))
+	}))
+	defer srv.Close()
+
+	api := newAPI(srv.URL, "tok", []string{"write:media"}).WithIdempotencyKey("upload-1")
+	var out struct {
+		Data struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := api.UploadMedia(context.Background(), "kettle.png", strings.NewReader("PNGBYTES"), "A kettle", &out); err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	if out.Data.ID != "m1" || attempts != 2 {
+		t.Fatalf("id = %q after %d attempts, want m1 after a retry", out.Data.ID, attempts)
+	}
 }

@@ -323,3 +323,93 @@ func readText(t *testing.T, path string) string {
 	}
 	return string(raw)
 }
+
+// M20 (2026-09-23 plugin hunt): the SDK told authors Core strips `class` and `data-*` from a widget's HTML,
+// while Core renders plugin widgets with its COMPONENT policy, which keeps both on purpose. An author who
+// believed the doc stopped using the two hooks the policy exists to preserve. Held to Core's source: if
+// Render ever moves to another policy, this fails and the sentence gets re-read.
+func TestTheWidgetSanitizerTheDocsDescribeIsCores(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "plugin", "widgets.go"))
+	if os.IsNotExist(err) {
+		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "security.SanitizeComponentHTML(res.HTML)") {
+		t.Fatal("core's WidgetCatalog.Render no longer sanitizes with the component policy — re-read what the docs say is kept")
+	}
+	for _, file := range []string{"widgets.go", "docs/PLUGIN_SDK.md"} {
+		text := readText(t, file)
+		if !strings.Contains(text, "`class` and `data-*` are") || strings.Contains(text, "`data-*` are stripped") ||
+			strings.Contains(text, "and data-* are\n\t// stripped") {
+			t.Errorf("%s does not say that `class` and `data-*` are kept", file)
+		}
+	}
+}
+
+// M14 (2026-09-23 plugin hunt): field.go told authors a long choices list is "trimmed rather than refused".
+// Core trims only what it has already read, and refuses an answer past its byte ceiling outright. The numbers
+// the doc names are held to Core's constants here.
+func TestTheChoicesBoundsTheDocsNameAreCores(t *testing.T) {
+	path := filepath.Join("..", "core", "internal", "plugin", "fields.go")
+	raw, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	num := func(name string) int {
+		m := regexp.MustCompile(`\b` + name + `\s*=\s*([0-9_]+)(?:\s*<<\s*([0-9]+))?`).FindStringSubmatch(string(raw))
+		if m == nil {
+			t.Fatalf("%s no longer declares %s as a number — repoint this guard", path, name)
+		}
+		n, _ := strconv.Atoi(strings.ReplaceAll(m[1], "_", ""))
+		if m[2] != "" {
+			shift, _ := strconv.Atoi(m[2])
+			n <<= shift
+		}
+		return n
+	}
+	doc := readText(t, "field.go")
+	for _, want := range []string{
+		"first " + addThousands(num("maxFieldChoices")),
+		strconv.Itoa(num("maxChoiceLen")) + "\n\t// characters",
+		strconv.Itoa(num("maxChoicesBytes")>>20) + " MiB is REFUSED",
+	} {
+		if !strings.Contains(doc, want) {
+			t.Errorf("field.go's Choices doc does not say %q, which is what core's fields.go enforces", want)
+		}
+	}
+}
+
+// M17 (2026-09-23 plugin hunt): the SDK now names Core's two time budgets where an author meets them — an
+// ability's Run, a search engine's calls, an upgrade step in Init. Each number is held to the default Core's
+// config parses, so the sentence cannot outlive a changed default.
+func TestTheTimeBudgetsTheDocsNameAreCores(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "core", "pkg", "config", "config.go"))
+	if os.IsNotExist(err) {
+		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	seconds := func(env string) string {
+		m := regexp.MustCompile(`parseDuration\("` + env + `",\s*([0-9]+)\s*\*\s*time\.Second\)`).FindStringSubmatch(string(raw))
+		if m == nil {
+			t.Fatalf("core's config.go no longer defaults %s in seconds — repoint this guard", env)
+		}
+		return m[1]
+	}
+	call, init := seconds("PLUGIN_CALL_TIMEOUT"), seconds("PLUGIN_INIT_TIMEOUT")
+	for file, want := range map[string]string{
+		"abilities.go": call + " seconds by default (the site's PLUGIN_CALL_TIMEOUT)",
+		"search.go":    call + " seconds by default (PLUGIN_CALL_TIMEOUT)",
+		"upgrade.go":   init + " seconds by default, the site's PLUGIN_INIT_TIMEOUT",
+	} {
+		if !strings.Contains(strings.ReplaceAll(readText(t, file), "\n\t// ", " "), want) {
+			t.Errorf("%s does not say %q, which is Core's default", file, want)
+		}
+	}
+}

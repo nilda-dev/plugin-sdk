@@ -105,8 +105,10 @@ type FieldValidateResponse struct {
 // A type that declares neither `choices` nor `validates` needs neither method to do anything: return nil
 // and "" — Nilda never asks.
 type FieldProvider interface {
-	// Choices returns a picker's options. Bounded by Nilda; a very long list is trimmed rather than
-	// refused, so answer with what a person could plausibly scroll.
+	// Choices returns a picker's options. Nilda keeps the first 2,000 and cuts each value and label to 200
+	// characters — but it reads your answer whole first, and an answer over 1 MiB is REFUSED, not trimmed:
+	// the editor sees no choices at all. 2,000 full-length labels in a two-byte script do not fit, so answer
+	// with what a person could plausibly scroll, not with everything you have.
 	Choices(ctx context.Context, core *Core, req FieldChoicesRequest) ([]FieldChoice, error)
 	// Validate returns "" to accept, or a message an EDITOR can act on. It is shown to them verbatim, so
 	// "must be six digits" beats "invalid".

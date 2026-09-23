@@ -235,14 +235,16 @@ verbatim at debug rather than dropped.
 ## 6. Outbound network
 
 If Nilda's egress policy is on (it is, by default), your outbound HTTP goes through a local proxy that
-allows only the hosts your manifest declared. The proxy has to know **who is calling**:
+allows only the hosts your manifest declared. The proxy has to know **who is calling**, and Nilda tells it
+for you: the proxy address it puts in `HTTP_PROXY` / `HTTPS_PROXY` carries your plugin key as its user
+name (`http://<your key>@127.0.0.1:<port>`). Any HTTP client that takes its proxy from those variables
+sends that as `Proxy-Authorization` — on plain requests and on the **CONNECT** that opens an HTTPS tunnel —
+so you do nothing beyond using the environment's proxy.
 
-- Set the header `X-Nilda-Plugin: <your plugin key>` on every request, AND
-- set it on the **CONNECT** request for HTTPS — the headers inside a TLS tunnel are invisible to the proxy.
-  Most HTTP clients have a setting for this (Go: `Transport.ProxyConnectHeader`).
-
-Miss the second and every HTTPS call is refused with "this plugin did not declare that host" while your
-manifest declares it perfectly. This is not hypothetical: the Go SDK shipped that bug.
+If your client ignores the environment and you configure the proxy by hand, keep the user name, or set the
+header `X-Nilda-Plugin: <your plugin key>` on every request AND on the CONNECT. Lose it and every HTTPS call
+is refused with "this plugin did not declare that host" while your manifest declares it perfectly — the
+Go SDK once shipped exactly that bug.
 
 **One exception you do not declare**: a sign-in plugin's identity provider. Nilda allows the issuer the
 site owner typed on your settings page — you cannot name it in advance, because it is different at every

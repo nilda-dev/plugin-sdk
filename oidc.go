@@ -8,9 +8,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
-	"time"
 )
 
 // AN OPENID CONNECT CLIENT, SO YOU DO NOT WRITE ONE.
@@ -62,15 +62,20 @@ type oidcMetadata struct {
 // the SITE OWNER types it: it is the fact that decides which provider a site trusts, and a plugin choosing
 // it for them is a plugin choosing who may sign in.
 //
-// Scopes default to the three every OIDC provider understands. Add to them when your directory needs it —
-// Entra wants "GroupMember.Read.All" territory for some group configurations, Okta may want a custom scope.
+// Scopes are always the three every OIDC provider understands — openid, email, profile — plus any you pass.
+// Add to them when your directory needs it: Entra wants "GroupMember.Read.All" territory for some group
+// configurations, Okta may want a custom scope. What you pass is ADDED, never a replacement: a list that
+// dropped `openid` would not be an OIDC request at all, and one without `email` signs nobody in.
 func NewOIDCClient(issuer, clientID, clientSecret string, scopes ...string) *OIDCClient {
-	if len(scopes) == 0 {
-		scopes = []string{"openid", "email", "profile"}
+	all := []string{"openid", "email", "profile"}
+	for _, s := range scopes {
+		if s = strings.TrimSpace(s); s != "" && !slices.Contains(all, s) {
+			all = append(all, s)
+		}
 	}
 	return &OIDCClient{
 		issuer: strings.TrimRight(issuer, "/"), clientID: clientID, clientSecret: clientSecret,
-		scopes: scopes,
+		scopes: all,
 		// HTTPClient, not a bare http.Client: the egress proxy identifies the caller by a header the SDK's
 		// transport adds, and without it every call is refused as "this plugin did not declare that host"
 		// — even when the manifest declares it perfectly.
@@ -81,9 +86,11 @@ func NewOIDCClient(issuer, clientID, clientSecret string, scopes ...string) *OID
 		// asking. Every author writing outbound calls by hand can make the same mistake — which is exactly
 		// why this client exists.
 		//
-		// The timeout is short because this runs inside somebody's login: a provider taking half a minute
-		// has already failed, and holding a browser that long is worse than saying so.
-		http: HTTPClient(10 * time.Second),
+		// What bounds a login is the context of the call Core made — its per-call deadline (5s by default,
+		// PLUGIN_CALL_TIMEOUT) travels in ctx, and every request below is made with it. This client's own
+		// timeout is only a backstop for a call made without one; it used to be 10s and was described as
+		// what kept a login short, which it never was, since Core's deadline always fires first.
+		http: HTTPClient(0),
 	}
 }
 

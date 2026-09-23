@@ -32,6 +32,15 @@ import (
 // One section in the sidebar, named after your plugin, below Core's own rows. A plugin cannot choose to sit
 // above Media — WordPress lets it, and the result is a rail nobody arranged where an owner cannot tell
 // which rows came from what they installed. A person who uses your plugin daily can drag it up themselves.
+//
+// # The declaration types are the manifest, typed
+//
+// AdminPage, SettingField, ListColumn and RowAction describe the `admin_pages` block of plugin.json. Nothing
+// in Serve reads them — Core reads the manifest FILE, not your code — so declaring a page means writing it in
+// plugin.json. They exist so a Go author can generate or test that block from typed values instead of
+// hand-written JSON, and Core holds them equal to its own parser, field for field (its sdk_mirror_test).
+// The request and result types further down (AdminAction, AdminReportRequest, …) are the ones that travel
+// at run time.
 
 // Setting field types an admin page may declare. They are the SAME vocabulary the page builder uses for
 // widget configuration (widgets.go) — deliberately, so an author learns one set of type names — minus the
@@ -79,6 +88,10 @@ type SettingField struct {
 	//
 	// It also means YOUR plugin receives the real value at Init and the admin screen does not, which is the
 	// right way round: the process that must call the gateway needs the key, and the browser never does.
+	//
+	// SETTINGS PAGES ONLY, and only on a text or textarea field. On a report page Fields are filters — never
+	// stored, never masked, and carried in the page's address on every view — so Core refuses `secret` there
+	// at install rather than promise protection a filter cannot have.
 	Secret bool `json:"secret,omitempty"`
 
 	Required bool `json:"required,omitempty"`
@@ -108,14 +121,17 @@ type AdminPage struct {
 	// "list" page cannot show because it is not one table's rows (a total, a GROUP BY, a number joined
 	// across several of your own tables).
 	//
-	// A page whose kind Core does not recognise is dropped rather than rendered blank, so a plugin built
-	// against a newer Nilda degrades to its other pages instead of showing an owner an empty screen.
+	// A page whose kind Core does not recognise is dropped at install rather than rendered blank — and the
+	// install reports it among the fields that Nilda does not know — so a plugin built against a newer Nilda
+	// degrades to its other pages instead of being refused. `nilda plugin check` still refuses it, since there
+	// the author is the one reading the error.
 	Kind string `json:"kind"`
 	// Fields means two different things depending on Kind. On a "settings" page they are STORED
 	// configuration, read back at your next Init. On a "report" page they are FILTER INPUTS — a date
 	// range, a choice of which report to show — sent to you fresh on every request and never stored at
 	// all; there is nothing to persist about "which report am I looking at right now." Same vocabulary
-	// either way, so an author learns one set of controls for both.
+	// either way, so an author learns one set of controls for both — except Secret, which only a settings
+	// page can hold (see SettingField.Secret).
 	Fields []SettingField `json:"fields,omitempty"`
 	// Help is shown at the top of the page — one or two sentences on what this page is for.
 	Help string `json:"help,omitempty"`
@@ -198,6 +214,11 @@ type AdminAction struct {
 // Worth being exact about, because the failure is silent: an action that returns `{"result":"refunded"}`
 // runs perfectly and the person who pressed the button sees "Done", with no way to learn what happened.
 // Say what happened.
+//
+// The admin resolves Message through your manifest's `translations`, exactly as it does your page labels —
+// so answer with a FIXED sentence ("Refunded") and translate it there, and the owner reads it in their own
+// language. A sentence built per call ("Refunded order ord_42") matches no translation and is shown as you
+// wrote it: keep the variable part out of it — the row the owner pressed the button on already says which.
 type AdminActionResult struct {
 	Message string `json:"message,omitempty"`
 }
@@ -214,7 +235,8 @@ type AdminActionResult struct {
 //	func (p *Plugin) onAction(ctx context.Context, a nilda.AdminAction) (nilda.AdminActionResult, error) {
 //		switch a.Action {
 //		case "refund":
-//			return nilda.AdminActionResult{Message: "Refunded order " + a.ID}, p.refund(ctx, a.ID)
+//			// A fixed sentence, translated in plugin.json — see AdminActionResult.
+//			return nilda.AdminActionResult{Message: "Refunded"}, p.refund(ctx, a.ID)
 //		}
 //		return nilda.AdminActionResult{}, fmt.Errorf("unknown action %q", a.Action)
 //	}

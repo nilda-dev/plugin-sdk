@@ -27,11 +27,12 @@ package nildatest
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -62,13 +63,46 @@ type Host struct {
 	mu      sync.Mutex
 	key     string // the plugin's key: its own event namespace
 	granted map[string]bool
-	kv      map[string]string
+	kv      map[string]kvEntry
 	events  []Event
 	emails  []Email
 	revoked []Revocation
+	// clock is how far Advance has moved this host's time past the wall clock, so a KV expiry can be
+	// asserted without the test sleeping through it.
+	clock time.Duration
+	// sessions is what RevokeIdentity reports for this host; nil falls back to SessionsPerIdentity.
+	sessions *int
 	// Fail, when set, makes every host call return it. For asserting what a plugin does when Core is having
 	// a bad day — a plugin that ignores a failed SendEmail loses a customer's receipt silently.
 	Fail error
+}
+
+// kvEntry is one stored value and when it expires (zero: never), as Core's KV keeps it.
+type kvEntry struct {
+	val string
+	exp time.Time
+}
+
+// now is this host's time: the wall clock, moved on by Advance. Callers hold h.mu.
+func (h *Host) now() time.Time { return time.Now().Add(h.clock) }
+
+// live returns a key's entry unless it has expired, dropping it if it has. Callers hold h.mu.
+func (h *Host) live(key string) (kvEntry, bool) {
+	e, ok := h.kv[key]
+	if ok && !e.exp.IsZero() && !h.now().Before(e.exp) {
+		delete(h.kv, key)
+		return kvEntry{}, false
+	}
+	return e, ok
+}
+
+// Advance moves this host's clock forward, so a KV entry written with a TTL expires exactly as it would in
+// Core — without the test sleeping for it. An expiry a plugin relies on (a rate-limit window, a one-time code)
+// is behaviour worth asserting, and a fake that kept every value forever could not show it breaking.
+func (h *Host) Advance(d time.Duration) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.clock += d
 }
 
 // New builds a fake Core and the Host behind it, granted exactly the capabilities named.
@@ -108,7 +142,7 @@ func newHost(pluginKey string, granted []string) *Host {
 	for _, g := range granted {
 		set[g] = true
 	}
-	return &Host{key: pluginKey, granted: set, kv: map[string]string{}}
+	return &Host{key: pluginKey, granted: set, kv: map[string]kvEntry{}}
 }
 
 // scopesFor mirrors Core's capability→scope mapping, so a test Core's reported scopes match what a real one
@@ -154,13 +188,15 @@ func (h *Host) Emails() []Email {
 	return append([]Email(nil), h.emails...)
 }
 
-// KV returns a snapshot of the plugin's key-value namespace.
+// KV returns a snapshot of the plugin's key-value namespace — what has not expired, as Core would answer.
 func (h *Host) KV() map[string]string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	out := make(map[string]string, len(h.kv))
-	for k, v := range h.kv {
-		out[k] = v
+	for k := range h.kv {
+		if e, ok := h.live(k); ok {
+			out[k] = e.val
+		}
 	}
 	return out
 }
@@ -203,8 +239,8 @@ func (h *Host) KVGet(_ context.Context, in *contract.KVGetRequest, _ ...grpc.Cal
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	v, found := h.kv[in.Key]
-	return &contract.KVGetResponse{Value: v, Found: found}, nil
+	e, found := h.live(in.Key)
+	return &contract.KVGetResponse{Value: e.val, Found: found}, nil
 }
 
 // maxKVValueBytes is Core's cap on one KV value (core's internal/plugin/kvquota.go); a guard in this package
@@ -222,7 +258,13 @@ func (h *Host) KVSet(_ context.Context, in *contract.KVSetRequest, _ ...grpc.Cal
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.kv[in.Key] = in.Value
+	// The TTL is kept, as Core keeps it (the 2026-09-23 plugin hunt's M11): this fake used to drop it, so a
+	// value meant to expire lived forever in every test and the expiry a plugin relied on was never exercised.
+	e := kvEntry{val: in.Value}
+	if in.TtlSeconds > 0 {
+		e.exp = h.now().Add(time.Duration(in.TtlSeconds) * time.Second)
+	}
+	h.kv[in.Key] = e
 	return &contract.KVSetResponse{}, nil
 }
 
@@ -243,15 +285,20 @@ func (h *Host) KVIncr(_ context.Context, in *contract.KVIncrRequest, _ ...grpc.C
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	// Counters live in the same namespace as everything else, as they do in Core — so a plugin that uses one
-	// key for both a string and a counter discovers the collision here.
+	// key for both a string and a counter discovers the collision here, with the code Core answers
+	// (FailedPrecondition; core's kvStatus, held equal by a guard in this package).
 	var n int64
-	if existing, ok := h.kv[in.Key]; ok {
-		if _, err := fmt.Sscanf(existing, "%d", &n); err != nil {
-			return nil, status.Errorf(codes.FailedPrecondition, "key %q does not hold a number", in.Key)
+	existing, ok := h.live(in.Key)
+	if ok {
+		parsed, err := strconv.ParseInt(existing.val, 10, 64)
+		if err != nil {
+			return nil, status.Errorf(codes.FailedPrecondition, "plugin kv: value is not an integer")
 		}
+		n = parsed
 	}
 	n++
-	h.kv[in.Key] = fmt.Sprintf("%d", n)
+	// INCR leaves an existing expiry alone, in Core as in Redis.
+	h.kv[in.Key] = kvEntry{val: strconv.FormatInt(n, 10), exp: existing.exp}
 	return &contract.KVIncrResponse{Value: n}, nil
 }
 
@@ -323,23 +370,47 @@ func (h *Host) Revocations() []Revocation {
 	return append([]Revocation(nil), h.revoked...)
 }
 
-// SessionsPerIdentity is what RevokeIdentity reports back. Default 1; set it to 0 to rehearse revoking
-// somebody who was not signed in, which must not read as a failure.
+// SessionsPerIdentity is what RevokeIdentity reports back on a host that has not been told otherwise.
+// Default 1.
+//
+// Deprecated: use Host.SetSessionsPerIdentity. A package variable is shared by every test in the binary, so
+// two parallel tests that set it race, and each can read the other's value.
 var SessionsPerIdentity = 1
 
+// SetSessionsPerIdentity sets what this host's RevokeIdentity reports back. Set it to 0 to rehearse revoking
+// somebody who was not signed in, which must not read as a failure.
+func (h *Host) SetSessionsPerIdentity(n int) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.sessions = &n
+}
+
+// RevokeIdentity and SendEmail refuse what Core refuses, with its code (the 2026-09-23 plugin hunt's M16). They
+// accepted empty required fields, so a plugin whose bug sent a receipt to nobody, or revoked nobody's
+// sessions, passed every test here and was refused by the first real install.
 func (h *Host) RevokeIdentity(_ context.Context, in *contract.RevokeIdentityRequest, _ ...grpc.CallOption) (*contract.RevokeIdentityResponse, error) {
 	if err := h.enforce("auth_provider"); err != nil {
 		return nil, err
 	}
+	if in.Provider == "" || in.Subject == "" {
+		return nil, status.Error(codes.InvalidArgument, "provider and subject are required")
+	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.revoked = append(h.revoked, Revocation{Provider: in.Provider, Subject: in.Subject, Reason: in.Reason})
-	return &contract.RevokeIdentityResponse{SessionsEnded: int32(SessionsPerIdentity)}, nil
+	n := SessionsPerIdentity
+	if h.sessions != nil {
+		n = *h.sessions
+	}
+	return &contract.RevokeIdentityResponse{SessionsEnded: int32(n)}, nil
 }
 
 func (h *Host) SendEmail(_ context.Context, in *contract.SendEmailRequest, _ ...grpc.CallOption) (*contract.SendEmailResponse, error) {
 	if err := h.enforce("email"); err != nil {
 		return nil, err
+	}
+	if in.To == "" || in.Subject == "" {
+		return nil, status.Error(codes.InvalidArgument, "to and subject are required")
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()

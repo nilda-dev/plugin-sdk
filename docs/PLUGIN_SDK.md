@@ -175,6 +175,14 @@ err = api.Post(ctx, "/batch", batchOps, &batchResult)
 Other resources: `/media`, `/media/:id`, `/users/:id`, `/taxonomies`, `/taxonomies/:key/terms`,
 `/terms/:id`, `/menus`, `/site`. GraphQL is at Core's `/api/graphql`.
 
+A file goes into the media library with `api.UploadMedia` (needs `media.write`) — `POST /media` takes a
+multipart upload, not JSON, so `api.Post` cannot send one:
+
+```go
+var up struct{ Data struct{ ID string `json:"id"` } `json:"data"` }
+err = api.UploadMedia(ctx, "kettle.jpg", file, "A copper kettle", &up)
+```
+
 **Check before you use it.** `core.API()` is `nil` when the manifest declared no capability that grants
 API access:
 
@@ -343,8 +351,10 @@ func (s *Shop) RenderWidget(ctx context.Context, req nilda.WidgetRenderRequest) 
 }
 ```
 
-`RenderWidget`'s output is **sanitized** by Core: `<script>`, inline styles, `class`, `nonce` and `data-*`
-are stripped. Anything interactive belongs in a script served from your own route, not in this string.
+`RenderWidget`'s output is **sanitized** by Core with its component policy: `<script>`, `<iframe>`, `on*`
+handlers, `javascript:` URLs and the `style` attribute are removed; `class` and `data-*` are **kept**, so the
+theme can style your markup and your script can find it. Anything that runs belongs in a script served from
+your own route, not in this string.
 Note what `WidgetRenderRequest` does *not* carry — no user, no session. Rendered pages are cached, so a
 widget that varied by viewer would serve one visitor's output to the next.
 
@@ -754,6 +764,17 @@ func (s *shop) Product(ctx context.Context, id string) (nilda.CommerceProduct, b
 
 func (s *shop) Endpoints(ctx context.Context) nilda.CommerceEndpoints {
 	return nilda.CommerceEndpoints{Cart: "/shop/cart", AddToCart: "/shop/add", Checkout: "/shop/checkout"}
+}
+
+// The paths Endpoints names. Because shop is an http.Handler, ServeCommerce serves it on your route
+// (route_prefix "/shop"); without this method the storefront's cart buttons have nothing to call.
+func (s *shop) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Path {
+	case "/shop/cart", "/shop/add", "/shop/checkout":
+		// … the shopper's basket, keyed by their own session cookie …
+	default:
+		http.NotFound(w, r)
+	}
 }
 
 func main() { nilda.ServeCommerce(&shop{}) }

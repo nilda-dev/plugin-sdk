@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand/v2"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
@@ -98,6 +99,13 @@ func newAPI(baseURL, token string, scopes []string) *API {
 //
 // Pass nil for http.DefaultTransport. Go already routes through the proxy from the environment Core sets;
 // this adds the label that says who is asking.
+//
+// A base that is not an *http.Transport — a tracing or retry wrapper — cannot have the tunnel label set
+// from here, since only *http.Transport has ProxyConnectHeader. That no longer loses the identity: Core
+// puts the plugin's key in the proxy address it hands the process (HTTPS_PROXY=http://<key>@…), and any
+// transport that takes its proxy from the environment sends it on every request and every CONNECT. The
+// same holds for a bare http.Client and for a plugin written in another language. Wrap outward — your
+// wrapper around NewTransport(nil) — and both labels are present.
 //
 // # Why the label goes on in TWO places
 //
@@ -212,14 +220,15 @@ func (a *API) Do(ctx context.Context, method, path string, body any) (*http.Resp
 	if err != nil {
 		return nil, err
 	}
-	return a.do(ctx, method, path, payload)
+	return a.do(ctx, method, path, payload, "application/json")
 }
 
 var errNoAPI = errors.New("nilda: this plugin has no API access — declare a capability that grants it " +
 	"(content.read, content.write, media.read, …)")
 
-// do sends one attempt with an already-encoded body, so a retry replays exactly the same bytes.
-func (a *API) do(ctx context.Context, method, path string, payload []byte) (*http.Response, error) {
+// do sends one attempt with an already-encoded body, so a retry replays exactly the same bytes. contentType
+// labels a non-nil body: JSON for everything but an upload, whose multipart boundary is part of its type.
+func (a *API) do(ctx context.Context, method, path string, payload []byte, contentType string) (*http.Response, error) {
 	if a == nil {
 		return nil, errNoAPI
 	}
@@ -233,7 +242,7 @@ func (a *API) do(ctx context.Context, method, path string, payload []byte) (*htt
 	}
 	req.Header.Set("Authorization", "Bearer "+a.token)
 	if payload != nil {
-		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Type", contentType)
 	}
 	req.Header.Set("Accept", "application/json")
 	if a.idempotencyKey != "" {
@@ -266,13 +275,18 @@ func (a *API) JSON(ctx context.Context, method, path string, body, out any) erro
 	if err != nil {
 		return err
 	}
+	return a.send(ctx, method, path, payload, "application/json", out)
+}
 
+// send is JSON's request loop for an already-encoded body of any type: the retries, the backoff and the
+// error shape are the same for an upload as for a JSON write.
+func (a *API) send(ctx context.Context, method, path string, payload []byte, contentType string, out any) error {
 	if a == nil {
 		return errNoAPI
 	}
 	var lastErr error
 	for attempt := 0; ; attempt++ {
-		res, err := a.do(ctx, method, path, payload)
+		res, err := a.do(ctx, method, path, payload, contentType)
 		if err != nil {
 			// A transport error (connection refused, reset) is retryable: Core restarting is exactly the
 			// case worth surviving.
@@ -337,6 +351,38 @@ func (a *API) Patch(ctx context.Context, path string, body, out any) error {
 // Delete removes.
 func (a *API) Delete(ctx context.Context, path string) error {
 	return a.JSON(ctx, http.MethodDelete, path, nil, nil)
+}
+
+// UploadMedia puts one file in the site's media library — POST /media, which takes a multipart upload, not
+// JSON (the 2026-09-23 plugin hunt's M19: this client could only send JSON, so the "media upload" the SDK
+// promised had no way to be written). Requires `media.write`. out receives Core's answer, the new media item
+// inside `data`, exactly as the other writes do; alt is the image's description and may be empty.
+//
+// The file is read whole before sending, so a retry replays the same bytes — and so is bounded by memory:
+// an upload is an image or a document, not a stream. Core runs it through the same checks as the admin's
+// own uploader (type sniffing, the allowlist, SVG sanitising, metadata stripping) and may refuse it.
+func (a *API) UploadMedia(ctx context.Context, filename string, file io.Reader, alt string, out any) error {
+	if a == nil {
+		return errNoAPI
+	}
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	part, err := mw.CreateFormFile("file", filename)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(part, file); err != nil {
+		return fmt.Errorf("nilda: reading the file to upload: %w", err)
+	}
+	if alt != "" {
+		if err := mw.WriteField("alt", alt); err != nil {
+			return err
+		}
+	}
+	if err := mw.Close(); err != nil {
+		return err
+	}
+	return a.send(ctx, http.MethodPost, "/media", buf.Bytes(), mw.FormDataContentType(), out)
 }
 
 // APIError is a non-2xx response from Core.

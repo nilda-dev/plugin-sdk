@@ -13,6 +13,11 @@ import (
 // whatever the site needs — and once the owner grants the capability, the site's search box, the theme's
 // search API and the admin's own search all run through you.
 //
+// EVERY CALL HAS CORE'S PER-CALL BUDGET — 5 seconds by default (PLUGIN_CALL_TIMEOUT) — including each
+// document of a reindex, which arrives as calls of its own. An engine that must do slow work per document
+// (a vector index computing embeddings) acknowledges the document, queues it, and indexes in the background;
+// one that does the work inside the call is cut off mid-reindex and leaves its index silently partial.
+//
 // # What you are handed, and what you must never do with it
 //
 // Core sends you DOCUMENTS to index and QUERIES to answer. A document is already reduced to text: title,

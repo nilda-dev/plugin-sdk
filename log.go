@@ -77,9 +77,12 @@ func newLogger(w io.Writer, name string) *slog.Logger {
 // filtering in both places means an operator who turns the level up to debug a misbehaving plugin still
 // sees nothing — the plugin having silently dropped the line first.
 type hostHandler struct {
-	w     io.Writer
-	name  string
-	attrs []slog.Attr
+	w    io.Writer
+	name string
+	// attrs keep the group that was open when they were ADDED (the 2026-09-23 plugin hunt's M12). They used to
+	// take whatever group was open when the line was written, so `log.With("order", id).WithGroup("payment")`
+	// filed the order id under payment.order — slog's rule is that a group qualifies what comes after it.
+	attrs []groupedAttr
 	group string
 	// mu is SHARED with every handler derived from this one, by pointer.
 	//
@@ -111,8 +114,8 @@ func (h *hostHandler) Handle(_ context.Context, r slog.Record) error {
 	if h.name != "" {
 		out["plugin"] = h.name
 	}
-	for _, a := range h.attrs {
-		putAttr(out, h.group, a)
+	for _, ga := range h.attrs {
+		putAttr(out, ga.group, ga.attr)
 	}
 	r.Attrs(func(a slog.Attr) bool {
 		putAttr(out, h.group, a)
@@ -137,15 +140,24 @@ func (h *hostHandler) Handle(_ context.Context, r slog.Record) error {
 	return werr
 }
 
+// groupedAttr is an attribute added by With, and the group that was open when it was.
+type groupedAttr struct {
+	group string
+	attr  slog.Attr
+}
+
 func (h *hostHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	next := &hostHandler{w: h.w, name: h.name, group: h.group, mu: h.mu}
-	next.attrs = append(append([]slog.Attr(nil), h.attrs...), attrs...)
+	next.attrs = append([]groupedAttr(nil), h.attrs...)
+	for _, a := range attrs {
+		next.attrs = append(next.attrs, groupedAttr{group: h.group, attr: a})
+	}
 	return next
 }
 
 func (h *hostHandler) WithGroup(name string) slog.Handler {
 	next := &hostHandler{w: h.w, name: h.name, group: h.group, mu: h.mu}
-	next.attrs = append([]slog.Attr(nil), h.attrs...)
+	next.attrs = append([]groupedAttr(nil), h.attrs...)
 	if name != "" {
 		if next.group != "" {
 			next.group += "." + name
@@ -156,23 +168,37 @@ func (h *hostHandler) WithGroup(name string) slog.Handler {
 	return next
 }
 
+// joinGroup is a dotted key under a group, or the key alone at the top level.
+func joinGroup(group, key string) string {
+	if group == "" {
+		return key
+	}
+	return group + "." + key
+}
+
 // putAttr flattens one attribute onto the line. Groups become dotted keys, because go-plugin's KV pairs are
 // flat — a nested object would render as an unreadable Go map in the operator's log.
+//
+// A group with an EMPTY key is inlined — its members land at the current level — which is slog's rule, and
+// what `slog.Group("", …)` and a LogValuer returning a group both rely on. It used to be dropped with every
+// attribute inside it, silently (the 2026-09-23 plugin hunt's M12). An empty-keyed plain attribute is
+// ignored, as slog says it should be.
 func putAttr(out map[string]any, group string, a slog.Attr) {
 	a.Value = a.Value.Resolve()
-	key := a.Key
-	if key == "" {
-		return
-	}
-	if group != "" {
-		key = group + "." + key
-	}
 	if a.Value.Kind() == slog.KindGroup {
+		prefix := group
+		if a.Key != "" {
+			prefix = joinGroup(group, a.Key)
+		}
 		for _, sub := range a.Value.Group() {
-			putAttr(out, key, sub)
+			putAttr(out, prefix, sub)
 		}
 		return
 	}
+	if a.Key == "" {
+		return
+	}
+	key := joinGroup(group, a.Key)
 	// The @-prefixed names are go-plugin's; an attribute must never be able to forge the level or the
 	// message of the line carrying it.
 	if key == "@message" || key == "@level" || key == "@timestamp" {

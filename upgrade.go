@@ -28,10 +28,18 @@ func (c *Core) IsFirstRun() bool {
 // It is exact-match on purpose rather than a range: a data step is written against a specific shape, and
 // "anything before 1.1" quietly includes versions that never existed and shapes you never shipped.
 //
-// SAFE TO RUN ONCE. Core records the version only after your Init RETURNS, so a plugin the supervisor
-// restarts after a crash is told it is running the version it already initialised at, and this is false. If
-// your Init fails, the record is not written and the step runs again on the next attempt — which is the
-// direction you want, because half-finished is the one state you cannot detect from inside.
+// Init has its own time budget for this — 30 seconds by default, the site's PLUGIN_INIT_TIMEOUT — longer
+// than the 5 seconds a hook call gets; a step that needs more should move rows in batches across restarts,
+// never in one statement that cannot finish.
+//
+// RUNS ONCE, NEARLY — write the step so a second run changes nothing. Core records the version only after
+// your Init RETURNS, so a plugin the supervisor restarts after a crash is told it is running the version it
+// already initialised at, and this is false. If your Init fails, the record is not written and the step runs
+// again on the next attempt — the direction you want, because half-finished is the one state you cannot
+// detect from inside. And one more case: your Init SUCCEEDED but Core could not write the record (a database
+// hiccup at that moment). The plugin stays up — failing a live site over bookkeeping would be worse — and on
+// its next start this is true again, so the step runs a second time over data it already moved. "Fill
+// price_num where it is still empty" survives that; "multiply every price by 100" does not.
 func (c *Core) UpgradedFrom(versions ...string) bool {
 	if c == nil || c.PreviousVersion == "" {
 		return false

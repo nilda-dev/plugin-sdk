@@ -83,7 +83,9 @@ type AuthStartRequest struct {
 	// Link is true when somebody already signed in is attaching this provider to their account, rather
 	// than signing in with it. Most providers need no different behaviour; some want a different prompt.
 	Link bool `json:"link,omitempty"`
-	// Locale is the admin's language, for a provider that can be asked to render its own screen in it.
+	// Locale is the language the person signing in is using on the site — Core's resolved locale for the
+	// request, empty when it has none — for a provider that can be asked to render its own screen in it
+	// (OIDC's ui_locales, which OIDCClient sets for you).
 	Locale string `json:"locale,omitempty"`
 }
 

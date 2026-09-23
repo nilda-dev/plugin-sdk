@@ -31,21 +31,30 @@ import (
 const surfaceLedger = "surface.txt"
 
 func TestThePublicSurfaceIsTheOneWeMeantToPromise(t *testing.T) {
-	got := publicSurface(t)
+	checkSurfaceLedger(t, surfaceLedger, publicSurface(t))
+}
 
+// TestTheTestKitsSurfaceIsFrozenToo (the 2026-09-23 plugin hunt's M16). README calls nildatest "the supported
+// kit" authors write their tests against, which makes its exported names as much a promise as the SDK's own —
+// and nothing watched them.
+func TestTheTestKitsSurfaceIsFrozenToo(t *testing.T) {
+	checkSurfaceLedger(t, "nildatest/surface.txt", surfaceOf(t, "nildatest", "nildatest", 10))
+}
+
+func checkSurfaceLedger(t *testing.T, ledger string, got []string) {
+	t.Helper()
 	if os.Getenv("UPDATE_SURFACE") == "1" {
-		if err := os.WriteFile(surfaceLedger, []byte(strings.Join(got, "\n")+"\n"), 0o644); err != nil {
-			t.Fatalf("writing %s: %v", surfaceLedger, err)
+		if err := os.WriteFile(ledger, []byte(strings.Join(got, "\n")+"\n"), 0o644); err != nil {
+			t.Fatalf("writing %s: %v", ledger, err)
 		}
 		t.Logf("%s rewritten with %d entries — READ THE DIFF: every line is something v1.0 will promise",
-			surfaceLedger, len(got))
+			ledger, len(got))
 		return
 	}
-
-	raw, err := os.ReadFile(surfaceLedger)
+	raw, err := os.ReadFile(ledger)
 	if err != nil {
-		t.Fatalf("reading %s: %v\n\nGenerate it with: UPDATE_SURFACE=1 go test -run TestThePublicSurface ./...",
-			surfaceLedger, err)
+		t.Fatalf("reading %s: %v\n\nGenerate it with: UPDATE_SURFACE=1 go test -run 'Surface' .",
+			ledger, err)
 	}
 	var want []string
 	for _, line := range strings.Split(string(raw), "\n") {
@@ -72,8 +81,8 @@ func TestThePublicSurfaceIsTheOneWeMeantToPromise(t *testing.T) {
 			fmt.Fprintf(&b, "    + %s\n", s)
 		}
 	}
-	fmt.Fprintf(&b, "\n  If every line above is intended: UPDATE_SURFACE=1 go test -run TestThePublicSurface .\n"+
-		"  and commit %s with them. That file is the record of what this module has agreed to keep.", surfaceLedger)
+	fmt.Fprintf(&b, "\n  If every line above is intended: UPDATE_SURFACE=1 go test -run 'Surface' .\n"+
+		"  and commit %s with them. That file is the record of what this module has agreed to keep.", ledger)
 	t.Fatal(b.String())
 }
 
@@ -121,16 +130,23 @@ func TestTheGeneratedContractStaysOutOfTheSurface(t *testing.T) {
 // publicSurface lists every exported name a consumer of this package can reach, sorted.
 func publicSurface(t *testing.T) []string {
 	t.Helper()
+	return surfaceOf(t, ".", "nilda", 50)
+}
+
+// surfaceOf is publicSurface for any package directory of this module. floor is the fewest names a correct
+// parse can find there.
+func surfaceOf(t *testing.T, dir, name string, floor int) []string {
+	t.Helper()
 	fset := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fset, ".", func(fi os.FileInfo) bool {
+	pkgs, err := parser.ParseDir(fset, dir, func(fi os.FileInfo) bool {
 		return !strings.HasSuffix(fi.Name(), "_test.go")
 	}, 0)
 	if err != nil {
 		t.Fatalf("parsing the package: %v", err)
 	}
-	pkg, ok := pkgs["nilda"]
+	pkg, ok := pkgs[name]
 	if !ok {
-		t.Fatalf("package nilda not found; parsed %d package(s)", len(pkgs))
+		t.Fatalf("package %s not found in %s; parsed %d package(s)", name, dir, len(pkgs))
 	}
 
 	var out []string
@@ -148,8 +164,8 @@ func publicSurface(t *testing.T) []string {
 
 	// A floor, for the reason every generator in this ecosystem has one: a parser that silently found
 	// nothing would rewrite the ledger empty and the guard would agree with anything forever.
-	if len(out) < 50 {
-		t.Fatalf("only found %d exported names; the parse is broken, not the surface", len(out))
+	if len(out) < floor {
+		t.Fatalf("only found %d exported names in %s; the parse is broken, not the surface", len(out), dir)
 	}
 	return out
 }

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -159,4 +160,116 @@ func coreStringConstants(t *testing.T, dir string) map[string]string {
 		}
 	}
 	return out
+}
+
+// M11 (2026-09-23 plugin hunt): a TTL is honoured — the SDK rounds a sub-second one up instead of truncating
+// it to "never expires", and this fake keeps it instead of dropping it. Advance moves the host's clock, so the
+// expiry is asserted without sleeping.
+func TestAKVValueWithATTLExpires(t *testing.T) {
+	ctx := context.Background()
+	core, host := New("otp", "kv")
+	if err := core.KVSet(ctx, "code", "123456", 500*time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	if err := core.KVSet(ctx, "kept", "forever", 0); err != nil {
+		t.Fatal(err)
+	}
+	if _, found, _ := core.KVGet(ctx, "code"); !found {
+		t.Fatal("a value was gone before its TTL")
+	}
+	host.Advance(time.Second)
+	if _, found, _ := core.KVGet(ctx, "code"); found {
+		t.Fatal("a value set with a 500ms TTL was still there a second later — it would never expire in Core either")
+	}
+	if _, found, _ := core.KVGet(ctx, "kept"); !found {
+		t.Fatal("a value with no TTL expired")
+	}
+	if _, ok := host.KV()["code"]; ok {
+		t.Fatal("the KV snapshot still lists an expired key")
+	}
+
+	// INCR leaves an existing expiry alone, as Core's does.
+	if err := core.KVSet(ctx, "hits", "1", 2*time.Second); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := core.KVIncr(ctx, "hits"); err != nil || n != 2 {
+		t.Fatalf("incr = %d, %v", n, err)
+	}
+	host.Advance(2 * time.Second)
+	if _, found, _ := core.KVGet(ctx, "hits"); found {
+		t.Fatal("an increment made a counter with a TTL live forever")
+	}
+}
+
+// M16 (2026-09-23 plugin hunt): the fake refuses the empty required fields Core refuses, with Core's codes —
+// held equal to Core's source below — so a plugin whose bug mails nobody, or revokes nobody, fails its test.
+func TestTheFakeRefusesWhatCoreRefusesOnEmailAndSignOut(t *testing.T) {
+	ctx := context.Background()
+	core, host := New("mailer", "email", "auth_provider", "kv")
+	if err := core.SendEmail(ctx, "", "Your receipt", "…"); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("an email to nobody answered %v, want InvalidArgument", err)
+	}
+	if err := core.SendEmail(ctx, "a@b.test", "", "…"); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("an email with no subject answered %v, want InvalidArgument", err)
+	}
+	if len(host.Emails()) != 0 {
+		t.Fatal("a refused email was recorded as sent")
+	}
+	if _, err := core.RevokeIdentity(ctx, "okta", "", "logout"); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("revoking no subject answered %v, want InvalidArgument", err)
+	}
+	if _, err := core.RevokeIdentity(ctx, "", "sub-1", "logout"); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("revoking at no provider answered %v, want InvalidArgument", err)
+	}
+	if err := core.KVSet(ctx, "n", "text", 0); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := core.KVIncr(ctx, "n"); status.Code(err) != codes.FailedPrecondition {
+		t.Fatalf("incrementing text answered %v, want FailedPrecondition", err)
+	}
+
+	src := coreSource(t, "hostservice.go")
+	if src == "" {
+		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
+	}
+	for _, want := range []struct{ condition, code string }{
+		{`req.To == "" || req.Subject == ""`, "codes.InvalidArgument"},
+		{`req.Provider == "" || req.Subject == ""`, "codes.InvalidArgument"},
+		{`errors.Is(err, errNotAnInteger)`, "codes.FailedPrecondition"},
+	} {
+		i := strings.Index(src, want.condition)
+		if i < 0 {
+			t.Fatalf("core's hostservice.go no longer checks %s — this fake mirrors a rule Core dropped", want.condition)
+		}
+		if next := src[i:min(len(src), i+400)]; !strings.Contains(next, want.code) {
+			t.Fatalf("core answers %s with something other than %s — the fake and Core disagree", want.condition, want.code)
+		}
+	}
+}
+
+// Each host reports its own sessions count; the package variable is only the default.
+func TestSessionsPerIdentityIsPerHost(t *testing.T) {
+	ctx := context.Background()
+	coreA, hostA := New("sso_a", "auth_provider")
+	coreB, _ := New("sso_b", "auth_provider")
+	hostA.SetSessionsPerIdentity(0)
+	if n, err := coreA.RevokeIdentity(ctx, "okta", "sub", "logout"); err != nil || n != 0 {
+		t.Fatalf("host A = %d, %v; want 0", n, err)
+	}
+	if n, err := coreB.RevokeIdentity(ctx, "okta", "sub", "logout"); err != nil || n != SessionsPerIdentity {
+		t.Fatalf("host B = %d, %v; another host's setting leaked into it", n, err)
+	}
+}
+
+// coreSource is core's internal/plugin/<file>, or "" when core is not checked out beside plugin-sdk.
+func coreSource(t *testing.T, file string) string {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join("..", "..", "core", "internal", "plugin", file))
+	if os.IsNotExist(err) {
+		return ""
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(raw)
 }

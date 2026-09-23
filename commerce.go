@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 )
 
 // BEING THE SITE'S SHOP.
@@ -63,7 +64,10 @@ import (
 //	func (s *shop) Endpoints(ctx context.Context) CommerceEndpoints { … }
 //	func (s *shop) CountProducts(ctx context.Context, q CommerceQuery) (int, bool) { … } // optional
 //
-//	func main() { nilda.ServeCommerce(&shop{}) }
+//	// The cart and checkout the shells call — the paths Endpoints names, under your route prefix.
+//	func (s *shop) ServeHTTP(w http.ResponseWriter, r *http.Request) { … }
+//
+//	func main() { nilda.ServeCommerce(&shop{}) } // serves the hooks AND, because shop is an http.Handler, the route
 //
 // Declare it in the manifest — `events` too, because the catalogue-changed event below is not optional:
 //
@@ -291,8 +295,13 @@ func withGrossPrices(ctx context.Context, v bool) context.Context {
 }
 
 // ServeCommerce runs a plugin whose whole job is the shop. Use Serve with your own Handler and
-// DispatchCommerceHook when your plugin does other things too — which most shops will, since a shop also
-// needs `route` for its cart endpoints.
+// DispatchCommerceHook when your plugin does other things too.
+//
+// YOUR CART ENDPOINTS ARE SERVED TOO when c is also an http.Handler: ServeCommerce starts it on the plugin's
+// route (StartHTTP), which is what the `route` capability and route_prefix in the manifest are for. It has to
+// be — Endpoints names paths under your prefix that the storefront's shells call from the browser, and
+// before this, a shop built on ServeCommerce answered every product question and 502'd every "add to cart"
+// (the 2026-09-23 plugin hunt's M15). A Commerce that is not an http.Handler serves no route at all.
 func ServeCommerce(c Commerce) {
 	Serve(&commerceOnlyHandler{c: c})
 }
@@ -307,9 +316,17 @@ func (h *commerceOnlyHandler) Init(ctx context.Context, core *Core) (InitResult,
 	// Subscribed unconditionally, like the search and auth hooks: Core delivers them only to a plugin
 	// granted `commerce`, so asking without the capability is harmless — and not asking WITH it would be
 	// a plugin that installs cleanly and is then never asked for a single product.
-	return InitResult{Hooks: []string{
+	res := InitResult{Hooks: []string{
 		HookCommerceProducts, HookCommerceProduct, HookCommerceEndpoints, HookCommerceCount,
-	}}, nil
+	}}
+	if routes, ok := h.c.(http.Handler); ok {
+		addr, err := StartHTTP(routes)
+		if err != nil {
+			return InitResult{}, err
+		}
+		res.RouteAddr = addr
+	}
+	return res, nil
 }
 
 func (h *commerceOnlyHandler) HandleHook(ctx context.Context, hook string, payload []byte) ([]byte, error) {

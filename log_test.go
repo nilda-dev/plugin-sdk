@@ -296,3 +296,40 @@ func TestADerivedHandlerSharesItsParentsMutex(t *testing.T) {
 	fresh := newLogger(io.Discard, "acme")
 	fresh.Info("this must not panic")
 }
+
+// M12 (2026-09-23 plugin hunt): slog's grouping rules, which the handler broke twice.
+//
+// A group qualifies what is added AFTER it. `With("order", …).WithGroup("payment")` filed the order id under
+// payment.order, because stored attributes took whatever group was open when the line was written.
+// And a group with an empty key is inlined — slog.Group("", …) and a LogValuer returning a group rely on it —
+// where the handler dropped it and every attribute inside.
+func TestGroupsFollowSlogsRules(t *testing.T) {
+	var buf bytes.Buffer
+	log := newLogger(&buf, "shop")
+	log.With("order", "o-1").WithGroup("payment").With("gateway", "stripe").Info("charged", "amount", 500)
+	log.Info("inline", slog.Group("", slog.String("sku", "A1")))
+	log.WithGroup("cart").Info("inline in a group", slog.Group("", slog.Int("items", 3)))
+	log.Info("empty key ignored", slog.String("", "dropped"), "kept", true)
+
+	got := lines(t, &buf)
+	if len(got) != 4 {
+		t.Fatalf("want 4 lines, got %d", len(got))
+	}
+	for k, want := range map[string]any{"order": "o-1", "payment.gateway": "stripe", "payment.amount": float64(500)} {
+		if got[0][k] != want {
+			t.Errorf("line 1: %s = %v, want %v (line: %v)", k, got[0][k], want, got[0])
+		}
+	}
+	if _, wrong := got[0]["payment.order"]; wrong {
+		t.Error("an attribute added before WithGroup was filed inside the group")
+	}
+	if got[1]["sku"] != "A1" {
+		t.Errorf("an empty-keyed group was not inlined: %v", got[1])
+	}
+	if got[2]["cart.items"] != float64(3) {
+		t.Errorf("an empty-keyed group inside an open group was not inlined there: %v", got[2])
+	}
+	if got[3]["kept"] != true || got[3][""] != nil {
+		t.Errorf("an empty-keyed plain attribute must be ignored, the rest kept: %v", got[3])
+	}
+}

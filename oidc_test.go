@@ -96,6 +96,26 @@ func TestTheAuthorizeURLCarriesEverythingCoreMinted(t *testing.T) {
 	}
 }
 
+// M10 (2026-09-23 plugin hunt): scopes passed to NewOIDCClient REPLACED the defaults, against its own doc — an
+// author adding "groups" sent an authorize request with no `openid`, which is not an OIDC request at all.
+func TestExtraScopesAreAddedToTheRequiredOnes(t *testing.T) {
+	idp := newStubIdP(t)
+	c := NewOIDCClient(idp.URL, "cid", "csecret", "groups", "email", " ")
+	raw, err := c.AuthorizeURL(context.Background(), AuthStartRequest{
+		State: "st", Challenge: "ch", Nonce: "no", RedirectURI: "https://site.test/cb",
+	})
+	if err != nil {
+		t.Fatalf("authorize url: %v", err)
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := u.Query().Get("scope"); got != "openid email profile groups" {
+		t.Fatalf("scope = %q, want the three required ones plus groups, once each", got)
+	}
+}
+
 // TestExchangeSendsThePKCEVerifierAndReturnsTheTokenRaw. Raw is the point: a claim the plugin copied out of
 // the token is a claim Core would have to take its word for, and handing the token over is precisely so it
 // does not have to.

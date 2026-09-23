@@ -226,9 +226,10 @@ type WidgetProvider interface {
 	Widgets() []WidgetDef
 	// RenderWidget returns the widget's HTML.
 	//
-	// SANITIZED by Core before it reaches a page: <script>, inline styles, class, nonce and data-* are
-	// stripped. Markup that depends on any of those will render, but not as written — which is why anything
-	// interactive belongs in a ScriptAsset served from the plugin's own route, not in this string.
+	// SANITIZED by Core before it reaches a page, with its COMPONENT policy: <script>, <iframe>, on* event
+	// handlers, javascript: URLs and the style attribute are removed; `class` and `data-*` are KEPT, so the
+	// theme can style your markup and your ScriptAsset can find it and read its state. Anything that runs
+	// belongs in a ScriptAsset served from the plugin's own route, not in this string.
 	//
 	// An error, or output over MaxWidgetHTMLBytes, renders nothing. A page is never failed by a plugin.
 	RenderWidget(ctx context.Context, req WidgetRenderRequest) (string, error)

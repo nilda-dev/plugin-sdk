@@ -5,8 +5,9 @@
 // OnContentSaved handler — and anyone following it wrote code that did not compile. A prose example is a
 // claim; an example the build breaks on is a guarantee.
 //
-// So every non-trivial snippet in the documentation lives here, and `go test ./...` fails if the SDK changes
-// underneath it.
+// So every non-trivial snippet in the documentation lives here, and CI fails if the SDK changes underneath it:
+// it runs `cd _examples && go test ./...`. From the module root `go test ./...` never reaches this directory —
+// the Go tool skips a directory whose name starts with an underscore — so run it from here.
 package shop
 
 import (
@@ -27,10 +28,11 @@ type Shop struct {
 func (s *Shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, error) {
 	s.core = core
 
-	// Check for API access rather than discovering its absence as a nil dereference three calls deeper. A
-	// plugin that needs to write and was not granted content.write should say so at startup, where the
-	// message reaches whoever installed it.
-	if !core.HasAPI() {
+	// Check for the capability this plugin needs rather than discovering its absence as a 403 three calls
+	// deeper. HasAPI alone is not that check: ANY API capability — content.read, media.read — makes the
+	// client exist, and a shop holding only content.read would start and then fail its first write. A plugin
+	// that needs to write should say so at startup, where the message reaches whoever installed it.
+	if !core.HasAPI() || !core.HasCapability("content.write") {
 		return nilda.InitResult{}, fmt.Errorf("shop needs content.write — add it to plugin.json")
 	}
 
@@ -70,16 +72,24 @@ func (s *Shop) CreateProduct(ctx context.Context, title, sku string) (string, er
 	return out.Data.ID, nil
 }
 
-// PublishedProducts reads back the live ones, filtered server-side.
+// PublishedProducts counts the live ones, filtered server-side.
+//
+// It reads meta.total, not the length of the page: a list answer is ONE page, so counting its rows undercounts
+// every catalogue larger than a page — forever, and with no error. Core reports the whole count in meta.total
+// for published content on an OFFSET page (`page=` — the default cursor pages carry no total), so one request
+// for page 1 with a size of 1 is all it takes.
 func (s *Shop) PublishedProducts(ctx context.Context) (int, error) {
 	var page struct {
-		Data []map[string]any `json:"data"`
+		Meta struct {
+			Total int `json:"total"`
+		} `json:"meta"`
 	}
-	err := s.core.API().Get(ctx, "/content/product", url.Values{"status": {"published"}}, &page)
+	q := url.Values{"status": {"published"}, "page": {"1"}, "size": {"1"}}
+	err := s.core.API().Get(ctx, "/content/product", q, &page)
 	if err != nil {
 		return 0, err
 	}
-	return len(page.Data), nil
+	return page.Meta.Total, nil
 }
 
 // HandleHook is filter-style: return the payload, modified or not. Returning nothing DROPS it.

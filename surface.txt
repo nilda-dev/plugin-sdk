@@ -5,6 +5,7 @@ const AdminPageSettings
 const AdminReportHook
 const ClassAccess
 const ClassAdditive
+const ClassAnalyze
 const ClassDestructive
 const ClassInfra
 const ClassPublish
@@ -323,6 +324,7 @@ method (*API) JSON(context.Context, string, string, any, any) (error)
 method (*API) Patch(context.Context, string, any, any) (error)
 method (*API) Post(context.Context, string, any, any) (error)
 method (*API) Scopes() ([]string)
+method (*API) UploadMedia(context.Context, string, io.Reader, string, any) (error)
 method (*API) WithIdempotencyKey(string) (*API)
 method (*API) WithMaxRetries(int) (*API)
 method (*APIError) Conflict() (bool)

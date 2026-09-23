@@ -67,7 +67,7 @@ func (c *Core) HasCapability(key string) bool { return slices.Contains(c.Granted
 //	UserByID(id)    -> api.Get(ctx, "/users/"+id, nil, &out)
 //	MediaByID(id)   -> api.Get(ctx, "/media/"+id, nil, &out)
 //
-// and, newly possible: api.Post(ctx, "/content", item, &created), api.Patch, api.Delete, media upload,
+// and, newly possible: api.Post(ctx, "/content", item, &created), api.Patch, api.Delete, api.UploadMedia,
 // bulk import, GraphQL. A plugin holding `datastore` can also query Core's published data in SQL through
 // the read-only views, joining it against its own tables in one statement.
 
@@ -131,9 +131,20 @@ func (c *Core) KVGet(ctx context.Context, key string) (string, bool, error) {
 	return res.Value, res.Found, nil
 }
 
+// KVSet stores value under key. A ttl of zero (or less) keeps it until it is deleted; a positive ttl is kept
+// in whole seconds, ROUNDED UP — the wire carries seconds, and 0 there means "never expire", so a 500ms TTL
+// used to be truncated into a value that lived forever (the 2026-09-23 plugin hunt's M11).
 func (c *Core) KVSet(ctx context.Context, key, value string, ttl time.Duration) error {
-	_, err := c.host.KVSet(ctx, &contract.KVSetRequest{Key: key, Value: value, TtlSeconds: int64(ttl / time.Second)})
+	_, err := c.host.KVSet(ctx, &contract.KVSetRequest{Key: key, Value: value, TtlSeconds: ttlSeconds(ttl)})
 	return err
+}
+
+// ttlSeconds is a TTL on the wire: 0 for none, otherwise whole seconds rounded up so it never reaches 0.
+func ttlSeconds(ttl time.Duration) int64 {
+	if ttl <= 0 {
+		return 0
+	}
+	return int64((ttl + time.Second - 1) / time.Second)
 }
 
 func (c *Core) KVDel(ctx context.Context, key string) error {

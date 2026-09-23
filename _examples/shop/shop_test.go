@@ -35,7 +35,8 @@ func (f *fakeCore) handler() http.Handler {
 		case r.Method == http.MethodPost:
 			_, _ = w.Write([]byte(`{"data":{"id":"c1","author_id":"plugin-account"}}`))
 		default:
-			_, _ = w.Write([]byte(`{"data":[{"id":"c1"},{"id":"c2"}]}`))
+			// Core's offset page: one page of rows, the whole count in meta.total (api/rest/crud.go).
+			_, _ = w.Write([]byte(`{"data":[{"id":"c1"}],"meta":{"page":1,"size":1,"total":37}}`))
 		}
 	})
 }
@@ -104,12 +105,26 @@ func TestPublishedProductsFiltersServerSide(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
-	if n != 2 {
-		t.Fatalf("count = %d", n)
+	// 37, not 1: the page holds one row and the catalogue holds 37. Counting the rows of a page undercounts
+	// every catalogue larger than a page (the 2026-09-23 plugin hunt's M21).
+	if n != 37 {
+		t.Fatalf("count = %d, want the whole catalogue's 37", n)
 	}
-	// Filtering belongs in the query, not in a loop after fetching everything.
-	if !strings.Contains(api.requests[0], "status=published") {
-		t.Fatalf("the filter was not sent: %v", api.requests)
+	// Filtering belongs in the query, not in a loop after fetching everything — and the total is only on an
+	// offset page, so the request has to ask for one.
+	if !strings.Contains(api.requests[0], "status=published") || !strings.Contains(api.requests[0], "page=1") {
+		t.Fatalf("the filter or the offset page was not asked for: %v", api.requests)
+	}
+}
+
+// M21: API access is not write access. A shop granted only content.read has an API client — HasAPI is true —
+// and would start, then fail its first write with a 403 nobody reads.
+func TestInitRefusesReadOnlyAPIAccess(t *testing.T) {
+	core, _, srv := nildatest.NewWithAPI("shop", (&fakeCore{}).handler(), "hooks", "content.read")
+	defer srv.Close()
+	_, err := (&Shop{}).Init(context.Background(), core)
+	if err == nil || !strings.Contains(err.Error(), "content.write") {
+		t.Fatalf("Init with only content.read answered %v — it must refuse and name content.write", err)
 	}
 }
 
