@@ -131,7 +131,13 @@ for _, row := range rows {
 }
 ```
 
-An importer interrupted at row 312 can then be run again from the start without producing 312 duplicates.
+An importer interrupted at row 312 can then be run again from the start — within 24 hours — without
+producing 312 duplicates. Core keeps the FIRST result for each key and hands it back to every repeat of the
+same request (marked `Idempotent-Replayed: true`), errors included, so a retry after a 5xx cannot write
+twice. The same key on a different request is refused (422); a repeat while the first is still running is
+refused (409); a request Core refused (4xx) gives its key back. Keys belong to your plugin's identity, not
+its token, so they survive a restart.
+
 `WithMaxRetries` tunes the patience — a hook runs inside Core's ten-second budget for all subscribers, so
 less is sometimes right.
 

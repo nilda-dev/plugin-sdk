@@ -43,8 +43,8 @@ type API struct {
 	maxRetries int
 	// idempotencyKey, when set, is sent with every request and makes a POST safe to retry. Set through
 	// WithIdempotencyKey, which returns a derived client rather than mutating this one — a key is
-	// per-operation, and sharing one across two different creates would make the second a no-op that
-	// returns the first one's result.
+	// per-operation, and sharing one across two different creates gets the second REFUSED (422): Core
+	// remembers which request a key named.
 	idempotencyKey string
 }
 
@@ -172,14 +172,24 @@ func (t *pluginTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 // safe to retry.
 //
 // A DERIVED client rather than a setting on this one, because a key belongs to ONE operation: reusing it
-// across two different creates would make the second return the first one's result instead of creating
-// anything. The intended shape is a fresh key per unit of work —
+// across two different creates gets the second refused. The intended shape is a fresh key per unit of work —
 //
 //	for _, row := range rows {
 //	    api.WithIdempotencyKey(row.ID).Post(ctx, "/content/product", row, nil)
 //	}
 //
-// — so an importer interrupted at row 312 can be run again from the start without producing 312 duplicates.
+// — so an importer interrupted at row 312 can be run again from the start, within 24 hours, without
+// producing 312 duplicates.
+//
+// What Core does with the key, on every write under /api/rest/v1:
+//
+//   - the FIRST request's result is kept for 24 hours, errors included, and every repeat with the same key
+//     and the same request gets it back without running again (the response carries Idempotent-Replayed:
+//     true) — so a retry after a 5xx returns that 5xx rather than risking a second write;
+//   - the same key on a DIFFERENT request is refused with 422;
+//   - a repeat that arrives while the first is still running is refused with 409;
+//   - a request Core REFUSED (any 4xx) changed nothing, so its key is given back and a corrected retry runs;
+//   - keys are scoped to your plugin's identity, not its token, so they hold across a restart.
 func (a *API) WithIdempotencyKey(key string) *API {
 	if a == nil {
 		return nil
