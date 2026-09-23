@@ -11,7 +11,8 @@
 //
 //   - It ENFORCES capabilities, the same deny-by-default way Core does. A plugin that quietly depends on a
 //     capability its manifest never declared works in a permissive test and fails on a real install, which is
-//     the worst place to find out. Here it fails in the test.
+//     the worst place to find out. Here it fails in the test. The same goes for the event names a plugin may
+//     emit: its own key's, or a namespace a capability it holds owns.
 //   - It records what the plugin DID — events emitted, mail sent, keys written — because "did it send the
 //     confirmation" is the assertion an author actually wants, and a stub that only returns success cannot
 //     answer it.
@@ -29,6 +30,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 
 	"google.golang.org/grpc"
@@ -58,6 +60,7 @@ type Event struct {
 // Host is a fake Core: the plugin-facing half, in memory, with the real capability rules.
 type Host struct {
 	mu      sync.Mutex
+	key     string // the plugin's key: its own event namespace
 	granted map[string]bool
 	kv      map[string]string
 	events  []Event
@@ -73,7 +76,7 @@ type Host struct {
 // Name only what the manifest declares. The point of passing them explicitly is that a test then fails the
 // same way a real install would when the plugin reaches for something it never asked for.
 func New(pluginKey string, granted ...string) (*nilda.Core, *Host) {
-	h := newHost(granted)
+	h := newHost(pluginKey, granted)
 	return nilda.NewCoreForTest(pluginKey, granted, h, "", "", nil), h
 }
 
@@ -94,18 +97,18 @@ func SetSettings(core *nilda.Core, values map[string]any) { nilda.SetSettingsFor
 // including the failures: a 403 from a missing scope and a 500 from a bad day are different bugs and a
 // plugin should behave differently for each.
 func NewWithAPI(pluginKey string, handler http.Handler, granted ...string) (*nilda.Core, *Host, *httptest.Server) {
-	h := newHost(granted)
+	h := newHost(pluginKey, granted)
 	srv := httptest.NewServer(handler)
 	core := nilda.NewCoreForTest(pluginKey, granted, h, srv.URL, "test-token", scopesFor(granted))
 	return core, h, srv
 }
 
-func newHost(granted []string) *Host {
+func newHost(pluginKey string, granted []string) *Host {
 	set := make(map[string]bool, len(granted))
 	for _, g := range granted {
 		set[g] = true
 	}
-	return &Host{granted: set, kv: map[string]string{}}
+	return &Host{key: pluginKey, granted: set, kv: map[string]string{}}
 }
 
 // scopesFor mirrors Core's capability→scope mapping, so a test Core's reported scopes match what a real one
@@ -247,10 +250,50 @@ func (h *Host) EmitEvent(_ context.Context, in *contract.EmitEventRequest, _ ...
 	if err := h.enforce("events"); err != nil {
 		return nil, err
 	}
+	if err := h.mayEmit(in.Type); err != nil {
+		return nil, err
+	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.events = append(h.events, Event{Type: in.Type, Data: in.DataJson})
 	return &contract.EmitEventResponse{}, nil
+}
+
+// capabilityEventNamespaces is Core's table of event namespaces a capability owns (core's
+// internal/plugin/eventprovenance.go). A guard in this package reads that file and fails when the two differ.
+var capabilityEventNamespaces = map[string]string{
+	"commerce":  "commerce",
+	"ecommerce": "commerce",
+}
+
+// mayEmit is Core's rule for which event names a plugin may emit, with the same codes: its own key's
+// namespace (`shop` emits `shop.*`), or a namespace a capability it holds owns (`commerce.*` is the shop's).
+// An event name anyone could use would let one plugin forge another's — an order nobody paid, announced to
+// every plugin that ships goods.
+//
+// Core refuses one thing more that this fake cannot know: its own namespaces (`content.*`, `form.*`, …), even
+// to a plugin keyed after one. Emit under your own key and that never comes up.
+func (h *Host) mayEmit(eventType string) error {
+	ns, rest, dotted := strings.Cut(eventType, ".")
+	if !dotted || ns == "" || rest == "" {
+		return status.Errorf(codes.InvalidArgument, "event %q has no namespace — name it %s.<something>", eventType, h.key)
+	}
+	if capability, bound := capabilityEventNamespaces[ns]; bound {
+		h.mu.Lock()
+		held := h.granted[capability]
+		h.mu.Unlock()
+		if held {
+			return nil
+		}
+		return status.Errorf(codes.PermissionDenied,
+			"%s.* events belong to the plugin holding the %q capability; emit yours as %s.<something>",
+			ns, capability, h.key)
+	}
+	if ns != h.key {
+		return status.Errorf(codes.PermissionDenied,
+			"plugin %q may emit only its own events, named %s.<something> — %q is not one", h.key, h.key, eventType)
+	}
+	return nil
 }
 
 // Revocation is one identity a plugin asked Core to sign out.

@@ -277,7 +277,7 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `menus.read` / `menus.write` | read / edit navigation |
 | `users.read` | read user identity |
 | `hooks` | receive hook callbacks |
-| `events` | subscribe to and emit events |
+| `events` | subscribe to events, and emit your own — see below for which names are yours |
 | `datastore` | a dedicated Postgres schema, tables Core creates from your declaration, DML-only access |
 | `kv` | a scoped key-value namespace |
 | `route` | a reverse-proxied URL prefix |
@@ -307,6 +307,15 @@ providers. Write a gateway for the shop you are extending, not for Core.
 A write capability applies to **every** content type, not a declared subset. What keeps that honest is
 attribution, not narrowing: a plugin acts as its own visible service account, so everything it creates or
 edits is recorded as its work.
+
+**An event you emit is named for you.** `events` lets a plugin emit, and Core checks the NAME: yours start
+with your key — `shop` emits `shop.order_paid`, which `core.PluginKey + ".order_paid"` builds — or with a
+namespace a capability you hold owns: `commerce.*` belongs to the site's shop, the plugin holding
+`commerce`, whoever wrote it. Any other name is refused with `PermissionDenied`, and Core's own names
+(`content.*`, `form.*`, `comment.*`, …) are refused to every plugin, even one keyed `content`. The reason
+is the subscriber: a plugin listening for an order event has nothing but the name to tell it who sent it,
+so a name anyone could use would let one plugin announce an order nobody paid. `nildatest` refuses the same
+names — all but Core's own, which it cannot know — so a wrong one fails your tests first.
 
 ### 4.1 Putting something on a public page
 
@@ -778,8 +787,9 @@ core.Emit(ctx, nilda.EventCommerceCatalogChanged, nil)
 ```
 
 There is no payload — Nilda answers by dropping every page that drew any of your catalogue. It needs the
-`events` capability (without it the call is refused with `PermissionDenied`), and Nilda obeys it only from
-the plugin that is the shop, because a purge any plugin could trigger is a cache stampede one bad plugin away.
+`events` capability (without it the call is refused with `PermissionDenied`), and Nilda accepts it only from
+the plugin that is the shop — any other plugin's call is refused — because a purge any plugin could trigger
+is a cache stampede one bad plugin away.
 
 ### Contributing a way to sign in (`auth_provider`)
 

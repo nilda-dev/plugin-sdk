@@ -152,6 +152,11 @@ func (c *Core) KVIncr(ctx context.Context, key string) (int64, error) {
 // ---- events ----
 
 // Emit publishes a plugin-originated event into Core's event pipeline (requires `events`).
+//
+// Name it under your own key — `shop` emits `shop.order_paid`, which c.PluginKey + ".order_paid" builds — or
+// under a namespace a capability you hold owns (`commerce.*` is the site's shop's). Core refuses any other
+// name with PermissionDenied, and its own namespaces (`content.*`, `form.*`, …) to every plugin: a subscriber
+// has nothing but the name to tell it who sent an event, so a name anyone could use is a forgery.
 func (c *Core) Emit(ctx context.Context, eventType string, data any) error {
 	raw, err := json.Marshal(data)
 	if err != nil {

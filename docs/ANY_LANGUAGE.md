@@ -201,7 +201,7 @@ Every method checks your granted capabilities first:
 | method | needs |
 |---|---|
 | `KVGet` / `KVSet` / `KVDel` / `KVIncr` | `kv` |
-| `EmitEvent` | `events` |
+| `EmitEvent` | `events` — and a name that is yours: `<your key>.<name>`, or a namespace a capability you hold owns (`commerce.*` is the shop's). Anything else, and Nilda's own names to everyone, is `PERMISSION_DENIED` |
 | `SendEmail` | `email` — Nilda fixes the sender, so you can address mail but not forge who it is from |
 | `RevokeIdentity` | `auth_provider` — end somebody's sessions. **Never mint, may revoke** |
 
