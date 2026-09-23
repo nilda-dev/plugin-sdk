@@ -33,9 +33,13 @@ type Handler interface {
 
 // InitResult is what a plugin asks Core to wire after Init.
 type InitResult struct {
-	RouteAddr string   // "host:port" of the resident HTTP server; empty unless the `route` capability
-	Hooks     []string // hook names to receive (requires `hooks`)
-	Events    []string // event types to receive (requires `events`)
+	RouteAddr string // "host:port" of the resident HTTP server; empty unless the `route` capability
+	// Hooks are the hook names to receive. The content-lifecycle hooks require `hooks`; a provider's own hooks
+	// are admitted by that provider's grant instead — commerce.* by `commerce`, search.* by
+	// `search_provider`, admin.action/admin.report by `admin_page`, field.* by `field`, auth.* by
+	// `auth_provider`, widget.* by `widget`, render.assets by `render.assets` — and `hooks` does not admit them.
+	Hooks  []string
+	Events []string // event types to receive (requires `events`)
 	// Schedules is recurring work Core runs on the plugin's behalf (requires `schedule`). The plugin is a
 	// resident process and could run its own ticker, but Core-owned scheduling is visible to the site
 	// owner, survives a restart, and does not double-fire when the plugin is relaunched. Core calls back
