@@ -1,0 +1,21 @@
+{
+  "key": "testpay",
+  "name": "Test Pay",
+  "version": "1.0.0",
+  "sdk_version": "0.10.0",
+  "capabilities": ["payment_gateway", "route", "admin_page"],
+  "route_prefix": "/testpay",
+  "webhook_paths": ["/webhook", "/pay"],
+  "admin_pages": [{
+    "key": "settings",
+    "label": "Settings",
+    "kind": "settings",
+    "help": "Test Pay takes no real money. Any secret will do; it signs the test processor's webhooks.",
+    "fields": [
+      { "key": "signing_secret", "label": "Signing secret", "type": "text", "secret": true, "required": true,
+        "help": "A real gateway puts its processor's webhook signing secret here." },
+      { "key": "refunds_later", "label": "Settle refunds by webhook", "type": "boolean",
+        "help": "Off: a refund is settled on the spot. On: it stays pending until the processor's webhook says how it ended." }
+    ]
+  }]
+}

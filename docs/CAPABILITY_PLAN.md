@@ -81,9 +81,10 @@ Check the second question before the first.
 
 **Superseded 2026-09-23 (Nilda D-84).** "A basket's gateway belongs to the shop plugin's own
 `PaymentGateway`" named a door no separate plugin can use: plugins cannot call each other, and that interface
-lives inside the shop's process. Core will own the payment CONTRACT — `payment_gateway` for each gateway
+lives inside the shop's process. Core owns the payment CONTRACT — `payment_gateway` for each gateway
 plugin, `payment_session` for whatever takes the money — with no provider code, key or outbound call of its
-own, and Rule 0 is met by deleting the parallel paths once it exists. Decided, not built.
+own, and Rule 0 is met by deleting the parallel paths once it exists. The SDK's half is in this module from
+v0.10.0 (docs/PAYMENTS.md); Core accepts the two capabilities from the release built on it.
 
 The shape of the gap is specific: **a plugin can serve its own pages and own its own data, but it
 cannot add anything to a screen Core already renders.** `widget` is the one exception — it puts a
@@ -475,7 +476,7 @@ Commerce's manifest declared **`payments`**, a capability the catalogue had reti
 for `payments` was approved to take something no code granted"*). It no longer does: the manifest is
 `commerce/plugin.json`, and its capability list — checked 2026-09-24 — holds only capabilities of the
 twenty-four above. Taking a card payment is D-84's payment contract: every gateway its own plugin, through
-Core — decided, not built.
+Core (docs/PAYMENTS.md; Core accepts it from the release built on plugin-sdk v0.10.0).
 
 ---
 

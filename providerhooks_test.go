@@ -35,6 +35,9 @@ func TestEveryProviderInterfaceSubscribesItsHooks(t *testing.T) {
 			HookSearchTruncate, HookSearchQuery, HookSearchHealthy}},
 		{"Commerce", commerceOnly{}, []string{HookCommerceProducts, HookCommerceProduct,
 			HookCommerceEndpoints, HookCommerceCount}},
+		{"PaymentGateway", gatewayOnly{}, []string{HookPaymentDescribe, HookPaymentStart, HookPaymentRefund}},
+		{"PaymentConsumer", consumerOnly{}, []string{HookPaymentConfirm, HookPaymentSessionUpdated,
+			HookPaymentRefundUpdated}},
 	} {
 		got := withProvidedHooks(c.h, nil)
 		for _, want := range c.hooks {
@@ -84,6 +87,9 @@ func TestEveryExportedProviderInterfaceIsInTheTable(t *testing.T) {
 		// commerce.count is only ever asked of a plugin that answers commerce.products, and
 		// DispatchCommerceHook reports "not handled" when the counter is absent.
 		"CommerceCounter": "rides on Commerce, which subscribes commerce.count for it",
+		// Handler plus PaymentGateway, named so ServePaymentGateway's parameter is checked by the compiler;
+		// a plugin implementing it implements PaymentGateway, whose row subscribes it.
+		"PaymentGatewayPlugin": "Handler and PaymentGateway together; PaymentGateway's row subscribes it",
 	}
 	wired := map[string]bool{}
 	for _, p := range providerHooks {
@@ -176,6 +182,24 @@ func (searchOnly) Healthy(context.Context) bool                 { return true }
 func (searchOnly) Query(context.Context, SearchQuery) (SearchResults, error) {
 	return SearchResults{}, nil
 }
+
+type gatewayOnly struct{ plainOnly }
+
+func (gatewayOnly) DescribePayments(context.Context) ([]PaymentMethod, error) { return nil, nil }
+func (gatewayOnly) StartPayment(context.Context, PaymentSession) (PaymentStartResult, error) {
+	return PaymentStartResult{}, nil
+}
+func (gatewayOnly) RefundPayment(context.Context, PaymentRefund, PaymentSession) (PaymentRefundResult, error) {
+	return PaymentRefundResult{}, nil
+}
+
+type consumerOnly struct{ plainOnly }
+
+func (consumerOnly) ConfirmPayment(context.Context, PaymentSession) (PaymentConfirmResult, error) {
+	return PaymentConfirmResult{}, nil
+}
+func (consumerOnly) PaymentUpdated(context.Context, PaymentSession) error               { return nil }
+func (consumerOnly) RefundUpdated(context.Context, PaymentRefund, PaymentSession) error { return nil }
 
 type commerceOnly struct{ plainOnly }
 

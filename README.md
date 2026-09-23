@@ -61,7 +61,7 @@ part of the Go API — see below.
 
 **Covered by the promise from v1.0.** Everything in `surface.txt`, except what the next paragraph names.
 That file is generated from the AST and checked on every run: exported funcs, types, consts, vars, and the
-exported methods and fields of exported types — 416 entries today. Adding to it is a normal change and
+exported methods and fields of exported types — 573 entries today. Adding to it is a normal change and
 stays cheap. Removing from it after v1.0 is a breaking change for somebody, and the guard says so in those
 words.
 
@@ -108,7 +108,8 @@ current path. That fault is closed; the rule it taught is the section above.
 
 ## Docs
 `docs/` — **`PLUGIN_SDK.md`** (the contract, the developer surface, capabilities, the manifest,
-what Core guarantees and what it does not) · `ANY_LANGUAGE.md` (the raw protocol, for a plugin
+what Core guarantees and what it does not) · `PAYMENTS.md` (the payment contract: a gateway plugin,
+and whatever takes the money) · `ANY_LANGUAGE.md` (the raw protocol, for a plugin
 written in something other than Go) · `CAPABILITY_PLAN.md` (which capabilities exist, which are
 deliberately missing, and why) · `PLUGINS.md` (plugin catalog).
 

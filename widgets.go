@@ -311,6 +311,22 @@ func dispatchProvided(ctx context.Context, h Handler, hook string, payload []byt
 		}
 		raw, err := json.Marshal(renderAssetsResponse{FooterScripts: ap.FooterScripts(ctx, req)})
 		return raw, true, err
+
+	// The payment hooks are answered here too, and for the reason WidgetProvider's are: a gateway that is
+	// subscribed and then fails every payment.start is a checkout that fails, silently, for every payer.
+	case HookPaymentDescribe, HookPaymentStart, HookPaymentRefund:
+		g, is := h.(PaymentGateway)
+		if !is {
+			return nil, false, nil
+		}
+		return DispatchPaymentGatewayHook(ctx, nil, g, hook, payload)
+
+	case HookPaymentConfirm, HookPaymentSessionUpdated, HookPaymentRefundUpdated:
+		c, is := h.(PaymentConsumer)
+		if !is {
+			return nil, false, nil
+		}
+		return DispatchPaymentConsumerHook(ctx, nil, c, hook, payload)
 	}
 	return nil, false, nil
 }
@@ -385,4 +401,8 @@ var providerHooks = []struct {
 	// commerce.products, and DispatchCommerceHook returns "not handled" when the counter is absent.
 	{"Commerce", func(h Handler) bool { _, is := h.(Commerce); return is },
 		[]string{HookCommerceProducts, HookCommerceProduct, HookCommerceEndpoints, HookCommerceCount}},
+	{"PaymentGateway", func(h Handler) bool { _, is := h.(PaymentGateway); return is },
+		[]string{HookPaymentDescribe, HookPaymentStart, HookPaymentRefund}},
+	{"PaymentConsumer", func(h Handler) bool { _, is := h.(PaymentConsumer); return is },
+		[]string{HookPaymentConfirm, HookPaymentSessionUpdated, HookPaymentRefundUpdated}},
 }

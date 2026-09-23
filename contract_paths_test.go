@@ -20,6 +20,10 @@ func TestProtocolForSDKDecidesCompatibility(t *testing.T) {
 		{"0.1.1", 1, true},  // no leading v
 		{"v0.2.0", 2, true}, // scoped API token, real writes
 		{"v0.6.0", 2, true}, // what the scaffold pins today
+		// The payment contract's release: a two-digit minor, which a check comparing the version as a
+		// string would read as older than 0.9.
+		{"v0.10.0", 2, true},
+		{"0.10.0", 2, true},
 		{"v0.6.0-rc1", 2, true},
 		{"v0.6.0+build7", 2, true},
 		{"  v0.6.0  ", 2, true},

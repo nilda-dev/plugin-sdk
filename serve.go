@@ -62,17 +62,17 @@ func ScheduleHook(name string) string { return "schedule:" + name }
 
 // Serve is the plugin's main() entrypoint: handshake + gRPC serving, fully managed. It never returns.
 //
-// IMPLEMENTING A PROVIDER INTERFACE SUBSCRIBES YOU — AND FOR TWO OF THE SIX, THAT IS ALL. Core only delivers
-// a hook a plugin SUBSCRIBED to, so WidgetProvider, AuthProvider, FieldProvider, SearchProvider, Commerce and
-// AssetProvider each need their hooks listed in InitResult — and Serve adds them for you, from the interfaces
-// your Handler satisfies (withProvidedHooks). Listing them yourself as well is harmless; they are not
-// subscribed twice.
+// IMPLEMENTING A PROVIDER INTERFACE SUBSCRIBES YOU — AND FOR FOUR OF THE EIGHT, THAT IS ALL. Core only
+// delivers a hook a plugin SUBSCRIBED to, so WidgetProvider, AuthProvider, FieldProvider, SearchProvider,
+// Commerce, AssetProvider, PaymentGateway and PaymentConsumer each need their hooks listed in InitResult — and
+// Serve adds them for you, from the interfaces your Handler satisfies (withProvidedHooks). Listing them
+// yourself as well is harmless; they are not subscribed twice.
 //
-// ANSWERING them is automatic only for WidgetProvider and AssetProvider, whose hooks are handled before your
-// HandleHook sees them. The other four arrive AT your HandleHook, so a plugin that only implements the
-// interface is subscribed and then fails every call: route them with DispatchAuthHook, DispatchFieldHook,
-// DispatchSearchHook or DispatchCommerceHook, or use the single-purpose ServeAuthProvider / ServeField /
-// ServeSearchProvider / ServeCommerce if that is all your plugin does.
+// ANSWERING them is automatic for WidgetProvider, AssetProvider, PaymentGateway and PaymentConsumer, whose
+// hooks are handled before your HandleHook sees them. The other four arrive AT your HandleHook, so a plugin
+// that only implements the interface is subscribed and then fails every call: route them with
+// DispatchAuthHook, DispatchFieldHook, DispatchSearchHook or DispatchCommerceHook, or use the single-purpose
+// ServeAuthProvider / ServeField / ServeSearchProvider / ServeCommerce if that is all your plugin does.
 //
 // VersionedPlugins rather than Plugins: the plugin announces every protocol version it can speak and the
 // handshake settles on the highest the host also understands. With a single fixed version, the day Core

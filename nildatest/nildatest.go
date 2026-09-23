@@ -158,6 +158,10 @@ func scopesFor(granted []string) []string {
 		"taxonomy.write": {"read:taxonomy", "write:taxonomy"},
 		"menus.read":     {"read:menus"},
 		"menus.write":    {"read:menus", "write:menus"},
+		// The payment contract: a consumer creates and reads its sessions, a gateway reads and reports on
+		// the ones routed to it — never the other's power.
+		"payment_session": {"read:payments", "write:payments"},
+		"payment_gateway": {"read:payments", "report:payments"},
 	}
 	seen := map[string]bool{}
 	var out []string

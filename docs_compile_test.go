@@ -4,6 +4,7 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -32,13 +33,20 @@ import (
 var (
 	goBlock  = regexp.MustCompile("(?s)```go\\n(.*?)```")
 	qualifie = regexp.MustCompile(`\bnilda\.([A-Z][A-Za-z0-9_]*)`)
+	// testKit is the same check for the test kit, which the payment guide's examples reach for as much as
+	// the SDK itself.
+	testKit = regexp.MustCompile(`\bnildatest\.([A-Z][A-Za-z0-9_]*)`)
 )
+
+// guides are the documents whose code examples an author copies.
+var guides = []string{"docs/PLUGIN_SDK.md", "docs/PAYMENTS.md", "README.md"}
 
 // TestDocumentedIdentifiersExist fails when the documentation names something this module does not export.
 func TestDocumentedIdentifiersExist(t *testing.T) {
-	exported := exportedNames(t)
+	exported := exportedNames(t, ".")
+	kit := exportedNames(t, "nildatest")
 
-	for _, doc := range []string{"docs/PLUGIN_SDK.md", "README.md"} {
+	for _, doc := range guides {
 		src, err := os.ReadFile(doc)
 		if err != nil {
 			t.Fatalf("reading %s: %v", doc, err)
@@ -54,6 +62,12 @@ func TestDocumentedIdentifiersExist(t *testing.T) {
 						"someone following the documentation writes code that does not compile", doc, name)
 				}
 			}
+			for _, m := range testKit.FindAllStringSubmatch(block[1], -1) {
+				if !kit[m[1]] {
+					t.Errorf("%s documents nildatest.%s in a code example, and the test kit does not export it",
+						doc, m[1])
+				}
+			}
 		}
 	}
 }
@@ -64,16 +78,24 @@ func TestDocumentedIdentifiersExist(t *testing.T) {
 // program a reader can copy whole, and they are the ones that must stand on their own. A fragment is
 // wrapped in a function first, so a few lines lifted out of a method still get lexed.
 func TestTheGettingStartedExampleIsWholeGo(t *testing.T) {
-	src, err := os.ReadFile("docs/PLUGIN_SDK.md")
+	if whole := parsesAsGo(t, "docs/PLUGIN_SDK.md"); whole == 0 {
+		t.Error("no complete `package main` example in PLUGIN_SDK.md — the one thing a new author copies")
+	}
+	parsesAsGo(t, "docs/PAYMENTS.md")
+}
+
+// parsesAsGo checks every Go block of one document and returns how many were complete programs.
+func parsesAsGo(t *testing.T, doc string) (whole int) {
+	t.Helper()
+	src, err := os.ReadFile(doc)
 	if err != nil {
 		t.Fatal(err)
 	}
 	blocks := goBlock.FindAllStringSubmatch(string(src), -1)
 	if len(blocks) == 0 {
-		t.Fatal("found no Go blocks in PLUGIN_SDK.md — the extraction is broken and this test proves nothing")
+		t.Fatalf("found no Go blocks in %s — the extraction is broken and this test proves nothing", doc)
 	}
 
-	whole := 0
 	for i, b := range blocks {
 		code := b[1]
 		fset := token.NewFileSet()
@@ -94,14 +116,12 @@ func TestTheGettingStartedExampleIsWholeGo(t *testing.T) {
 			// Declaration-level fragments (a method, a type) do not fit inside a function; try again at file
 			// level before calling it broken.
 			if _, err2 := parser.ParseFile(fset, "snippet.go", "package p\n"+code, parser.AllErrors); err2 != nil {
-				t.Errorf("Go block %d does not parse as Go, in either form:\n  in a function: %v\n  at file level: %v",
-					i+1, err, err2)
+				t.Errorf("%s: Go block %d does not parse as Go, in either form:\n  in a function: %v\n  at file level: %v",
+					doc, i+1, err, err2)
 			}
 		}
 	}
-	if whole == 0 {
-		t.Error("no complete `package main` example in PLUGIN_SDK.md — the one thing a new author copies")
-	}
+	return whole
 }
 
 // unusedImports reports imports whose package name never appears as a qualifier in the body.
@@ -135,12 +155,12 @@ func unusedImports(code string) []string {
 	return out
 }
 
-// exportedNames reads this package's own source for its exported identifiers. Reading the source rather
+// exportedNames reads one package's own source for its exported identifiers. Reading the source rather
 // than using reflection is what lets it see types, constants and functions alike — reflection only reaches
 // values, and most of what the documentation names is a type.
-func exportedNames(t *testing.T) map[string]bool {
+func exportedNames(t *testing.T, dir string) map[string]bool {
 	t.Helper()
-	entries, err := os.ReadDir(".")
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +171,7 @@ func exportedNames(t *testing.T) map[string]bool {
 		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
 			continue
 		}
-		f, err := parser.ParseFile(fset, name, nil, parser.AllErrors)
+		f, err := parser.ParseFile(fset, filepath.Join(dir, name), nil, parser.AllErrors)
 		if err != nil {
 			t.Fatalf("parsing %s: %v", name, err)
 		}

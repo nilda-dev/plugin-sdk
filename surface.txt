@@ -50,6 +50,12 @@ const HookCommerceProduct
 const HookCommerceProducts
 const HookFieldChoices
 const HookFieldValidate
+const HookPaymentConfirm
+const HookPaymentDescribe
+const HookPaymentRefund
+const HookPaymentRefundUpdated
+const HookPaymentSessionUpdated
+const HookPaymentStart
 const HookRenderAssets
 const HookSearchConfigure
 const HookSearchHealthy
@@ -62,8 +68,25 @@ const HookWidgetRender
 const MaxAssetsPerPlugin
 const MaxWidgetHTMLBytes
 const MaxWidgetsPerPlugin
+const PaymentCreated
+const PaymentExpired
+const PaymentFailAmountMismatch
+const PaymentFailCancelled
+const PaymentFailConsumerRefused
+const PaymentFailDeclined
+const PaymentFailExpired
+const PaymentFailInvalidRequest
+const PaymentFailProviderUnavailable
+const PaymentPending
+const PaymentRedirected
+const PaymentRejected
+const PaymentResolved
 const PluginSetName
 const ProtocolVersion
+const RefundPending
+const RefundRejected
+const RefundRequested
+const RefundResolved
 const SettingBoolean
 const SettingColor
 const SettingEmail
@@ -196,6 +219,89 @@ field InitResult.Schedules []Schedule
 field ListColumn.Key string json:key
 field ListColumn.Label string json:label
 field ListColumn.Type string json:type
+field PaymentConfirmRequest.Session PaymentSession json:session
+field PaymentConfirmResult.Proceed bool json:proceed
+field PaymentConfirmResult.Reason string json:reason
+field PaymentDescribeResponse.Methods []PaymentMethod json:methods
+field PaymentMethod.Currencies []string json:currencies
+field PaymentMethod.Description string json:description
+field PaymentMethod.Key string json:key
+field PaymentMethod.Label string json:label
+field PaymentMethod.Refunds bool json:refunds
+field PaymentMethod.Test bool json:test
+field PaymentOption.Description string json:description
+field PaymentOption.Gateway string json:gateway
+field PaymentOption.Label string json:label
+field PaymentOption.Method string json:method
+field PaymentOption.Refunds bool json:refunds
+field PaymentOption.Test bool json:test
+field PaymentRefund.AmountMinor int64 json:amount_minor
+field PaymentRefund.CreatedAt time.Time json:created_at
+field PaymentRefund.Currency string json:currency
+field PaymentRefund.FailureCode string json:failure_code
+field PaymentRefund.FailureMessage string json:failure_message
+field PaymentRefund.ID string json:id
+field PaymentRefund.ProviderRef string json:provider_ref
+field PaymentRefund.Reason string json:reason
+field PaymentRefund.Session string json:session
+field PaymentRefund.Status string json:status
+field PaymentRefund.UpdatedAt time.Time json:updated_at
+field PaymentRefundParams.AmountMinor int64 json:amount_minor
+field PaymentRefundParams.Reason string json:reason
+field PaymentRefundRequest.Refund PaymentRefund json:refund
+field PaymentRefundRequest.Session PaymentSession json:session
+field PaymentRefundResult.FailureCode string json:failure_code
+field PaymentRefundResult.FailureMessage string json:failure_message
+field PaymentRefundResult.ProviderRef string json:provider_ref
+field PaymentRefundResult.Status string json:status
+field PaymentRefundUpdate.Refund PaymentRefund json:refund
+field PaymentRefundUpdate.Session PaymentSession json:session
+field PaymentRejection.FailureCode string json:failure_code
+field PaymentRejection.FailureMessage string json:failure_message
+field PaymentRejection.ProviderRef string json:provider_ref
+field PaymentResolution.AmountMinor int64 json:amount_minor
+field PaymentResolution.Currency string json:currency
+field PaymentResolution.ProviderRef string json:provider_ref
+field PaymentSession.AmountMinor int64 json:amount_minor
+field PaymentSession.CancelURL string json:cancel_url
+field PaymentSession.Consumer string json:consumer
+field PaymentSession.CreatedAt time.Time json:created_at
+field PaymentSession.Currency string json:currency
+field PaymentSession.Description string json:description
+field PaymentSession.Email string json:email
+field PaymentSession.ExpiresAt *time.Time json:expires_at
+field PaymentSession.FailureCode string json:failure_code
+field PaymentSession.FailureMessage string json:failure_message
+field PaymentSession.Gateway string json:gateway
+field PaymentSession.ID string json:id
+field PaymentSession.Locale string json:locale
+field PaymentSession.Method string json:method
+field PaymentSession.ProviderRef string json:provider_ref
+field PaymentSession.RedirectURL string json:redirect_url
+field PaymentSession.Reference string json:reference
+field PaymentSession.RefundedMinor int64 json:refunded_minor
+field PaymentSession.ReturnURL string json:return_url
+field PaymentSession.Status string json:status
+field PaymentSession.Test bool json:test
+field PaymentSession.UpdatedAt time.Time json:updated_at
+field PaymentSessionParams.AmountMinor int64 json:amount_minor
+field PaymentSessionParams.CancelURL string json:cancel_url
+field PaymentSessionParams.Currency string json:currency
+field PaymentSessionParams.Description string json:description
+field PaymentSessionParams.Email string json:email
+field PaymentSessionParams.Gateway string json:gateway
+field PaymentSessionParams.Locale string json:locale
+field PaymentSessionParams.Method string json:method
+field PaymentSessionParams.Reference string json:reference
+field PaymentSessionParams.ReturnURL string json:return_url
+field PaymentSessionUpdate.Session PaymentSession json:session
+field PaymentStartRequest.Session PaymentSession json:session
+field PaymentStartResult.ExpiresAt *time.Time json:expires_at
+field PaymentStartResult.FailureCode string json:failure_code
+field PaymentStartResult.FailureMessage string json:failure_message
+field PaymentStartResult.ProviderRef string json:provider_ref
+field PaymentStartResult.RedirectURL string json:redirect_url
+field PaymentStartResult.Status string json:status
 field PluginClient.Broker *plugin.GRPCBroker
 field PluginClient.Plugin contract.PluginServiceClient
 field RenderAssetsRequest.Locale string json:locale
@@ -277,21 +383,29 @@ func DispatchAdminReport(context.Context, string, []byte, func(context.Context, 
 func DispatchAuthHook(context.Context, *Core, AuthProvider, string, []byte) ([]byte, bool, error)
 func DispatchCommerceHook(context.Context, *Core, Commerce, string, []byte) ([]byte, bool, error)
 func DispatchFieldHook(context.Context, *Core, FieldProvider, string, []byte) ([]byte, bool, error)
+func DispatchPaymentConsumerHook(context.Context, *Core, PaymentConsumer, string, []byte) ([]byte, bool, error)
+func DispatchPaymentGatewayHook(context.Context, *Core, PaymentGateway, string, []byte) ([]byte, bool, error)
 func DispatchSearchHook(context.Context, *Core, SearchProvider, string, []byte) ([]byte, bool, error)
 func FieldTypes() ([]string)
+func FormatMinor(int64, string) (string, bool)
 func HTTPClient(time.Duration) (*http.Client)
 func HostPluginMap() (map[int]plugin.PluginSet)
 func Log() (*slog.Logger)
+func MinorUnits(string) (int, bool)
 func NewCoreForTest(string, []string, contract.HostServiceClient, string, string, []string) (*Core)
 func NewOIDCClient(string, string, string, ...string) (*OIDCClient)
 func NewTransport(http.RoundTripper) (http.RoundTripper)
 func ObjectSchema(map[string]any, ...string) (json.RawMessage)
+func ParseMinor(string, string) (int64, error)
+func PaymentCanMove(string, string) (bool)
 func ProtocolForSDK(string) (int, bool)
+func RefundCanMove(string, string) (bool)
 func ScheduleHook(string) (string)
 func Serve(Handler)
 func ServeAuthProvider(AuthProvider)
 func ServeCommerce(Commerce)
 func ServeField(FieldProvider)
+func ServePaymentGateway(PaymentGatewayPlugin)
 func ServeSearchProvider(SearchProvider)
 func SetSettingsForTest(*Core, map[string]any)
 func SettingFieldTypes() ([]string)
@@ -310,6 +424,12 @@ imethod FieldProvider.Validate(context.Context, *Core, FieldValidateRequest) (st
 imethod Handler.HandleEvent(context.Context, string, []byte) (error)
 imethod Handler.HandleHook(context.Context, string, []byte) ([]byte, error)
 imethod Handler.Init(context.Context, *Core) (InitResult, error)
+imethod PaymentConsumer.ConfirmPayment(context.Context, PaymentSession) (PaymentConfirmResult, error)
+imethod PaymentConsumer.PaymentUpdated(context.Context, PaymentSession) (error)
+imethod PaymentConsumer.RefundUpdated(context.Context, PaymentRefund, PaymentSession) (error)
+imethod PaymentGateway.DescribePayments(context.Context) ([]PaymentMethod, error)
+imethod PaymentGateway.RefundPayment(context.Context, PaymentRefund, PaymentSession) (PaymentRefundResult, error)
+imethod PaymentGateway.StartPayment(context.Context, PaymentSession) (PaymentStartResult, error)
 imethod SearchProvider.Configure(context.Context) (error)
 imethod SearchProvider.Healthy(context.Context) (bool)
 imethod SearchProvider.Index(context.Context, []SearchDoc) (error)
@@ -324,6 +444,7 @@ method (*API) Get(context.Context, string, url.Values, any) (error)
 method (*API) HasScope(string) (bool)
 method (*API) JSON(context.Context, string, string, any, any) (error)
 method (*API) Patch(context.Context, string, any, any) (error)
+method (*API) Payments() (*Payments)
 method (*API) Post(context.Context, string, any, any) (error)
 method (*API) Scopes() ([]string)
 method (*API) UploadMedia(context.Context, string, io.Reader, string, any) (error)
@@ -362,6 +483,21 @@ method (*OIDCClient) Discover(context.Context) (error)
 method (*OIDCClient) EndSessionURL(context.Context) (string)
 method (*OIDCClient) Exchange(context.Context, AuthCompleteRequest) (AuthAssertion, error)
 method (*OIDCClient) Ready(context.Context) (bool, string)
+method (*Payments) Confirm(context.Context, string) (PaymentConfirmResult, error)
+method (*Payments) CreateRefund(context.Context, string, string, PaymentRefundParams) (PaymentRefund, error)
+method (*Payments) CreateSession(context.Context, string, PaymentSessionParams) (PaymentSession, error)
+method (*Payments) GetRefund(context.Context, string) (PaymentRefund, error)
+method (*Payments) GetSession(context.Context, string) (PaymentSession, error)
+method (*Payments) MarkPending(context.Context, string, string) (PaymentSession, error)
+method (*Payments) Methods(context.Context, string) ([]PaymentOption, error)
+method (*Payments) Reject(context.Context, string, PaymentRejection) (PaymentSession, error)
+method (*Payments) RejectRefund(context.Context, string, PaymentRejection) (PaymentRefund, error)
+method (*Payments) Resolve(context.Context, string, PaymentResolution) (PaymentSession, error)
+method (*Payments) ResolveRefund(context.Context, string, string) (PaymentRefund, error)
+method (PaymentRefundParams) Validate() (error)
+method (PaymentRejection) Validate() (error)
+method (PaymentResolution) Validate() (error)
+method (PaymentSessionParams) Validate() (error)
 type API
 type APIError
 type Ability
@@ -396,6 +532,27 @@ type Handler
 type InitResult
 type ListColumn
 type OIDCClient
+type PaymentConfirmRequest
+type PaymentConfirmResult
+type PaymentConsumer
+type PaymentDescribeResponse
+type PaymentGateway
+type PaymentGatewayPlugin
+type PaymentMethod
+type PaymentOption
+type PaymentRefund
+type PaymentRefundParams
+type PaymentRefundRequest
+type PaymentRefundResult
+type PaymentRefundUpdate
+type PaymentRejection
+type PaymentResolution
+type PaymentSession
+type PaymentSessionParams
+type PaymentSessionUpdate
+type PaymentStartRequest
+type PaymentStartResult
+type Payments
 type PluginClient
 type RenderAssetsRequest
 type RowAction

@@ -1,3 +1,8 @@
+field Delivery.Consumer string
+field Delivery.Err error
+field Delivery.Hook string
+field Delivery.Refund nilda.PaymentRefund
+field Delivery.Session nilda.PaymentSession
 field Email.Body string
 field Email.Lang string
 field Email.Subject string
@@ -5,12 +10,18 @@ field Email.To string
 field Event.Data []byte
 field Event.Type string
 field Host.Fail error
+field Payments.SiteURL string
 field Revocation.Provider string
 field Revocation.Reason string
 field Revocation.Subject string
+field StubGateway.Methods []nilda.PaymentMethod
+field StubGateway.Refund nilda.PaymentRefundResult
+field StubGateway.Start nilda.PaymentStartResult
 func New(string, ...string) (*nilda.Core, *Host)
+func NewPayments() (*Payments)
 func NewWithAPI(string, http.Handler, ...string) (*nilda.Core, *Host, *httptest.Server)
 func SetSettings(*nilda.Core, map[string]any)
+func Webhook(http.Handler, string, []byte, http.Header) (*http.Response)
 method (*Host) Advance(time.Duration)
 method (*Host) Emails() ([]Email)
 method (*Host) EmitEvent(context.Context, *contract.EmitEventRequest, ...grpc.CallOption) (*contract.EmitEventResponse, error)
@@ -26,8 +37,24 @@ method (*Host) Revoke(string)
 method (*Host) RevokeIdentity(context.Context, *contract.RevokeIdentityRequest, ...grpc.CallOption) (*contract.RevokeIdentityResponse, error)
 method (*Host) SendEmail(context.Context, *contract.SendEmailRequest, ...grpc.CallOption) (*contract.SendEmailResponse, error)
 method (*Host) SetSessionsPerIdentity(int)
+method (*Payments) Consumer(string, nilda.PaymentConsumer)
+method (*Payments) Core(string, ...string) (*nilda.Core, *Host, *httptest.Server)
+method (*Payments) CreateSession(context.Context, string, nilda.PaymentSessionParams) (nilda.PaymentSession, error)
+method (*Payments) Deliver(context.Context) (int)
+method (*Payments) Deliveries() ([]Delivery)
+method (*Payments) Expire(string) (error)
+method (*Payments) Gateway(string, nilda.PaymentGateway)
+method (*Payments) GetRefund(string) (nilda.PaymentRefund, bool)
+method (*Payments) GetSession(string) (nilda.PaymentSession, bool)
+method (*Payments) Sessions() ([]nilda.PaymentSession)
+method (*StubGateway) DescribePayments(context.Context) ([]nilda.PaymentMethod, error)
+method (*StubGateway) RefundPayment(context.Context, nilda.PaymentRefund, nilda.PaymentSession) (nilda.PaymentRefundResult, error)
+method (*StubGateway) StartPayment(context.Context, nilda.PaymentSession) (nilda.PaymentStartResult, error)
+type Delivery
 type Email
 type Event
 type Host
+type Payments
 type Revocation
+type StubGateway
 var SessionsPerIdentity

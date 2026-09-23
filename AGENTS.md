@@ -5,8 +5,8 @@ the code. This module is a **published contract**: Core imports it to host plugi
 imports it to be hosted, so a change here is a change to software you cannot see.
 
 Read `README.md` first. Read `docs/PLUGIN_SDK.md` for the contract itself, `docs/ANY_LANGUAGE.md` for
-the raw protocol, and `docs/CAPABILITY_PLAN.md` for which capabilities exist and which are
-deliberately missing.
+the raw protocol, `docs/PAYMENTS.md` for the payment contract (a gateway, or whatever takes the money),
+and `docs/CAPABILITY_PLAN.md` for which capabilities exist and which are deliberately missing.
 
 ## The one rule everything else follows from
 

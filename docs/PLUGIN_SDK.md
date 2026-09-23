@@ -346,21 +346,21 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `auth_provider` | put a sign-in button on the login page — see §5 |
 | `search_provider` | be the site's search engine — see §5 |
 | `commerce` | be the site's shop: supply the products, prices and cart the storefront widgets draw — see §5 |
+| `payment_gateway` | be one payment processor for the site — Stripe, PayPal, a bank — see "Taking payments" (Core from the release built on SDK v0.10.0) |
+| `payment_session` | take payments through the site's gateways: an order, a deposit, a donation — see "Taking payments" (the same release) |
 
 That is the whole list. Every entry is dispatched by Core and has a surface in this SDK; there is nothing
 to declare that does nothing. `admin.pages` and `payments` used to appear here and were removed in v0.3.0
 — neither was ever implemented in Core, so a plugin could be granted them and receive nothing. Declaring
 either one now fails validation.
 
-**There is no payment capability YET — a Core contract is decided, not built** (Nilda's D-84, 2026-09-23).
-Every gateway (Stripe, PayPal, …) will be its own plugin declaring `payment_gateway`, and whatever takes the
-money — the shop, a booking deposit, a donation — will declare `payment_session` and talk only to Core,
-which routes each payment to the gateway the site uses. Plugins never call each other. Until that ships, a
-separate plugin cannot be a payment gateway at all: the shop's own `PaymentGateway` is an interface inside
-the shop's process, which no other plugin can implement. What works today: to take one payment from one
-page — an ebook, a donation, a deposit — the site owner drops a PayPal or Stripe button widget in the page
-builder, with no plugin involved. The names `payment` and `payments` stay refused, so a manifest cannot
-claim a capability before it exists.
+**Payments are a Core contract, and every gateway is its own plugin** (Nilda's D-84, 2026-09-23). A gateway
+declares `payment_gateway`; whatever takes the money declares `payment_session` and talks only to Core, which
+owns every payment and sends it to the gateway the payer chose. Plugins never call each other. The two
+capabilities arrive with plugin-sdk v0.10.0 and the Core release built on it — an older Core refuses a
+manifest that declares either. To take one payment from one page with no plugin at all — an ebook, a
+donation — the site owner drops a PayPal or Stripe button widget in the page builder. The names `payment`
+and `payments` stay refused, so the retired meaning cannot come back by accident.
 
 A write capability applies to **every** content type, not a declared subset. What keeps that honest is
 attribution, not narrowing: a plugin acts as its own visible service account, so everything it creates or
@@ -1020,6 +1020,42 @@ There is no payload — Nilda answers by dropping every page that drew any of yo
 the plugin that is the shop — any other plugin's call is refused — because a purge any plugin could trigger
 is a cache stampede one bad plugin away.
 
+### Taking payments (`payment_gateway`, `payment_session`)
+
+**[PAYMENTS.md](PAYMENTS.md) is the whole contract** — read it before writing either side. In one paragraph:
+Core owns every payment. A consumer asks for one, Core asks the gateway the payer chose to start it, the
+gateway answers with its processor's page, and the outcome arrives later — from the processor's webhook to
+the gateway, from the gateway to Core, from Core to the consumer, which Core keeps telling until it answers.
+`_examples/gateway` is a whole gateway to copy, with its tests.
+
+A **gateway** is a Handler that is also a `nilda.PaymentGateway` — `DescribePayments`, `StartPayment`,
+`RefundPayment` — served with `nilda.ServePaymentGateway`, whose parameter type, `PaymentGatewayPlugin`, is
+both. It lists `nilda.PaymentMethod`s, answers `payment.start` with a `nilda.PaymentStartResult` (a
+`nilda.PaymentStartRequest` carries the `nilda.PaymentSession`), and answers `payment.refund`
+(`nilda.PaymentRefundRequest`, carrying a `nilda.PaymentRefund`) with a `nilda.PaymentRefundResult`; a
+describe answers with a `nilda.PaymentDescribeResponse`. From its webhook it reports through
+`core.API().Payments()`: `Resolve` with a `nilda.PaymentResolution`, `Reject` with a `nilda.PaymentRejection`,
+`MarkPending`, `Confirm`, `ResolveRefund`, `RejectRefund`.
+
+A **consumer** implements `nilda.PaymentConsumer` — `ConfirmPayment` (a `nilda.PaymentConfirmRequest`
+answered with a `nilda.PaymentConfirmResult`), `PaymentUpdated` (a `nilda.PaymentSessionUpdate`) and
+`RefundUpdated` (a `nilda.PaymentRefundUpdate`) — and calls `Methods` (a list of `nilda.PaymentOption`),
+`CreateSession` (with `nilda.PaymentSessionParams`), `GetSession`, `CreateRefund` (with
+`nilda.PaymentRefundParams`) and `GetRefund` on the same `nilda.Payments` client.
+
+Serve subscribes and ANSWERS both interfaces' hooks — through `nilda.DispatchPaymentGatewayHook` and
+`nilda.DispatchPaymentConsumerHook`, which check what goes in and out — so nothing is listed in InitResult
+and nothing is routed in HandleHook. One state machine decides every move (`nilda.PaymentCanMove`,
+`nilda.RefundCanMove`), and amounts are ISO 4217 minor units, converted with `nilda.MinorUnits`,
+`nilda.ParseMinor` and `nilda.FormatMinor`:
+
+```go
+minor, err := nilda.ParseMinor("12.34", "EUR") // 1234; ¥1,500 is 1500, 1.250 KWD is 1250
+```
+
+`nildatest.Payments` is Core's side in memory, `nildatest.StubGateway` a gateway to test a consumer with, and
+`nildatest.Webhook` delivers a request the way Core's proxy delivers a webhook — PAYMENTS.md shows each.
+
 ### Contributing a way to sign in (`auth_provider`)
 
 Declare the method in `plugin.json`:
@@ -1383,6 +1419,7 @@ can be trusted: an SDK change that would make them wrong turns the pipeline red.
 - **SPEC_73/74** — the API this SDK's client calls.
 - **SPEC_110** — marketplace distribution. **SPEC_115** — the pre-install security scan.
 - **PLUGINS.md** — the plugin catalog.
+- **PAYMENTS.md** — the payment contract, for a gateway and for whatever takes the money.
 - **SPEC_114 / `theme-sdk`** — was a different thing entirely (headless client SDK); not this. That
   repository was deleted 2026-08-22 and the headless theme path is cancelled.
 
