@@ -134,7 +134,8 @@ func FieldTypes() []string {
 const (
 	// MaxWidgetsPerPlugin is how many widgets one plugin may contribute; the rest are ignored.
 	MaxWidgetsPerPlugin = 20
-	// MaxWidgetHTMLBytes caps one rendered widget. Larger output is dropped, not truncated.
+	// MaxWidgetHTMLBytes caps one rendered widget. Larger output is not truncated: the widget draws as a
+	// failed one (see WidgetProvider.RenderWidget).
 	MaxWidgetHTMLBytes = 64 << 10
 	// MaxAssetsPerPlugin is how many scripts one plugin may add to a page.
 	MaxAssetsPerPlugin = 5
@@ -231,12 +232,14 @@ type WidgetProvider interface {
 	// theme can style your markup and your ScriptAsset can find it and read its state. Anything that runs
 	// belongs in a ScriptAsset served from the plugin's own route, not in this string.
 	//
-	// An error, or output over MaxWidgetHTMLBytes, renders nothing. A page is never failed by a plugin.
+	// An error, or output over MaxWidgetHTMLBytes, renders nothing on a visitor's page, and on the editor's
+	// canvas a box saying the widget could not be shown. A page is never failed by a plugin.
 	RenderWidget(ctx context.Context, req WidgetRenderRequest) (string, error)
 }
 
 // AssetProvider is implemented by a plugin that loads its own script on public pages. Requires the
-// `render.assets` capability, and `route` to have a path worth naming.
+// `render.assets` capability and `route`: the scripts are served from the plugin's own route prefix, and Core
+// refuses a manifest declaring the first without the second.
 //
 // Implementing it subscribes the plugin to the hook automatically — see Serve.
 type AssetProvider interface {

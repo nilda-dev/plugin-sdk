@@ -243,15 +243,58 @@ taken. **Uninstalling a plugin must not delete the site's records.** Ownership w
 
 What that means for you day to day:
 
-- **Adding a column is additive and safe.** Declare it; the next enable runs `ADD COLUMN IF NOT EXISTS`.
-  Ship a `default` if you want `NOT NULL`, because a bare `NOT NULL` cannot be added to a populated table.
-- **You cannot drop or retype a column.** Nothing in the plugin path emits destructive DDL. Need a
-  different shape? Declare a new table and move the rows with the DML you already have.
+- **Adding a column is additive and safe.** Declare it; the next enable adds it. Ship a `default` if you
+  want `NOT NULL`, because a bare `NOT NULL` cannot be added to a populated table.
+- **You cannot drop or retype a column, or move the primary key.** Nothing in the plugin path emits
+  destructive DDL, and an update that marks a different column `primary_key` is refused before anything
+  changes. Need a different shape? Declare a new table and move the rows with the DML you already have.
+- **A new unique column or index must fit the rows already there.** An update whose new unique column or
+  index would put two existing rows on one value — a new unique column whose `default` gives every row the
+  same value, say — is refused before anything changes, naming the table.
+- **The site keeps working while your tables change.** Core adds only the columns a table does not have
+  yet, and builds an index `CONCURRENTLY`, after the table statements commit — so a new index on a
+  populated table does not hold the site's writes to it while it builds.
 - **Types are a fixed set**: `uuid`, `text`, `int`, `bigint`, `numeric`, `bool`, `timestamptz`, `date`,
   `jsonb`. Defaults are a fixed set too (`now()`, `gen_random_uuid()`, `'{}'::jsonb`, `true`, `0`, …) plus
   plain numbers and quoted strings. A declaration cannot express `DROP TABLE users`, which is the whole
   reason it is a declaration and not a `.sql` file you ship.
+- **A default must fit its column**, by Postgres's own rule: a `text` column takes any default; `now()` fits
+  `timestamptz` and `date`, `gen_random_uuid()` fits `uuid`, `true`/`false` fit `bool`, a plain number fits
+  `int`, `bigint` and `numeric`; a quoted string must be a value of the column's type (`'42'` on an `int`,
+  `'yes'` on a `bool`). A quoted date or time is left to Postgres, which reads too many spellings of one to
+  restate — a wrong one still fails when the table is built.
+- **Limits**: at most 64 tables, 64 columns a table, 16 indexes a table and 32 columns an index (Postgres
+  builds no wider). No column may take the name of a column Postgres keeps on every table (`tableoid`,
+  `xmin`, `cmin`, `xmax`, `cmax`, `ctid`).
+- **Index names are Core's**: `<table>_<columns>_idx` (`_uniq` for a unique one), so `gateway` indexing
+  `txn_ref` and `gateway_txn` indexing `ref` would share a name, and so would an index and a table called
+  what it would be called. Either is refused, naming both declarations — one of the two would otherwise
+  never be built.
 - **`nilda plugin check` validates all of this locally**, naming the exact table and column.
+
+### Your own content types and taxonomies
+
+A shop's products, a booking plugin's services and their categories are **Core content**, not rows in your
+tables: they get an archive page, a slug, SEO and a sitemap entry for free, and they outlive your plugin.
+Declare them, and Core creates them on every enable — additively, never deleting or retyping a field:
+
+```json
+"capabilities": ["content.write", "taxonomy.write"],
+"content_types": [{"key": "shop_product", "label": "Products", "fields": [
+  {"key": "price", "label": "Price", "type": "number"}
+]}],
+"taxonomies": [{"key": "shop_category", "label": "Categories", "hierarchical": true,
+  "applies_to": ["shop_product"]}]
+```
+
+- **Namespaced by your plugin's key.** Every key starts with `<key>_`. A content type key is at most 40
+  characters — the content-type registry's own bound — and a taxonomy key at most 60.
+- **Bounded**: at most 8 content types of at most 48 fields each, and 8 taxonomies, each attached to between
+  1 and 32 content types (`applies_to` is required: a taxonomy attached to nothing is a tree nobody can use).
+- **Owned by whoever created it.** A second plugin declaring a key you created is refused by name — and so
+  is it after you are uninstalled, because the type and its items stay with the site: the refusal says to
+  reinstall you, or to delete the type first. Where two plugins' keys overlap (`shop` and `shop_widgets`), a
+  key under both belongs to the longer: `shop_widgets_gadget` is `shop_widgets`'s, whoever installed first.
 
 Views, not tables, on Core's side: `core_content`, `core_users`, `core_media`, `core_terms`,
 `core_content_terms`. They carry published rows and public columns only — a view cannot apply per-viewer
@@ -370,15 +413,24 @@ func (s *Shop) FooterScripts(ctx context.Context, req nilda.RenderAssetsRequest)
 ```
 
 A **path**, never markup — Core builds the `<script>` tag itself. `Src` must be root-relative,
-same-origin, and under your own declared route prefix, so this capability needs `route` as well: a plugin
-that serves no paths owns none. An absolute URL or someone else's prefix is dropped silently.
+same-origin, and under your own declared route prefix, so this capability needs `route` as well — Core
+refuses a manifest that declares `render.assets` without it, because a plugin that serves no paths owns
+none. An absolute URL or someone else's prefix is dropped silently.
 
 Implementing `AssetProvider` subscribes you to the hook automatically; you do not list it in `InitResult`.
 The widget hooks need no subscription at all — Core asks every plugin holding `widget`.
 
 Core's limits, published as `nilda.MaxWidgetsPerPlugin` (20), `nilda.MaxWidgetHTMLBytes` (64 KiB) and
-`nilda.MaxAssetsPerPlugin` (5). Exceeding one is not an error you are told about: the excess is dropped and
-logged on Core's side.
+`nilda.MaxAssetsPerPlugin` (5). Past a count, the excess is dropped and logged on Core's side.
+
+What one `DescribeWidgets` answer may carry is bounded too: 1 MiB for the whole answer, and in one widget
+at most 200 fields — counted at every level, a repeater's sub-fields included — with at most 200 choices and
+50 rows in any one field. A widget past a bound is not offered at all (logged on Core's side, like the rest),
+and an answer past 1 MiB offers none.
+
+A render over `MaxWidgetHTMLBytes` is treated like an error from `RenderWidget`: nothing on a visitor's page,
+and on the editor's canvas a box saying the widget could not be shown, so an author is not sent to fill in
+settings that were never the problem.
 
 ---
 
@@ -405,9 +457,15 @@ did not cover the manifest, and the manifest is the thing a site owner approves.
 in a separate file BESIDE the package, over the package's own bytes — and the manifest is inside those
 bytes, so it is covered. See §5.1.
 
-Unknown fields are REFUSED rather than ignored: `"capabilties"` is a typo you want to hear about at your
-keyboard, not a plugin that installs with no capabilities and fails at runtime for reasons nobody traces
-back to a spelling.
+An unknown field is REFUSED by `nilda plugin check`: `"capabilties"` is a typo you want to hear about at
+your keyboard, not a plugin that installs with no capabilities and fails at runtime for reasons nobody
+traces back to a spelling. An INSTALL tolerates one, so a package built for a newer Nilda still installs on
+an older one with what that version understands — and the owner is told which fields were ignored, by path
+at any depth (`tables[].columns[].collation`), beside the install's success.
+
+`version` is semver without leading zeros: `1.09.0` is refused, because it would compare equal to `1.9.0`
+and an update to either could be turned away as not newer. An update must be strictly newer than what is
+installed.
 
 ### 5.1 The package
 
@@ -438,9 +496,9 @@ message naming both sides, instead of letting it fail later as an exec error abo
 — after the install, from software the owner has just chosen to trust. Leave them out and the check is
 skipped; the marketplace expects them, because a version there ships one binary per platform.
 
-`network` is the list of external hosts the plugin may reach. The owner reads it at install beside the
-capabilities — and on the plugin's row afterwards — and Core routes outbound traffic through a proxy that
-enforces it and writes every attempt to the server's log. A wildcard covers one level (`*.twilio.com`
+`network` is the list of external hosts the plugin may reach — at most 32. The owner reads it at install
+beside the capabilities — and on the plugin's row afterwards — and Core routes outbound traffic through a
+proxy that enforces it and writes every attempt to the server's log. A wildcard covers one level (`*.twilio.com`
 matches `api.twilio.com`, not `a.b.twilio.com`); a bare `*` is refused, and so is a wildcard over a public
 suffix — `*.com`, `*.co.uk`, `*.github.io` — because those reach every site anybody registers there. Core's
 own API is always reachable and never declared.
@@ -569,7 +627,8 @@ func (s *Shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, er
 ```
 
 Core reverse-proxies `/shop/*` to it, so a storefront serves itself without a round trip through Core per
-request.
+request. `route_prefix` is one root segment, and Core refuses one it answers on itself — `/api`, `/admin`,
+`/feed`, `/themes`, `/privacy` and the rest; `nilda plugin check` names it.
 
 ### Your own section of the admin (`admin_page`)
 
