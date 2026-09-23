@@ -76,6 +76,9 @@ func (c *Core) HasCapability(key string) bool { return slices.Contains(c.Granted
 // SendEmail sends mail through Core's mailer. Core fixes the sender identity, so a plugin cannot forge the
 // site's address — and a booking plugin sends its own confirmations without needing SMTP credentials of its
 // own, or the owner configuring mail a second time.
+//
+// At most 60 a minute per plugin: the site's own password resets travel on the same sending reputation.
+// Past that the call answers codes.ResourceExhausted at once; slow down and retry.
 func (c *Core) SendEmail(ctx context.Context, to, subject, body string) error {
 	_, err := c.host.SendEmail(ctx, &contract.SendEmailRequest{To: to, Subject: subject, Body: body})
 	return err
@@ -122,6 +125,9 @@ func (c *Core) RevokeIdentity(ctx context.Context, provider, subject, reason str
 }
 
 // ---- kv (scoped Dragonfly namespace) ----
+//
+// At most 500 calls a second per plugin (bursts of 1,000), all four methods together — the store is shared
+// with the site's sessions and cache. Past that a call answers codes.ResourceExhausted at once.
 
 func (c *Core) KVGet(ctx context.Context, key string) (string, bool, error) {
 	res, err := c.host.KVGet(ctx, &contract.KVGetRequest{Key: key})
@@ -168,6 +174,10 @@ func (c *Core) KVIncr(ctx context.Context, key string) (int64, error) {
 // under a namespace a capability you hold owns (`commerce.*` is the site's shop's). Core refuses any other
 // name with PermissionDenied, and its own namespaces (`content.*`, `form.*`, …) to every plugin: a subscriber
 // has nothing but the name to tell it who sent an event, so a name anyone could use is a forgery.
+//
+// At most 20 a second per plugin (bursts of 100) — each is a fan-out to every subscriber. Past that the call
+// answers codes.ResourceExhausted at once. Emit returns before the subscribers have run: delivery happens on
+// Core's side, on its own budget, so an Emit inside one of your hooks does not spend that hook's time.
 func (c *Core) Emit(ctx context.Context, eventType string, data any) error {
 	raw, err := json.Marshal(data)
 	if err != nil {

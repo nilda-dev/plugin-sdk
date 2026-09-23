@@ -1146,7 +1146,9 @@ Install the plugin once by hand first; `dev` takes over after that.
 **`trigger`** fires one hook — or, with `--event`, one event — at the running plugin, and prints what came
 back. Hooks are filter-style, so the response is the thing you are testing. Without this, seeing a
 content hook run meant creating real content, and seeing a scheduled callback run meant waiting for the
-schedule. Core must have `PLUGIN_DEV_TOOLS=true`; it is off by default.
+schedule. Core must have `PLUGIN_DEV_TOOLS=true`; it is off by default. It delivers only what your plugin
+receives — a hook or event its Init subscribes to, under a capability it holds — exactly as Core delivers a
+real one; anything else is refused with a sentence saying Core does not deliver it to your plugin.
 
 **`publish`** uploads the built packages and submits the version for review. It reads each artifact's
 platform out of the binary inside it, so there are no slots to label and none to mislabel — and the

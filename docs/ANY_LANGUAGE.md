@@ -209,6 +209,12 @@ Content reads and writes are **not** here. They go through Nilda's own REST API 
 which is the same surface every first-party feature uses: create, edit, publish, schedule, delete, media,
 import, GraphQL.
 
+**How often you may call in.** The calls above are bounded per plugin, as Nilda's calls to you are: at most
+60 emails a minute, 20 events a second (bursts of 100), 500 key-value calls a second (bursts of 1,000), and
+100 lines of your log a second (bursts of 500 — past that a line is counted rather than recorded, and the
+count is logged). Past a bound the call answers `RESOURCE_EXHAUSTED` at once rather than queueing; slow down
+and retry. A plugin doing its job never meets one — a loop that forgot to stop does.
+
 ---
 
 ## 5. Logging
