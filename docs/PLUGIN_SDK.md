@@ -138,8 +138,10 @@ twice. The same key on a different request is refused (422); a repeat while the 
 refused (409); a request Core refused (4xx) gives its key back. Keys belong to your plugin's identity, not
 its token, so they survive a restart.
 
-`WithMaxRetries` tunes the patience — a hook runs inside Core's ten-second budget for all subscribers, so
-less is sometimes right.
+`WithMaxRetries` tunes the patience — a hook runs inside Core's budgets, so less is sometimes right. Each
+call Core makes to you has `PLUGIN_CALL_TIMEOUT` (5 seconds by default); every subscriber of one hook or
+event shares ten seconds; and everything one public page asks of plugins — its widgets and its footer
+scripts together — shares 1.5 seconds, past which the page renders without the rest.
 
 ```go
 api := s.core.API()
@@ -168,7 +170,8 @@ err = api.Patch(ctx, "/content/product/"+id, map[string]any{"title": "Blue Widge
 err = api.Post(ctx, "/content/product/"+id+"/publish", nil, nil)
 err = api.Delete(ctx, "/content/product/"+id)
 
-// Many operations in one round trip — how an importer creates 500 products.
+// Many operations in one round trip — up to 50 a request (Core's API_BATCH_MAX), so an importer
+// creates 500 products in ten.
 err = api.Post(ctx, "/batch", batchOps, &batchResult)
 ```
 
@@ -184,7 +187,8 @@ err = api.UploadMedia(ctx, "kettle.jpg", file, "A copper kettle", &up)
 ```
 
 **Check before you use it.** `core.API()` is `nil` when the manifest declared no capability that grants
-API access:
+API access (and `core.HasCapability("email")` answers the same question for any one capability — a mirror
+of what Core enforces, never the enforcement):
 
 ```go
 if !core.HasAPI() {
@@ -338,7 +342,7 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `schedule` | ask Core to run recurring work and call back |
 | `abilities` | offer your actions to the site's AI agent — see §4.2 |
 | `admin_page` | your own section of the admin sidebar: settings forms and list pages — see §5 |
-| `field` | contribute a kind of field to content types and forms — see §5 |
+| `field` | contribute a kind of field to content types and forms — see "Contributing a field type" |
 | `auth_provider` | put a sign-in button on the login page — see §5 |
 | `search_provider` | be the site's search engine — see §5 |
 | `commerce` | be the site's shop: supply the products, prices and cart the storefront widgets draw — see §5 |
@@ -614,6 +618,11 @@ The recipient and the words are yours; the SENDER is Core's. That is deliberate 
 but never forge who it is from — and it means you need no SMTP credentials of your own, and the owner
 configures mail once for the site rather than again for every plugin.
 
+When you know the recipient's language, say it: `core.SendLocalizedEmail(ctx, to, subject, body, "fa")` sends
+the same mail marked with that language and its direction (`lang`, `dir`) — right to left for Persian or
+Arabic, the way Core marks its own mail — where `SendEmail` sends it with no direction at all, which a mail
+client shows left to right. An empty language is `SendEmail`.
+
 ### Serving your own pages (`route`)
 
 ```go
@@ -630,13 +639,33 @@ Core reverse-proxies `/shop/*` to it, so a storefront serves itself without a ro
 request. `route_prefix` is one root segment, and Core refuses one it answers on itself — `/api`, `/admin`,
 `/feed`, `/themes`, `/privacy` and the rest; `nilda plugin check` names it.
 
+**Who is asking.** `nilda.CurrentUser(r)` reads the person behind a request your server received — a
+`nilda.Viewer` with their Core user id and display name, and `ok == false` for an anonymous visitor, which is
+most storefront traffic and not an error:
+
+```go
+func (s *Shop) orders(w http.ResponseWriter, r *http.Request) {
+	viewer, ok := nilda.CurrentUser(r)
+	if !ok {
+		http.Error(w, "sign in to see your orders", http.StatusUnauthorized)
+		return
+	}
+	// viewer.UserID is a Core user id — key your per-customer rows to it.
+}
+```
+
+Core's proxy is the only way traffic reaches your server, and it strips every inbound `X-Nilda-*` header
+before setting its own, so a visitor cannot claim to be somebody by sending one. What you get is an id and a
+name — never a token or a session you could replay against Core. On a `webhook_paths` endpoint you get
+nothing, always: a machine's call carries no one's identity, which is what makes exempting it from CSRF safe.
+
 ### Your own section of the admin (`admin_page`)
 
 Declare it in `plugin.json`:
 
 ```json
 {
-  "capabilities": ["admin_page"],
+  "capabilities": ["admin_page", "events"],
   "admin_pages": [{
     "key": "settings",
     "label": "Settings",
@@ -662,9 +691,14 @@ func (p *SMS) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, err
 		return nilda.InitResult{}, nil
 	}
 	p.client = kavenegar.New(core.Setting("api_key"), core.Setting("sender"))
-	return nilda.InitResult{Hooks: []string{"content.published"}}, nil
+	p.perBatch = int(core.SettingNumber("per_page"))
+	// content.published is an EVENT (delivered with `events`), not a hook: named under Hooks it was never sent.
+	return nilda.InitResult{Events: []string{"content.published"}}, nil
 }
 ```
+
+`Setting` reads text, `SettingNumber` a number, `SettingBool` a checkbox, and `HasSetting` whether the owner
+filled a field in at all.
 
 Show your own rows with a `list` page:
 
@@ -731,6 +765,15 @@ happened". Make every action safe to press twice: a refund reads the row's state
 so paging never shows a row twice or skips one; and if no index of yours covers `order_by`, Core creates one
 with your tables.
 
+**A `report` page is answered, not stored.** Its fields are filter inputs; each open calls your hook with a
+`nilda.AdminReportRequest` (every filter's current value in `Params`, a blank one simply absent), and you
+answer a `nilda.AdminReportResult` — columns in the same vocabulary a list page uses, the rows, and optional
+headline numbers above them. Route it the way actions are routed, with `nilda.DispatchAdminReport(ctx, hook,
+payload, p.onReport)`.
+
+The shapes a manifest declares here are Go types too — `nilda.AdminPage`, `nilda.SettingField`,
+`nilda.ListColumn`, `nilda.RowAction` — and their comments are the reference for every field.
+
 **What Core refuses at install** (and `nilda plugin check` on your machine):
 
 - `admin_pages` without the `admin_page` capability, and the capability without a page.
@@ -739,6 +782,51 @@ with your tables.
 - More than 12 pages, 48 fields on a settings page, 20 filters on a report page, 20 columns or 20 search
   columns on a list page, 8 row actions, or 100 choices on a field; or a name or label longer than 120
   characters.
+
+### Contributing a field type (`field`)
+
+Declare the type; Nilda renders it with one of its own controls (`base`), stores the value in that
+control's shape, and asks you only what it cannot know:
+
+```json
+"capabilities": ["field"],
+"fields": [{
+  "key": "iban", "label": "IBAN", "base": "text", "validates": true,
+  "help": "An international bank account number."
+}]
+```
+
+An editor building a content type or a form finds `IBAN` among the field types; what is stored is
+`<your key>.iban`. Two questions can reach you, each only if you declared it:
+
+- **`"choices": true`** — a picker's options (the base must be a choice type). `Choices` answers
+  `[]nilda.FieldChoice` (a value and a label) for a `nilda.FieldChoicesRequest`, which names the field, its
+  options and the reader's language (`Locale`). Nilda keeps the first 2,000 and cuts each value and label to
+  200 characters — but it reads your answer whole first, and an answer over 1 MiB is refused, not trimmed.
+- **`"validates": true`** — a check on save. `Validate` gets a `nilda.FieldValidateRequest` (the field, the
+  value, its options, the language) and returns `""` to accept or a sentence the EDITOR reads — "must be
+  six digits" beats "invalid". It runs on every save of every item using your type, and one save's plugin
+  checks share ten seconds, so keep it fast and local.
+
+```go
+type iban struct{}
+
+func (iban) Choices(context.Context, *nilda.Core, nilda.FieldChoicesRequest) ([]nilda.FieldChoice, error) {
+	return nil, nil // not a choice type: Nilda never asks
+}
+
+func (iban) Validate(ctx context.Context, core *nilda.Core, req nilda.FieldValidateRequest) string {
+	if s, _ := req.Value.(string); !validIBAN(s) {
+		return "this is not a valid IBAN"
+	}
+	return ""
+}
+
+func main() { nilda.ServeField(iban{}) }
+```
+
+`ServeField` serves a plugin whose whole job is field types — a `nilda.FieldProvider` — and builds the wire
+answers (`nilda.FieldChoicesResponse`, `nilda.FieldValidateResponse`) for you.
 
 ### Being the site's search engine (`search_provider`)
 
@@ -778,6 +866,25 @@ func (e *engine) Query(ctx context.Context, q nilda.SearchQuery) (nilda.SearchRe
 func main() { nilda.ServeSearchProvider(&engine{}) }
 ```
 
+`engine` is a `nilda.SearchProvider`. Each `Serve*` in this chapter — `ServeSearchProvider`,
+`ServeCommerce`, `ServeField`, `ServeAuthProvider` — is for a plugin with that ONE job. A plugin with
+several (a shop that is also its own search engine, or has hooks of its own) serves one handler with
+`nilda.Serve` and hands each hook to the router for its role — `nilda.DispatchSearchHook`,
+`nilda.DispatchCommerceHook`, `nilda.DispatchFieldHook`, `nilda.DispatchAuthHook` — each of which answers
+`handled == false` for a hook that is not its, so the next one, or your own code, gets it:
+
+```go
+func (p *Shop) HandleHook(ctx context.Context, hook string, payload []byte) ([]byte, error) {
+	if out, handled, err := nilda.DispatchCommerceHook(ctx, p.core, p, hook, payload); handled {
+		return out, err
+	}
+	if out, handled, err := nilda.DispatchSearchHook(ctx, p.core, p.search, hook, payload); handled {
+		return out, err
+	}
+	return nil, nil // … your own hooks
+}
+```
+
 **Three things worth knowing before you write it.**
 
 **You cannot take the site's search down.** Postgres stays wired as the fallback. If your `Query` returns
@@ -800,9 +907,9 @@ Store them, so a `PublicOnly` query can be answered inside your engine instead o
 
 ### Being the site's shop (`commerce`)
 
-Nilda ships eight storefront widgets — Products, Product Field, Product Categories, Cart, Cart Count, Add
-To Cart, Checkout, Product Loop — and no commerce code at all. Your plugin supplies the products, the
-prices and the cart URLs; the widgets stay Nilda's.
+Nilda ships eight storefront widgets — Products, Product Field, Product Categories, Cart Count, Add To
+Cart, Cart, Checkout, My Account — and no commerce code at all. Your plugin supplies the products, the
+prices and the cart, checkout and account URLs; the widgets stay Nilda's.
 
 **Why the widgets are not yours, and why that is in your interest.** The obvious design is for a shop
 plugin to ship its own thirty widgets. That is what WooCommerce does, and it produces a world where a site
@@ -833,6 +940,9 @@ type shop struct{ catalogue map[string]nilda.CommerceProduct }
 
 func (s *shop) Products(ctx context.Context, q nilda.CommerceQuery) ([]nilda.CommerceProduct, error) {
 	// q.Term / q.Search / q.Sort / q.Featured are what an AUTHOR chose in a panel.
+	// q.Limit / q.Offset page it: answer at most Limit products, starting Offset in. They are the widget's
+	// page, not a suggestion — a shop that ignores them sends its whole catalogue to every grid.
+	// q.ShowPricesIncludingTax is how the price must READ on this site — see "Price" below.
 	return []nilda.CommerceProduct{{
 		ID: "sku-1", Title: "Kettle", URL: "/shop/kettle", Image: "/media/kettle.jpg",
 		Price: "£49.00", OldPrice: "£59.00", InStock: true, Badge: "Sale",
@@ -867,9 +977,12 @@ func main() { nilda.ServeCommerce(&shop{}) }
 **Three things worth knowing before you write it.**
 
 **Price is a string you have already formatted, symbol and all.** Nilda never parses it, compares it or
-adds it up, and there is no money arithmetic anywhere in Core. Currency, rounding, tax display and locale
-are decisions your shop owns and gets right; a Nilda that formatted money would be wrong for every shop
-with a rule nobody anticipated. The same reasoning removes the stock COUNT: you send `InStock`, because
+adds it up, and there is no money arithmetic anywhere in Core. Currency, rounding and locale are decisions
+your shop owns and gets right; a Nilda that formatted money would be wrong for every shop with a rule nobody
+anticipated. Whether a consumer price INCLUDES tax is not yours to decide, though: it is a legal question
+about where the site operates, Core answers it, and every query carries the answer
+(`q.ShowPricesIncludingTax`, and `nilda.ShowPricesIncludingTax(ctx)` inside `Product`). When it is true,
+the strings you send are gross. The same reasoning removes the stock COUNT: you send `InStock`, because
 "3 left" has a stock-accounting model behind it and a shop that reserves at checkout answers it
 differently from one that does not.
 
@@ -882,8 +995,15 @@ to a widget living inside your plugin, so nothing is lost by the widgets being N
 basket to whatever you name, so Nilda drops anything else — an absolute URL, a protocol-relative one — and
 logs which endpoint it dropped.
 
-**Counting is optional.** Implement `CountProducts` and a catalogue that pages says "showing 1–12 of 240";
-skip it, or return `ok=false`, and it loses that line rather than printing a wrong total.
+**Counting is optional.** Implement `CountProducts` (the `nilda.CommerceCounter` interface, beside
+`nilda.Commerce`'s three methods) and a catalogue that pages says "showing 1–12 of 240"; skip it, or return
+`ok=false`, and it loses that line rather than printing a wrong total. The query you count has no `Limit` or
+`Offset` — the total is about the whole result.
+
+**A product carries its categories and its choices.** `Terms` are `nilda.CommerceTerm`s — a label and the
+archive URL its chip links to; `Variations` are `nilda.CommerceVariation`s — one axis a shopper answers before
+the item can be added ("Size" and its options, as strings). A per-combination price stays in your pricing
+rules: Core asks the question and hands the answer back to your add-to-cart endpoint.
 
 **Tell Nilda when your catalogue changes — this one is not optional.** Nilda caches a rendered page for an
 hour and drops it when something it depends on changes, but your catalogue is the one dependency it cannot
@@ -933,7 +1053,7 @@ administrator can write them. **You declare where the owner types it; the owner 
 field that does not exist and the plugin is refused at install, with the field named.
 
 And write three methods. The SDK's OIDC client does discovery, the authorization URL and the code exchange,
-so what is left is the part that is genuinely yours:
+so what is left is the part that is genuinely yours — a `nilda.AuthProvider`:
 
 ```go
 func main() { nilda.ServeAuthProvider(&Plugin{}) }
@@ -1042,6 +1162,8 @@ func (p *Shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, er
 
 `UpgradedFrom` is exact-match on purpose rather than a range: a data step is written against a specific
 shape, and "anything before 1.1" quietly includes versions that never existed and shapes you never shipped.
+For work that is safe to repeat and cheap to check — re-registering a webhook with a provider, warming a
+cache — `core.IsUpgrade(currentVersion)` is true on any start that follows a different version.
 
 **It runs once.** Core records your version only after your Init RETURNS, so a plugin the supervisor restarts
 after a crash is told it is running the version it already initialised at. If your Init fails, the record is
@@ -1083,8 +1205,9 @@ in, the stored value of a choice is still the declared one, and your section's p
 by your plugin key — so a translated name cannot scatter somebody's arrangement.
 
 Bounded, because a manifest is downloaded, stored and read on every admin page load: 12 languages, 300
-strings each, 400 characters a string. Past any of those the package is refused at install rather than
-quietly truncated.
+strings each, 400 characters a string — and 128 KiB for all of it together, which binds first: twelve full
+languages of full-length strings would be far larger. Past any of those the package is refused at install
+rather than quietly truncated.
 
 **You ship no JavaScript into the admin.** You declare; Core draws the controls. Every other CMS extends its
 admin by injecting code — a WordPress plugin enqueues a script, a Strapi plugin ships React — and pays for it
@@ -1267,7 +1390,8 @@ can be trusted: an SDK change that would make them wrong turns the pipeline red.
 
 ## Widget field vocabulary — the gap, and why it now blocks two other things (2026-08-03)
 
-**Recorded from Core's `SPEC_121 §14.20`. Not built yet; this is the specification.**
+**Recorded from Core's `SPEC_121 §14.20` — and since BUILT: the next section is the vocabulary that shipped.
+This one is kept as the record of why it had to exist.**
 
 This SDK already lets a plugin contribute page-builder widgets: `WidgetDef`, `WidgetField`,
 `HookWidgetDescribe`, `HookWidgetRender`, bounded by `MaxWidgetsPerPlugin` (20) and

@@ -291,9 +291,12 @@ none, so on a sideload Nilda falls back to what your manifest says. Left out, th
 
 These are not go-plugin's; they are Nilda's, and they hold whatever language you write in.
 
-- **You declare; Nilda draws.** No plugin ships JavaScript, CSS or markup into the admin. A widget, an
-  admin page, a field type is a *description* Nilda renders with its own controls. This is why a bad plugin
-  cannot white-screen the admin or steal a session, and it is not going to change.
+- **You declare; Nilda draws.** No plugin ships JavaScript or CSS into the admin. A widget's settings, an
+  admin page, a field type are *descriptions* Nilda renders with its own controls. The one markup a plugin
+  returns is a widget's rendered HTML, and Nilda sanitizes it before it reaches a page or the editor's
+  canvas — scripts, event handlers, `javascript:` URLs and `style` removed. A script reaches public pages
+  only through `render.assets`, as a path under your own route. This is why a bad plugin cannot white-screen
+  the admin or steal a session, and it is not going to change.
 - **Nilda owns your namespace.** A widget type, a field type, a sign-in method you contribute is
   `<your key>.<your local name>`, assigned by Nilda from the key it is running you under. You cannot claim
   another plugin's name, or a built-in one.

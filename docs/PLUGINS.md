@@ -1,9 +1,10 @@
-# Nilda — Plugins (NOT Core — build LATER)
+# Nilda — Plugins (NOT Core — the catalogue of what belongs in a plugin)
 
-> **⚠️ Read this first:** Nothing in this file is Core. **Do NOT build any of it
-> until Core is 100% finished.** This file exists only so the
-> plugins are recorded in one place and kept OUT of the Core build. When building
-> Core, ignore this file entirely.
+> **Where this stands (checked 2026-09-24):** nothing in this file is Core. The plugin runtime and this SDK
+> are built, and four first-party plugins are built on them, each in its own repository under
+> `nildalabs/nilda-plugins`: `commerce` (the shop), `booking` (bookings and reservations), `forms` (the
+> advanced forms tier) and `sso` (sign-in through a company's identity provider). Everything else below is
+> planned, not built. The file keeps these features recorded in one place — and OUT of Core.
 >
 > **Why plugins are separate:** Core must stay lean and extremely fast. A plugin
 > is anything that is optional, not needed by every site, or too heavy to run on
@@ -59,14 +60,21 @@ uninstalling it revokes access and KEEPS the rows: the data is the site owner's.
         │    Plugin     │  ← optional, isolated
         └───────────────┘
 
-Key performance rule: plugins listen to events ASYNC. Core does its work and
-fires an event; the plugin reacts afterward. The visitor never waits for a
-plugin. A crashing/slow plugin can't take down the site.
+Key performance rule: Core never waits on a plugin without a limit. Events
+fire after Core has done its own work. The hooks a page is rendered through
+(widgets, footer scripts, the shop's products) run while it renders, inside
+budgets: 5 s a call (PLUGIN_CALL_TIMEOUT), 10 s for every subscriber of one
+hook or event together, 1.5 s for everything one public page asks of plugins.
+Past a budget the page renders without that plugin, and a crashing or slow
+plugin draws nothing where it would have — it cannot take the site down.
 ```
 
 ---
 
-## Our own plugins (we build + sell these — Phase 2, after Core)
+## Our own plugins (we build + sell these)
+
+Built so far: E-commerce (`commerce`), Booking & Reservation (`booking`), the OpenID Connect sign-in part of
+Enterprise Auth / SSO (`sso`), and the advanced forms tier (`forms`). The rest of this table is planned.
 
 | Plugin | What it does | Model |
 |--------|-------------|-------|
@@ -121,10 +129,11 @@ plugin. A crashing/slow plugin can't take down the site.
 
 ---
 
-## The Marketplace (an open bazaar — Phase 2)
+## The Marketplace (an open bazaar)
 
 Plugins and themes above are sold/distributed through the Nilda Marketplace
-(part of nilda.dev, built in Phase 2 — see NILDA_PRD.md §10). Each creator picks
+(part of nilda.dev — Central's marketplace, which the admin's Market screen browses
+and buys from; see NILDA_PRD.md §10). Each creator picks
 their own model: **free, paid, or freemium** (free base + paid Pro). Ours = 100%
 margin; third-party = we take 30% commission. Free items cost nothing. This is
 like the WordPress plugin directory or an app store — every model coexists.
@@ -133,6 +142,6 @@ like the WordPress plugin directory or an app store — every model coexists.
 
 ## Reminder
 
-**Build order:** Core first (all Core SPECs), fully finished and tested, THEN start
-plugins. When writing/So building Core, this file is out of scope. It's here only
-so nothing is forgotten and so Core stays clean.
+**Core stays lean.** Anything here answered NO to both questions at the top, so it lives in a plugin and
+never in Core — however much of it gets built, and in whatever order. The file is here so nothing is
+forgotten and so Core stays clean.

@@ -8,9 +8,9 @@
 > already fails if they drift.
 >
 > The marketplace infrastructure is built — 7,658 lines of it: gRPC over a separate process, signing,
-> a signed package format, `nilda plugin new/build/check/dev/publish`, and a review pipeline. Three
-> first-party plugins already run on it (`commerce`, `booking`, `forms`), which is what proves the
-> transport works.
+> a signed package format, `nilda plugin new/build/check/dev/publish`, and a review pipeline. Four
+> first-party plugins run on it (`commerce`, `booking`, `forms`, `sso` — checked against the remotes
+> 2026-09-24), which is what proves the transport works.
 >
 > What is missing is not infrastructure. It is the VOCABULARY: the list of things a plugin is allowed
 > to contribute. Today that list cannot express the two things developers most often build.
@@ -469,18 +469,13 @@ were additive.)*
 
 ---
 
-## 5. One thing to fix on the way past
+## 5. One thing to fix on the way past — DONE
 
-`commerce/manifest.json` declares **`payments`**, and `payments` **is not one of the nineteen**. The
-catalogue's own comment records why it is gone:
-
-> *"a plugin that asked for `payments` was approved to take something no code granted… reserved for a
-> SPEC_107 that was never written."*
-
-So a first-party plugin currently declares a capability that does not exist, and — because it is not
-in the catalogue — either its install is being approved against a name nothing checks, or it is being
-rejected and nobody has noticed. **Verify which, then either remove the line from the manifest or
-write the capability.** It is the same failure `admin.pages` had, still live in our own plugin.
+Commerce's manifest declared **`payments`**, a capability the catalogue had retired (*"a plugin that asked
+for `payments` was approved to take something no code granted"*). It no longer does: the manifest is
+`commerce/plugin.json`, and its capability list — checked 2026-09-24 — holds only capabilities of the
+twenty-four above. Taking a card payment is D-84's payment contract: every gateway its own plugin, through
+Core — decided, not built.
 
 ---
 
