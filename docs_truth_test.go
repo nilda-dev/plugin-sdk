@@ -120,15 +120,7 @@ func TestTheShopWalkthroughEmitsTheCatalogueEvent(t *testing.T) {
 	const event = "EventCommerceCatalogChanged" // the identifier TestDocumentedIdentifiersExist proves exists
 	caps := regexp.MustCompile(`"capabilities":\s*\[([^\]]*)\]`)
 
-	doc := readText(t, "docs/PLUGIN_SDK.md")
-	start := strings.Index(doc, "### Being the site's shop")
-	if start < 0 {
-		t.Fatal(`docs/PLUGIN_SDK.md has no "### Being the site's shop" section — repoint this guard`)
-	}
-	section := doc[start:]
-	if next := strings.Index(section[1:], "\n### "); next >= 0 {
-		section = section[:next+1]
-	}
+	section := mdSection(t, "docs/PLUGIN_SDK.md", "### Being the site's shop")
 
 	for _, walk := range []struct{ where, text string }{
 		{"docs/PLUGIN_SDK.md (shop walkthrough)", section},
@@ -149,6 +141,77 @@ func TestTheShopWalkthroughEmitsTheCatalogueEvent(t *testing.T) {
 			}
 		}
 	}
+}
+
+// TestTheAbilityGateTheDocsNameIsTheOneCoreApplies is the documentation half of the hunt's C10.
+//
+// Core runs a plugin's ability only for a person who holds one of plugin.ConfigurePermissions — the list the
+// plugin's own admin section is gated on — and the abilities section tells an author who that is. The truth is
+// Core's source, read when Core is checked out beside this repository, so a Core that changes the gate turns this
+// red instead of leaving the sentence behind.
+func TestTheAbilityGateTheDocsNameIsTheOneCoreApplies(t *testing.T) {
+	pages := filepath.Join("..", "core", "internal", "plugin", "adminpages.go")
+	raw, err := os.ReadFile(pages)
+	if os.IsNotExist(err) {
+		t.Skip("core is not checked out beside plugin-sdk, so its ability gate cannot be read from here — " +
+			"run this from a full nilda checkout")
+	}
+	if err != nil {
+		t.Fatalf("reading %s: %v", pages, err)
+	}
+	src := string(raw)
+
+	// func AdminPermission(pluginKey string) string { return "plugin." + pluginKey + ".configure" }
+	adm := regexp.MustCompile(`func AdminPermission\(\w+ string\) string \{\s*return "([^"]*)" \+ \w+ \+ "([^"]*)"\s*\}`).
+		FindStringSubmatch(src)
+	if adm == nil {
+		t.Fatalf("%s no longer spells AdminPermission as prefix + key + suffix — repoint this guard", pages)
+	}
+	list := regexp.MustCompile(`(?s)func ConfigurePermissions\([^)]*\) \[\]string \{\s*return \[\]string\{([^}]*)\}\s*\}`).
+		FindStringSubmatch(src)
+	if list == nil {
+		t.Fatalf("%s no longer returns ConfigurePermissions as one list literal — repoint this guard", pages)
+	}
+	perms := filepath.Join("..", "core", "internal", "authz", "permissions.go")
+	manage := regexp.MustCompile(`\bPermPluginManage\s*=\s*"([^"]+)"`).FindStringSubmatch(readText(t, perms))
+	if manage == nil {
+		t.Fatalf("%s no longer declares PermPluginManage — repoint this guard", perms)
+	}
+
+	var want []string
+	for _, el := range strings.Split(list[1], ",") {
+		switch el = strings.TrimSpace(el); {
+		case el == "":
+		case strings.HasPrefix(el, "AdminPermission("):
+			want = append(want, adm[1]+"<key>"+adm[2])
+		case el == "authz.PermPluginManage":
+			want = append(want, manage[1])
+		default:
+			t.Fatalf("ConfigurePermissions now returns %s, which this guard cannot translate — teach it, and "+
+				"then the abilities section", el)
+		}
+	}
+	section := mdSection(t, "docs/PLUGIN_SDK.md", "### Telling the AI agent what you can do")
+	for _, p := range want {
+		if !strings.Contains(section, "`"+p+"`") {
+			t.Errorf("the abilities section never names `%s`, which Core accepts as leave to run an ability", p)
+		}
+	}
+}
+
+// mdSection is one `### ` section of a markdown document, heading included, up to the next `### `.
+func mdSection(t *testing.T, path, heading string) string {
+	t.Helper()
+	doc := readText(t, path)
+	start := strings.Index(doc, heading)
+	if start < 0 {
+		t.Fatalf("%s has no %q section — repoint this guard", path, heading)
+	}
+	section := doc[start:]
+	if next := strings.Index(section[1:], "\n### "); next >= 0 {
+		section = section[:next+1]
+	}
+	return section
 }
 
 type codeSample struct{ where, code string }

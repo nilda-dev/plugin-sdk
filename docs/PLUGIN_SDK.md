@@ -498,6 +498,13 @@ one, so a typo costs an owner one permission click rather than an unguarded acti
 | `access` | roles, permissions, credentials |
 | `infra` | maintenance, caches, backups, the install itself |
 
+**Who may run it is Core's decision, not yours.** The class says how risky the action is; it does not say
+which *person* may ask for it. Core runs an ability only for someone who holds `plugin.manage`, or
+`plugin.<key>.configure` — the per-plugin permission your own admin section (`admin_page`) is gated on. An
+Editor who holds `content.edit` and nothing of yours is refused, and the site's chat does not offer them the
+action at all. You declare nothing for this: it is the same list your admin screens use, so a button your
+screen refuses someone is an action the chat refuses them too.
+
 `InputSchema` is required and must be a JSON Schema **object** — an agent that cannot see the shape of
 your input will call you with the wrong thing. `ObjectSchema` builds one so you do not hand-write JSON.
 
