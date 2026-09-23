@@ -414,6 +414,63 @@ func TestTheTimeBudgetsTheDocsNameAreCores(t *testing.T) {
 	}
 }
 
+// M42 (2026-09-23 plugin hunt): the egress proxy bounds each plugin's connections and closes idle tunnels. The
+// two numbers the network section names are held to Core's, read from core's resilience.go.
+func TestTheEgressLimitsTheDocsNameAreCores(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "plugin", "resilience.go"))
+	if os.IsNotExist(err) {
+		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	conns := regexp.MustCompile(`maxEgressPerPlugin\s*=\s*([0-9]+)\b`).FindStringSubmatch(string(raw))
+	idle := regexp.MustCompile(`egressIdleTimeout\s*=\s*([0-9]+)\s*\*\s*time\.Minute`).FindStringSubmatch(string(raw))
+	if conns == nil || idle == nil {
+		t.Fatal("core's resilience.go no longer declares maxEgressPerPlugin / egressIdleTimeout as numbers — repoint this guard")
+	}
+	section := strings.Join(strings.Fields(mdSection(t, "docs/PLUGIN_SDK.md", "### 5.1 The package")), " ")
+	for _, want := range []string{"at most " + conns[1] + " connections", "for " + idle[1] + " minutes"} {
+		if !strings.Contains(section, want) {
+			t.Errorf("the network section does not say %q, which is Core's bound", want)
+		}
+	}
+}
+
+// M13 (2026-09-23 plugin hunt): a field type's choices and validate requests now carry Locale. Core pins this
+// SDK by tag, so its own mirror test cannot name the new field until the pin moves; until then this side
+// holds Core to it — the field on Core's copy of both requests, under the same JSON name, and Core filling it
+// from the request's resolved locale on both calls.
+func TestTheFieldRequestsCarryCoresLocale(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "plugin", "fields.go"))
+	if os.IsNotExist(err) {
+		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(raw)
+	for _, typ := range []string{"FieldChoicesRequest", "FieldValidateRequest"} {
+		start := strings.Index(src, "type "+typ+" struct {")
+		if start < 0 {
+			t.Fatalf("core's fields.go no longer declares %s — repoint this guard", typ)
+		}
+		body := src[start:]
+		body = body[:strings.Index(body, "\n}")]
+		if !strings.Contains(body, "Locale string `json:\"locale,omitempty\"`") {
+			t.Errorf("core's %s carries no Locale under the SDK's JSON name", typ)
+		}
+	}
+	if n := strings.Count(src, "Locale: logger.LocaleFromContext(ctx)"); n != 2 {
+		t.Errorf("core fills Locale on %d of its 2 field requests (choices, validate)", n)
+	}
+	for _, sdkType := range []any{FieldChoicesRequest{}, FieldValidateRequest{}} {
+		if f, ok := reflect.TypeOf(sdkType).FieldByName("Locale"); !ok || f.Tag.Get("json") != "locale,omitempty" {
+			t.Errorf("the SDK's %T has no Locale under json:\"locale,omitempty\"", sdkType)
+		}
+	}
+}
+
 // M23–M34 (2026-09-23 plugin hunt): what the admin_page section tells an author Core does and refuses — each
 // sentence beside the Core source that makes it true, and each number held to Core's constant, so the section
 // cannot keep a rule Core dropped or a bound Core moved.

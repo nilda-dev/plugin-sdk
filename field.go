@@ -63,6 +63,9 @@ type FieldChoicesRequest struct {
 	// Options are the settings an editor configured for this particular field — your declared settings,
 	// with the values they typed. "Which country's postcodes", "how many stars".
 	Options map[string]any `json:"options"`
+	// Locale is the language to write your labels in: the one this request resolved to (see
+	// FieldValidateRequest.Locale for exactly which). Empty when Core resolved none.
+	Locale string `json:"locale,omitempty"`
 }
 
 // FieldChoice is one option in a picker. Label falls back to Value when empty.
@@ -80,6 +83,13 @@ type FieldValidateRequest struct {
 	Value any `json:"value"`
 	// Options are the settings an editor configured for this field.
 	Options map[string]any `json:"options"`
+	// Locale is the language to write your message in — the one this request resolved to: the URL's locale
+	// prefix, the locale cookie, the browser's Accept-Language, then the site's default language. Your
+	// message is shown to the editor verbatim, so a site run in Persian wants it in Persian. The admin's OWN
+	// interface language does not reach the server yet, so on a multilingual site this is the site
+	// language the request resolved to, not necessarily the one the editor reads the admin in. Empty when
+	// Core resolved none.
+	Locale string `json:"locale,omitempty"`
 }
 
 // FieldChoicesResponse is what a plugin answers `field.choices` with.

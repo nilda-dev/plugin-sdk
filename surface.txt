@@ -177,10 +177,12 @@ field Core.RoutePrefix string
 field FieldChoice.Label string json:label
 field FieldChoice.Value string json:value
 field FieldChoicesRequest.Field string json:field
+field FieldChoicesRequest.Locale string json:locale
 field FieldChoicesRequest.Options map[string]any json:options
 field FieldChoicesResponse.Choices []FieldChoice json:choices
 field FieldValidateRequest.Field string json:field
 field FieldValidateRequest.Key string json:key
+field FieldValidateRequest.Locale string json:locale
 field FieldValidateRequest.Options map[string]any json:options
 field FieldValidateRequest.Value any json:value
 field FieldValidateResponse.Message string json:message

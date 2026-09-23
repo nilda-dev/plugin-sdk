@@ -9,8 +9,12 @@ import (
 
 type catalogueOnly struct{}
 
-func (catalogueOnly) Products(context.Context, CommerceQuery) ([]CommerceProduct, error) { return nil, nil }
-func (catalogueOnly) Product(context.Context, string) (CommerceProduct, bool)            { return CommerceProduct{}, false }
+func (catalogueOnly) Products(context.Context, CommerceQuery) ([]CommerceProduct, error) {
+	return nil, nil
+}
+func (catalogueOnly) Product(context.Context, string) (CommerceProduct, bool) {
+	return CommerceProduct{}, false
+}
 func (catalogueOnly) Endpoints(context.Context) CommerceEndpoints {
 	return CommerceEndpoints{Cart: "/shop/cart", AddToCart: "/shop/add", Checkout: "/shop/checkout"}
 }

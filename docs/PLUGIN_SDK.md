@@ -439,18 +439,25 @@ message naming both sides, instead of letting it fail later as an exec error abo
 skipped; the marketplace expects them, because a version there ships one binary per platform.
 
 `network` is the list of external hosts the plugin may reach. The owner reads it at install beside the
-capabilities, and Core routes outbound traffic through a proxy that enforces it and logs every attempt.
-A wildcard covers one level (`*.twilio.com` matches `api.twilio.com`, not `a.b.twilio.com`); a bare `*` is
-refused, and so is a wildcard over a public suffix — `*.com`, `*.co.uk`, `*.github.io` — because those reach
-every site anybody registers there. Core's own API is always reachable and never declared.
+capabilities — and on the plugin's row afterwards — and Core routes outbound traffic through a proxy that
+enforces it and writes every attempt to the server's log. A wildcard covers one level (`*.twilio.com`
+matches `api.twilio.com`, not `a.b.twilio.com`); a bare `*` is refused, and so is a wildcard over a public
+suffix — `*.com`, `*.co.uk`, `*.github.io` — because those reach every site anybody registers there. Core's
+own API is always reachable and never declared.
 
-**Use the SDK's client for your own outbound calls**, or the proxy cannot tell whose declaration applies
-and refuses them:
+**Any client that honours `HTTPS_PROXY` is identified**: the proxy address Core hands your process carries
+your plugin's key, so a bare `http.Client{}`, a wrapped transport or a plugin in another language is known
+to the proxy by it. The SDK's client is the one already set up for it:
 
 ```go
 client := nilda.HTTPClient(30 * time.Second)  // carries the plugin's identity
 res, err := client.Get("https://api.stripe.com/v1/charges")
 ```
+
+**Connections are bounded.** A plugin holds at most 64 connections through the proxy at once — the next one
+is refused with a 503 rather than queued — and a tunnel nothing crosses, in either direction, for 10 minutes
+is closed. A pooled client stays far inside both; a plugin that opens a connection per request and never
+closes it does not.
 
 ### Recurring work (`schedule`)
 
