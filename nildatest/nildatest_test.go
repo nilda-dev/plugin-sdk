@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -90,6 +91,50 @@ func TestTheFakesEventTableIsCores(t *testing.T) {
 			t.Errorf("this fake binds %s.* to a capability; core does not", ns)
 		}
 	}
+}
+
+// The fake refuses a KV value Core refuses, with Core's code — and its cap is Core's, read from Core's source.
+func TestTheFakesKVValueCapIsCores(t *testing.T) {
+	core, _ := New("kvcap", "kv")
+	if err := core.KVSet(context.Background(), "big", strings.Repeat("x", maxKVValueBytes+1), 0); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("a value past the cap answered %v, want InvalidArgument", err)
+	}
+	if err := core.KVSet(context.Background(), "ok", strings.Repeat("x", maxKVValueBytes), 0); err != nil {
+		t.Fatalf("a value at the cap was refused: %v", err)
+	}
+
+	got, found := coreIntConstant(t, "kvquota.go", "maxKVValueBytes")
+	if !found {
+		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
+	}
+	if got != maxKVValueBytes {
+		t.Fatalf("core caps a KV value at %d bytes; this fake at %d", got, maxKVValueBytes)
+	}
+}
+
+// coreIntConstant reads `name = <int>` or `name = <a> << <b>` from core's internal/plugin/<file>.
+func coreIntConstant(t *testing.T, file, name string) (int, bool) {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join("..", "..", "core", "internal", "plugin", file))
+	if os.IsNotExist(err) {
+		return 0, false
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := regexp.MustCompile(`\b` + name + `\s*=\s*([0-9_]+)(?:\s*<<\s*([0-9]+))?`).FindStringSubmatch(string(raw))
+	if m == nil {
+		t.Fatalf("core's %s no longer declares %s as a number — repoint this guard", file, name)
+	}
+	n, err := strconv.Atoi(strings.ReplaceAll(m[1], "_", ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m[2] != "" {
+		shift, _ := strconv.Atoi(m[2])
+		n <<= shift
+	}
+	return n, true
 }
 
 // coreStringConstants is every `Name = "value"` string constant in core's non-test sources in dir.

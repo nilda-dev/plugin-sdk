@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -197,6 +198,58 @@ func TestTheAbilityGateTheDocsNameIsTheOneCoreApplies(t *testing.T) {
 			t.Errorf("the abilities section never names `%s`, which Core accepts as leave to run an ability", p)
 		}
 	}
+}
+
+// TestTheKVLimitsTheDocsNameAreCores holds the capability table's `kv` row to Core's own caps (the 2026-09-23
+// plugin hunt's C19), read from core's internal/plugin/kvquota.go.
+func TestTheKVLimitsTheDocsNameAreCores(t *testing.T) {
+	path := filepath.Join("..", "core", "internal", "plugin", "kvquota.go")
+	raw, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	num := func(name string) int {
+		m := regexp.MustCompile(`\b` + name + `\s*=\s*([0-9_]+)(?:\s*<<\s*([0-9]+))?`).FindStringSubmatch(string(raw))
+		if m == nil {
+			t.Fatalf("%s no longer declares %s as a number — repoint this guard", path, name)
+		}
+		n, _ := strconv.Atoi(strings.ReplaceAll(m[1], "_", ""))
+		if m[2] != "" {
+			shift, _ := strconv.Atoi(m[2])
+			n <<= shift
+		}
+		return n
+	}
+	var row string
+	for _, line := range strings.Split(readText(t, "docs/PLUGIN_SDK.md"), "\n") {
+		if strings.HasPrefix(line, "| `kv` |") {
+			row = line
+		}
+	}
+	if row == "" {
+		t.Fatal("docs/PLUGIN_SDK.md has no `kv` row in its capability table — repoint this guard")
+	}
+	for _, want := range []string{
+		strconv.Itoa(num("maxKVValueBytes")>>10) + " KiB",
+		addThousands(num("maxKVKeysPerPlugin")) + " keys",
+		strconv.Itoa(num("maxKVBytesPerPlugin")>>20) + " MiB",
+	} {
+		if !strings.Contains(row, want) {
+			t.Errorf("the kv row does not say %q, which is Core's cap:\n%s", want, row)
+		}
+	}
+}
+
+// addThousands writes 10000 as 10,000.
+func addThousands(n int) string {
+	s := strconv.Itoa(n)
+	for i := len(s) - 3; i > 0; i -= 3 {
+		s = s[:i] + "," + s[i:]
+	}
+	return s
 }
 
 // mdSection is one `### ` section of a markdown document, heading included, up to the next `### `.

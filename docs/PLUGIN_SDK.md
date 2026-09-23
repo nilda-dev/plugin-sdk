@@ -279,7 +279,7 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `hooks` | receive hook callbacks |
 | `events` | subscribe to events, and emit your own — see below for which names are yours |
 | `datastore` | a dedicated Postgres schema, tables Core creates from your declaration, DML-only access |
-| `kv` | a scoped key-value namespace |
+| `kv` | a scoped key-value namespace for small state: a value is at most 64 KiB, and on a Lite install (where it lives in Core's memory) one plugin holds at most 10,000 keys and 16 MiB — past that a write answers `ResourceExhausted`; declare `datastore` for more |
 | `route` | a reverse-proxied URL prefix |
 | `render.assets` | load its own scripts on public pages — see §4.1 |
 | `widget` | contribute page-builder widgets — see §4.1 |
@@ -431,7 +431,8 @@ skipped; the marketplace expects them, because a version there ships one binary 
 `network` is the list of external hosts the plugin may reach. The owner reads it at install beside the
 capabilities, and Core routes outbound traffic through a proxy that enforces it and logs every attempt.
 A wildcard covers one level (`*.twilio.com` matches `api.twilio.com`, not `a.b.twilio.com`); a bare `*` is
-refused. Core's own API is always reachable and never declared.
+refused, and so is a wildcard over a public suffix — `*.com`, `*.co.uk`, `*.github.io` — because those reach
+every site anybody registers there. Core's own API is always reachable and never declared.
 
 **Use the SDK's client for your own outbound calls**, or the proxy cannot tell whose declaration applies
 and refuses them:
