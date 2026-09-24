@@ -54,9 +54,9 @@ The three biggest gaps were the first three rows, and they were 120 of the 219 b
 
 ## 2. What Nilda has, and where it stops
 
-Twenty-four capabilities exist (registered in `internal/plugin/schema_capabilities.go`; `field`,
-`auth_provider`, `search_provider` and `commerce` declare their constants next to their
-dispatch, in `fields.go`, `authproviders.go`, `searchprovider.go` and `commerce.go`):
+Twenty-six capabilities exist (registered in `internal/plugin/schema_capabilities.go`; `field`,
+`auth_provider`, `search_provider`, `commerce` and the two payment ones declare their constants next to
+their dispatch, in `fields.go`, `authproviders.go`, `searchprovider.go`, `commerce.go` and `payments.go`):
 
 ```
 content.read   users.read     media.read      taxonomy.read   menus.read
@@ -64,13 +64,14 @@ content.write  media.write    taxonomy.write  menus.write
 events         hooks          datastore       kv              schedule
 route          widget         render.assets   email           abilities
 admin_page     auth_provider  field           search_provider commerce
+payment_gateway               payment_session
 ```
 
 That is a real vocabulary — richer than the "widget only" a first reading of `main.go` suggests. A shop
 plugin now declares `commerce` for the catalogue itself and combines it with `route` for its cart
 endpoints, `datastore` for its own tables and `content.read`/`events`/`hooks` for the rest.
 
-**Neither spelling of payment is in the list, and the second attempt is the instructive one.** `payments`
+**Neither OLD spelling of payment is in the list, and the second attempt is the instructive one.** `payments`
 (plural) was removed on 2026-07-30 as a reserved word with no code behind it. A singular `payment` was
 added on 2026-09-15 with both sides written — a four-method `Gateway` seam and its dispatch, in one
 change — and removed the same day, not for being unfinished but for being a THIRD answer to a question
@@ -83,8 +84,9 @@ Check the second question before the first.
 `PaymentGateway`" named a door no separate plugin can use: plugins cannot call each other, and that interface
 lives inside the shop's process. Core owns the payment CONTRACT — `payment_gateway` for each gateway
 plugin, `payment_session` for whatever takes the money — with no provider code, key or outbound call of its
-own, and Rule 0 is met by deleting the parallel paths once it exists. The SDK's half is in this module from
-v0.10.0 (docs/PAYMENTS.md); Core accepts the two capabilities from the release built on it.
+own, and Rule 0 is met by deleting the parallel paths once it exists. It is the last line of the list above:
+the SDK's half is in this module from v0.10.0 (docs/PAYMENTS.md), Core's is `internal/payments`, and Core
+accepts the two capabilities from the release built on v0.10.0.
 
 The shape of the gap is specific: **a plugin can serve its own pages and own its own data, but it
 cannot add anything to a screen Core already renders.** `widget` is the one exception — it puts a
@@ -475,7 +477,7 @@ were additive.)*
 Commerce's manifest declared **`payments`**, a capability the catalogue had retired (*"a plugin that asked
 for `payments` was approved to take something no code granted"*). It no longer does: the manifest is
 `commerce/plugin.json`, and its capability list — checked 2026-09-24 — holds only capabilities of the
-twenty-four above. Taking a card payment is D-84's payment contract: every gateway its own plugin, through
+catalogue above. Taking a card payment is D-84's payment contract: every gateway its own plugin, through
 Core (docs/PAYMENTS.md; Core accepts it from the release built on plugin-sdk v0.10.0).
 
 ---
