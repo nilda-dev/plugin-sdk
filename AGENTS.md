@@ -64,14 +64,15 @@ manifest digest; that is the design being avoided.
 
 ## Before you say you are done
 
-What CI runs (`.gitlab-ci.yml`), plus the one step it cannot:
+What CI runs (`.gitlab-ci.yml`), plus two steps it does not — vetting the examples (CI builds and tests them,
+`cd _examples && go build ./... && go test ./...`) and the Core-reading tests (below):
 
 ```bash
 GOWORK=off go build ./...              # the module builds alone, as a consumer and CI see it
 test -z "$(gofmt -l .)"                # gofmt-clean
 go vet ./...
 go test -race ./...
-go vet ./_examples/gateway ./_examples/shop       # ./... never reaches _examples: the Go tool
+go vet ./_examples/gateway ./_examples/shop       # NOT in CI. ./... never reaches _examples: the Go tool
 go test -count=1 ./_examples/gateway ./_examples/shop   # skips an underscore directory
 ```
 
@@ -80,10 +81,13 @@ If you changed `contract/plugin.proto`, regenerate `contract/*.pb.go` with `prot
 
 **The tests that read Core's source skip without it.** `docs_truth_test.go`, `guide_truth_test.go`,
 `limits_truth_test.go`, `manifest_truth_test.go`, `payments_truth_test.go`, `abilities_test.go` and the
-Core-reading tests in `nildatest/` hold this module's documents and mirrors to `../core`; CI clones this
+Core-reading tests in `nildatest/` hold this module's documents and mirrors to `../core` (and one to
+`../commerce`, the site's shop, when it is beside this directory); CI clones this
 repository alone, so there they all skip. Run them with Core checked out beside this directory, and read
-the skips: `go test -count=1 -v ./... | grep -- '--- SKIP'` should name none that says "core is not checked
-out". A change that passes CI and was never run beside Core has not been checked against Core.
+the skips: `go test -count=1 -v ./... | grep 'core is not checked out'` must print nothing (`go test -v`
+prints a skip's reason on the line BEFORE its `--- SKIP`, so grepping the `--- SKIP` lines never shows it). With
+Core beside it, a file a guard reads that has moved FAILS the guard rather than skipping it. A change that
+passes CI and was never run beside Core has not been checked against Core.
 
 If `pins_test.go` goes red, a consumer's pin cannot resolve — fix the pin or cut the tag; never "fix" it by
 loosening what it checks. If you change

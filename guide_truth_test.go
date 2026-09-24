@@ -1,8 +1,6 @@
 package nilda
 
 import (
-	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -13,16 +11,7 @@ import (
 // they describe — the time budgets, the batch cap, the translation and field-choice bounds, the storefront
 // widgets, and which name is an event rather than a hook. Each was stale or missing, and each read true.
 func TestTheGuidesNumbersAndNamesAreCores(t *testing.T) {
-	core := func(parts ...string) string {
-		raw, err := os.ReadFile(filepath.Join(append([]string{"..", "core"}, parts...)...))
-		if os.IsNotExist(err) {
-			t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		return string(raw)
-	}
+	core := func(parts ...string) string { return coreSource(t, parts...) }
 	flat := func(s string) string { return strings.Join(strings.Fields(s), " ") }
 	guide := flat(readText(t, "docs/PLUGIN_SDK.md"))
 	plugins := flat(readText(t, "docs/PLUGINS.md"))
@@ -49,19 +38,42 @@ func TestTheGuidesNumbersAndNamesAreCores(t *testing.T) {
 	// filter and an action in hooks.go, a Core event and a plugin's event in events.go — opens it.
 	hooks := core("internal", "plugin", "hooks.go")
 	has(hooks, "internal/plugin/hooks.go", "var dispatchBudget = pagebudget.ExtensionPoint")
-	for file, src := range map[string]string{"hooks.go": hooks, "events.go": core("internal", "plugin", "events.go")} {
-		if n := strings.Count(src, "context.WithTimeout(ctx, dispatchBudget)"); n != 2 {
-			t.Errorf("core's internal/plugin/%s opens dispatchBudget in %d fan-outs, want 2 — re-read the "+
-				"guide's ten seconds for every subscriber of one hook or event", file, n)
+	// Each fan-out by its own function, so a third one that is true to the guide passes and one moved elsewhere
+	// does not (a count held two per file, whichever two they were).
+	events := core("internal", "plugin", "events.go")
+	for _, fn := range []struct{ file, src, decl string }{
+		{"hooks.go", hooks, "func (d *Dispatcher) Filter(ctx context.Context, hook string, payload []byte) []byte {"},
+		{"hooks.go", hooks, "func (d *Dispatcher) Action(ctx context.Context, hook string, payload []byte) {"},
+		{"events.go", events, "func (d *Dispatcher) OnEvent(ctx context.Context, eventType string, data map[string]any) {"},
+		{"events.go", events, "func (d *Dispatcher) EmitFromPlugin(ctx context.Context, fromKey, eventType string, dataJSON []byte) {"},
+	} {
+		start := strings.Index(fn.src, fn.decl)
+		if start < 0 {
+			t.Errorf("core's internal/plugin/%s no longer declares %q — repoint this guard", fn.file, fn.decl)
+			continue
+		}
+		body := fn.src[start:]
+		if end := strings.Index(body, "\n}\n"); end >= 0 {
+			body = body[:end]
+		}
+		if !strings.Contains(body, "context.WithTimeout(ctx, dispatchBudget)") {
+			t.Errorf("core's %s no longer opens dispatchBudget — re-read the guide's ten seconds for every subscriber "+
+				"of one hook or event", fn.decl)
 		}
 	}
-	// And the two calls the guide says get more than PLUGIN_CALL_TIMEOUT.
+	// And the two calls the guide says get more than PLUGIN_CALL_TIMEOUT — each wired from the operator's
+	// setting to the call that spends it.
 	host := core("internal", "plugin", "host.go")
 	has(host, "internal/plugin/host.go", "initCtx, cancel := context.WithTimeout(ctx, r.host.cfg.InitTimeout)")
 	has(host, "internal/plugin/host.go", "context.WithTimeout(ctx, hookBudget(hook, h.cfg.CallTimeout))")
+	has(core("cmd", "server", "main.go"), "cmd/server/main.go", "InitTimeout: a.cfg.PluginInitTimeout,")
 	has(core("pkg", "config", "config.go"), "pkg/config/config.go", `parseDuration("PLUGIN_INIT_TIMEOUT", 30*time.Second)`)
 	says(guide, "PLUGIN_SDK.md", "`Init` has `PLUGIN_INIT_TIMEOUT` (30 seconds by default)")
-	says(guide, "PLUGIN_SDK.md", "a payment gateway's three hooks have 15 seconds or `PLUGIN_CALL_TIMEOUT`, whichever is longer")
+	gateway := regexp.MustCompile(`const PaymentHookBudget = ([0-9]+) \* time\.Second`).FindStringSubmatch(core("internal", "plugin", "payments.go"))
+	if gateway == nil {
+		t.Fatal("core's internal/plugin/payments.go no longer declares PaymentHookBudget in seconds — repoint this guard")
+	}
+	says(guide, "PLUGIN_SDK.md", "a payment gateway's three hooks have at most "+gateway[1]+" seconds or `PLUGIN_CALL_TIMEOUT`, whichever is longer — less when the request that asked has less left")
 	says(guide, "PLUGIN_SDK.md", "`PLUGIN_CALL_TIMEOUT` (5 seconds by default); every subscriber of one hook or event shares ten seconds")
 	says(guide, "PLUGIN_SDK.md", "shares 1.5 seconds")
 	says(plugins, "PLUGINS.md", "5 s a call (PLUGIN_CALL_TIMEOUT), 10 s for every subscriber of one hook or event together, 1.5 s for everything one public page asks of plugins")
@@ -118,9 +130,11 @@ func TestTheGuidesNumbersAndNamesAreCores(t *testing.T) {
 		t.Errorf("the guide names a storefront widget Core does not register: %q", extra)
 	}
 
-	// The class a theme styles the product grid by is the one Core's Products widget renders.
-	has(widgets, "internal/pagebuilder/commercewidgets.go", `<ul class="pb-product-loop pb-product-loop--%s %s">`)
+	// The class a theme styles the product grid by is the one Core's Products widget renders — the class, not the
+	// whole template, so a markup change that keeps it does not fail here. Said in the guide and in commerce.go.
+	has(widgets, "internal/pagebuilder/commercewidgets.go", `class="pb-product-loop `)
 	says(guide, "PLUGIN_SDK.md", "a theme that styles `.pb-product-loop` styles yours")
+	says(flat(strings.ReplaceAll(readText(t, "commerce.go"), "\n//", "\n")), "commerce.go", "A theme that styles `.pb-product-loop` styles yours.")
 
 	// The widget field vocabulary's size, as the guide writes it, is FieldTypes()'s.
 	says(guide, "PLUGIN_SDK.md", "`WidgetField.Type` accepts **"+strconv.Itoa(len(FieldTypes()))+" types**")

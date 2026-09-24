@@ -13,8 +13,8 @@ go 1.25.0
 // the only lever a published version has — proxy.golang.org caches what it has served, and a retraction
 // works by being read from the LATEST version's go.mod, which is why it must survive every release.
 retract (
-	v0.1.0 // contract v1: Core refuses it (ProtocolVersion 1 ≠ 2)
 	v0.1.1 // contract v1: Core refuses it (ProtocolVersion 1 ≠ 2)
+	v0.1.0 // contract v1: Core refuses it (ProtocolVersion 1 ≠ 2)
 )
 
 require (

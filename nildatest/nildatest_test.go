@@ -2,6 +2,7 @@ package nildatest
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -54,14 +55,7 @@ func TestTheFakeRefusesTheEventNamesCoreRefuses(t *testing.T) {
 // fake passes a plugin's tests that real Core then refuses.
 func TestTheFakesEventTableIsCores(t *testing.T) {
 	dir := filepath.Join("..", "..", "core", "internal", "plugin")
-	raw, err := os.ReadFile(filepath.Join(dir, "eventprovenance.go"))
-	if os.IsNotExist(err) {
-		t.Skip("core is not checked out beside plugin-sdk, so its event table cannot be read from here — " +
-			"run this from a full nilda checkout")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	raw := []byte(coreSource(t, "eventprovenance.go"))
 	body := regexp.MustCompile(`(?s)var capabilityEventNamespaces = map\[string\]string\{(.*?)\n\}`).FindSubmatch(raw)
 	if body == nil {
 		t.Fatal("core's eventprovenance.go no longer declares capabilityEventNamespaces as a map literal — repoint this guard")
@@ -104,26 +98,99 @@ func TestTheFakesKVValueCapIsCores(t *testing.T) {
 		t.Fatalf("a value at the cap was refused: %v", err)
 	}
 
-	got, found := coreIntConstant(t, "kvquota.go", "maxKVValueBytes")
-	if !found {
-		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-	}
-	if got != maxKVValueBytes {
+	if got := coreIntConstant(t, "kvquota.go", "maxKVValueBytes"); got != maxKVValueBytes {
 		t.Fatalf("core caps a KV value at %d bytes; this fake at %d", got, maxKVValueBytes)
 	}
 }
 
-// coreIntConstant reads `name = <int>` or `name = <a> << <b>` from core's internal/plugin/<file>.
-func coreIntConstant(t *testing.T, file, name string) (int, bool) {
-	t.Helper()
-	raw, err := os.ReadFile(filepath.Join("..", "..", "core", "internal", "plugin", file))
-	if os.IsNotExist(err) {
-		return 0, false
+// The fake refuses a write past Core's per-plugin budget — keys, and bytes counted as Core counts them (the key
+// under Core's namespace prefix, plus the value) — with Core's code, after sweeping what has expired, as Core
+// does on every install. It said it did not model this, and a plugin that filled its namespace passed here and
+// met ResourceExhausted on its first busy site.
+func TestTheFakesKVBudgetIsCores(t *testing.T) {
+	ctx := context.Background()
+	core, host := New("kvfull", "kv")
+	for i := range maxKVKeysPerPlugin {
+		if err := host.put(strconv.Itoa(i), kvEntry{val: "1"}); err != nil {
+			t.Fatalf("key %d of %d: %v", i+1, maxKVKeysPerPlugin, err)
+		}
 	}
-	if err != nil {
+	err := core.KVSet(ctx, "one-more", "1", 0)
+	if status.Code(err) != codes.ResourceExhausted || status.Convert(err).Message() != kvFull {
+		t.Fatalf("a key past the %d-key budget answered %v, want ResourceExhausted with Core's message", maxKVKeysPerPlugin, err)
+	}
+	if _, err := core.KVIncr(ctx, "a-new-counter"); status.Code(err) != codes.ResourceExhausted {
+		t.Fatalf("a new counter past the key budget answered %v, want ResourceExhausted", err)
+	}
+	if err := core.KVSet(ctx, "0", "rewritten", 0); err != nil {
+		t.Fatalf("rewriting a key that exists adds no key, and was refused: %v", err)
+	}
+	if err := core.KVDel(ctx, "1"); err != nil {
 		t.Fatal(err)
 	}
-	m := regexp.MustCompile(`\b` + name + `\s*=\s*([0-9_]+)(?:\s*<<\s*([0-9]+))?`).FindStringSubmatch(string(raw))
+	if err := core.KVSet(ctx, "one-more", "1", 0); err != nil {
+		t.Fatalf("a deleted key made room, and the write was still refused: %v", err)
+	}
+	// Expired keys are swept before a write is refused.
+	if err := core.KVSet(ctx, "1", "1", time.Second); err == nil {
+		t.Fatal("the namespace was full again, and a write was accepted")
+	}
+	if err := core.KVDel(ctx, "2"); err != nil {
+		t.Fatal(err)
+	}
+	if err := core.KVSet(ctx, "short-lived", "1", time.Second); err != nil {
+		t.Fatal(err)
+	}
+	host.Advance(2 * time.Second)
+	if err := core.KVSet(ctx, "after-the-sweep", "1", 0); err != nil {
+		t.Fatalf("an expired key was not swept before the write was refused: %v", err)
+	}
+
+	// Bytes: the namespace prefix counts, as it does in Core. Each entry below is exactly one value-cap in size —
+	// prefix, a four-character key, and the rest value — so the budget fills to the byte.
+	core, _ = New("kvbytes", "kv")
+	if maxKVBytesPerPlugin%maxKVValueBytes != 0 {
+		t.Fatal("the byte budget is no longer a whole number of value caps — teach this test to fill it")
+	}
+	value := strings.Repeat("x", maxKVValueBytes-len("plugin:kv:kvbytes:")-len("k000"))
+	for i := range maxKVBytesPerPlugin / maxKVValueBytes {
+		if err := core.KVSet(ctx, fmt.Sprintf("k%03d", i), value, 0); err != nil {
+			t.Fatalf("entry %d, inside the budget: %v", i, err)
+		}
+	}
+	if err := core.KVSet(ctx, "y", "", 0); status.Code(err) != codes.ResourceExhausted {
+		t.Fatalf("a key past the %d-byte budget answered %v, want ResourceExhausted", maxKVBytesPerPlugin, err)
+	}
+	if err := core.KVSet(ctx, "k000", value+"x", 0); status.Code(err) != codes.ResourceExhausted {
+		t.Fatalf("a value grown one byte past the budget answered %v, want ResourceExhausted", err)
+	}
+	if err := core.KVSet(ctx, "k000", value[1:], 0); err != nil {
+		t.Fatalf("a value that shrank was refused: %v", err)
+	}
+	if err := core.KVDel(ctx, "k001"); err != nil {
+		t.Fatal(err)
+	}
+	if err := core.KVSet(ctx, "k999", value, 0); err != nil {
+		t.Fatalf("a deleted value's bytes were not given back: %v", err)
+	}
+
+	for name, fake := range map[string]int{"maxKVKeysPerPlugin": maxKVKeysPerPlugin, "maxKVBytesPerPlugin": maxKVBytesPerPlugin} {
+		if got := coreIntConstant(t, "kvquota.go", name); got != fake {
+			t.Errorf("core's %s is %d; this fake's %d", name, got, fake)
+		}
+	}
+	if !strings.Contains(coreSource(t, "kvquota.go"), "ErrKVFull = errors.New(\""+kvFull+"\")") {
+		t.Error("core's ErrKVFull no longer reads as this fake's kvFull — a plugin matching the message is told another")
+	}
+	if !strings.Contains(coreSource(t, "kv.go"), `func KVNamespace(pluginKey string) string { return "plugin:kv:" + pluginKey + ":" }`) {
+		t.Error("core's kv namespace prefix changed — this fake counts a key's bytes under the old one")
+	}
+}
+
+// coreIntConstant reads `name = <int>` or `name = <a> << <b>` from core's internal/plugin/<file>.
+func coreIntConstant(t *testing.T, file, name string) int {
+	t.Helper()
+	m := regexp.MustCompile(`\b` + name + `\s*=\s*([0-9_]+)(?:\s*<<\s*([0-9]+))?`).FindStringSubmatch(coreSource(t, file))
 	if m == nil {
 		t.Fatalf("core's %s no longer declares %s as a number — repoint this guard", file, name)
 	}
@@ -135,7 +202,7 @@ func coreIntConstant(t *testing.T, file, name string) (int, bool) {
 		shift, _ := strconv.Atoi(m[2])
 		n <<= shift
 	}
-	return n, true
+	return n
 }
 
 // coreStringConstants is every `Name = "value"` string constant in core's non-test sources in dir.
@@ -229,9 +296,6 @@ func TestTheFakeRefusesWhatCoreRefusesOnEmailAndSignOut(t *testing.T) {
 	}
 
 	src := coreSource(t, "hostservice.go")
-	if src == "" {
-		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-	}
 	for _, want := range []struct{ condition, code string }{
 		{`req.To == "" || req.Subject == ""`, "codes.InvalidArgument"},
 		{`req.Provider == "" || req.Subject == ""`, "codes.InvalidArgument"},
@@ -261,15 +325,23 @@ func TestSessionsPerIdentityIsPerHost(t *testing.T) {
 	}
 }
 
-// coreSource is core's internal/plugin/<file>, or "" when core is not checked out beside plugin-sdk.
+// coreSource is core's internal/plugin/<file>. It SKIPS only when Core itself is not checked out beside
+// plugin-sdk (no core/go.mod); once Core is there, a missing file FAILS — Core moved or renamed what the guard
+// reads, the change it exists to notice, and a skip would print ok over it (the root package's coreSource, the
+// same rule).
 func coreSource(t *testing.T, file string) string {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join("..", "..", "core", "internal", "plugin", file))
-	if os.IsNotExist(err) {
-		return ""
+	path := filepath.Join("..", "..", "core", "internal", "plugin", file)
+	raw, err := os.ReadFile(path)
+	if err == nil {
+		return string(raw)
 	}
-	if err != nil {
-		t.Fatal(err)
+	if !os.IsNotExist(err) {
+		t.Fatalf("reading %s: %v", path, err)
 	}
-	return string(raw)
+	if _, err := os.Stat(filepath.Join("..", "..", "core", "go.mod")); err != nil {
+		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
+	}
+	t.Fatalf("core is checked out beside plugin-sdk but has no %s — it moved or was renamed; repoint this guard", path)
+	return ""
 }

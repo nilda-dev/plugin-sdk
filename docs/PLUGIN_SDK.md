@@ -36,7 +36,7 @@ flowchart LR
     end
     EXT["api.stripe.com<br/>and friends"]
 
-    H -- "gRPC: Init · hooks · events · health" --> P
+    H -- "gRPC: Init · hooks · events" --> P
     P -- "HTTP + scoped token: read & write everything" --> API
     P -- "gRPC: its own KV · emit events" --> H
     P -- "SQL (DML only): its schema + read-only views" --> PG
@@ -48,7 +48,7 @@ Five doors, and each is capability-gated:
 
 | Door | Transport | What it is for | Needs |
 |---|---|---|---|
-| Core → plugin | gRPC | `Init`, hooks, events, health | — |
+| Core → plugin | gRPC | `Init`, hooks, events (`Health` is defined and never called: a plugin is supervised by its process and its calls) | — |
 | plugin → Core data | **HTTP** to `/api/rest/v1` | read *and write* content, media, taxonomy, menus | a write/read capability |
 | plugin → Core state | gRPC | its own KV namespace, emitting events | `kv`, `events` |
 | plugin → its tables (Core-owned) | SQL | real transactional data, joins against Core's published data | `datastore` |
@@ -147,7 +147,8 @@ An importer interrupted at row 312 can then be run again from the start — with
 producing 312 duplicates. Core keeps the FIRST result for each key and hands it back to every repeat of the
 same request (marked `Idempotent-Replayed: true`), errors included, so a retry after a 5xx cannot write
 twice. The same key on a different request is refused (422); a repeat while the first is still running is
-refused (409); a request Core refused (4xx) gives its key back. Keys belong to your plugin's identity, not
+refused (409); a request Core refused (4xx) gives its key back, and so does a 503 — "nothing changed, ask
+again" — so the same key runs again. Keys belong to your plugin's identity, not
 its token, so they survive a restart — under the same scopes: a repeat made with different ones (an update
 changed what your plugin may do) is a different request, refused 422, never handed the first answer.
 
@@ -156,7 +157,9 @@ call Core makes to you has `PLUGIN_CALL_TIMEOUT` (5 seconds by default); every s
 event shares ten seconds; and everything one public page asks of plugins — its widgets and its footer
 scripts together — shares 1.5 seconds, past which the page renders without the rest. Two calls get more:
 `Init` has `PLUGIN_INIT_TIMEOUT` (30 seconds by default), because a one-time data step runs there, and a
-payment gateway's three hooks have 15 seconds or `PLUGIN_CALL_TIMEOUT`, whichever is longer (PAYMENTS.md).
+payment gateway's three hooks have at most 15 seconds or `PLUGIN_CALL_TIMEOUT`, whichever is longer — less
+when the request that asked has less left, since `payment.start` and `payment.describe` run inside it
+(PAYMENTS.md).
 
 ```go
 api := s.core.API()
@@ -266,7 +269,8 @@ What that means for you day to day:
   want `NOT NULL`, because a bare `NOT NULL` cannot be added to a populated table.
 - **You cannot drop or retype a column, or move the primary key.** Nothing in the plugin path emits
   destructive DDL, and an update that marks a different column `primary_key` is refused before anything
-  changes — as is a reinstall over the tables an earlier install left. Need a different shape? Declare a new
+  changes — as is switching on a reinstall over the tables an earlier install left (the install itself
+  succeeds; its first enable is refused). Need a different shape? Declare a new
   table and move the rows with the DML you already have.
 - **A new unique column or index must fit the rows already there.** An update whose new unique column or
   index would put two existing rows on one value — a new unique column whose `default` gives every row the
@@ -280,7 +284,7 @@ What that means for you day to day:
   reason it is a declaration and not a `.sql` file you ship.
 - **A default must fit its column**, by Postgres's own rule: a `text` column takes any default; `now()` fits
   `timestamptz` and `date`, `gen_random_uuid()` fits `uuid`, `true`/`false` fit `bool`, a plain number fits
-  `int`, `bigint` and `numeric`; a quoted string must be a value of the column's type (`'42'` on an `int`,
+  `int`, `bigint` and `numeric` within its range (below); a quoted string must be a value of the column's type (`'42'` on an `int`,
   `'yes'` on a `bool`). A quoted date or time is left to Postgres, which reads too many spellings of one to
   restate — a wrong one still fails when the table is built.
 - **Limits**: at most 64 tables, 64 columns a table, 16 indexes a table and 32 columns an index (Postgres
@@ -357,7 +361,7 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `hooks` | receive hook callbacks |
 | `events` | subscribe to events, and emit your own — see below for which names are yours |
 | `datastore` | a dedicated Postgres schema, tables Core creates from your declaration, DML-only access |
-| `kv` | a scoped key-value namespace for small state: a value is at most 64 KiB (a larger one answers `InvalidArgument`), and on every install one plugin holds at most 10,000 keys and 16 MiB (in Core's memory on a Lite install, beside Core's cache on Dragonfly) — a write past that answers `ResourceExhausted`, after expired keys are cleared, with no `google.rpc.RetryInfo` (a call past the kv rate limit carries one; waiting does not empty a full namespace); declare `datastore` for more |
+| `kv` | a scoped key-value namespace for small state: a value is at most 64 KiB (a larger one answers `InvalidArgument`), and on every install one plugin holds at most 10,000 keys and 16 MiB (in Core's memory on a Lite install, beside Core's cache on Dragonfly, where writes racing each other at the very edge can pass it together) — a write past that answers `ResourceExhausted`, after expired keys are cleared, with no `google.rpc.RetryInfo` (a call past the kv rate limit carries one; waiting does not empty a full namespace); declare `datastore` for more |
 | `route` | a reverse-proxied URL prefix |
 | `render.assets` | load its own scripts on public pages — see §4.1 |
 | `widget` | contribute page-builder widgets — see §4.1 |
@@ -393,7 +397,7 @@ edits is recorded as its work.
 with your key — `shop` emits `shop.order_paid`, which `core.PluginKey + ".order_paid"` builds — or with a
 namespace a capability you hold owns: `commerce.*` and `ecommerce.*` belong to the site's shop, the plugin
 holding `commerce`, whoever wrote it (`ecommerce.*` is the spelling Nilda's own shop plugin shipped its
-order events under). A name with no namespace at all — no dot — is refused with `InvalidArgument`; any
+order events under). A name with no namespace — no dot, or nothing on one side of it (`.paid`, `shop.`) — is refused with `InvalidArgument`; any
 other name that is not yours with `PermissionDenied`, and Core's own names (`content.*`, `form.*`,
 `comment.*`, …) are refused to every plugin, even one keyed `content`. The reason is the subscriber: a
 plugin listening for an order event has nothing but the name to tell it who sent it, so a name anyone
@@ -537,8 +541,9 @@ message naming both — instead of letting it fail later as an exec error about 
 DECLARED platform is checked against the binary as well, and a mismatch is refused as a package that
 describes something other than what would run. `nilda plugin build` copies one manifest into every
 platform's package, so a manifest declaring `"os": "linux", "arch": "amd64"` makes the darwin and arm64
-packages uninstallable. The two fields matter only for a binary with no Go build information — a stripped
-build, or a plugin in another language (ANY_LANGUAGE.md): a site in sideload mode then falls back to what
+packages uninstallable. The two fields matter only for a binary with no Go build information — a plugin in
+another language (ANY_LANGUAGE.md); a Go binary built with `-ldflags='-s -w'` keeps it, since stripping removes
+symbols and debug data, not the build information: a site in sideload mode then falls back to what
 the manifest declares, and the marketplace refuses the package, because it cannot tell what it would be
 distributing.
 
@@ -653,6 +658,11 @@ one, so a typo costs an owner one permission click rather than an unguarded acti
 | `access` | roles, permissions, credentials |
 | `infra` | maintenance, caches, backups, the install itself |
 
+**On an install without Pro, the site's assistant runs only `read` abilities.** Every class above `read` —
+`analyze` included, since an audit costs a model call — is what Pro sells the assistant doing, and is refused
+on a free install before your plugin is reached. So `read` versus `analyze` decides whether your ability runs
+on a free site at all: declare `read` only when that is the truth.
+
 **Who may run it is Core's decision, not yours.** The class says how risky the action is; it does not say
 which *person* may ask for it. Core runs an ability only for someone who holds `plugin.manage`, or
 `plugin.<key>.configure` — the per-plugin permission your own admin section (`admin_page`) is gated on. An
@@ -702,8 +712,10 @@ func (s *Shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, er
 
 Core reverse-proxies `/shop/*` to it, so a storefront serves itself without a round trip through Core per
 request. `route_prefix` is one root segment, and Core refuses one it answers on itself — `/api`, `/admin`,
-`/feed`, `/themes`, `/privacy`, `/category` and the rest — and any language's code (`/fa`, `/en`, `/pt-br`),
-because a site serves each language it is published in under its code; `nilda plugin check` names it.
+`/feed`, `/themes`, `/privacy`, `/category` and the rest — and any language's code (`/fa`, `/en`, `/pt`),
+because a site serves each language it is published in under its code; `nilda plugin check` names it. The
+code is the WHOLE prefix, as the site matches it: `/my-account` or `/to-do` is yours, though `my` and `to`
+are languages.
 
 **Who is asking.** `nilda.CurrentUser(r)` reads the person behind a request your server received — a
 `nilda.Viewer` with their Core user id and display name, and `ok == false` for an anonymous visitor, which is
@@ -828,9 +840,14 @@ func (p *Shop) onAction(ctx context.Context, a nilda.AdminAction) (nilda.AdminAc
 		// which order it was.
 		return nilda.AdminActionResult{Message: "Refunded"}, nil
 	}
-	return nilda.AdminActionResult{}, fmt.Errorf("unknown action %q", a.Action)
+	// A refusal is a fixed sentence too: the owner reads it through the same translations.
+	return nilda.AdminActionResult{}, errors.New("This action is not available")
 }
 ```
+
+An error from `onAction` is your answer, not a failure — even one that wraps a Core call's error, like
+`p.refund`'s above: `Serve` sends every error a handler returns as the plugin's answer, and only running out
+of time, crashing or panicking counts toward switching the plugin off.
 
 **`Message` is the field the admin shows, and it is the only one.** An action that returns
 `{"result":"refunded"}` runs perfectly and the person who pressed the button is told "Done" — which is why
@@ -1166,8 +1183,9 @@ A **consumer** implements `nilda.PaymentConsumer` — `ConfirmPayment(ctx, nilda
 
 The hooks' JSON is Go types too, for a plugin that handles a hook by hand or reads the wire:
 `nilda.PaymentDescribeResponse`, `nilda.PaymentStartRequest`, `nilda.PaymentRefundRequest`,
-`nilda.PaymentConfirmRequest`, `nilda.PaymentSessionUpdate` and `nilda.PaymentRefundUpdate` — each wraps the
-session (and refund) your method receives.
+`nilda.PaymentConfirmRequest`, `nilda.PaymentSessionUpdate` and `nilda.PaymentRefundUpdate` — each request
+wraps the session (and refund) your method receives, and `nilda.PaymentDescribeResponse` wraps the methods
+`DescribePayments` answers with.
 
 Serve subscribes and ANSWERS both interfaces' hooks — through `nilda.DispatchPaymentGatewayHook`, which
 checks what goes in and what comes out, and `nilda.DispatchPaymentConsumerHook`, which decodes and encodes
@@ -1398,10 +1416,15 @@ number of them store a live payment key in plain text on somebody else's site.
 can never be holding a credential the owner has already replaced. There is nothing to watch and no reload
 callback to write.
 
-**Who saves them.** The owner, on your section of the admin — or the site's assistant (`plugin_settings_set`),
-for a person who may configure your plugin and only after they approved the change. Both go through the same
-save, so the same rules hold: only the fields you declared, a required field never emptied, each field's own
-type; a secret can be written that way and is never read back or repeated.
+**Who saves them.** A person who may configure your plugin, on your section of the admin — or the site's
+assistant (`plugin_settings_set`), for a person who may configure your plugin and only after they approved the
+change. Both go through the same save, so the same rules hold: only the fields you declared, a required field
+never emptied, each field's own type; a secret can be written that way and is never read back or repeated.
+
+**What the assistant reads.** `plugin_settings` shows the assistant — and so the AI provider behind it — every
+field's current value, except a `secret` one, which it names and says only whether it is set. So `secret` is the
+line between "a person may see it" and "the model sees it": a webhook URL with a token in it, or any other
+credential, in a plain text field reaches the model. Mark it `secret`.
 
 **Not configured is the first state every integration is in.** `HasSetting` before you do work that cannot
 succeed without a value — a plugin that fails to start until it is configured cannot be configured, because

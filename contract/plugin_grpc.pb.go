@@ -65,7 +65,8 @@ type PluginServiceClient interface {
 	// HandleEvent delivers one event (best-effort, timeout-bounded; delivery guarantees are a
 	// documented SPEC_98 bound — at-least-once/replay is a later SPEC).
 	HandleEvent(ctx context.Context, in *EventRequest, opts ...grpc.CallOption) (*EventResponse, error)
-	// Health is the supervision probe.
+	// Health is defined and never called: Nilda supervises a plugin by its process exiting and by its calls
+	// failing, not by a probe. Answer it anyway — a later Core may ask.
 	Health(ctx context.Context, in *HealthRequest, opts ...grpc.CallOption) (*HealthResponse, error)
 }
 
@@ -132,7 +133,8 @@ type PluginServiceServer interface {
 	// HandleEvent delivers one event (best-effort, timeout-bounded; delivery guarantees are a
 	// documented SPEC_98 bound — at-least-once/replay is a later SPEC).
 	HandleEvent(context.Context, *EventRequest) (*EventResponse, error)
-	// Health is the supervision probe.
+	// Health is defined and never called: Nilda supervises a plugin by its process exiting and by its calls
+	// failing, not by a probe. Answer it anyway — a later Core may ask.
 	Health(context.Context, *HealthRequest) (*HealthResponse, error)
 	mustEmbedUnimplementedPluginServiceServer()
 }

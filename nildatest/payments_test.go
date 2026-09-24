@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -23,10 +24,15 @@ type shopConsumer struct {
 	fail    error
 	confirm nilda.PaymentConfirmResult
 	calls   int
+	// asked, when set, runs while the consumer is being asked to confirm — for what happens meanwhile.
+	asked func(nilda.PaymentSession)
 }
 
-func (c *shopConsumer) ConfirmPayment(context.Context, nilda.PaymentSession) (nilda.PaymentConfirmResult, error) {
+func (c *shopConsumer) ConfirmPayment(_ context.Context, s nilda.PaymentSession) (nilda.PaymentConfirmResult, error) {
 	c.calls++
+	if c.asked != nil {
+		c.asked(s)
+	}
 	return c.confirm, c.fail
 }
 func (c *shopConsumer) PaymentUpdated(_ context.Context, s nilda.PaymentSession) error {
@@ -134,6 +140,11 @@ func TestTheKitRefusesWhatCoreRefuses(t *testing.T) {
 	if _, err := shop.CreateRefund(ctx, "r2", s.ID, nilda.PaymentRefundParams{AmountMinor: 100}); httpStatus(t, err) != http.StatusServiceUnavailable {
 		t.Fatalf("a refund through a gateway that cannot be asked answered %v, want 503 — ask again later", err)
 	}
+	// Core asks whether the gateway can refund BEFORE it adds up the refunds: an over-refund while the gateway is
+	// down is the same 503, not the 422 it will be once the gateway answers.
+	if _, err := shop.CreateRefund(ctx, "r-over", s.ID, nilda.PaymentRefundParams{AmountMinor: 5000}); httpStatus(t, err) != http.StatusServiceUnavailable {
+		t.Fatalf("an over-refund while the gateway is down answered %v, want Core's 503", err)
+	}
 	// …and a 503 changed nothing, so the same key asks again once the gateway is back, instead of replaying it.
 	gw.down = false
 	if rf2, err := shop.CreateRefund(ctx, "r2", s.ID, nilda.PaymentRefundParams{AmountMinor: 100}); err != nil || rf2.Status != nilda.RefundRequested {
@@ -189,20 +200,24 @@ func TestTheSameKeyGetsTheSameSessionAndAnotherRequestIsRefused(t *testing.T) {
 }
 
 // heldStart is a StubGateway whose start waits until release is closed — a processor that is slow to answer.
+// Only the first start is announced, so a kit that wrongly runs a second one fails at the test's assertion, not
+// on a channel closed twice.
 type heldStart struct {
 	StubGateway
 	entered chan struct{}
 	release chan struct{}
+	once    sync.Once
 }
 
 func (g *heldStart) StartPayment(ctx context.Context, s nilda.PaymentSession) (nilda.PaymentStartResult, error) {
-	close(g.entered)
+	g.once.Do(func() { close(g.entered) })
 	<-g.release
 	return g.StubGateway.StartPayment(ctx, s)
 }
 
 // A keyed request sent again while the first is still being answered is a 409, as in Core's idempotency layer
-// (S-55 of Core's 2026-09-24 whole-plan review: the kit ran both).
+// (S-55 of Core's 2026-09-24 whole-plan review: the kit ran both) — whatever its body: Core looks for a running
+// claim before it compares bodies, since a claim has no finished answer to compare with.
 func TestARepeatWhileTheFirstIsRunningIsRefused(t *testing.T) {
 	ctx := context.Background()
 	pay := NewPayments()
@@ -220,12 +235,42 @@ func TestARepeatWhileTheFirstIsRunningIsRefused(t *testing.T) {
 	}()
 	<-gw.entered
 	_, err := shop.CreateSession(ctx, "k1", params())
+	other := params()
+	other.AmountMinor = 999
+	_, otherErr := shop.CreateSession(ctx, "k1", other)
 	close(gw.release)
 	if httpStatus(t, err) != http.StatusConflict {
 		t.Fatalf("the same key while the first was running answered %v, want 409", err)
 	}
+	if httpStatus(t, otherErr) != http.StatusConflict {
+		t.Fatalf("the same key with another body while the first was running answered %v, want Core's 409", otherErr)
+	}
 	if err := <-first; err != nil {
 		t.Fatalf("the first request: %v", err)
+	}
+}
+
+// panickingStart is a gateway whose own code panics on a start — an author's bug.
+type panickingStart struct{ StubGateway }
+
+func (panickingStart) StartPayment(context.Context, nilda.PaymentSession) (nilda.PaymentStartResult, error) {
+	panic("an author's bug")
+}
+
+// A panic while a keyed request runs is recorded as the 500 it is, as Core's idempotency layer records it: left
+// claimed, every retry with that key answered 409 "still being processed" for good.
+func TestAPanicUnderAKeyIsA500NotAClaimForever(t *testing.T) {
+	ctx := context.Background()
+	pay := NewPayments()
+	pay.Gateway("testpay", &panickingStart{})
+	shopCore, _, srv := pay.Core("shop", "payment_session")
+	t.Cleanup(srv.Close)
+	shop := shopCore.API().Payments()
+	if _, err := shop.CreateSession(ctx, "k1", params()); err == nil {
+		t.Fatal("a start that panicked answered no error")
+	}
+	if _, err := shop.CreateSession(ctx, "k1", params()); httpStatus(t, err) != http.StatusInternalServerError {
+		t.Fatalf("the same key after the panic answered %v, want the recorded 500", err)
 	}
 }
 
@@ -404,6 +449,58 @@ func TestAWrongAmountIsHeldForAPersonAndTheRightOneResolves(t *testing.T) {
 	}
 }
 
+// A person's decision, as Core's Decide (admin.go): a held mismatch is resolved AT THE PROCESSOR'S AMOUNT — the
+// consumer books what was taken, and a refund in full is bounded by it — one in another currency is refused, and a
+// rejection keeps amount_mismatch as its reason with the note as its message. Only a pending payment is decided.
+func TestAPersonDecidesAPendingPaymentAsInCore(t *testing.T) {
+	w := newWorld(t)
+	ctx := context.Background()
+
+	s, _ := w.shopAPI.CreateSession(ctx, "k1", params())
+	if _, err := w.pay.Decide(s.ID, "resolve", ""); err == nil {
+		t.Fatal("a redirected payment was decided by a person — Core decides only a pending one")
+	}
+	_, _ = w.gwAPI.Resolve(ctx, s.ID, nilda.PaymentResolution{AmountMinor: 1200, Currency: "EUR"})
+	w.pay.Deliver(ctx)
+	got, err := w.pay.Decide(s.ID, "resolve", "the payer's bank took a fee")
+	if err != nil || got.Status != nilda.PaymentResolved || got.AmountMinor != 1200 || got.FailureCode != "" || got.FailureMessage != "" {
+		t.Fatalf("resolving a held 1200 of 1234: %+v %v — want resolved at the processor's 1200, no failure fields", got, err)
+	}
+	w.pay.Deliver(ctx)
+	if d := w.pay.Deliveries(); d[len(d)-1].Session.Status != nilda.PaymentResolved || d[len(d)-1].Session.AmountMinor != 1200 {
+		t.Fatalf("the consumer was told %+v, want resolved at 1200", d[len(d)-1].Session)
+	}
+	if _, err := w.shopAPI.CreateRefund(ctx, "r1", s.ID, nilda.PaymentRefundParams{AmountMinor: 1234}); httpStatus(t, err) != http.StatusUnprocessableEntity {
+		t.Error("a refund of the amount asked — past the 1200 taken — was accepted")
+	}
+
+	other, _ := w.shopAPI.CreateSession(ctx, "k2", params())
+	_, _ = w.gwAPI.Resolve(ctx, other.ID, nilda.PaymentResolution{AmountMinor: 1234, Currency: "USD"})
+	if _, err := w.pay.Decide(other.ID, "resolve", ""); err == nil {
+		t.Fatal("a payment the processor took in another currency was resolved — Core refuses to book it")
+	}
+	got, err = w.pay.Decide(other.ID, "reject", "refunded at the processor")
+	if err != nil || got.Status != nilda.PaymentRejected || got.FailureCode != nilda.PaymentFailAmountMismatch ||
+		got.FailureMessage != "refunded at the processor" {
+		t.Fatalf("rejecting a held mismatch: %+v %v", got, err)
+	}
+
+	sat, _ := w.shopAPI.CreateSession(ctx, "k3", params())
+	_, _ = w.gwAPI.MarkPending(ctx, sat.ID, "pi_1")
+	if got, err := w.pay.Decide(sat.ID, "reject", ""); err != nil || got.FailureCode != nilda.PaymentFailCancelled {
+		t.Fatalf("rejecting a payment a processor sat on: %+v %v — want cancelled", got, err)
+	}
+	// Both refusals on a payment that is still pending, so neither is the pending rule answering for them.
+	last, _ := w.shopAPI.CreateSession(ctx, "k4", params())
+	_, _ = w.gwAPI.MarkPending(ctx, last.ID, "")
+	if _, err := w.pay.Decide(last.ID, "reject", strings.Repeat("é", 501)); err == nil {
+		t.Error("a 501-character note was accepted — Core's bound is 500")
+	}
+	if _, err := w.pay.Decide(last.ID, "maybe", ""); err == nil {
+		t.Error("a decision that is neither resolve nor reject was accepted")
+	}
+}
+
 func TestReturnAddressesStayOnTheSite(t *testing.T) {
 	w := newWorld(t)
 	p := params()
@@ -457,6 +554,24 @@ func TestAStartThatFailsClosesTheSessionAndAStartThatRefusesSaysWhy(t *testing.T
 	if err != nil || s.Status != nilda.PaymentRejected || s.FailureMessage != "below the minimum" {
 		t.Fatalf("a refused start: %+v %v", s, err)
 	}
+
+	// A gateway that could not be asked at all: closed as provider_unavailable with NO message, as Core writes
+	// none — a consumer that shows FailureMessage must not show text here that a real site never sends.
+	pay := NewPayments()
+	pay.Gateway("testpay", &failingStart{})
+	shopCore, _, srv := pay.Core("shop", "payment_session")
+	t.Cleanup(srv.Close)
+	s, err = shopCore.API().Payments().CreateSession(ctx, "k3", params())
+	if err != nil || s.Status != nilda.PaymentRejected || s.FailureCode != nilda.PaymentFailProviderUnavailable || s.FailureMessage != "" {
+		t.Fatalf("a start the gateway could not answer: %+v %v", s, err)
+	}
+}
+
+// failingStart is a gateway whose start call fails — its processor timed out.
+type failingStart struct{ StubGateway }
+
+func (failingStart) StartPayment(context.Context, nilda.PaymentSession) (nilda.PaymentStartResult, error) {
+	return nilda.PaymentStartResult{}, errors.New("processor timeout")
 }
 
 func TestAConsumerThatFailsIsOwedUntilItHears(t *testing.T) {
@@ -505,6 +620,66 @@ func TestTheConfirmStepAsksTheConsumer(t *testing.T) {
 	var ae *nilda.APIError
 	if _, err := w.gwAPI.Confirm(ctx, s2.ID); !errors.As(err, &ae) || !ae.Retryable() {
 		t.Errorf("a consumer that could not decide must be a retryable answer, got %v", err)
+	}
+}
+
+// A consumer's "no" is written only onto a session that can still be refused (Core's Confirm): the processor's
+// webhook that settles it while the consumer is being asked stands, with no refusal's code on a paid session.
+// And the reason is cut to Core's 500 characters, stored and answered alike.
+func TestAConfirmRefusalDoesNotOverwriteWhatHappenedMeanwhile(t *testing.T) {
+	w := newWorld(t)
+	ctx := context.Background()
+	s, _ := w.shopAPI.CreateSession(ctx, "k1", params())
+	w.shop.confirm = nilda.PaymentConfirmResult{Proceed: false, Reason: "sold out"}
+	w.shop.asked = func(s nilda.PaymentSession) {
+		if _, err := w.gwAPI.Resolve(ctx, s.ID, nilda.PaymentResolution{AmountMinor: 1234, Currency: "EUR"}); err != nil {
+			t.Errorf("the webhook's resolve: %v", err)
+		}
+	}
+	if res, err := w.gwAPI.Confirm(ctx, s.ID); err != nil || res.Proceed {
+		t.Fatalf("confirm: %+v %v", res, err)
+	}
+	got, _ := w.pay.GetSession(s.ID)
+	if got.Status != nilda.PaymentResolved || got.FailureCode != "" || got.FailureMessage != "" {
+		t.Fatalf("a refusal after the payment settled was written onto it: %+v", got)
+	}
+
+	w.shop.asked = nil
+	w.shop.confirm = nilda.PaymentConfirmResult{Proceed: false, Reason: strings.Repeat("é", 501)}
+	s2, _ := w.shopAPI.CreateSession(ctx, "k2", params())
+	res, err := w.gwAPI.Confirm(ctx, s2.ID)
+	got, _ = w.pay.GetSession(s2.ID)
+	if err != nil || res.Reason != strings.Repeat("é", 500) || got.FailureMessage != res.Reason {
+		t.Fatalf("a 501-character reason: answered %d characters, stored %d (%v), want 500 both",
+			len([]rune(res.Reason)), len([]rune(got.FailureMessage)), err)
+	}
+}
+
+// Core reads a report's body before it looks for the session: a malformed report is 422 whether or not the
+// session exists, and a currency is compared the way Core normalises it (" eur" is EUR).
+func TestAReportIsReadBeforeItsSessionAsInCore(t *testing.T) {
+	w := newWorld(t)
+	ctx := context.Background()
+	gwCore, _, srv := w.pay.Core("testpay", "payment_gateway")
+	t.Cleanup(srv.Close)
+	var out json.RawMessage
+	for _, c := range []struct{ path, body string }{
+		{"/payments/sessions/nope/resolve", `{"amount_minor":0,"currency":"EUR"}`},
+		{"/payments/sessions/nope/reject", `{"failure_code":"not-a-code"}`},
+		{"/payments/sessions/nope/pending", `{"provider_ref":"` + strings.Repeat("r", 256) + `"}`},
+		{"/payments/refunds/nope/resolve", `{"provider_ref":"` + strings.Repeat("r", 256) + `"}`},
+		{"/payments/refunds/nope/reject", `{"failure_code":"not-a-code"}`},
+	} {
+		if err := gwCore.API().Post(ctx, c.path, json.RawMessage(c.body), &out); httpStatus(t, err) != http.StatusUnprocessableEntity {
+			t.Errorf("POST %s %s on no session answered %v, want Core's 422", c.path, c.body, err)
+		}
+	}
+	s, _ := w.shopAPI.CreateSession(ctx, "k1", params())
+	var got struct {
+		Data nilda.PaymentSession `json:"data"`
+	}
+	if err := gwCore.API().Post(ctx, "/payments/sessions/"+s.ID+"/resolve", json.RawMessage(`{"amount_minor":1234,"currency":" eur"}`), &got); err != nil || got.Data.Status != nilda.PaymentResolved {
+		t.Fatalf(`a resolve in " eur" of an EUR session: %+v %v — Core normalises it and resolves`, got.Data, err)
 	}
 }
 

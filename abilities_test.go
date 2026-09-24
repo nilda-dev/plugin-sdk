@@ -166,17 +166,36 @@ func TestTwoAbilitiesWithOneNameAreRefused(t *testing.T) {
 // Both sides are READ, never typed here: Core's from its catalog.go, the SDK's from every constant of type
 // Class this package declares. A hand-written SDK list would agree with itself — a class added to the SDK
 // alone, or to Core alone and to this test, would pass.
+// "On an install without Pro, the site's assistant runs only `read` abilities" — held to Core's gate: every
+// tool enter()s through policyGate, which refuses a class that mutates() without the AI-execute licence, and
+// mutates() is every class ranked above read; a plugin's ability is run through enter() like a Core tool.
+func TestTheGuideSaysAFreeInstallRunsOnlyReadAbilities(t *testing.T) {
+	flat := func(s string) string { return strings.Join(strings.Fields(s), " ") }
+	guard := flat(coreSource(t, "internal", "agent", "guardrails.go"))
+	for _, want := range []string{
+		"if r, blocked := s.policyGate(ctx, pol, spec); blocked { return owner, r }",
+		"if spec.Class.mutates() && !license.IsProUnlocked(license.FeatureAIExecute) {",
+	} {
+		if !strings.Contains(guard, want) {
+			t.Errorf("core's guardrails.go no longer has %q — re-read the guide's free-install sentence", want)
+		}
+	}
+	if !strings.Contains(flat(coreSource(t, "internal", "agent", "catalog.go")), "return ok && r > classRank[ClassRead]") {
+		t.Error("core's mutates() is no longer every class above read — re-read the guide's free-install sentence")
+	}
+	if !strings.Contains(flat(coreSource(t, "internal", "agent", "abilities.go")), "owner, ref := svc.enter(ctx, name)") {
+		t.Error("core no longer runs a plugin's ability through enter() — re-read the guide's free-install sentence")
+	}
+	if !strings.Contains(flat(readText(t, "docs/PLUGIN_SDK.md")), "**On an install without Pro, the site's assistant runs only `read` abilities.**") {
+		t.Error("PLUGIN_SDK.md no longer says a free install runs only read abilities, which core's guardrails make true")
+	}
+}
+
 func TestTheClassesAreCores(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "agent", "catalog.go"))
-	if os.IsNotExist(err) {
-		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	raw := coreSource(t, "internal", "agent", "catalog.go")
 	decl := regexp.MustCompile(`(?m)^\s*Class\w+\s+Class\s*=\s*"([a-z]+)"`)
 	var core []string
-	for _, m := range decl.FindAllStringSubmatch(string(raw), -1) {
+	for _, m := range decl.FindAllStringSubmatch(raw, -1) {
 		core = append(core, m[1])
 	}
 	if len(core) < 5 {
@@ -219,17 +238,39 @@ func declaredClasses(t *testing.T) []string {
 		if err != nil {
 			t.Fatalf("parsing %s: %v", f, err)
 		}
+		// A class is declared either typed (`ClassRead Class = "read"`) or by conversion (`ClassRead = Class("read")`,
+		// no type on the spec) — the second form used to be skipped in silence, so an SDK-only class declared that
+		// way passed "the SDK's classes are Core's".
+		isClassConversion := func(v ast.Expr) bool {
+			call, ok := v.(*ast.CallExpr)
+			if !ok || len(call.Args) != 1 {
+				return false
+			}
+			fn, ok := call.Fun.(*ast.Ident)
+			return ok && fn.Name == "Class"
+		}
 		for _, d := range file.Decls {
 			gen, ok := d.(*ast.GenDecl)
-			if !ok || gen.Tok != token.CONST {
+			if !ok || (gen.Tok != token.CONST && gen.Tok != token.VAR) {
 				continue
 			}
 			for _, spec := range gen.Specs {
 				vs := spec.(*ast.ValueSpec)
-				if id, ok := vs.Type.(*ast.Ident); !ok || id.Name != "Class" {
+				typed := false
+				if id, ok := vs.Type.(*ast.Ident); ok && id.Name == "Class" {
+					typed = true
+				}
+				converted := vs.Type == nil && len(vs.Values) > 0
+				for _, v := range vs.Values {
+					converted = converted && isClassConversion(v)
+				}
+				if !typed && !converted {
 					continue
 				}
 				for _, v := range vs.Values {
+					if isClassConversion(v) {
+						v = v.(*ast.CallExpr).Args[0]
+					}
 					lit, ok := v.(*ast.BasicLit)
 					if !ok || lit.Kind != token.STRING {
 						t.Fatalf("%s declares a Class that is not a string literal — teach this guard", f)

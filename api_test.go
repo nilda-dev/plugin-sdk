@@ -2,6 +2,8 @@ package nilda
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -517,6 +519,35 @@ func TestAKeyedUploadIsTheSameRequestEveryTimeItIsRun(t *testing.T) {
 	}
 	if bodies[0] == bodies[2] {
 		t.Fatal("two different keys sent the same boundary — the boundary must come from the key")
+	}
+}
+
+// The boundary of a keyed upload is not a formula of the key alone. It was, and a key is often guessable (a row's
+// id), so a file fetched from somewhere could carry the boundary, end its own part and add a field of its own —
+// an `alt` Core reads first. Parsed the way Core parses it (FormFile, PostForm), the file and the alt stay what
+// the plugin sent.
+func TestAKeyedUploadsFileCannotWriteItsOwnFields(t *testing.T) {
+	sum := sha256.Sum256([]byte("nilda-upload\x00row-312"))
+	guessed := "nilda" + hex.EncodeToString(sum[:24]) // the key-only formula
+	hostile := "GIF89a\r\n--" + guessed + "\r\nContent-Disposition: form-data; name=\"alt\"\r\n\r\nINJECTED ALT\r\n--" + guessed + "--\r\n"
+	var gotFile, gotAlt string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		f, _, err := r.FormFile("file")
+		if err == nil {
+			b, _ := io.ReadAll(f)
+			gotFile = string(b)
+		}
+		gotAlt = r.PostFormValue("alt")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	defer srv.Close()
+	api := newAPI(srv.URL, "tok", []string{"write:media"}).WithIdempotencyKey("row-312")
+	if err := api.UploadMedia(context.Background(), "remote.gif", strings.NewReader(hostile), "The plugin's alt", nil); err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	if gotFile != hostile || gotAlt != "The plugin's alt" {
+		t.Fatalf("the file wrote its own form: Core read file %q and alt %q", gotFile, gotAlt)
 	}
 }
 

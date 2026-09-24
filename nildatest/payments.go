@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	nilda "gitlab.com/nildalabs/nilda-sdk/plugin-sdk"
 )
@@ -53,10 +54,10 @@ type Payments struct {
 	sessions  map[string]*nilda.PaymentSession
 	order     []string // session ids, oldest first
 	refunds   map[string]*nilda.PaymentRefund
-	refundDue map[string]bool   // refunds the delivery job still has to ask their gateway about
-	reported  map[string]string // session id → the mismatched amount a processor reported, as Core keeps it
-	keys      map[string]replay // caller + idempotency key → the first answer
-	owed      []owed            // what the consumers have not heard yet, oldest change first
+	refundDue map[string]bool          // refunds the delivery job still has to ask their gateway about
+	reported  map[string]reportedMoney // session id → what a processor took that did not match, as Core keeps it
+	keys      map[string]replay        // caller + idempotency key → the first answer
+	owed      []owed                   // what the consumers have not heard yet, oldest change first
 	log       []Delivery
 }
 
@@ -90,7 +91,19 @@ const (
 	// maxProviderRef is the bound on a processor's reference, Core's and the SDK's (payment.go's, which the
 	// SDK's TestTheKitsBoundsAreTheSDKs holds this copy to).
 	maxProviderRef = 255
+	// maxPaymentText is the bound on a reason, a note or a failure message, Core's and the SDK's — held by the same
+	// test.
+	maxPaymentText = 500
 )
+
+// runes cuts s to at most max characters, as Core's textcap.Runes does.
+func runes(s string, max int) string {
+	r := []rune(s)
+	if len(r) <= max {
+		return s
+	}
+	return string(r[:max])
+}
 
 // NewPayments builds an empty payment service.
 func NewPayments() *Payments {
@@ -101,7 +114,7 @@ func NewPayments() *Payments {
 		sessions:  map[string]*nilda.PaymentSession{},
 		refunds:   map[string]*nilda.PaymentRefund{},
 		refundDue: map[string]bool{},
-		reported:  map[string]string{},
+		reported:  map[string]reportedMoney{},
 		keys:      map[string]replay{},
 	}
 }
@@ -181,11 +194,12 @@ func (p *Payments) Deliveries() []Delivery {
 
 // ---- Core's own jobs, run when a test says --------------------------------------------------------------
 
-// Deliver runs Core's delivery job once: every consumer that has not heard a change is told the session's —
-// or the refund's — state as it is NOW, oldest change first, and a refund whose payment.refund went
-// unanswered is asked of its gateway again. It returns how many deliveries are still owed: a consumer that
-// answered with an error is owed until it answers without one, which is the promise Core makes about "the
-// customer paid".
+// Deliver runs Core's delivery job once. First every refund still `requested` is asked of its gateway
+// (payment.refund) — a new one's FIRST ask happens here, as in Core, where CreateRefund only records the refund,
+// and one whose answer was lost is asked again. Then every consumer that has not heard a change is told the
+// session's — or the refund's — state as it is NOW, oldest change first. It returns how many deliveries are
+// still owed: a consumer that answered with an error is owed until it answers without one, which is the
+// promise Core makes about "the customer paid".
 func (p *Payments) Deliver(ctx context.Context) int {
 	p.mu.Lock()
 	due := make([]string, 0, len(p.refundDue))
@@ -225,6 +239,62 @@ func (p *Payments) Expire(id string) error {
 	}
 	p.move(s, nilda.PaymentExpired)
 	return nil
+}
+
+// reportedMoney is what a processor said it took, when that was not what the session asked.
+type reportedMoney struct {
+	amount   int64
+	currency string
+}
+
+// Decide is a PERSON settling a pending payment, as the site owner does on Settings → Payments (Core's
+// Decide), so a consumer can test what it is then told. decision is "resolve" or "reject"; note, at most 500
+// characters, is the person's own words.
+//
+// "resolve" calls it paid. A payment Core held because the processor took a different amount is resolved AT
+// THE PROCESSOR'S AMOUNT — the consumer is told a resolved session whose AmountMinor is not the one it asked
+// for, and books that — and one the processor took in another currency is refused: that money is refunded at
+// the processor, never booked as this payment. "reject" closes it without money: amount_mismatch stays the
+// reason when that is why it was held, cancelled otherwise, and the note is its failure message. Only a pending
+// payment can be decided. The consumer is owed the news, as after any change.
+func (p *Payments) Decide(id, decision, note string) (nilda.PaymentSession, error) {
+	if decision != "resolve" && decision != "reject" {
+		return nilda.PaymentSession{}, fmt.Errorf("nildatest: a decision is resolve or reject, not %q", decision)
+	}
+	if utf8.RuneCountInString(note) > maxPaymentText {
+		return nilda.PaymentSession{}, fmt.Errorf("nildatest: a note is at most %d characters", maxPaymentText)
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	s, ok := p.sessions[id]
+	if !ok {
+		return nilda.PaymentSession{}, fmt.Errorf("nildatest: no payment session %q", id)
+	}
+	if s.Status != nilda.PaymentPending {
+		return nilda.PaymentSession{}, fmt.Errorf("nildatest: only a payment that is pending can be decided by a person; this one is %s", s.Status)
+	}
+	took, held := p.reported[s.ID]
+	held = held && s.FailureCode == nilda.PaymentFailAmountMismatch
+	if decision == "resolve" {
+		if held {
+			if took.currency != s.Currency {
+				return nilda.PaymentSession{}, fmt.Errorf("nildatest: the processor took %s for a payment asked in %s; that "+
+					"cannot be booked as this payment — refund it at the processor and reject this one", took.currency, s.Currency)
+			}
+			s.AmountMinor = took.amount
+			delete(p.reported, s.ID)
+		}
+		s.FailureCode, s.FailureMessage = "", ""
+		p.move(s, nilda.PaymentResolved)
+		return *s, nil
+	}
+	code := nilda.PaymentFailCancelled
+	if s.FailureCode == nilda.PaymentFailAmountMismatch {
+		code = nilda.PaymentFailAmountMismatch
+	}
+	s.FailureCode, s.FailureMessage = code, note
+	p.move(s, nilda.PaymentRejected)
+	return *s, nil
 }
 
 // ---- the consumer's side, callable directly --------------------------------------------------------------
@@ -323,13 +393,15 @@ func (p *Payments) keyed(w http.ResponseWriter, r *http.Request, caller string, 
 	}
 	p.mu.Unlock()
 	if seen {
-		if prev.sum != sum {
-			writeError(w, invalid("this Idempotency-Key was used for a different request"))
-			return
-		}
+		// In flight FIRST, as Core's answerRepeat: a claim has no answer to compare a body with until it is done,
+		// so a repeat while the first runs is a 409 whatever it carries.
 		if prev.status == 0 {
 			writeError(w, &apiError{http.StatusConflict, "CONFLICT",
 				"a request with this Idempotency-Key is still being processed; ask again in a moment"})
+			return
+		}
+		if prev.sum != sum {
+			writeError(w, invalid("this Idempotency-Key was used for a different request"))
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -338,6 +410,17 @@ func (p *Payments) keyed(w http.ResponseWriter, r *http.Request, caller string, 
 		_, _ = w.Write(prev.body)
 		return
 	}
+	// A PANIC is recorded as the 500 it is, as Core's layer does before re-panicking: left claimed, every retry
+	// answered 409 "still being processed" for good, and the author never saw their own handler's panic.
+	defer func() {
+		if r := recover(); r != nil {
+			p.mu.Lock()
+			p.keys[slot] = replay{sum: sum, status: http.StatusInternalServerError,
+				body: []byte(`{"error":{"code":"INTERNAL","message":"internal error"}}`)}
+			p.mu.Unlock()
+			panic(r)
+		}
+	}()
 	status, v, err := run()
 	rec := httptest.NewRecorder()
 	answer(rec, status, v, err)
@@ -527,10 +610,11 @@ func (p *Payments) createSession(ctx context.Context, consumer string, params ni
 		return *s, nil
 	}
 	if err != nil {
-		// The gateway did not answer. No payer has seen a processor's page, so no money can have moved:
-		// the session is closed, and the consumer can offer the payer another try.
+		// The gateway did not answer. The session is closed, and the consumer can offer the payer another try.
+		// No message, as Core writes none: the code is the answer, and a consumer showing FailureMessage would
+		// show text here that a real site never sends.
 		s.FailureCode = nilda.PaymentFailProviderUnavailable
-		s.FailureMessage = "the payment could not be started"
+		s.FailureMessage = ""
 		p.move(s, nilda.PaymentRejected)
 		return *s, nil
 	}
@@ -652,6 +736,11 @@ func (p *Payments) report(ctx context.Context, caller, id, verb string, body []b
 	if err := p.may(caller, "payment_gateway"); err != nil {
 		return nil, err
 	}
+	// The body first, as Core validates a report before it looks the session up: a malformed one is 422 whether
+	// or not the session exists, never a 404.
+	if err := checkReport(verb, body); err != nil {
+		return nil, err
+	}
 	p.mu.Lock()
 	s, ok := p.sessions[id]
 	if !ok || s.Gateway != caller {
@@ -676,7 +765,9 @@ func (p *Payments) report(ctx context.Context, caller, id, verb string, body []b
 		}
 		// Nothing below writes to the session until the report is known to apply: a refused report changes
 		// nothing, not even the processor's reference.
-		if r.AmountMinor != s.AmountMinor || !strings.EqualFold(r.Currency, s.Currency) {
+		// Core's normalisation (strings.ToUpper(strings.TrimSpace(...))) before the comparison: " eur" is EUR there.
+		took := reportedMoney{amount: r.AmountMinor, currency: strings.ToUpper(strings.TrimSpace(r.Currency))}
+		if took.amount != s.AmountMinor || took.currency != s.Currency {
 			// The processor took something other than what was asked. Neither paid nor unpaid: a person
 			// decides, so the session is held where the consumer ships nothing.
 			if s.Status != nilda.PaymentPending && !nilda.PaymentCanMove(s.Status, nilda.PaymentPending) {
@@ -684,11 +775,10 @@ func (p *Payments) report(ctx context.Context, caller, id, verb string, body []b
 			}
 			// The same mismatch again — the processor's redelivery — changes nothing, as in Core. What the
 			// processor reported is the owner's to read (Settings → Payments), not the wire's: no failure message.
-			seen := fmt.Sprintf("%d %s", r.AmountMinor, strings.ToUpper(r.Currency))
-			if s.Status == nilda.PaymentPending && s.FailureCode == nilda.PaymentFailAmountMismatch && p.reported[s.ID] == seen {
+			if s.Status == nilda.PaymentPending && s.FailureCode == nilda.PaymentFailAmountMismatch && p.reported[s.ID] == took {
 				return *s, nil
 			}
-			p.reported[s.ID] = seen
+			p.reported[s.ID] = took
 			if r.ProviderRef != "" {
 				s.ProviderRef = r.ProviderRef
 			}
@@ -754,6 +844,41 @@ func (p *Payments) report(ctx context.Context, caller, id, verb string, body []b
 	return nil, notFound("no such report %q", verb)
 }
 
+// checkReport refuses a malformed report body, before any session is read — Core's order.
+func checkReport(verb string, body []byte) error {
+	switch verb {
+	case "resolve":
+		var r nilda.PaymentResolution
+		if err := json.Unmarshal(body, &r); err != nil {
+			return invalid("the body is not a resolution: %v", err)
+		}
+		if err := r.Validate(); err != nil {
+			return invalid("%v", err)
+		}
+	case "reject":
+		var r nilda.PaymentRejection
+		if err := json.Unmarshal(body, &r); err != nil {
+			return invalid("the body is not a rejection: %v", err)
+		}
+		if err := r.Validate(); err != nil {
+			return invalid("%v", err)
+		}
+	case "pending", "refund-resolve":
+		var r struct {
+			ProviderRef string `json:"provider_ref"`
+		}
+		if len(body) > 0 {
+			if err := json.Unmarshal(body, &r); err != nil {
+				return invalid("the body is not a %s report: %v", verb, err)
+			}
+		}
+		if len(r.ProviderRef) > maxProviderRef {
+			return invalid("a processor's reference is at most %d bytes", maxProviderRef)
+		}
+	}
+	return nil
+}
+
 // apply moves s to the status a report names: the same status is a no-op, a move the machine refuses is a
 // 409 carrying where the session is. Callers hold p.mu.
 func (p *Payments) apply(s *nilda.PaymentSession, to string) (any, error) {
@@ -791,10 +916,16 @@ func (p *Payments) confirm(ctx context.Context, s nilda.PaymentSession) (any, er
 		return nil, &apiError{http.StatusServiceUnavailable, "UNAVAILABLE", "the consumer's answer did not parse"}
 	}
 	if !res.Proceed {
+		// The reason is bounded as Core bounds it — what is stored and what the gateway is answered.
+		res.Reason = runes(res.Reason, maxPaymentText)
 		p.mu.Lock()
-		live := p.sessions[s.ID]
-		live.FailureCode, live.FailureMessage = nilda.PaymentFailConsumerRefused, res.Reason
-		p.move(live, nilda.PaymentRejected)
+		// Only if the session can still be refused, as Core: one the gateway settled while the consumer was being
+		// asked has nothing to refuse, and writing consumer_refused onto it left a resolved payment with a
+		// refusal's code.
+		if live := p.sessions[s.ID]; nilda.PaymentCanMove(live.Status, nilda.PaymentRejected) {
+			live.FailureCode, live.FailureMessage = nilda.PaymentFailConsumerRefused, res.Reason
+			p.move(live, nilda.PaymentRejected)
+		}
 		p.mu.Unlock()
 	}
 	return res, nil
@@ -813,9 +944,12 @@ func (p *Payments) createRefund(ctx context.Context, caller, sessionID string, p
 		p.mu.Unlock()
 		return nilda.PaymentRefund{}, notFound("no payment session %q", sessionID)
 	}
-	if err := p.refundFits(s, params.AmountMinor); err != nil {
+	// Core's order: the status, then whether the gateway can be asked (503), then the sum (422) at the write — so
+	// an over-refund while the gateway is down answers 503, as it does on a real site.
+	if s.Status != nilda.PaymentResolved {
 		p.mu.Unlock()
-		return nilda.PaymentRefund{}, err
+		return nilda.PaymentRefund{}, &apiError{http.StatusConflict, "CONFLICT",
+			fmt.Sprintf("only a resolved payment can be refunded; this one is %s", s.Status)}
 	}
 	gateway, method, currency := s.Gateway, s.Method, s.Currency
 	p.mu.Unlock()
@@ -941,6 +1075,13 @@ func (p *Payments) moveRefund(rf *nilda.PaymentRefund, to string) bool {
 // reportRefund applies a gateway's resolve or reject to a refund of a session routed to it.
 func (p *Payments) reportRefund(caller, id, verb string, body []byte) (any, error) {
 	if err := p.may(caller, "payment_gateway"); err != nil {
+		return nil, err
+	}
+	check := verb
+	if verb == "resolve" {
+		check = "refund-resolve"
+	}
+	if err := checkReport(check, body); err != nil {
 		return nil, err
 	}
 	p.mu.Lock()

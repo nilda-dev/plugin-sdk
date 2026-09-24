@@ -85,8 +85,9 @@ func (p *Payments) GetSession(ctx context.Context, id string) (PaymentSession, e
 }
 
 // CreateRefund asks Core to give money back from a resolved session. Core refuses one past what was paid —
-// counting refunds still in flight — or for a method that cannot refund, and otherwise asks the gateway and
-// answers with the refund as the gateway left it; the outcome of a pending one arrives in RefundUpdated.
+// counting refunds still in flight — or for a method that cannot refund; a 503 means the gateway could not be
+// asked what it offers, and the same key runs again. Otherwise it answers the refund `requested` at once: the
+// gateway is asked by Core's delivery job, never inside this call, and how it ends arrives in RefundUpdated.
 //
 // idempotencyKey names this refund, required, as in CreateSession: repeating a refund because an answer was
 // lost must not give the money back twice.

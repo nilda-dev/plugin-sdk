@@ -1,8 +1,6 @@
 package nilda
 
 import (
-	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -13,16 +11,7 @@ import (
 // held to the constant core's validators use, and each "Core does X" to the line in core that does it — so a
 // bound Core changes cannot leave a sentence here that an author, or their agent, builds against.
 func TestTheManifestRulesTheDocsNameAreCores(t *testing.T) {
-	read := func(parts ...string) string {
-		raw, err := os.ReadFile(filepath.Join(append([]string{"..", "core", "internal"}, parts...)...))
-		if os.IsNotExist(err) {
-			t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		return string(raw)
-	}
+	read := func(parts ...string) string { return coreSource(t, append([]string{"internal"}, parts...)...) }
 	// num reads `name = N` or `name = N << S` from one of core's files.
 	num := func(src, file, name string) int {
 		m := regexp.MustCompile(`\b` + name + `\s*=\s*([0-9]+)(?:\s*<<\s*([0-9]+))?\b`).FindStringSubmatch(src)
@@ -105,19 +94,33 @@ func TestTheManifestRulesTheDocsNameAreCores(t *testing.T) {
 		{"Core adds only the columns a table does not have yet", "plugin/tables.go", "c.PrimaryKey || have[c.Name]"},
 		{"`1.09.0` is refused", "plugin/schema_semver.go", "len(p) > 1 && p[0] == '0'"},
 		{"the owner is told which fields were ignored, by path at any depth", "plugin/handlers.go", `body["unknown_manifest_fields"]`},
+		// The refusal's words, and — each — the call that makes it on the path the sentence names: the enable's
+		// (conn) and the update's dry run (tx, inside CheckTables, held below). The words alone stayed green with
+		// either call deleted.
 		{"an update that marks a different column `primary_key` is refused before anything", "plugin/datastore.go", "neither an update nor a reinstall can change"},
-		{"as is a reinstall over the tables an earlier install left", "plugin/datastore.go", "refusePrimaryKeyChange(ctx, conn, slug, t)"},
+		{"as is switching on a reinstall over the tables an earlier install left (the install itself succeeds; its first enable is refused)",
+			"plugin/datastore.go", "if err := refusePrimaryKeyChange(ctx, conn, slug, t); err != nil {"},
 		{"Core refuses one it answers on itself", "plugin/schema_manifest.go", `" is reserved by Core"`},
-		{"and any language's code (`/fa`, `/en`, `/pt-br`)", "plugin/schema_manifest.go", `i18n.Language(strings.TrimPrefix(p, "/"))`},
-		{"The 16 counts every index Core builds on the table", "plugin/schema_tables.go", "len(tableIndexes(t)); n > maxIndexesPerTable"},
+		// The language rule: the refusal in Validate, and the whole-segment comparison it asks.
+		{"and any language's code (`/fa`, `/en`, `/pt`)", "plugin/schema_manifest.go", `case hasRoute && prefixLanguage(m.RoutePrefix) != "":`},
+		{"The code is the WHOLE prefix, as the site matches it: `/my-account` or `/to-do` is yours", "plugin/schema_manifest.go",
+			"if l, ok := i18n.Language(seg); ok && l.Code == seg {"},
+		{"The " + n(tables, "schema_tables.go", "maxIndexesPerTable") + " counts every index Core builds on the table", "plugin/schema_tables.go", "len(tableIndexes(t)); n > maxIndexesPerTable"},
 		{"and the one a list page's `order_by` adds", "plugin/schema_manifest.go", "range TablesWithListIndexes(m.Tables, m.AdminPages)"},
-		{"no table the name Postgres gives another's primary key", "plugin/schema_tables.go", `pkeyPaths[t.Name+"_pkey"]`},
+		// The refusal, not the line that fills the map it reads.
+		{"no table the name Postgres gives another's primary key", "plugin/schema_tables.go", "if owner, clash := pkeyPaths[t.Name]; clash {"},
 		{"A plain-number default must fit its column", "plugin/schema_tables.go", "return numberFits(def, typ)"},
+		{"a plain number fits `int`, `bigint` and `numeric` within its range (below)", "plugin/schema_tables.go", "return numberFits(def, typ)"},
+		// The range the guide writes out, and "rounded first": the int bounds and the round-half-away step.
+		{"`int` holds −2,147,483,648 to 2,147,483,647, rounded first", "plugin/schema_tables.go",
+			`case "int": lo, hi = big.NewInt(math.MinInt32), big.NewInt(math.MaxInt32)`},
+		{"`int` holds −2,147,483,648 to 2,147,483,647, rounded first", "plugin/schema_tables.go",
+			"if new(big.Int).Lsh(rem, 1).Cmp(r.Denom()) >= 0 { whole.Add(whole, big.NewInt(1)) }"},
 	} {
 		if !strings.Contains(doc, c.claim) {
 			t.Errorf("PLUGIN_SDK.md no longer says %q", c.claim)
 		}
-		if !strings.Contains(read(strings.Split(c.file, "/")...), c.line) {
+		if !strings.Contains(strings.Join(strings.Fields(read(strings.Split(c.file, "/")...)), " "), c.line) {
 			t.Errorf("core's %s no longer has %q, which the docs' %q describes", c.file, c.line, c.claim)
 		}
 	}
@@ -131,10 +134,22 @@ func TestTheManifestRulesTheDocsNameAreCores(t *testing.T) {
 		t.Fatal("core's datastore.go no longer declares Provisioner.CheckTables, the update's dry run — repoint this guard")
 	}
 	check := datastore[start:]
-	check = check[:strings.Index(check, "\n}\n")]
+	end := strings.Index(check, "\n}\n")
+	if end < 0 {
+		t.Fatal("core's CheckTables no longer ends where this guard can find it — repoint this guard")
+	}
+	check = check[:end]
 	if !strings.Contains(check, "if err := refuseSharedValues(ctx, tx, slug, t, cols); err != nil {") {
 		t.Error("core's CheckTables no longer refuses a unique column or index the existing rows cannot take — " +
 			"re-read the docs' \"would put two existing rows on one value\"")
+	}
+	if !strings.Contains(check, "if err := refusePrimaryKeyChange(ctx, tx, slug, t); err != nil {") {
+		t.Error("core's CheckTables no longer refuses an update that moves a primary key — re-read the docs' " +
+			"\"an update that marks a different column `primary_key` is refused before anything changes\"")
+	}
+	// …and the update runs that dry run: a CheckTables nothing calls refuses nothing.
+	if !strings.Contains(read("plugin", "lifecycle.go"), "if err := m.svc.CheckTables(ctx, man.Key, TablesWithListIndexes(man.Tables, man.AdminPages)); err != nil {") {
+		t.Error("core's update no longer runs CheckTables before it changes anything — re-read the docs' \"refused before anything changes\"")
 	}
 	if !strings.Contains(doc, "would put two existing rows on one value") {
 		t.Error("PLUGIN_SDK.md no longer says an update \"would put two existing rows on one value\" is refused")

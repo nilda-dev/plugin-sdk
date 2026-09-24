@@ -3,12 +3,17 @@ package nilda
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"gitlab.com/nildalabs/nilda-sdk/plugin-sdk/contract"
 )
@@ -215,6 +220,42 @@ func TestASingleCapabilityHandlerRefusesAHookThatIsNotItsOwn(t *testing.T) {
 	}
 }
 
+// consumerHandler is a plugin that is also a payment consumer, so its hooks go through the provider dispatch.
+type consumerHandler struct {
+	recordingHandler
+	recordingConsumer
+}
+
+// An error a handler returns reaches Core as gRPC Unknown — the code Core reads as the plugin ANSWERING (a
+// refusal shown to the person, a consumer's "tell me again") — whatever it wraps. grpc-go sends a wrapped
+// status's own code, so a refusal wrapping a Core call's ResourceExhausted, or any gRPC client's error, arrived
+// as that code and was counted toward switching the plugin off. The words are kept.
+func TestAHandlersErrorReachesCoreAsItsAnswer(t *testing.T) {
+	ctx := context.Background()
+	wrapped := fmt.Errorf("saving the refund: %w", status.Error(codes.ResourceExhausted, "plugin kv: this plugin's namespace is full"))
+	refund := func(context.Context, json.RawMessage) (any, error) { return nil, wrapped }
+	for name, c := range map[string]struct {
+		s    *pluginServer
+		hook string
+	}{
+		"HandleHook":  {&pluginServer{handler: &recordingHandler{err: wrapped}}, "admin.action"},
+		"an ability":  {&pluginServer{handler: &recordingHandler{}, abilityRun: map[string]func(context.Context, json.RawMessage) (any, error){"refund": refund}}, AbilityHook("refund")},
+		"a provider":  {&pluginServer{handler: &consumerHandler{recordingConsumer: recordingConsumer{err: wrapped}}}, HookPaymentSessionUpdated},
+		"plain error": {&pluginServer{handler: &recordingHandler{err: errors.New("already refunded")}}, "admin.action"},
+	} {
+		_, err := c.s.HandleHook(ctx, &contract.HookRequest{Hook: c.hook, Payload: []byte(`{"session":{"id":"s1"}}`)})
+		if status.Code(err) != codes.Unknown {
+			t.Errorf("%s: the handler's error reached Core as %v, want Unknown — Core counts every other code as a failure", name, status.Code(err))
+		}
+		if want := "already refunded"; name == "plain error" && status.Convert(err).Message() != want {
+			t.Errorf("%s: the words Core shows are %q, want %q", name, status.Convert(err).Message(), want)
+		}
+		if name != "plain error" && !strings.Contains(status.Convert(err).Message(), "saving the refund: ") {
+			t.Errorf("%s: the handler's words were lost: %q", name, status.Convert(err).Message())
+		}
+	}
+}
+
 // panickyHandler is a plugin author having a bad day in exactly one of their capabilities.
 type panickyHandler struct{ recordingHandler }
 
@@ -248,6 +289,11 @@ func TestAPanicInTheAuthorsCodeFailsTheCallNotTheProcess(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "panicked") || !strings.Contains(err.Error(), "content.saved") {
 		t.Errorf("the error must say it panicked and in which hook, got %q", err)
+	}
+	// A FAILURE, which Core counts toward switching the plugin off — never Unknown, which Core reads as the
+	// handler's own refusal and shows the person as the plugin's words.
+	if status.Code(err) != codes.Internal {
+		t.Errorf("a panic reached Core as %v, want Internal — Unknown is a handler's answer, and never counts", status.Code(err))
 	}
 
 	// An event handler too — fire-and-forget on Core's side, so a panic here would otherwise kill the

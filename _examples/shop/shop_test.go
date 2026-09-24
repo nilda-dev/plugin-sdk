@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -55,9 +57,95 @@ func TestInitRefusesWithoutAPIAccess(t *testing.T) {
 	}
 }
 
+// manifest is the example's plugin.json, as far as these tests read it.
+type manifest struct {
+	Key          string   `json:"key"`
+	Capabilities []string `json:"capabilities"`
+	AdminPages   []struct {
+		Kind   string `json:"kind"`
+		Fields []struct {
+			Key string `json:"key"`
+		} `json:"fields"`
+	} `json:"admin_pages"`
+}
+
+func readManifest(t *testing.T) manifest {
+	t.Helper()
+	raw, err := os.ReadFile("plugin.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m manifest
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatalf("plugin.json: %v", err)
+	}
+	return m
+}
+
+// The manifest declares what the example uses, and nothing it does not (the 2026-09-24 review of the SDK).
+// The example read `notify_email` with no settings page declaring it — and Core delivers only the fields a
+// settings page declares, so the example, copied as it was, never mailed anyone and said nothing; its test
+// passed only because SetSettings put in a key Core would never send.
+func TestTheManifestDeclaresWhatTheExampleUses(t *testing.T) {
+	m := readManifest(t)
+	raw, err := os.ReadFile("shop.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(raw)
+
+	settings := map[string]bool{}
+	for _, pg := range m.AdminPages {
+		if pg.Kind == "settings" {
+			for _, f := range pg.Fields {
+				settings[f.Key] = true
+			}
+		}
+	}
+	read := regexp.MustCompile(`Setting\("([a-z0-9_]+)"\)`).FindAllStringSubmatch(src, -1)
+	if len(read) == 0 {
+		t.Fatal("shop.go reads no setting — repoint this test")
+	}
+	for _, s := range read {
+		if !settings[s[1]] {
+			t.Errorf("shop.go reads the setting %q, and no settings page in plugin.json declares it — Core never delivers it", s[1])
+		}
+	}
+
+	// Each capability the code reaches for, by the call that needs it — and each declared one used.
+	uses := map[string]string{
+		"hooks":         `Hooks:  []string{"content.saved"}`,
+		"events":        ".Emit(ctx,",
+		"schedule":      "Schedules: []nilda.Schedule{",
+		"kv":            ".KVIncr(ctx,",
+		"email":         ".SendEmail(ctx,",
+		"content.write": `API().Post(ctx, "/content/product"`,
+		"admin_page":    `.Setting("notify_email")`,
+	}
+	declared := map[string]bool{}
+	for _, c := range m.Capabilities {
+		declared[c] = true
+		if _, known := uses[c]; !known {
+			t.Errorf("plugin.json declares %q, which the example never uses — an owner approves every capability listed", c)
+		}
+	}
+	for c, call := range uses {
+		if !strings.Contains(src, call) {
+			t.Errorf("shop.go no longer has %q — repoint this test's use of %q", call, c)
+		}
+		if !declared[c] {
+			t.Errorf("shop.go uses %q (%s) and plugin.json does not declare it — Core refuses the call", c, call)
+		}
+	}
+	if m.Key != "shop" {
+		t.Errorf("plugin.json's key is %q; the tests build the plugin as \"shop\"", m.Key)
+	}
+}
+
 func TestInitSubscribesToHooksEventsAndSchedules(t *testing.T) {
 	api := &fakeCore{}
-	core, _, srv := nildatest.NewWithAPI("shop", api.handler(), "hooks", "events", "content.write", "email", "kv")
+	// Granted exactly what the manifest declares: what a real install would hand it.
+	core, _, srv := nildatest.NewWithAPI("shop", api.handler(), readManifest(t).Capabilities...)
 	defer srv.Close()
 
 	res, err := (&Shop{}).Init(context.Background(), core)

@@ -76,7 +76,7 @@ words.
 - **`NewCoreForTest`** — plumbing for `nildatest`. Write plugin tests against `nildatest`, the supported
   kit.
 
-**`nildatest` has a ledger of its own**, `nildatest/surface.txt` (60 entries), checked on every run the same
+**`nildatest` has a ledger of its own**, `nildatest/surface.txt` (61 entries), checked on every run the same
 way. The promise covers it on the same terms as the SDK's, with the same exception: seven of its `*Host`
 methods — `KVGet`, `KVSet`, `KVDel`, `KVIncr`, `EmitEvent`, `SendEmail`, `RevokeIdentity` — name `contract.*`
 and `grpc.*` types, because a `*Host` IS the fake `HostService` client `NewCoreForTest` is handed. Those
@@ -127,7 +127,7 @@ there or nowhere. Core's repository is private, so that means a machine with acc
 ```sh
 git clone git@gitlab.com:nildalabs/nildacms/core.git ../core   # beside this directory
 GOWORK=off go test -count=1 ./...                              # the verdict: must exit 0
-GOWORK=off go test -count=1 -v ./... | grep -- '--- SKIP'      # then what skipped: no "core is not checked out"
+GOWORK=off go test -count=1 -v ./... | grep 'core is not checked out'   # must print nothing
 ```
 
 `pins_test.go` is the same kind: it checks the SDK pin of every module checked out beside this one, and

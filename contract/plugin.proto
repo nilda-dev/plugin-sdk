@@ -45,7 +45,8 @@ service PluginService {
   // documented SPEC_98 bound — at-least-once/replay is a later SPEC).
   rpc HandleEvent(EventRequest) returns (EventResponse);
 
-  // Health is the supervision probe.
+  // Health is defined and never called: Nilda supervises a plugin by its process exiting and by its calls
+  // failing, not by a probe. Answer it anyway — a later Core may ask.
   rpc Health(HealthRequest) returns (HealthResponse);
 }
 

@@ -203,6 +203,11 @@ const AdminActionHook = "admin.action"
 //
 // The id is the row's PRIMARY KEY, as text, from your own table. Nilda read it out of the row it showed;
 // it never invents one and never sends you a row you did not declare a page for.
+//
+// What you are NOT told is who pressed it: the press carries the page, the button and the row, and nothing
+// about the person — so a refund's own record cannot say who refunded it (a limit Core records in its known
+// issues, as it does for abilities). Who MAY press it is Core's to decide: a person holding `plugin.manage` or
+// your plugin's own `plugin.<key>.configure`.
 type AdminAction struct {
 	Page   string `json:"page"`
 	Action string `json:"action"`
@@ -239,14 +244,16 @@ type AdminActionResult struct {
 //			// A fixed sentence, translated in plugin.json — see AdminActionResult.
 //			return nilda.AdminActionResult{Message: "Refunded"}, p.refund(ctx, a.ID)
 //		}
-//		return nilda.AdminActionResult{}, fmt.Errorf("unknown action %q", a.Action)
+//		return nilda.AdminActionResult{}, errors.New("This action is not available")
 //	}
 //
 // An error you return reaches the owner as the reason the action did not run — its first 300 characters,
 // through plugin.json's translations like Message — so make it a fixed sentence they can act on. It is your
-// answer, not a failure: refusing an action, however often, never counts toward switching the plugin off
-// (running out of time or crashing does). handled=false means the hook was not a row action, so a plugin
-// with hooks of its own passes it on rather than failing it.
+// answer, not a failure: refusing an action, however often, never counts toward switching the plugin off.
+// Serve sends every error your handler returns to Core as that answer (gRPC Unknown), whatever it wraps — a
+// Core call's error included. Running out of time, crashing, or panicking is not an answer, and does count.
+// handled=false means the hook was not a row action, so a plugin with hooks of its own passes it on rather
+// than failing it.
 func DispatchAdminAction(ctx context.Context, hook string, payload []byte, fn func(context.Context, AdminAction) (AdminActionResult, error)) (out []byte, handled bool, err error) {
 	if hook != AdminActionHook {
 		return nil, false, nil

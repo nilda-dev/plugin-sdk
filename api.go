@@ -156,8 +156,9 @@ func withConnectIdentity(tr *http.Transport, key string) *http.Transport {
 
 // HTTPClient is a ready-made client for a plugin's own outbound calls, carrying the identity the egress
 // proxy needs and a timeout. A bare http.Client that takes its proxy from the environment is identified
-// too, by the proxy address Core hands the process; what the proxy refuses — "this plugin did not declare
-// that host" for a host the manifest declares — is a client pointed at it by hand with no identity at all.
+// too, by the proxy address Core hands the process. A client pointed at the proxy by hand with no identity at
+// all is answered 407 Proxy Authentication Required, with a Basic challenge — the proxy address's user name,
+// your plugin's key, is the answer.
 func HTTPClient(timeout time.Duration) *http.Client {
 	if timeout <= 0 {
 		timeout = 30 * time.Second
@@ -174,7 +175,9 @@ func (t *pluginTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	// PLAIN HTTP ONLY. For an https request the identity rides the CONNECT (withConnectIdentity), and the
 	// request's own headers travel INSIDE the TLS session to the provider, where the proxy cannot strip them:
 	// every call a plugin made to api.stripe.com told Stripe the plugin's key (Core's 2026-09-24 whole-plan
-	// review, A-9). A plain http request is read by the proxy, which removes the header before forwarding.
+	// review, A-9). A plain http request is read by the proxy, which removes the header before forwarding —
+	// except one to a loopback host, which Go never sends through a proxy, so it reaches that host with the label
+	// on it (a label, not a secret: Core's egress.go says so).
 	if t.key == "" || !strings.EqualFold(r.URL.Scheme, "http") {
 		return t.base.RoundTrip(r)
 	}
@@ -201,7 +204,8 @@ func (t *pluginTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 //
 //   - the FIRST request's result is kept for 24 hours, errors included, and every repeat with the same key
 //     and the same request gets it back without running again (the response carries Idempotent-Replayed:
-//     true) — so a retry after a 5xx returns that 5xx rather than risking a second write;
+//     true) — so a retry after a 5xx returns that 5xx rather than risking a second write. Except a 503, which
+//     means nothing changed: its key is given back, and the same key runs again;
 //   - the same key on a DIFFERENT request is refused with 422;
 //   - a repeat that arrives while the first is still running is refused with 409;
 //   - a request Core REFUSED (any 4xx) changed nothing, so its key is given back and a corrected retry runs;
@@ -374,15 +378,32 @@ func (a *API) UploadMedia(ctx context.Context, filename string, file io.Reader, 
 	if a == nil {
 		return errNoAPI
 	}
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return fmt.Errorf("nilda: reading the file to upload: %w", err)
+	}
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	// A KEYED upload sends the same bytes every time it is run (Core's 2026-09-24 whole-plan review, I-12). The
 	// writer picks a random boundary, and Core fingerprints the body under the key: the importer re-run after a
-	// crash — the case a key exists for — was refused "already used for a different request". Derived from the
-	// key, the boundary is the same on every run of it, and still unguessable to anything reading the file.
+	// crash — the case a key exists for — was refused "already used for a different request". So the boundary
+	// is derived — from the key AND everything the body carries, the file included. From the key alone it was
+	// a public formula of something often guessable (a row's id), and a file could then carry the boundary to end
+	// its own part early and add form fields of its own — an `alt` Core reads first. A file cannot contain a hash
+	// of itself; and it is checked anyway, because a boundary inside the content is what a multipart body cannot
+	// survive.
 	if a.idempotencyKey != "" {
-		sum := sha256.Sum256([]byte("nilda-upload\x00" + a.idempotencyKey))
-		if err := mw.SetBoundary("nilda" + hex.EncodeToString(sum[:24])); err != nil {
+		h := sha256.New()
+		for _, s := range []string{"nilda-upload", a.idempotencyKey, filename, alt} {
+			_, _ = io.WriteString(h, s)
+			_, _ = h.Write([]byte{0})
+		}
+		_, _ = h.Write(data)
+		boundary := "nilda" + hex.EncodeToString(h.Sum(nil)[:24])
+		if bytes.Contains(data, []byte(boundary)) {
+			return errors.New("nilda: the file contains its own multipart boundary; it cannot be sent keyed")
+		}
+		if err := mw.SetBoundary(boundary); err != nil {
 			return err
 		}
 	}
@@ -390,8 +411,8 @@ func (a *API) UploadMedia(ctx context.Context, filename string, file io.Reader, 
 	if err != nil {
 		return err
 	}
-	if _, err := io.Copy(part, file); err != nil {
-		return fmt.Errorf("nilda: reading the file to upload: %w", err)
+	if _, err := part.Write(data); err != nil {
+		return err
 	}
 	if alt != "" {
 		if err := mw.WriteField("alt", alt); err != nil {

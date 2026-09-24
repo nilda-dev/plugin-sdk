@@ -1,8 +1,6 @@
 package nilda
 
 import (
-	"os"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -14,14 +12,7 @@ import (
 // subscribers have run" held to Core's hostservice.go, so a changed bound cannot leave a stale sentence.
 func TestTheCallLimitsTheDocsNameAreCores(t *testing.T) {
 	read := func(parts ...string) string {
-		raw, err := os.ReadFile(filepath.Join(append([]string{"..", "core", "internal", "plugin"}, parts...)...))
-		if os.IsNotExist(err) {
-			t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		return string(raw)
+		return coreSource(t, append([]string{"internal", "plugin"}, parts...)...)
 	}
 	limits := read("calllimits.go")
 	num := func(name string) int {
@@ -42,8 +33,14 @@ func TestTheCallLimitsTheDocsNameAreCores(t *testing.T) {
 	}
 	emails := strconv.Itoa(num("emailsPerMinute"))
 	refill := "one a second"
-	if num("emailsPerMinute") != 60 {
-		refill = "one every " + strconv.Itoa(60/num("emailsPerMinute")) + " seconds"
+	if n := num("emailsPerMinute"); n != 60 {
+		// Only a whole number of seconds a message is a sentence this guard can write; any other bound would have
+		// it demand "one every 0 seconds" of the docs.
+		if n > 60 || 60%n != 0 {
+			t.Fatalf("core's email bound is %d a minute, which is not a whole number of seconds a message — teach "+
+				"this guard the sentence, then the docs", n)
+		}
+		refill = "one every " + strconv.Itoa(60/n) + " seconds"
 	}
 	for doc, wants := range map[string][]string{
 		anyLang: {
@@ -69,15 +66,39 @@ func TestTheCallLimitsTheDocsNameAreCores(t *testing.T) {
 	if !strings.Contains(limits, "st.WithDetails(&errdetails.RetryInfo{") {
 		t.Error("core's overLimit no longer attaches a RetryInfo — re-read the docs' ResourceExhausted sentences")
 	}
-	if !strings.Contains(read("hostservice.go"), "case errors.Is(err, ErrKVFull):\n\t\treturn status.Error(codes.ResourceExhausted, err.Error())") {
+	// …and each of the three bounds refuses THROUGH it, so every one of core.go's three sentences is true.
+	hostservice := read("hostservice.go")
+	for _, call := range []string{
+		`overLimit(h.info.Key, "using its key-value store", h.limits.kv)`,
+		`overLimit(h.info.Key, "sending email", h.limits.email)`,
+		`overLimit(h.info.Key, "emitting events", h.limits.emit)`,
+	} {
+		if !strings.Contains(hostservice, "return nil, "+call) {
+			t.Errorf("core's hostservice.go no longer refuses with %s — re-read core.go's RetryInfo sentence for it", call)
+		}
+	}
+	if !strings.Contains(hostservice, "case errors.Is(err, ErrKVFull):\n\t\treturn status.Error(codes.ResourceExhausted, err.Error())") {
 		t.Error("core's full-namespace refusal changed shape — re-read the docs' \"no RetryInfo\" sentence")
 	}
-	for _, want := range []string{
-		"answers codes.ResourceExhausted at once, with a google.rpc.RetryInfo detail saying when there is room again",
-		"ResourceExhausted too, with no RetryInfo: waiting does not make room there",
+	// Once for each of SendEmail, the kv block and Emit.
+	if n := strings.Count(core, "answers codes.ResourceExhausted at once, with a google.rpc.RetryInfo detail saying when there is room again"); n != 3 {
+		t.Errorf("core.go says a rate refusal carries a RetryInfo %d times, want 3 — SendEmail, kv and Emit", n)
+	}
+	if !strings.Contains(core, "ResourceExhausted too, with no RetryInfo: waiting alone makes room there only as your keys with a TTL expire") {
+		t.Error("core.go no longer says a full kv namespace answers with no RetryInfo, which core's hostservice.go makes true")
+	}
+	guideRow := flat(readText(t, "docs/PLUGIN_SDK.md"))
+	for doc, want := range map[string]string{
+		"PLUGIN_SDK.md's kv row": "with no `google.rpc.RetryInfo` (a call past the kv rate limit carries one; waiting does not empty a full namespace)",
+		"ANY_LANGUAGE.md (rate)": "`RESOURCE_EXHAUSTED` at once rather than queueing, with a `google.rpc.RetryInfo` detail",
+		"ANY_LANGUAGE.md (full)": "answers `RESOURCE_EXHAUSTED` too, with NO `RetryInfo`: retrying does not make room there",
 	} {
-		if !strings.Contains(core, want) {
-			t.Errorf("core.go no longer says %q, which core's calllimits.go and hostservice.go make true", want)
+		text := anyLang
+		if strings.HasPrefix(doc, "PLUGIN_SDK.md") {
+			text = guideRow
+		}
+		if !strings.Contains(text, want) {
+			t.Errorf("%s no longer says %q, which core's calllimits.go and hostservice.go make true", doc, want)
 		}
 	}
 	// Emit's two promises about delivery, each held both ways: Core runs the fan-out on a goroutine of its
@@ -107,18 +128,12 @@ func TestTheCallLimitsTheDocsNameAreCores(t *testing.T) {
 // says — held to core's host.go, where Call (a hook) and Dispatch (an event) both refuse a delivery the plugin
 // never subscribed to. Dispatch did not, so `trigger --event` reached a plugin with no `events` grant at all.
 func TestTriggerDeliversOnlyWhatThePluginReceives(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "plugin", "host.go"))
-	if os.IsNotExist(err) {
-		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	raw := coreSource(t, "internal", "plugin", "host.go")
 	for _, want := range []string{
 		`is %w to hook %q", key, ErrNotSubscribed, hook)`,
 		`is %w to event %q", key, ErrNotSubscribed, eventType)`,
 	} {
-		if !strings.Contains(string(raw), want) {
+		if !strings.Contains(raw, want) {
 			t.Errorf("core's host.go no longer refuses an unsubscribed delivery with %q — re-read the trigger paragraph", want)
 		}
 	}

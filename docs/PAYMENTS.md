@@ -30,10 +30,11 @@ declares either.
   Orders, Mollie — and every platform on top of them (Shopify's payments apps, Saleor, Medusa). Nothing in the
   contract waits for a payer.
 - **The contract holds no provider code, no keys, and makes no outbound call.** A gateway's keys live on its
-  own settings page, encrypted; its calls to the processor are its own. One piece of Core predates the
-  contract and is not yet on it: the page builder's Stripe payment button (Core's `internal/stripe`), which
-  still calls Stripe itself with a key from Core's own settings. Moving it onto this contract, key and all,
-  is planned; until then it is the one payment call Core makes on its own.
+  own settings page, encrypted; its calls to the processor are its own. Two page-builder buttons predate the
+  contract and are not on it. The Stripe payment button (Core's `internal/stripe`) still calls Stripe itself
+  with a key from Core's own settings — moving it onto this contract, key and all, is planned, and until then
+  it is the one payment call Core makes on its own. The PayPal button is a plain form the payer's browser posts
+  to PayPal; Core makes no call and holds no key for it.
 
 ## 2. Money is an integer in the currency's smallest unit
 
@@ -75,8 +76,10 @@ resolved, rejected: final
 ```
 
 - **A report of the status the session already has is a no-op** (200, the session unchanged) — the same
-  report twice, and also a second `Reject` with a different code, or a second `Resolve` with a different
-  reference: the first one stands. A processor sends the same webhook more than once as a matter of course.
+  report twice, and also a second `Reject` with a different code, or a second `Resolve` of the same amount with
+  a different reference: the first one stands. A processor sends the same webhook more than once as a matter of
+  course. A second `Resolve` with a DIFFERENT amount or currency is not the same report: on a resolved payment it
+  is refused with 409.
 - **A report that would MOVE the session somewhere the table does not allow is refused with 409.** A payment
   that ended one way does not end another way because a late webhook says so.
 
@@ -100,7 +103,7 @@ gateway reporting one is refused:
 |---|---|---|
 | `declined` | gateway | the processor said no |
 | `cancelled` | gateway, or a person | the payer walked away — not a problem to investigate; also what a person's reject of a pending payment records |
-| `provider_unavailable` | gateway, or Core | the processor could not be reached; nothing was charged. Core records it too when the gateway does not answer `payment.start`, or answers something Core cannot act on |
+| `provider_unavailable` | gateway, or Core | the processor could not be reached; usually nothing was charged. Core records it too when the gateway does not answer `payment.start`, or answers something Core cannot act on — see "Core asks once" for the charge that can happen anyway |
 | `invalid_request` | gateway | the processor cannot take this payment (a currency, a minimum) |
 | `expired` | gateway | the processor's page expired before the payer paid |
 | `amount_mismatch` | Core, then a person | the processor took a different amount or currency; held `pending` for a person — and kept as the code when that person rejects it |
@@ -202,8 +205,10 @@ return nilda.PaymentStartResult{Status: nilda.PaymentRedirected, RedirectURL: ch
 ```
 
 - **Core asks once.** An answer that does not arrive — a timeout, a crash, one Core cannot act on — closes
-  the session as `rejected`, `provider_unavailable`: no payer has seen a processor's page, so no money can
-  have moved, and the consumer may offer the payer another try, which is a new session. **`s.ID` is still
+  the session as `rejected`, `provider_unavailable`, and the consumer may offer the payer another try, which is
+  a new session. Usually no money has moved: no payer has seen a processor's page. But a processor that charges
+  on the spot (a saved card) may have charged before your answer was lost — if yours did, report it anyway
+  with `Resolve`: Core answers 409, since rejected is final, and records the money for the owner to refund. **`s.ID` is still
   your idempotency key at the processor**, so a retry inside your own `StartPayment` cannot open two
   checkouts for one session.
 - Send the processor `s.ReturnURL` and `s.CancelURL` — absolute, on the site; Core fills CancelURL when the
@@ -287,8 +292,11 @@ Answer `resolved`, `rejected` (with a code), or `pending` and report the end lat
 ### What Core gives a gateway
 
 - **15 seconds** for each payment hook, instead of the ordinary plugin call's 5 — a processor's API on a
-  slow day, not a plugin that is broken. Precisely: the longer of 15 seconds and the site's
-  `PLUGIN_CALL_TIMEOUT`, so an operator who raised that past 15 is never given less.
+  slow day, not a plugin that is broken. Precisely: at most the longer of 15 seconds and the site's
+  `PLUGIN_CALL_TIMEOUT`, so an operator who raised that past 15 is never given less. At most, because
+  `payment.start` and `payment.describe` run inside the request that asked — the payer is waiting — and keep
+  its deadline: a consumer asking from its own 5-second hook, or from a page with 1.5 seconds for every
+  plugin, gives you that much. `payment.refund` runs from Core's delivery job and has the whole budget.
 - Its own sessions only: every other session answers 404, to reads and to reports alike.
 
 ### Testing a gateway with nothing running
@@ -463,7 +471,7 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
 | `locale` | 35 characters, a language tag | RFC 5646's minimum a reader must support |
 | `Idempotency-Key` | 255 bytes | Core's, which is Stripe's |
 | a session nothing decided | 24 hours, unless the gateway says | Stripe Checkout's own default |
-| a gateway's hook | 15 seconds, or `PLUGIN_CALL_TIMEOUT` if that is longer | Core's budget for a processor's API |
+| a gateway's hook | at most 15 seconds, or `PLUGIN_CALL_TIMEOUT` if that is longer | Core's budget for a processor's API |
 | a consumer's hook | 5 seconds, the default of `PLUGIN_CALL_TIMEOUT` | the ordinary plugin call |
 
 ## 8. What the contract does not do

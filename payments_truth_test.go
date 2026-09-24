@@ -5,8 +5,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"reflect"
 	"regexp"
 	"sort"
@@ -23,14 +21,7 @@ import (
 
 func corePaymentsSource(t *testing.T, parts ...string) string {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(append([]string{"..", "core"}, parts...)...))
-	if os.IsNotExist(err) {
-		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	return string(raw)
+	return coreSource(t, parts...)
 }
 
 // constValues maps each `Name = "value"` constant in src to its value.
@@ -50,8 +41,7 @@ func movesIn(t *testing.T, src, name string, consts map[string]string) map[strin
 	if start < 0 {
 		t.Fatalf("no %s table in core's machine.go — repoint this guard", name)
 	}
-	body := src[start:]
-	body = body[:strings.Index(body, "\n\t}")]
+	body := upTo(t, src[start:], "\n\t}", "core's "+name)
 	out := map[string][]string{}
 	for _, m := range regexp.MustCompile(`(?m)^\s*(\w+):\s*\{([^}]*)\}`).FindAllStringSubmatch(body, -1) {
 		from, ok := consts[m[1]]
@@ -104,8 +94,7 @@ func TestCoresPaymentMachineIsTheSDKs(t *testing.T) {
 	if strings.Join(core, ",") != strings.Join(all, ",") {
 		t.Errorf("core's failure codes are %v; the SDK's are %v", core, all)
 	}
-	block := src[strings.Index(src, "gatewayFailureCodes = map[string]bool{"):]
-	block = block[:strings.Index(block, "}")]
+	block := upTo(t, from(t, src, "gatewayFailureCodes = map[string]bool{", "core's validate.go"), "}", "core's gatewayFailureCodes")
 	var coreGateway []string
 	for _, m := range regexp.MustCompile(`(\w+):\s*true`).FindAllStringSubmatch(block, -1) {
 		coreGateway = append(coreGateway, consts[m[1]])
@@ -212,11 +201,27 @@ func TestThePaymentNumbersInTheGuideAreCores(t *testing.T) {
 			t.Errorf("core's %s no longer has %q — re-read what PAYMENTS.md says about it", c.file, c.want)
 		}
 	}
+	// "At most": start and describe run on the asking request's context, which a WithTimeout inside the call
+	// keeps (a child context never outlives its parent's deadline).
+	for _, want := range []string{
+		"res, callErr := s.start(ctx, row)",
+		"out, err := s.plugins.Call(ctx, row.GatewayKey, plugin.HookPaymentStart, payload)",
+		"cat, err := s.catalogue(ctx)",
+		"out, err := s.plugins.Call(ctx, gateway, plugin.HookPaymentDescribe, []byte(`{}`))",
+	} {
+		if !strings.Contains(service, want) {
+			t.Errorf("core's internal/payments/service.go no longer has %q — re-read PAYMENTS.md's \"At most\"", want)
+		}
+	}
 	words := map[string]string{"5": "five", "10": "ten", "15": "fifteen"}
+	if words[sweep] == "" {
+		t.Fatalf("core's expiry sweep runs every %s minutes, which this guard cannot spell — teach it the word", sweep)
+	}
 	for _, want := range []string{
 		"**" + gateway + " seconds** for each payment hook, instead of the ordinary plugin call's " + ordinary,
-		"the longer of " + gateway + " seconds and the site's `PLUGIN_CALL_TIMEOUT`",
-		"| a gateway's hook | " + gateway + " seconds, or `PLUGIN_CALL_TIMEOUT` if that is longer |",
+		"at most the longer of " + gateway + " seconds and the site's `PLUGIN_CALL_TIMEOUT`",
+		"`payment.start` and `payment.describe` run inside the request that asked — the payer is waiting — and keep its deadline",
+		"| a gateway's hook | at most " + gateway + " seconds, or `PLUGIN_CALL_TIMEOUT` if that is longer |",
 		"| a consumer's hook | " + ordinary + " seconds, the default of `PLUGIN_CALL_TIMEOUT` |",
 		"| a session nothing decided | " + lifetime + " hours, unless the gateway says |",
 		"(" + lifetime + " hours after it was created if you say nothing",
@@ -331,8 +336,8 @@ func TestThePaymentRoutesAreCores(t *testing.T) {
 	consumer, gateway := grants("CapPaymentSession"), grants("CapPaymentGateway")
 	core := map[string]string{} // "METHOD /payments/…" -> who
 	for _, m := range regexp.MustCompile(`g\.(GET|POST|PUT|PATCH|DELETE)\("([^"]+)", h\.(\w+)\)`).FindAllStringSubmatch(src, -1) {
-		fn := src[strings.Index(src, "func (h *RESTHandlers) "+m[3]+"(c *gin.Context) {"):]
-		c := regexp.MustCompile(`caller\(c, apistandards\.(\w+), (side\w+)\)`).FindStringSubmatch(fn[:strings.Index(fn, "\n}")])
+		fn := from(t, src, "func (h *RESTHandlers) "+m[3]+"(c *gin.Context) {", "core's rest.go")
+		c := regexp.MustCompile(`caller\(c, apistandards\.(\w+), (side\w+)\)`).FindStringSubmatch(upTo(t, fn, "\n}", "core's "+m[3]))
 		if c == nil {
 			t.Fatalf("core's %s handler no longer asks caller() for a scope and a side — repoint this guard", m[3])
 		}
@@ -432,8 +437,7 @@ func TestThePaymentShapesAreCores(t *testing.T) {
 		if start < 0 {
 			t.Fatalf("no %s in core's types.go — repoint this guard", typ)
 		}
-		body := src[start:]
-		body = body[:strings.Index(body, "\n}")]
+		body := upTo(t, src[start:], "\n}", "core's "+typ)
 		var out []string
 		for _, m := range regexp.MustCompile("json:\"([a-z_]+)").FindAllStringSubmatch(body, -1) {
 			out = append(out, m[1])
@@ -447,8 +451,7 @@ func TestThePaymentShapesAreCores(t *testing.T) {
 			t.Errorf("PAYMENTS.md no longer lists %q", marker)
 			continue
 		}
-		list := doc[i+len(marker):]
-		list = list[:strings.Index(list, "}")]
+		list := upTo(t, doc[i+len(marker):], "}", "PAYMENTS.md's "+marker)
 		var listed []string
 		for _, f := range strings.Split(list, ",") {
 			listed = append(listed, strings.Trim(strings.TrimSpace(f), `"`))
@@ -468,4 +471,33 @@ func itoa(n int) string {
 		b = append([]byte{byte('0' + n%10)}, b...)
 	}
 	return string(b)
+}
+
+// TestTheKitsDecisionIsCores holds nildatest's Payments.Decide to Core's Decide (internal/payments/admin.go),
+// rule by rule: the words a decision takes, only a pending payment, a held mismatch resolved at the processor's
+// amount and refused in another currency, and a rejection's reason and message. A consumer tests what it is
+// told after a person decides; told something else than Core tells it, the test proves nothing.
+func TestTheKitsDecisionIsCores(t *testing.T) {
+	core := strings.Join(strings.Fields(coreSource(t, "internal", "payments", "admin.go")), " ")
+	kit := strings.Join(strings.Fields(readText(t, "nildatest/payments.go")), " ")
+	for _, pair := range []struct{ core, kit string }{
+		{`DecisionResolve = "resolve" DecisionReject = "reject"`, `if decision != "resolve" && decision != "reject" {`},
+		{`if cur.Status != StatusPending { return false, apperr.Conflict("only a payment that is pending can be decided by a person")`,
+			`if s.Status != nilda.PaymentPending { return nilda.PaymentSession{}, fmt.Errorf("nildatest: only a payment that is pending can be decided by a person;`},
+		{`if cur.FailureCode == FailAmountMismatch && cur.ReportedAmountMinor != nil { if cur.ReportedCurrency != cur.Currency {`,
+			`if held { if took.currency != s.Currency {`},
+		{`next.AmountMinor = *cur.ReportedAmountMinor`, `s.AmountMinor = took.amount`},
+		{`next.Status, next.FailureCode, next.FailureMessage = StatusResolved, "", ""`, `s.FailureCode, s.FailureMessage = "", "" p.move(s, nilda.PaymentResolved)`},
+		{`code := FailCancelled if cur.FailureCode == FailAmountMismatch { code = FailAmountMismatch }`,
+			`code := nilda.PaymentFailCancelled if s.FailureCode == nilda.PaymentFailAmountMismatch { code = nilda.PaymentFailAmountMismatch }`},
+		{`next.Status, next.FailureCode, next.FailureMessage = StatusRejected, code, note`, `s.FailureCode, s.FailureMessage = code, note p.move(s, nilda.PaymentRejected)`},
+		{`if utf8.RuneCountInString(note) > maxText {`, `if utf8.RuneCountInString(note) > maxPaymentText {`},
+	} {
+		if !strings.Contains(core, pair.core) {
+			t.Errorf("core's Decide no longer says %q — re-read nildatest's Decide against it", pair.core)
+		}
+		if !strings.Contains(kit, pair.kit) {
+			t.Errorf("nildatest's Decide no longer says %q, the kit's half of Core's %q", pair.kit, pair.core)
+		}
+	}
 }

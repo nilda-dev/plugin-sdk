@@ -6,12 +6,23 @@ here.
 
 ## Unreleased
 
-No change to the Go API (`surface.txt` and `nildatest/surface.txt` are as in v0.10.0). What a plugin can notice:
+One addition to the Go API: `nildatest.Payments.Decide` (`nildatest/surface.txt`). `surface.txt` is as in
+v0.10.0. What a plugin can notice:
 
 ### Changed — the SDK
 
+- **An error your handler returns reaches Core as your ANSWER, whatever it wraps.** `Serve` sends it as gRPC
+  `Unknown`, the one code Core reads as the plugin answering — a row action's or an ability's refusal, a payment
+  consumer's "tell me again". grpc-go sends the code of any gRPC status an error wraps, so a refusal wrapping a
+  Core call's error (kv's `ResourceExhausted`, say) arrived as that code and counted toward switching the plugin
+  off.
+- **A panic in your code now counts as a failure.** It reaches Core as `Internal`; it used to arrive as a plain
+  error, which Core read as your answer — a row action that panicked on every press was shown to the owner as
+  your words and never counted.
 - **`API.UploadMedia` with an Idempotency-Key sends the same bytes on every run** — its multipart boundary is
-  derived from the key. A keyed upload re-run after a crash was refused by Core as "a different request".
+  derived from the key and everything the body carries, the file included. A keyed upload re-run after a crash
+  was refused by Core as "a different request". (Derived from the key alone, as first shipped here, a file
+  could carry the boundary and add form fields of its own; a file that contains its boundary is refused.)
 - **The plugin's key no longer rides an https request's own headers.** `NewTransport` / `HTTPClient` put it on
   the CONNECT (which the egress proxy reads) and, for plain http, on the request; on https the request headers
   travel inside TLS to the provider, which learned the key.
@@ -27,6 +38,18 @@ No change to the Go API (`surface.txt` and `nildatest/surface.txt` are as in v0.
 - A mismatched resolve writes no failure message (Core keeps the processor's amount for the owner), and the
   same mismatch reported twice changes nothing; a pending report on a pending session changes nothing; a
   processor's reference past 255 bytes is refused on a pending report and a refund resolve.
+- **`Decide`** — a person settling a pending payment, as the owner does on Settings → Payments: a held mismatch
+  resolved at the processor's amount (one in another currency refused), a rejection keeping `amount_mismatch`
+  as its reason with the note as its message. A consumer can test the order it books at an amount it did not ask.
+- As Core, now: the same key with another body while the first runs is **409** (it was 422); a panic under a
+  key records a **500** instead of leaving the key "still being processed" for good; an over-refund while the
+  gateway cannot be asked is **503** (it was 422); a start the gateway could not answer carries no failure
+  message; a consumer's refusal in the confirm step is not written onto a payment settled meanwhile, and its
+  reason is cut to 500 characters; a report's body is checked before its session is looked up (a malformed one
+  is 422, never 404); a currency is compared as Core normalises it (`" eur"` is EUR).
+- **The kv budget**: a `Host` refuses a write past 10,000 keys or 16 MiB — counted as Core counts them, the
+  key under Core's namespace prefix plus the value — with `ResourceExhausted` and Core's words, after sweeping
+  expired keys. It said it did not model this, and a plugin that filled its namespace passed its tests.
 
 ### Documentation
 
@@ -46,23 +69,42 @@ No change to the Go API (`surface.txt` and `nildatest/surface.txt` are as in v0.
 - `_examples/shop` reads `content.saved` in the shape Core sends (`content_id`, `type`) and listens for
   `ecommerce.order_paid`, an event the site's shop really emits, instead of `order.paid`, which nothing
   sends.
-- The `kv` row: one plugin's 10,000 keys and 16 MiB now hold on every install. Core used to keep them on a
-  Lite install only, and keeps them on Dragonfly too now — a plugin there past either answers
-  `ResourceExhausted`, where it used to be let through.
-- A call past Core's rate limit (email, emit, kv) answers `ResourceExhausted` **with a `google.rpc.RetryInfo`**
-  saying when there is room again; a write to a full kv namespace answers the same code with none — waiting
-  does not help there. The two could not be told apart before.
-- `route_prefix`: Core now refuses `/category`, `/tag`, `/search` and any language's code (`/fa`, `/en`,
-  `/pt-br`) — Core serves pages under each, after a plugin's route has had its turn, so a plugin holding one
-  answered every category page or every Persian one. A plugin already installed under one of them keeps it
-  until its next update.
-- Tables: the 16-index cap counts every index Core builds (unique columns and a list page's `order_by`
-  included); a table may not be named like another's primary key (`orders_pkey`); a plain-number default must
-  fit its column's range; and a reinstall over the tables an earlier install left cannot move a primary key,
-  as an update already could not.
 - `CHANGELOG.md` (this file).
+- After an independent review of the above, the guides say, where they said otherwise or nothing:
+  - which code Core reads as your answer (`UNKNOWN`; ANY_LANGUAGE), and that a panic counts;
+  - that a gateway's budget is AT MOST 15 seconds — `payment.start` and `payment.describe` keep the asking
+    request's deadline;
+  - that a lost `payment.start` answer usually means no charge, and what to do with one that happened;
+  - that a second `Resolve` with another amount is a 409, not a no-op;
+  - that the assistant reads every non-secret setting — `secret` is the line the model does not cross;
+  - that a free install's assistant runs only `read` abilities;
+  - that a row action is not told who pressed it;
+  - the `content.*`, `schedule:` and `ability:` payloads for a plugin in another language;
+  - never to put the plugin key on an https request's own headers;
+  - that `Health` is never called; that a 503 gives its Idempotency-Key back; that `-ldflags='-s -w'` keeps a
+    binary's build information; that a field type's `base` is a content field type, not a widget one;
+  - how to read the Core-reading tests' skips, and that they fail when a file they read has moved.
+- `_examples/shop` has a `plugin.json` declaring the settings page it reads and the capabilities it uses, held
+  by its tests.
 
 ### Changed — what Core does, and the guides say so
+
+- The `kv` row: one plugin's 10,000 keys and 16 MiB now hold on every install. Core used to keep them on a
+  Lite install only, and keeps them on Dragonfly too now — a plugin there past either answers
+  `ResourceExhausted`, where it used to be let through. (On Dragonfly, writes racing each other at the very edge
+  can pass it together — by what one plugin writes at that instant, never more.)
+- A call past Core's rate limit (email, emit, kv) answers `ResourceExhausted` **with a `google.rpc.RetryInfo`**
+  saying when there is room again; a write to a full kv namespace answers the same code with none — retrying
+  does not help there. The two could not be told apart before.
+- `route_prefix`: Core now refuses `/category`, `/tag`, `/search` and any language's code (`/fa`, `/en`,
+  `/pt`) — Core serves pages under each, after a plugin's route has had its turn, so a plugin holding one
+  answered every category page or every Persian one. A plugin already installed under one of them keeps it
+  until its next update. The code is the whole prefix: `/my-account` is not Burmese (Core refused it as such at
+  first, reading only up to the hyphen).
+- Tables: the 16-index cap counts every index Core builds (unique columns and a list page's `order_by`
+  included); a table may not be named like another's primary key (`orders_pkey`); a plain-number default must
+  fit its column's range; and switching on a reinstall over the tables an earlier install left cannot move a
+  primary key, as an update already could not.
 
 - **The site's assistant manages plugins now — never removes one** (Core's D-87): it can turn a plugin on,
   update it to the version the install ships, and read and change its settings (`plugin_settings_set`, for a
@@ -77,8 +119,8 @@ No change to the Go API (`surface.txt` and `nildatest/surface.txt` are as in v0.
   plugin's scopes is a different request (422), never the first answer.
 - **The egress proxy challenges a request that names no plugin** (`407` with a Basic challenge) instead of
   refusing it as undeclared, and keeps no connection to the provider open after a plain (http) request.
-- A hook, schedule, ability or event subscription your capabilities do not admit is logged by name at start
-  (it was dropped in silence).
+- A hook, schedule, ability or event subscription your capabilities do not admit is logged at start — a hook by
+  its name; schedules, abilities and events by the capability they need (they were dropped in silence).
 - `admin_pages` and `editor_commands`: help past 500 characters, a placeholder, a choice, a page icon, a
   command's group, icon or keyword past 120, and more than 16 keywords are refused at install.
 - `nilda plugin check` refuses a field Nilda does not know, as the guide said it did — only `build` did.

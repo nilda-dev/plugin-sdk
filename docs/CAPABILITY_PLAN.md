@@ -50,9 +50,9 @@ what. Sorted by what each one needs the host to let it do:
 The three biggest gaps were `field`, `admin_page` and `auth_provider` — the table's second, third and fourth
 rows, since `route` already existed — and they were 120 of the 219 between them.
 
-> **Where it stands, 2026-08-05 (end of day).** All three were built. What remains blocked is
-> `storage_provider` (3) — **3 of 219, under 2%** — the last row, deferred deliberately in §3.5 with the
-> design question that has to be answered first. `search_provider` was built the next day, 2026-08-06.
+> **Where it stands, 2026-08-06.** All three were built by the end of 2026-08-05, and `search_provider` (6)
+> the next day. What remains blocked is `storage_provider` (3) — **3 of 219, under 2%** — the last row,
+> deferred deliberately in §3.5 with the design question that has to be answered first.
 > The rest of this document is kept as written, because the reasoning is what makes the shapes
 > reviewable; the per-section BUILT markers are the current state.
 
@@ -134,9 +134,11 @@ Core draws that; two hooks carry what a declaration cannot:
 The declaration itself carries the key, the label, the help, the base, and the plugin's own per-field
 settings — everything the third hook was for.
 
-The widget field vocabulary is 28 types today (`plugin-sdk/widgets.go`'s `FieldTypes()`, mirrored by
-`internal/plugin/sdk_mirror_test.go` in both directions), so the seam for "what a field IS" is written down
-and guarded.
+What a `base` may be is Core's CONTENT field types — the content-type registry (`internal/contenttype`,
+`KnownFieldTypes()`), which install checks the base against and names in its refusal. That is not the widget
+field vocabulary (`plugin-sdk/widgets.go`'s `FieldTypes()`, 28 types, what a widget's own settings may be):
+`password`, `relationship`, `user`, `taxonomy_term` and `json` are content field types and no widget field
+type. The SDK does not list the content field types; the refusal does.
 
 **Watch:** validation must run in Core's save path, not only in the admin. A field type whose
 validation lives in the browser is a field type that stores anything a script posts.

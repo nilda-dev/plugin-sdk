@@ -13,6 +13,8 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"gitlab.com/nildalabs/nilda-sdk/plugin-sdk/contract"
 )
@@ -208,6 +210,11 @@ func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (res
 // It is NOT swallowed. The panic and its stack go to the plugin's own log — the operator's log, named after
 // the plugin — and the call returns an error, so Core fails it exactly as it fails any other bad answer.
 // An author sees a loud message about their bug instead of a process that vanished.
+//
+// And it is a FAILURE, not an answer: gRPC code Internal, which Core counts toward switching the plugin off. A
+// panic is the plugin's code breaking, not deciding — sent as a plain error it reached Core as Unknown, which Core
+// reads as a handler's refusal (asAnswer), so a row action that panicked on every press was shown to the owner as
+// the plugin's words and never counted (the 2026-09-24 review of the SDK).
 func (s *pluginServer) recoverCall(what string, err *error) {
 	r := recover()
 	if r == nil {
@@ -216,7 +223,23 @@ func (s *pluginServer) recoverCall(what string, err *error) {
 	stack := string(debug.Stack())
 	newLogger(os.Stderr, os.Getenv("NILDA_PLUGIN_KEY")).Error(
 		"this plugin panicked; the call failed and the process kept running", "in", what, "panic", r, "stack", stack)
-	*err = fmt.Errorf("plugin panicked in %s: %v", what, r)
+	*err = status.Errorf(codes.Internal, "plugin panicked in %s: %v", what, r)
+}
+
+// asAnswer is an error the plugin's own handler returned, sent to Core as the plugin's ANSWER: gRPC code
+// Unknown, the one code Core reads as "the plugin's code said no" — a row action's or an ability's refusal, shown
+// to the person who asked; a payment consumer's "tell me again" — rather than as the plugin failing, which counts
+// toward switching it off. The words are kept.
+//
+// grpc-go sends the code of any gRPC status an error WRAPS. So a handler that refused with
+// `fmt.Errorf("saving the refund: %w", err)` around a Core call's error (kv's ResourceExhausted, emit's
+// PermissionDenied) or any gRPC client's error reached Core as THAT code, and counted as a failure: a few such
+// refusals, and the plugin was switched off (the 2026-09-24 review of the SDK).
+func asAnswer(err error) error {
+	if err == nil {
+		return nil
+	}
+	return status.Error(codes.Unknown, err.Error())
 }
 
 func (s *pluginServer) HandleHook(ctx context.Context, req *contract.HookRequest) (resp *contract.HookResponse, err error) {
@@ -232,7 +255,7 @@ func (s *pluginServer) HandleHook(ctx context.Context, req *contract.HookRequest
 	// so the only names that arrive are the author's own.
 	if out, handled, err := dispatchAbility(ctx, s.abilityRun, req.Hook, req.Payload); handled {
 		if err != nil {
-			return nil, err
+			return nil, asAnswer(err)
 		}
 		return &contract.HookResponse{Payload: out}, nil
 	}
@@ -241,13 +264,13 @@ func (s *pluginServer) HandleHook(ctx context.Context, req *contract.HookRequest
 	// contribute markup.
 	if out, ok, err := dispatchProvided(ctx, s.handler, req.Hook, req.Payload); ok {
 		if err != nil {
-			return nil, err
+			return nil, asAnswer(err)
 		}
 		return &contract.HookResponse{Payload: out}, nil
 	}
 	out, err := s.handler.HandleHook(ctx, req.Hook, req.Payload)
 	if err != nil {
-		return nil, err
+		return nil, asAnswer(err)
 	}
 	return &contract.HookResponse{Payload: out}, nil
 }

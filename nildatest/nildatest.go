@@ -64,6 +64,7 @@ type Host struct {
 	key     string // the plugin's key: its own event namespace
 	granted map[string]bool
 	kv      map[string]kvEntry
+	kvBytes int // what kv is counted as against Core's byte budget (kvSize of every entry)
 	events  []Event
 	emails  []Email
 	revoked []Revocation
@@ -90,10 +91,49 @@ func (h *Host) now() time.Time { return time.Now().Add(h.clock) }
 func (h *Host) live(key string) (kvEntry, bool) {
 	e, ok := h.kv[key]
 	if ok && !e.exp.IsZero() && !h.now().Before(e.exp) {
-		delete(h.kv, key)
+		h.drop(key)
 		return kvEntry{}, false
 	}
 	return e, ok
+}
+
+// kvSize is what Core counts one entry as against the byte budget: the key under Core's namespace prefix
+// (core's KVNamespace, "plugin:kv:<key>:") and the value.
+func (h *Host) kvSize(key, val string) int { return len("plugin:kv:"+h.key+":") + len(key) + len(val) }
+
+// drop removes key and what it was counted as. Callers hold h.mu.
+func (h *Host) drop(key string) {
+	if e, ok := h.kv[key]; ok {
+		delete(h.kv, key)
+		h.kvBytes -= h.kvSize(key, e.val)
+	}
+}
+
+// put stores e under key within Core's per-plugin budget (core's memKV.put): past it, this plugin's expired
+// entries are swept once and the write is refused if the namespace is still full — ResourceExhausted with Core's
+// words and no RetryInfo, since waiting does not empty a namespace. Callers hold h.mu.
+func (h *Host) put(key string, e kvEntry) error {
+	grown := func() (keys, bytes int) {
+		keys, bytes = len(h.kv), h.kvBytes+h.kvSize(key, e.val)
+		if old, ok := h.kv[key]; ok {
+			bytes -= h.kvSize(key, old.val)
+		} else {
+			keys++
+		}
+		return keys, bytes
+	}
+	if keys, bytes := grown(); keys > maxKVKeysPerPlugin || bytes > maxKVBytesPerPlugin {
+		for k := range h.kv {
+			h.live(k)
+		}
+		if keys, bytes := grown(); keys > maxKVKeysPerPlugin || bytes > maxKVBytesPerPlugin {
+			return status.Error(codes.ResourceExhausted, kvFull)
+		}
+	}
+	h.drop(key)
+	h.kv[key] = e
+	h.kvBytes += h.kvSize(key, e.val)
+	return nil
 }
 
 // Advance moves this host's clock forward, so a KV entry written with a TTL expires exactly as it would in
@@ -247,10 +287,16 @@ func (h *Host) KVGet(_ context.Context, in *contract.KVGetRequest, _ ...grpc.Cal
 	return &contract.KVGetResponse{Value: e.val, Found: found}, nil
 }
 
-// maxKVValueBytes is Core's cap on one KV value (core's internal/plugin/kvquota.go); a guard in this package
-// reads that file and fails when the two differ. Core also caps keys and bytes per plugin, on every install —
-// this fake does not model the store's memory, so it does not refuse those.
-const maxKVValueBytes = 64 << 10
+// Core's kv caps (core's internal/plugin/kvquota.go; a guard in this package reads that file and fails when they
+// differ): one value, and each plugin's keys and bytes — the last two on every install, Lite or Dragonfly.
+const (
+	maxKVValueBytes     = 64 << 10
+	maxKVKeysPerPlugin  = 10_000
+	maxKVBytesPerPlugin = 16 << 20
+)
+
+// kvFull is Core's refusal of a write past a plugin's budget, word for word (its ErrKVFull).
+const kvFull = "plugin kv: this plugin's namespace is full — delete keys, give them a TTL, or declare `datastore`"
 
 func (h *Host) KVSet(_ context.Context, in *contract.KVSetRequest, _ ...grpc.CallOption) (*contract.KVSetResponse, error) {
 	if err := h.enforce("kv"); err != nil {
@@ -268,7 +314,9 @@ func (h *Host) KVSet(_ context.Context, in *contract.KVSetRequest, _ ...grpc.Cal
 	if in.TtlSeconds > 0 {
 		e.exp = h.now().Add(time.Duration(in.TtlSeconds) * time.Second)
 	}
-	h.kv[in.Key] = e
+	if err := h.put(in.Key, e); err != nil {
+		return nil, err
+	}
 	return &contract.KVSetResponse{}, nil
 }
 
@@ -278,7 +326,7 @@ func (h *Host) KVDel(_ context.Context, in *contract.KVDelRequest, _ ...grpc.Cal
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	delete(h.kv, in.Key)
+	h.drop(in.Key)
 	return &contract.KVDelResponse{}, nil
 }
 
@@ -301,8 +349,10 @@ func (h *Host) KVIncr(_ context.Context, in *contract.KVIncrRequest, _ ...grpc.C
 		n = parsed
 	}
 	n++
-	// INCR leaves an existing expiry alone, in Core as in Redis.
-	h.kv[in.Key] = kvEntry{val: strconv.FormatInt(n, 10), exp: existing.exp}
+	// INCR leaves an existing expiry alone, in Core as in Redis. A new counter is a new key, held to the budget.
+	if err := h.put(in.Key, kvEntry{val: strconv.FormatInt(n, 10), exp: existing.exp}); err != nil {
+		return nil, err
+	}
 	return &contract.KVIncrResponse{Value: n}, nil
 }
 

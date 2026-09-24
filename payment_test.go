@@ -466,9 +466,12 @@ func TestServeAnswersThePaymentHooksItself(t *testing.T) {
 // copy is held here, where both are visible, so the kit refuses exactly what the SDK and Core refuse.
 func TestTheKitsBoundsAreTheSDKs(t *testing.T) {
 	kit := strings.Join(strings.Fields(readText(t, "nildatest/payments.go")), " ")
-	want := fmt.Sprintf("maxProviderRef = %d", maxProviderRef)
-	if !strings.Contains(kit, want) {
-		t.Errorf("nildatest/payments.go does not say %q — the kit's bound on a processor's reference has left "+
-			"the SDK's (payment.go)", want)
+	for _, want := range []string{
+		fmt.Sprintf("maxProviderRef = %d", maxProviderRef),
+		fmt.Sprintf("maxPaymentText = %d", maxPaymentText),
+	} {
+		if !strings.Contains(kit, want) {
+			t.Errorf("nildatest/payments.go does not say %q — the kit's bound has left the SDK's (payment.go)", want)
+		}
 	}
 }

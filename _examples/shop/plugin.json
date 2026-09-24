@@ -1,0 +1,17 @@
+{
+  "key": "shop",
+  "name": "Example Shop",
+  "version": "1.0.0",
+  "sdk_version": "0.10.0",
+  "capabilities": ["hooks", "events", "schedule", "kv", "email", "content.write", "admin_page"],
+  "admin_pages": [{
+    "key": "settings",
+    "label": "Settings",
+    "kind": "settings",
+    "help": "Where the example tells the warehouse that an order was paid.",
+    "fields": [
+      { "key": "notify_email", "label": "Warehouse email", "type": "email",
+        "help": "A paid order is mailed here. Empty: no mail is sent." }
+    ]
+  }]
+}

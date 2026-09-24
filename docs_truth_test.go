@@ -91,16 +91,9 @@ func TestNothingCallsFaultIsolationASecuritySandbox(t *testing.T) {
 // source when Core is checked out beside this repository — the same arrangement pins_test.go uses.
 func TestThePackagingTheDocsDescribeIsTheOneCoreInstalls(t *testing.T) {
 	path := filepath.Join("..", "core", "internal", "plugin", "schema_package.go")
-	raw, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
-		t.Skip("core is not checked out beside plugin-sdk, so its package format cannot be read from here — " +
-			"run this from a full nilda checkout")
-	}
-	if err != nil {
-		t.Fatalf("reading %s: %v", path, err)
-	}
+	raw := coreSource(t, "internal", "plugin", "schema_package.go")
 	constant := func(name string) string {
-		m := regexp.MustCompile(`\b` + name + `\s*=\s*"([^"]+)"`).FindStringSubmatch(string(raw))
+		m := regexp.MustCompile(`\b` + name + `\s*=\s*"([^"]+)"`).FindStringSubmatch(raw)
 		if m == nil {
 			t.Fatalf("%s no longer declares %s — repoint this guard rather than deleting it", path, name)
 		}
@@ -164,15 +157,8 @@ func TestTheShopWalkthroughEmitsTheCatalogueEvent(t *testing.T) {
 // 2026-09-24 whole-plan review, I-11): a repeat is replayed only under the scopes the first request had, because
 // Core writes the token's scopes into the fingerprint.
 func TestAKeyHoldsAcrossARestartOnlyUnderTheSameScopes(t *testing.T) {
-	src := filepath.Join("..", "core", "internal", "apistandards", "idempotency.go")
-	raw, err := os.ReadFile(src)
-	if os.IsNotExist(err) {
-		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(raw), `io.WriteString(h, "scopes "+strings.Join(sorted, " ")+"\n")`) {
+	raw := coreSource(t, "internal", "apistandards", "idempotency.go")
+	if !strings.Contains(raw, `io.WriteString(h, "scopes "+strings.Join(sorted, " ")+"\n")`) {
 		t.Error("core's idempotency fingerprint no longer carries the token's scopes — re-read \"under the same scopes\"")
 	}
 	for doc, want := range map[string]string{
@@ -201,6 +187,20 @@ func TestTheGuideSaysAnAbilityIsNotToldWhoAsked(t *testing.T) {
 		t.Fatalf("contract.HookRequest carries %v now, not only the hook and its input — re-read the guide's "+
 			"\"What you are NOT told is who that person was\"", fields)
 	}
+	// …and Core sends only that: the ability's input as its payload, the request built from the two, and no gRPC
+	// metadata beside it — the other way the person could travel without the wire's shape changing.
+	hostGo := coreSource(t, "internal", "plugin", "host.go")
+	for _, want := range []string{
+		"return h.Call(ctx, key, AbilityHookPrefix+name, args)",
+		"handle.Plugin.HandleHook(callCtx, &contract.HookRequest{Hook: hook, Payload: payload})",
+	} {
+		if !strings.Contains(hostGo, want) {
+			t.Errorf("core's host.go no longer has %q — re-read the guide's \"What you are NOT told is who that person was\"", want)
+		}
+	}
+	if strings.Contains(hostGo, "OutgoingContext") {
+		t.Error("core's host.go puts gRPC metadata on a call — re-read whether a plugin is told who asked")
+	}
 	if doc := strings.Join(strings.Fields(readText(t, "docs/PLUGIN_SDK.md")), " "); !strings.Contains(doc,
 		"What you are NOT told is who that person was: the call carries the hook's name and its input, and nothing about the person") {
 		t.Error("the guide no longer says an ability is not told who asked, which contract.HookRequest makes true")
@@ -215,15 +215,7 @@ func TestTheGuideSaysAnAbilityIsNotToldWhoAsked(t *testing.T) {
 // red instead of leaving the sentence behind.
 func TestTheAbilityGateTheDocsNameIsTheOneCoreApplies(t *testing.T) {
 	pages := filepath.Join("..", "core", "internal", "plugin", "adminpages.go")
-	raw, err := os.ReadFile(pages)
-	if os.IsNotExist(err) {
-		t.Skip("core is not checked out beside plugin-sdk, so its ability gate cannot be read from here — " +
-			"run this from a full nilda checkout")
-	}
-	if err != nil {
-		t.Fatalf("reading %s: %v", pages, err)
-	}
-	src := string(raw)
+	src := coreSource(t, "internal", "plugin", "adminpages.go")
 
 	// func AdminPermission(pluginKey string) string { return "plugin." + pluginKey + ".configure" }
 	adm := regexp.MustCompile(`func AdminPermission\(\w+ string\) string \{\s*return "([^"]*)" \+ \w+ \+ "([^"]*)"\s*\}`).
@@ -237,7 +229,7 @@ func TestTheAbilityGateTheDocsNameIsTheOneCoreApplies(t *testing.T) {
 		t.Fatalf("%s no longer returns ConfigurePermissions as one list literal — repoint this guard", pages)
 	}
 	perms := filepath.Join("..", "core", "internal", "authz", "permissions.go")
-	manage := regexp.MustCompile(`\bPermPluginManage\s*=\s*"([^"]+)"`).FindStringSubmatch(readText(t, perms))
+	manage := regexp.MustCompile(`\bPermPluginManage\s*=\s*"([^"]+)"`).FindStringSubmatch(coreSource(t, "internal", "authz", "permissions.go"))
 	if manage == nil {
 		t.Fatalf("%s no longer declares PermPluginManage — repoint this guard", perms)
 	}
@@ -269,13 +261,7 @@ func TestTheAbilityGateTheDocsNameIsTheOneCoreApplies(t *testing.T) {
 // `payment_session`, not `hooks`, admits a consumer's hooks.
 func TestTheHookGrantsInitResultNamesAreCores(t *testing.T) {
 	dir := filepath.Join("..", "core", "internal", "plugin")
-	src, err := os.ReadFile(filepath.Join(dir, "renderassets.go"))
-	if os.IsNotExist(err) {
-		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	src := coreSource(t, "internal", "plugin", "renderassets.go")
 	// Every constant core's plugin package declares, so a case can be read by value.
 	values := map[string]string{}
 	files, err := filepath.Glob(filepath.Join(dir, "*.go"))
@@ -291,21 +277,17 @@ func TestTheHookGrantsInitResultNamesAreCores(t *testing.T) {
 			values[m[1]] = m[2]
 		}
 	}
-	body := string(src)
-	start := strings.Index(body, "func filterHooks(")
-	if start < 0 {
-		t.Fatal("core's renderassets.go no longer declares filterHooks — repoint this guard")
-	}
-	body = body[start:]
-	body = body[:strings.Index(body, "\n}\n")]
+	body := upTo(t, from(t, src, "func filterHooks(", "core's renderassets.go"), "\n}\n", "core's filterHooks")
 	if !strings.Contains(body, "allowed := contains(grants, CapHooks)") {
 		t.Fatal("core's filterHooks no longer defaults to the `hooks` grant — re-read InitResult.Hooks")
 	}
 	grantOf := map[string]string{} // hook value -> capability value, from core
-	caseRE := regexp.MustCompile(`(?s)^([A-Za-z0-9_,\s]+):.*?allowed = contains\(grants, (Cap\w+)\)`)
+	// The assignment must END after its one contains(): a case that became `contains(grants, CapA) &&
+	// contains(grants, CapB)` would otherwise read as CapA alone admitting the hook.
+	caseRE := regexp.MustCompile(`(?s)^([A-Za-z0-9_,\s]+):.*?\n\s*allowed = contains\(grants, (Cap\w+)\)\n`)
 	for _, chunk := range regexp.MustCompile(`(?m)^\t\tcase `).Split(body, -1)[1:] {
 		m := caseRE.FindStringSubmatch(chunk)
-		if m == nil {
+		if m == nil || strings.Count(chunk, "allowed =") != 1 {
 			t.Fatalf("a case of core's filterHooks does not read as `case Hooks…: allowed = contains(grants, Cap…)` — teach this guard:\n%s", chunk)
 		}
 		capability, ok := values[m[2]]
@@ -327,8 +309,8 @@ func TestTheHookGrantsInitResultNamesAreCores(t *testing.T) {
 	// The comment's pairs: "<hooks> by `<grant>`", where <hooks> is a name, a family ("commerce.*") or names
 	// joined by "/".
 	serve := readText(t, "serve.go")
-	c := serve[strings.Index(serve, "// Hooks are the hook names to receive."):]
-	c = strings.Join(strings.Fields(strings.ReplaceAll(c[:strings.Index(c, "Hooks  []string")], "//", " ")), " ")
+	c := upTo(t, from(t, serve, "// Hooks are the hook names to receive.", "serve.go"), "Hooks  []string", "serve.go's InitResult")
+	c = strings.Join(strings.Fields(strings.ReplaceAll(c, "//", " ")), " ")
 	said := map[string]string{} // pattern -> capability
 	for _, m := range regexp.MustCompile("([a-z][a-z._*/]*) by `([a-z_.]+)`").FindAllStringSubmatch(c, -1) {
 		for _, p := range strings.Split(m[1], "/") {
@@ -374,15 +356,9 @@ func TestTheHookGrantsInitResultNamesAreCores(t *testing.T) {
 // plugin hunt's C19), read from core's internal/plugin/kvquota.go.
 func TestTheKVLimitsTheDocsNameAreCores(t *testing.T) {
 	path := filepath.Join("..", "core", "internal", "plugin", "kvquota.go")
-	raw, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
-		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	raw := coreSource(t, "internal", "plugin", "kvquota.go")
 	num := func(name string) int {
-		m := regexp.MustCompile(`\b` + name + `\s*=\s*([0-9_]+)(?:\s*<<\s*([0-9]+))?`).FindStringSubmatch(string(raw))
+		m := regexp.MustCompile(`\b` + name + `\s*=\s*([0-9_]+)(?:\s*<<\s*([0-9]+))?`).FindStringSubmatch(raw)
 		if m == nil {
 			t.Fatalf("%s no longer declares %s as a number — repoint this guard", path, name)
 		}
@@ -414,9 +390,19 @@ func TestTheKVLimitsTheDocsNameAreCores(t *testing.T) {
 	// WHERE they hold: every install since Core keeps the count on Dragonfly too (its kvshared.go; the 2026-09-24
 	// review's B-F5). The row said "on a Lite install", and a plugin on Dragonfly met ResourceExhausted it was
 	// told it would not.
-	if _, err := os.Stat(filepath.Join("..", "core", "internal", "plugin", "kvshared.go")); err == nil &&
-		!strings.Contains(row, "on every install") {
+	// Held to the call that keeps them there, not to the file existing (the review of 384e49c): Set on
+	// Dragonfly admits the write against the caps before it writes. And the one way past them, said as Core says it.
+	shared := strings.Join(strings.Fields(strings.ReplaceAll(coreSource(t, "internal", "plugin", "kvshared.go"), "\n//", "\n")), " ")
+	if !strings.Contains(shared, "old, err := k.admitShared(ctx, name, size)") ||
+		!strings.Contains(shared, "keys > maxKVKeysPerPlugin || bytes > maxKVBytesPerPlugin { return 0, ErrKVFull") {
+		t.Error("core's Dragonfly kv no longer admits a write against the key and byte caps — re-read the kv row's \"on every install\"")
+	}
+	if !strings.Contains(row, "on every install") {
 		t.Errorf("the kv row does not say the key and byte caps hold on every install, as Core keeps them:\n%s", row)
+	}
+	if !strings.Contains(shared, "writes racing each other at the very edge can pass it together") ||
+		!strings.Contains(row, "where writes racing each other at the very edge can pass it together") {
+		t.Errorf("the kv row and core's kvshared.go no longer say the same about writes racing at the edge:\n%s", row)
 	}
 }
 
@@ -507,14 +493,8 @@ func readText(t *testing.T, path string) string {
 // in Render, AND the policy lines that make the sentence true — a policy that stopped allowing `class` or
 // `data-*`, or started allowing a style or a script, would leave the call in place and the doc wrong.
 func TestTheWidgetSanitizerTheDocsDescribeIsCores(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "plugin", "widgets.go"))
-	if os.IsNotExist(err) {
-		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(raw), "security.SanitizeComponentHTML(res.HTML)") {
+	raw := coreSource(t, "internal", "plugin", "widgets.go")
+	if !strings.Contains(raw, "security.SanitizeComponentHTML(res.HTML)") {
 		t.Fatal("core's WidgetCatalog.Render no longer sanitizes with the component policy — re-read what the docs say is kept")
 	}
 	policy := readText(t, filepath.Join("..", "core", "pkg", "security", "sanitize.go"))
@@ -531,8 +511,7 @@ func TestTheWidgetSanitizerTheDocsDescribeIsCores(t *testing.T) {
 		if start < 0 {
 			t.Fatalf("core's sanitize.go no longer declares %s — repoint this guard", fn)
 		}
-		b := policy[start:]
-		return b[:strings.Index(b, "\n}")]
+		return upTo(t, policy[start:], "\n}", "core's "+fn)
 	}
 	component, rich := body("newComponentPolicy"), body("newRichPolicy")
 	for _, want := range []string{"p := newRichPolicy()", `p.AllowAttrs("class").Globally()`, "p.AllowDataAttributes()"} {
@@ -562,15 +541,9 @@ func TestTheWidgetSanitizerTheDocsDescribeIsCores(t *testing.T) {
 // the doc names are held to Core's constants here.
 func TestTheChoicesBoundsTheDocsNameAreCores(t *testing.T) {
 	path := filepath.Join("..", "core", "internal", "plugin", "fields.go")
-	raw, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
-		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	raw := coreSource(t, "internal", "plugin", "fields.go")
 	num := func(name string) int {
-		m := regexp.MustCompile(`\b` + name + `\s*=\s*([0-9_]+)(?:\s*<<\s*([0-9]+))?`).FindStringSubmatch(string(raw))
+		m := regexp.MustCompile(`\b` + name + `\s*=\s*([0-9_]+)(?:\s*<<\s*([0-9]+))?`).FindStringSubmatch(raw)
 		if m == nil {
 			t.Fatalf("%s no longer declares %s as a number — repoint this guard", path, name)
 		}
@@ -597,15 +570,9 @@ func TestTheChoicesBoundsTheDocsNameAreCores(t *testing.T) {
 // ability's Run, a search engine's calls, an upgrade step in Init. Each number is held to the default Core's
 // config parses, so the sentence cannot outlive a changed default.
 func TestTheTimeBudgetsTheDocsNameAreCores(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("..", "core", "pkg", "config", "config.go"))
-	if os.IsNotExist(err) {
-		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	raw := coreSource(t, "pkg", "config", "config.go")
 	seconds := func(env string) string {
-		m := regexp.MustCompile(`parseDuration\("` + env + `",\s*([0-9]+)\s*\*\s*time\.Second\)`).FindStringSubmatch(string(raw))
+		m := regexp.MustCompile(`parseDuration\("` + env + `",\s*([0-9]+)\s*\*\s*time\.Second\)`).FindStringSubmatch(raw)
 		if m == nil {
 			t.Fatalf("core's config.go no longer defaults %s in seconds — repoint this guard", env)
 		}
@@ -626,15 +593,9 @@ func TestTheTimeBudgetsTheDocsNameAreCores(t *testing.T) {
 // M42 (2026-09-23 plugin hunt): the egress proxy bounds each plugin's connections and closes idle tunnels. The
 // two numbers the network section names are held to Core's, read from core's resilience.go.
 func TestTheEgressLimitsTheDocsNameAreCores(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "plugin", "resilience.go"))
-	if os.IsNotExist(err) {
-		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	conns := regexp.MustCompile(`maxEgressPerPlugin\s*=\s*([0-9]+)\b`).FindStringSubmatch(string(raw))
-	idle := regexp.MustCompile(`egressIdleTimeout\s*=\s*([0-9]+)\s*\*\s*time\.Minute`).FindStringSubmatch(string(raw))
+	raw := coreSource(t, "internal", "plugin", "resilience.go")
+	conns := regexp.MustCompile(`maxEgressPerPlugin\s*=\s*([0-9]+)\b`).FindStringSubmatch(raw)
+	idle := regexp.MustCompile(`egressIdleTimeout\s*=\s*([0-9]+)\s*\*\s*time\.Minute`).FindStringSubmatch(raw)
 	if conns == nil || idle == nil {
 		t.Fatal("core's resilience.go no longer declares maxEgressPerPlugin / egressIdleTimeout as numbers — repoint this guard")
 	}
@@ -649,14 +610,7 @@ func TestTheEgressLimitsTheDocsNameAreCores(t *testing.T) {
 // Core's 2026-09-24 whole-plan review, A-10: a request that names no plugin is challenged — 407 with a Basic
 // Proxy-Authenticate — and both guides say so, where they said such a call was refused as "not declared".
 func TestTheDocsSayAnUnnamedRequestIsChallenged(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "plugin", "egress.go"))
-	if os.IsNotExist(err) {
-		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	src := string(raw)
+	src := coreSource(t, "internal", "plugin", "egress.go")
 	if !strings.Contains(src, `w.Header().Set("Proxy-Authenticate", `+"`"+`Basic realm=`) || !strings.Contains(src, "http.StatusProxyAuthRequired") {
 		t.Error("core's egress proxy no longer challenges a request that names no plugin — re-read the guides' 407 sentence")
 	}
@@ -673,21 +627,13 @@ func TestTheDocsSayAnUnnamedRequestIsChallenged(t *testing.T) {
 // holds Core to it — the field on Core's copy of both requests, under the same JSON name, and Core filling it
 // from the request's resolved locale on both calls.
 func TestTheFieldRequestsCarryCoresLocale(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "plugin", "fields.go"))
-	if os.IsNotExist(err) {
-		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	src := string(raw)
+	src := coreSource(t, "internal", "plugin", "fields.go")
 	for _, typ := range []string{"FieldChoicesRequest", "FieldValidateRequest"} {
 		start := strings.Index(src, "type "+typ+" struct {")
 		if start < 0 {
 			t.Fatalf("core's fields.go no longer declares %s — repoint this guard", typ)
 		}
-		body := src[start:]
-		body = body[:strings.Index(body, "\n}")]
+		body := upTo(t, src[start:], "\n}", "core's "+typ)
 		if !strings.Contains(body, "Locale string `json:\"locale,omitempty\"`") {
 			t.Errorf("core's %s carries no Locale under the SDK's JSON name", typ)
 		}
@@ -707,14 +653,7 @@ func TestTheFieldRequestsCarryCoresLocale(t *testing.T) {
 // cannot keep a rule Core dropped or a bound Core moved.
 func TestTheAdminPageRulesTheDocsNameAreCores(t *testing.T) {
 	read := func(file string) string {
-		raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "plugin", file))
-		if os.IsNotExist(err) {
-			t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		return string(raw)
+		return coreSource(t, "internal", "plugin", file)
 	}
 	manifest, report, list, tables := read("schema_manifest.go"), read("adminreport.go"), read("adminlist.go"), read("tables.go")
 	num := func(src, name string) string {
@@ -772,10 +711,32 @@ func TestTheAdminPageRulesTheDocsNameAreCores(t *testing.T) {
 		"longer than " + num(manifest, "maxDeclaredLabelLen") + " characters",
 		// The strings M34 left unbounded (Core's 2026-09-24 whole-plan review, A-15).
 		"help longer than " + num(manifest, "maxDeclaredHelpLen") + " characters",
+		"and so is a placeholder, a choice or a page's icon",
 	} {
 		if !strings.Contains(section, want) {
 			t.Errorf("the admin_page section does not say %q, which is Core's bound", want)
 		}
+	}
+	// Each string the bounds sentences name is CHECKED — the constant alone held nothing: a placeholder, a
+	// choice, a page's icon and help, a field's help; and a command's group and icon (the editor_commands
+	// section says the same 120).
+	for _, check := range []string{
+		`tooLong(fw+".placeholder", fl.Placeholder)`,
+		`tooLong(fw+".choices["+strconv.Itoa(k)+"]", ch)`,
+		`tooLong(where+".icon", pg.Icon)`,
+		`helpTooLong(where+".help", pg.Help)`,
+		`helpTooLong(fw+".help", fl.Help)`,
+		`tooLong(where+".group", c.Group)`,
+		`tooLong(where+".icon", c.Icon)`,
+		`if utf8.RuneCountInString(s) > maxDeclaredHelpLen {`,
+	} {
+		if !strings.Contains(manifest, check) {
+			t.Errorf("core's schema_manifest.go no longer checks %s — re-read the guide's bound for it", check)
+		}
+	}
+	guide := strings.Join(strings.Fields(readText(t, "docs/PLUGIN_SDK.md")), " ")
+	if !strings.Contains(guide, "one longer than "+num(manifest, "maxDeclaredLabelLen")+" characters (a `group`, an `icon`") {
+		t.Error("the editor_commands section no longer says a command's group and icon are bounded as a label is")
 	}
 }
 
@@ -786,14 +747,7 @@ func TestTheAdminPageRulesTheDocsNameAreCores(t *testing.T) {
 // refusalIsAnAnswer for the three calls a person makes.
 func TestARowActionsRefusalIsTheOwnersReasonAndNotAFailure(t *testing.T) {
 	read := func(name string) string {
-		raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "plugin", name))
-		if os.IsNotExist(err) {
-			t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		return string(raw)
+		return coreSource(t, "internal", "plugin", name)
 	}
 	list, host, fields := read("adminlist.go"), read("host.go"), read("fields.go")
 	for _, want := range []string{
@@ -810,29 +764,40 @@ func TestARowActionsRefusalIsTheOwnersReasonAndNotAFailure(t *testing.T) {
 	if !strings.Contains(host, "askAgainIsAnAnswer(callCtx, hook, err) || refusalIsAnAnswer(callCtx, hook, err)") {
 		t.Error("core's host.go no longer spares a person's refusal from the failure count — re-read ANY_LANGUAGE's sentence")
 	}
+	// The code Core reads as an answer, for the consumer's hooks as for a person's: Unknown and nothing else —
+	// which is why Serve sends every handler error as Unknown and a panic as Internal (serve.go's asAnswer and
+	// recoverCall, held by TestAHandlersErrorReachesCoreAsItsAnswer and TestAPanicInTheAuthorsCodeFailsTheCallNotTheProcess).
+	if !strings.Contains(read("payments.go"), "return callCtx.Err() == nil && status.Code(callErr) == codes.Unknown") {
+		t.Error("core's askAgainIsAnAnswer no longer reads Unknown as the consumer's answer — re-read serve.go's asAnswer and ANY_LANGUAGE's code")
+	}
 	if !regexp.MustCompile(`\bmaxValidationMsgLen\s*=\s*300\b`).MatchString(fields) {
 		t.Error("core's refusal bound is no longer 300 — re-read DispatchAdminAction's \"first 300 characters\"")
 	}
 	// "through plugin.json's translations": the admin looks the bare words up as it does a success Message.
-	screen, err := os.ReadFile(filepath.Join("..", "core", "web", "admin", "src", "screens", "PluginPage.tsx"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(screen), "details?.reason === REASON_ACTION_REFUSED && details.said ? pt(details.said)") {
+	screen := coreSource(t, "web", "admin", "src", "screens", "PluginPage.tsx")
+	if !strings.Contains(screen, "details?.reason === REASON_ACTION_REFUSED && details.said ? pt(details.said)") {
 		t.Error("core's admin no longer translates a refusal through the plugin's translations — re-read DispatchAdminAction's sentence")
 	}
 	sdk := strings.Join(strings.Fields(strings.ReplaceAll(readText(t, "adminpage.go"), "\n//", "\n")), " ")
 	for _, want := range []string{
 		"An error you return reaches the owner as the reason the action did not run — its first 300 characters, through plugin.json's translations like Message",
 		"refusing an action, however often, never counts toward switching the plugin off",
+		"Serve sends every error your handler returns to Core as that answer (gRPC Unknown), whatever it wraps",
+		"Running out of time, crashing, or panicking is not an answer, and does count.",
 	} {
 		if !strings.Contains(sdk, want) {
 			t.Errorf("adminpage.go no longer says %q, which core makes true", want)
 		}
 	}
 	anyLang := strings.Join(strings.Fields(readText(t, "docs/ANY_LANGUAGE.md")), " ")
-	if !strings.Contains(anyLang, "An error you give a PERSON is not a failed call: a row action, a report or an ability that answers with an error has answered") {
-		t.Error("ANY_LANGUAGE.md no longer says a person's refusal is not a failed call, which core's host.go makes true")
+	for _, want := range []string{
+		"An error you give a PERSON is not a failed call: a row action, a report or an ability that answers with an error has answered",
+		"**Answer with gRPC status `UNKNOWN` (code 2)**",
+		"`INVALID_ARGUMENT`, `FAILED_PRECONDITION`, `INTERNAL` and every other code count as a failed call",
+	} {
+		if !strings.Contains(anyLang, want) {
+			t.Errorf("ANY_LANGUAGE.md no longer says %q, which core's host.go and adminlist.go make true", want)
+		}
 	}
 }
 
@@ -841,21 +806,19 @@ func TestARowActionsRefusalIsTheOwnersReasonAndNotAFailure(t *testing.T) {
 // CanConfigure in the preview and the apply alike, the save is SaveAdminPage, and a secret's card says only
 // that it will be replaced.
 func TestTheAssistantSavesSettingsThroughTheSectionsOwnSave(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "plugin", "module.go"))
-	if os.IsNotExist(err) {
-		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	src := string(raw)
+	src := coreSource(t, "internal", "plugin", "module.go")
+	flat := strings.Join(strings.Fields(src), " ")
 	for _, want := range []string{
 		"if !CanConfigure(can, key) {",
 		"if err := s.SaveAdminPage(ctx, man.Key, page.Key, in.Values); err != nil {",
+		// "a secret … is never read back or repeated": the preview's card, and the read tool's answer.
 		`row["secret"] = "will be replaced; the value is not shown"`,
+		`if f.Secret { row["secret"], row["set"] = true, f.Set } else { row["value"] = pg.Values[f.Key] }`,
+		// "only after they approved the change": the tool stages a preview and needs a person's own sign-in.
+		"Preview: s.previewSettingsSet, Invoke: module.Typed(s.toolSettingsSet), Authorize: \"core_auth\",",
 	} {
-		if !strings.Contains(src, want) {
-			t.Errorf("core's plugin_settings_set no longer has %q — re-read the guide's \"Who saves them\"", want)
+		if !strings.Contains(flat, want) {
+			t.Errorf("core's plugin settings tools no longer have %q — re-read the guide's \"Who saves them\"", want)
 		}
 	}
 	// settingsTarget is the one gate, and both the preview and the apply ask it.
@@ -863,28 +826,60 @@ func TestTheAssistantSavesSettingsThroughTheSectionsOwnSave(t *testing.T) {
 		t.Errorf("core asks settingsTarget %d times, want the preview and the apply both", n)
 	}
 	guide := strings.Join(strings.Fields(readText(t, "docs/PLUGIN_SDK.md")), " ")
-	if !strings.Contains(guide, "or the site's assistant (`plugin_settings_set`), for a person who may configure your plugin and only after they approved the change. Both go through the same save") {
-		t.Error("PLUGIN_SDK.md no longer says who saves a plugin's settings, which core's module.go makes true")
+	for _, want := range []string{
+		"A person who may configure your plugin, on your section of the admin — or the site's assistant (`plugin_settings_set`), for a person who may configure your plugin and only after they approved the change. Both go through the same save",
+		"`plugin_settings` shows the assistant — and so the AI provider behind it — every field's current value, except a `secret` one",
+	} {
+		if !strings.Contains(guide, want) {
+			t.Errorf("PLUGIN_SDK.md no longer says %q, which core's module.go makes true", want)
+		}
+	}
+}
+
+// The example shop's fixtures are what their senders send (the 2026-09-24 review of the SDK). Its test says "a
+// fixture in any other shape tests a hook Core never calls", and nothing held the shapes: content.saved is
+// held to Core's main.go, and ecommerce.order_paid to the site's shop (commerce), each with the fields the
+// example reads.
+func TestTheShopExamplesFixturesAreWhatTheirSendersSend(t *testing.T) {
+	shop := readText(t, "_examples/shop/shop.go")
+	shopTest := readText(t, "_examples/shop/shop_test.go")
+	for file, pair := range map[string][2]string{
+		"content.saved": {
+			`payload, err := json.Marshal(map[string]string{"content_id": id.String(), "type": ctype})`,
+			`json.Marshal(map[string]string{"content_id": id, "type": typ})`,
+		},
+	} {
+		if !strings.Contains(coreSource(t, "cmd", "server", "main.go"), pair[0]) {
+			t.Errorf("core's main.go no longer sends %s as %s — re-read the example shop's fixture", file, pair[0])
+		}
+		if !strings.Contains(shopTest, pair[1]) {
+			t.Errorf("the example shop's %s fixture is no longer %s", file, pair[1])
+		}
+	}
+	for _, field := range []string{"`json:\"content_id\"`", "`json:\"type\"`", "`json:\"order_id\"`"} {
+		if !strings.Contains(shop, field) {
+			t.Errorf("the example shop no longer reads %s — re-read this guard's fixtures", field)
+		}
+	}
+	if !strings.Contains(shopTest, `json.Marshal(map[string]any{"order_id": orderID, "total_cents": 4900})`) {
+		t.Error("the example shop's ecommerce.order_paid fixture changed shape — re-read it against commerce's emit")
+	}
+	// The shop's emit last: skipped without commerce beside the SDK, which is most checkouts.
+	if !strings.Contains(siblingSource(t, "commerce", "onlinepay.go"),
+		`p.core.Emit(ctx, "ecommerce.order_paid", map[string]any{"order_id": order.ID.String(), "total_cents": order.TotalCents})`) {
+		t.Error("commerce no longer emits ecommerce.order_paid as the example shop's fixture has it")
 	}
 }
 
 // S-33 (Core's 2026-09-24 whole-plan review): the guide says `nilda plugin check` refuses an unknown field; it
 // decoded plugin.json with plain json.Unmarshal and passed "capabilties". Held to the command's source.
 func TestPluginCheckRefusesAnUnknownFieldAsTheGuideSays(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "cli", "plugin_dev.go"))
-	if os.IsNotExist(err) {
-		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-	src := string(raw)
+	src := coreSource(t, "internal", "cli", "plugin_dev.go")
 	start := strings.Index(src, "func cmdPluginCheck(")
 	if start < 0 {
 		t.Fatal("core's plugin_dev.go no longer declares cmdPluginCheck — repoint this guard")
 	}
-	body := src[start:]
-	body = body[:strings.Index(body, "\n}\n")]
+	body := upTo(t, src[start:], "\n}\n", "core's cmdPluginCheck")
 	if !strings.Contains(body, "plugin.ParseManifestStrict(raw)") {
 		t.Error("core's `nilda plugin check` no longer reads plugin.json strictly — re-read the guide's \"An unknown field is REFUSED\"")
 	}

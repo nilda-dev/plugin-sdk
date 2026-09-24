@@ -131,7 +131,8 @@ func (c *Core) RevokeIdentity(ctx context.Context, provider, subject, reason str
 // At most 500 calls a second per plugin (bursts of 1,000), all four methods together — the store is shared
 // with the site's sessions and cache. Past that a call answers codes.ResourceExhausted at once, with a
 // google.rpc.RetryInfo detail saying when there is room again. A write to a FULL namespace answers
-// ResourceExhausted too, with no RetryInfo: waiting does not make room there — delete keys or give them a TTL.
+// ResourceExhausted too, with no RetryInfo: waiting alone makes room there only as your keys with a TTL expire —
+// delete keys, or give them one.
 
 func (c *Core) KVGet(ctx context.Context, key string) (string, bool, error) {
 	res, err := c.host.KVGet(ctx, &contract.KVGetRequest{Key: key})
@@ -176,7 +177,8 @@ func (c *Core) KVIncr(ctx context.Context, key string) (int64, error) {
 //
 // Name it under your own key — `shop` emits `shop.order_paid`, which c.PluginKey + ".order_paid" builds — or
 // under a namespace a capability you hold owns (`commerce.*` and `ecommerce.*` are the site's shop's). A name
-// with no namespace — no dot — answers InvalidArgument; any other name that is not yours PermissionDenied,
+// with no namespace — no dot, or nothing on one side of it — answers InvalidArgument; any other name that is
+// not yours PermissionDenied,
 // and so do Core's own namespaces (`content.*`, `form.*`, …) to every plugin: a subscriber has nothing but the
 // name to tell it who sent an event, so a name anyone could use is a forgery.
 //

@@ -172,8 +172,16 @@ is nothing to watch.
 `hook` is a name, `payload` is JSON. Return JSON. The proto carries only the name and the bytes; the
 shape of each hook's JSON is the json tags of the Go SDK's request and response types — `widgets.go`,
 `search.go`, `commerce.go`, `field.go`, `authprovider.go`, `adminpage.go` in this module, with the SDK
-guide's prose around them — and PAYMENTS.md §6 for the payment hooks. Nilda applies a **5-second timeout**
-by default — a slow answer fails the call, not the site.
+guide's prose around them — and PAYMENTS.md §6 for the payment hooks. Three families have no request type
+there, so here they are:
+
+- `content.saved`, `content.trashed`, `content.restored` send `{"content_id": "<the item's UUID>", "type":
+  "<its content type key>"}`. Your answer is not read.
+- `schedule:<name>` sends `{"schedule": "<name>"}`. Your answer is not read.
+- `ability:<name>` sends the caller's input as it came — the object your ability's `input_schema` describes —
+  and your answer is whatever JSON the ability returns, handed back to the assistant that asked.
+
+Nilda applies a **5-second timeout** by default — a slow answer fails the call, not the site.
 
 ### `HandleEvent(EventRequest) → EventResponse`
 
@@ -191,8 +199,8 @@ that is not a bug you should work around.
 
 - **A ceiling per call**: `PLUGIN_CALL_TIMEOUT`, 5 seconds by default, for a hook and for an event. Two
   calls get more: `Init` has `PLUGIN_INIT_TIMEOUT` (30 seconds by default), because a one-time data step
-  runs there, and a payment gateway's three hooks have 15 seconds or `PLUGIN_CALL_TIMEOUT`, whichever is
-  longer (PAYMENTS.md).
+  runs there, and a payment gateway's three hooks have at most 15 seconds or `PLUGIN_CALL_TIMEOUT`,
+  whichever is longer — less when the request that asked has less left (PAYMENTS.md).
 - **A circuit breaker.** If at least half your calls fail within a two-minute window — once there are at
   least five calls in it, so a quiet site cannot trip you on one bad answer — Nilda stops calling you for
   30 seconds: each call is refused on Nilda's side without reaching you. After that it lets calls through
@@ -201,7 +209,11 @@ that is not a bug you should work around.
   run of failed calls in a row — `PLUGIN_MAX_FAILURES`, 5 by default, counted afresh each time the circuit
   opens — disables the plugin until the site owner enables it again. An error you give a PERSON is not
   a failed call: a row action, a report or an ability that answers with an error has answered; only
-  running out of time or going away on those calls counts.
+  running out of time or going away on those calls counts. The same holds for a payment consumer's error
+  (PAYMENTS.md: "tell me again"). **Answer with gRPC status `UNKNOWN` (code 2)** — the code a plain error
+  becomes in most gRPC servers, and the only one Nilda reads as your answer: `INVALID_ARGUMENT`,
+  `FAILED_PRECONDITION`, `INTERNAL` and every other code count as a failed call, however deliberate the
+  refusal. The Go SDK sends every error a handler returns as `UNKNOWN`, and a panic as `INTERNAL`.
 - **A concurrency bound of 16.** Nilda will never have more than 16 hook and event calls open to your
   process at once, and it refuses the 17th on its own side rather than queueing it. So you can size your
   worker pool to 16 and stop there — and if you are a language with a single-threaded runtime, know that
@@ -239,7 +251,7 @@ Every method checks your granted capabilities first:
 | method | needs |
 |---|---|
 | `KVGet` / `KVSet` / `KVDel` / `KVIncr` | `kv` |
-| `EmitEvent` | `events` — and a name that is yours: `<your key>.<name>`, or a namespace a capability you hold owns (`commerce.*` and `ecommerce.*` are the shop's). A name with no namespace (no dot) is `INVALID_ARGUMENT`; any other name, and Nilda's own names to everyone, is `PERMISSION_DENIED`. Events you emit are not delivered in order |
+| `EmitEvent` | `events` — and a name that is yours: `<your key>.<name>`, or a namespace a capability you hold owns (`commerce.*` and `ecommerce.*` are the shop's). A name with no namespace (no dot, or nothing on one side of it) is `INVALID_ARGUMENT`; any other name, and Nilda's own names to everyone, is `PERMISSION_DENIED`. Events you emit are not delivered in order |
 | `SendEmail` | `email` — Nilda fixes the sender, so you can address mail but not forge who it is from |
 | `RevokeIdentity` | `auth_provider` — end somebody's sessions. **Never mint, may revoke** |
 
@@ -250,8 +262,11 @@ import, GraphQL.
 **How often you may call in.** The calls above are bounded per plugin, as Nilda's calls to you are: 60
 emails at once, then one a second as the allowance refills (60 a minute sustained), 20 events a second
 (bursts of 100), and 500 key-value calls a second (bursts of 1,000). Past a bound the call answers
-`RESOURCE_EXHAUSTED` at once rather than queueing; slow down and retry. A plugin doing its job never meets
-one — a loop that forgot to stop does. A Go plugin's log is bounded too, at 100 lines of your log a second
+`RESOURCE_EXHAUSTED` at once rather than queueing, with a `google.rpc.RetryInfo` detail in the status's
+`grpc-status-details-bin` trailer saying when there is room again; slow down and retry after it. A plugin doing
+its job never meets one — a loop that forgot to stop does. A write to a FULL key-value namespace (10,000 keys
+or 16 MiB, §`kv` in PLUGIN_SDK.md) answers `RESOURCE_EXHAUSTED` too, with NO `RetryInfo`: retrying does not
+make room there — delete keys, or give them a TTL — so read the detail before you retry. A Go plugin's log is bounded too, at 100 lines of your log a second
 (bursts of 500 — past that a line is counted rather than recorded, and the count is logged); that bound is on
 go-plugin's stdio stream, which is how a Go plugin's output travels, and a plugin that writes to its own
 stderr as §5 describes is not counted.
@@ -298,7 +313,9 @@ sends that as `Proxy-Authorization` — on plain requests and on the **CONNECT**
 so you do nothing beyond using the environment's proxy.
 
 If your client ignores the environment and you configure the proxy by hand, keep the user name, or set the
-header `X-Nilda-Plugin: <your plugin key>` on every request AND on the CONNECT. Lose both and the proxy
+header `X-Nilda-Plugin: <your plugin key>` on the CONNECT and on a plain-http request — never on an https
+request's own headers: those travel inside the TLS session to the provider, never reach the proxy, and would
+tell Stripe your plugin's key. Lose both and the proxy
 answers `407 Proxy Authentication Required` with a Basic challenge — a client that sends credentials only
 when challenged then sends the user name — and one that cannot answer it has no outbound network at all.
 
@@ -436,7 +453,8 @@ Please do, and tell us. What the Go SDK provides, and what any SDK should:
 - the handshake, the magic cookie, AutoMTLS, and the stdout discipline — all of it hidden
 - typed request/response structs per hook, so a renamed field is a compile error rather than a plugin that
   installs and does nothing
-- an HTTP client that carries the egress identity on both the request and the CONNECT
+- an HTTP client that carries the egress identity on the CONNECT and on a plain-http request, and never in an
+  https request's own headers (they reach the provider, not the proxy)
 - a logger that emits the right JSON
 - a test harness with a fake Nilda: the granted capabilities enforced, the settings settable, and the host
   calls recorded — because the half of a plugin worth testing is what it does with the API key
