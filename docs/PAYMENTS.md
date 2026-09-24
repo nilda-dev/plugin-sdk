@@ -300,6 +300,10 @@ if session.Status == nilda.PaymentRedirected {
 - `nilda.PaymentSessionParams.Validate` is what Core checks without asking anything; Core also checks the
   gateway offers that method in that currency and that the URLs are on this site (another host is refused: a
   payment flow that returns the payer anywhere is an open redirect).
+- **"This site" is the site's public address**: the owner's Settings → General address (`site.base_url`), or
+  the server's `APP_BASE_URL` when none is set. `GET /site` answers `base_url` from the setting alone, so a
+  consumer that builds its return address from it offers no online payment until the owner sets one, and
+  says why, rather than offering methods Core will refuse.
 
 **`PaymentUpdated` is the one place an order's payment state changes.** Core tells you every change of a
 session you created — including the one `CreateSession` already returned — and repeats it until you return

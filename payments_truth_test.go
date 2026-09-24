@@ -186,6 +186,41 @@ func TestThePaymentNumbersInTheGuideAreCores(t *testing.T) {
 	}
 }
 
+// "This site", as PAYMENTS.md defines it for return addresses: the owner's site.base_url, else APP_BASE_URL —
+// while GET /site answers base_url from the setting alone. Each half read where Core does it.
+func TestTheSiteThePaymentsAreHeldToIsCores(t *testing.T) {
+	flat := func(parts ...string) string {
+		return strings.Join(strings.Fields(corePaymentsSource(t, parts...)), " ")
+	}
+	service := flat("internal", "payments", "service.go")
+	main := flat("cmd", "server", "main.go")
+	for where, want := range map[string]struct{ src, text string }{
+		"payments: the setting first":           {service, `if u := strings.TrimSpace(s.siteURL(ctx)); u != "" { return u }`},
+		"payments: then APP_BASE_URL":           {service, "return s.appURL }"},
+		"main.go: the setting is site.base_url": {main, "SiteURL: a.settingsSvc.SiteBaseURL"},
+		"main.go: the fallback is the env":      {main, "AppBaseURL: a.cfg.AppBaseURL"},
+		"main.go: GET /site reads the setting": {main, `stableAPI := stable.NewService(a.store, func(ctx context.Context) stable.Site { ` +
+			`return stable.Site{ Title: a.settingsSvc.GetString(ctx, "site.title"), ` +
+			`Description: a.settingsSvc.GetString(ctx, "site.description"), BaseURL: a.settingsSvc.GetString(ctx, "site.base_url"),`},
+		"main.go: that is the REST API's": {main, "a.srv.Mount(rest.PathV1, stable.NewHandlers(stableAPI,"},
+		"settings: SiteBaseURL's key":     {flat("internal", "settings", "browser.go"), `const keySiteBaseURL = "site.base_url"`},
+		"stable: the field is base_url":   {flat("internal", "api", "stable", "contract.go"), "BaseURL string `json:\"base_url\"`"},
+	} {
+		if !strings.Contains(want.src, want.text) {
+			t.Errorf("%s: core no longer has %q — re-read PAYMENTS.md's \"this site\"", where, want.text)
+		}
+	}
+	doc := strings.Join(strings.Fields(readText(t, "docs/PAYMENTS.md")), " ")
+	for _, want := range []string{
+		"the owner's Settings → General address (`site.base_url`), or the server's `APP_BASE_URL` when none is set",
+		"`GET /site` answers `base_url` from the setting alone",
+	} {
+		if !strings.Contains(doc, want) {
+			t.Errorf("PAYMENTS.md does not say %q", want)
+		}
+	}
+}
+
 // Each capability's token carries the scopes the guide names and nildatest grants — Core's grant is the truth.
 func TestThePaymentScopesAreCores(t *testing.T) {
 	src := strings.Join(strings.Fields(corePaymentsSource(t, "internal", "plugin", "identity.go")), " ")
