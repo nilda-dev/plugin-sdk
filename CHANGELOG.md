@@ -64,6 +64,11 @@ No change to the Go API (`surface.txt` and `nildatest/surface.txt` are as in v0.
 
 ### Changed — what Core does, and the guides say so
 
+- **The site's assistant manages plugins now — never removes one** (Core's D-87): it can turn a plugin on,
+  update it to the version the install ships, and read and change its settings (`plugin_settings_set`, for a
+  person who may configure your plugin, after they approved it). The settings go through the same save as
+  your admin section — declared fields only, a required field never emptied, a secret written and never read
+  back — and your plugin restarts with them, as after any save.
 - **A row action's error reaches the owner in your words** — its first 300 characters, through your
   `translations` like a success `Message`. It used to arrive as "internal error". An error you give a person
   (a row action, a report, an ability) no longer counts toward `PLUGIN_MAX_FAILURES`; a timeout or a crash on

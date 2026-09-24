@@ -836,6 +836,38 @@ func TestARowActionsRefusalIsTheOwnersReasonAndNotAFailure(t *testing.T) {
 	}
 }
 
+// Core's D-87 (2026-09-24): the site's assistant saves a plugin's settings. The guide says it goes through the
+// same save as the admin section, for a person who may configure the plugin — held to Core's tool: the gate is
+// CanConfigure in the preview and the apply alike, the save is SaveAdminPage, and a secret's card says only
+// that it will be replaced.
+func TestTheAssistantSavesSettingsThroughTheSectionsOwnSave(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "plugin", "module.go"))
+	if os.IsNotExist(err) {
+		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(raw)
+	for _, want := range []string{
+		"if !CanConfigure(can, key) {",
+		"if err := s.SaveAdminPage(ctx, man.Key, page.Key, in.Values); err != nil {",
+		`row["secret"] = "will be replaced; the value is not shown"`,
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("core's plugin_settings_set no longer has %q — re-read the guide's \"Who saves them\"", want)
+		}
+	}
+	// settingsTarget is the one gate, and both the preview and the apply ask it.
+	if n := strings.Count(src, "s.settingsTarget(ctx, v, in)"); n != 2 {
+		t.Errorf("core asks settingsTarget %d times, want the preview and the apply both", n)
+	}
+	guide := strings.Join(strings.Fields(readText(t, "docs/PLUGIN_SDK.md")), " ")
+	if !strings.Contains(guide, "or the site's assistant (`plugin_settings_set`), for a person who may configure your plugin and only after they approved the change. Both go through the same save") {
+		t.Error("PLUGIN_SDK.md no longer says who saves a plugin's settings, which core's module.go makes true")
+	}
+}
+
 // S-33 (Core's 2026-09-24 whole-plan review): the guide says `nilda plugin check` refuses an unknown field; it
 // decoded plugin.json with plain json.Unmarshal and passed "capabilties". Held to the command's source.
 func TestPluginCheckRefusesAnUnknownFieldAsTheGuideSays(t *testing.T) {

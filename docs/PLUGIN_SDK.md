@@ -1398,6 +1398,11 @@ number of them store a live payment key in plain text on somebody else's site.
 can never be holding a credential the owner has already replaced. There is nothing to watch and no reload
 callback to write.
 
+**Who saves them.** The owner, on your section of the admin — or the site's assistant (`plugin_settings_set`),
+for a person who may configure your plugin and only after they approved the change. Both go through the same
+save, so the same rules hold: only the fields you declared, a required field never emptied, each field's own
+type; a secret can be written that way and is never read back or repeated.
+
 **Not configured is the first state every integration is in.** `HasSetting` before you do work that cannot
 succeed without a value — a plugin that fails to start until it is configured cannot be configured, because
 its section is only served while it is active.
