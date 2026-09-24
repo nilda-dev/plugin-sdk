@@ -265,7 +265,8 @@ What that means for you day to day:
   want `NOT NULL`, because a bare `NOT NULL` cannot be added to a populated table.
 - **You cannot drop or retype a column, or move the primary key.** Nothing in the plugin path emits
   destructive DDL, and an update that marks a different column `primary_key` is refused before anything
-  changes. Need a different shape? Declare a new table and move the rows with the DML you already have.
+  changes — as is a reinstall over the tables an earlier install left. Need a different shape? Declare a new
+  table and move the rows with the DML you already have.
 - **A new unique column or index must fit the rows already there.** An update whose new unique column or
   index would put two existing rows on one value — a new unique column whose `default` gives every row the
   same value, say — is refused before anything changes, naming the table.
@@ -282,8 +283,12 @@ What that means for you day to day:
   `'yes'` on a `bool`). A quoted date or time is left to Postgres, which reads too many spellings of one to
   restate — a wrong one still fails when the table is built.
 - **Limits**: at most 64 tables, 64 columns a table, 16 indexes a table and 32 columns an index (Postgres
-  builds no wider). No column may take the name of a column Postgres keeps on every table (`tableoid`,
-  `xmin`, `cmin`, `xmax`, `cmax`, `ctid`).
+  builds no wider). The 16 counts every index Core builds on the table — its unique columns, and the one a
+  list page's `order_by` adds, as well as the ones you list. No column may take the name of a column Postgres
+  keeps on every table (`tableoid`, `xmin`, `cmin`, `xmax`, `cmax`, `ctid`), and no table the name Postgres
+  gives another's primary key (`orders_pkey` beside `orders`). A plain-number default must fit its column —
+  `int` holds −2,147,483,648 to 2,147,483,647, rounded first — because Postgres builds the table either way
+  and refuses every row that takes the default.
 - **Index names are Core's**: `<table>_<columns>_idx` (`_uniq` for a unique one), so `gateway` indexing
   `txn_ref` and `gateway_txn` indexing `ref` would share a name, and so would an index and a table called
   what it would be called. Either is refused, naming both declarations — one of the two would otherwise
@@ -351,7 +356,7 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `hooks` | receive hook callbacks |
 | `events` | subscribe to events, and emit your own — see below for which names are yours |
 | `datastore` | a dedicated Postgres schema, tables Core creates from your declaration, DML-only access |
-| `kv` | a scoped key-value namespace for small state: a value is at most 64 KiB (a larger one answers `InvalidArgument`), and on every install one plugin holds at most 10,000 keys and 16 MiB (in Core's memory on a Lite install, beside Core's cache on Dragonfly) — a write past that answers `ResourceExhausted`, after expired keys are cleared; declare `datastore` for more |
+| `kv` | a scoped key-value namespace for small state: a value is at most 64 KiB (a larger one answers `InvalidArgument`), and on every install one plugin holds at most 10,000 keys and 16 MiB (in Core's memory on a Lite install, beside Core's cache on Dragonfly) — a write past that answers `ResourceExhausted`, after expired keys are cleared, with no `google.rpc.RetryInfo` (a call past the kv rate limit carries one; waiting does not empty a full namespace); declare `datastore` for more |
 | `route` | a reverse-proxied URL prefix |
 | `render.assets` | load its own scripts on public pages — see §4.1 |
 | `widget` | contribute page-builder widgets — see §4.1 |
@@ -693,7 +698,8 @@ func (s *Shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, er
 
 Core reverse-proxies `/shop/*` to it, so a storefront serves itself without a round trip through Core per
 request. `route_prefix` is one root segment, and Core refuses one it answers on itself — `/api`, `/admin`,
-`/feed`, `/themes`, `/privacy` and the rest; `nilda plugin check` names it.
+`/feed`, `/themes`, `/privacy`, `/category` and the rest — and any language's code (`/fa`, `/en`, `/pt-br`),
+because a site serves each language it is published in under its code; `nilda plugin check` names it.
 
 **Who is asking.** `nilda.CurrentUser(r)` reads the person behind a request your server received — a
 `nilda.Viewer` with their Core user id and display name, and `ok == false` for an anonymous visitor, which is

@@ -64,6 +64,22 @@ func TestTheCallLimitsTheDocsNameAreCores(t *testing.T) {
 			}
 		}
 	}
+	// "Slow down" and "full" told apart (the 2026-09-24 review's L-F13): a rate refusal carries a RetryInfo, a
+	// full kv namespace answers the same code with none.
+	if !strings.Contains(limits, "st.WithDetails(&errdetails.RetryInfo{") {
+		t.Error("core's overLimit no longer attaches a RetryInfo — re-read the docs' ResourceExhausted sentences")
+	}
+	if !strings.Contains(read("hostservice.go"), "case errors.Is(err, ErrKVFull):\n\t\treturn status.Error(codes.ResourceExhausted, err.Error())") {
+		t.Error("core's full-namespace refusal changed shape — re-read the docs' \"no RetryInfo\" sentence")
+	}
+	for _, want := range []string{
+		"answers codes.ResourceExhausted at once, with a google.rpc.RetryInfo detail saying when there is room again",
+		"ResourceExhausted too, with no RetryInfo: waiting does not make room there",
+	} {
+		if !strings.Contains(core, want) {
+			t.Errorf("core.go no longer says %q, which core's calllimits.go and hostservice.go make true", want)
+		}
+	}
 	// Emit's two promises about delivery, each held both ways: Core runs the fan-out on a goroutine of its
 	// own, detached from the emitter's call — which is what makes "returns before the subscribers have run"
 	// true, and also what makes two emits' order unreliable — and core.go and the guide say both.

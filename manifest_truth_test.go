@@ -87,7 +87,7 @@ func TestTheManifestRulesTheDocsNameAreCores(t *testing.T) {
 	}
 	// Every prefix the route paragraph names as Core's is one Core reserves.
 	manifest := read("plugin", "schema_manifest.go")
-	for _, p := range []string{"/api", "/admin", "/feed", "/themes", "/privacy"} {
+	for _, p := range []string{"/api", "/admin", "/feed", "/themes", "/privacy", "/category"} {
 		if !strings.Contains(manifest, `"`+p+`": true`) || !strings.Contains(doc, "`"+p+"`") {
 			t.Errorf("the route paragraph names %s as Core's, and core's reservedRoutePrefixes does not reserve it", p)
 		}
@@ -105,8 +105,14 @@ func TestTheManifestRulesTheDocsNameAreCores(t *testing.T) {
 		{"Core adds only the columns a table does not have yet", "plugin/tables.go", "c.PrimaryKey || have[c.Name]"},
 		{"`1.09.0` is refused", "plugin/schema_semver.go", "len(p) > 1 && p[0] == '0'"},
 		{"the owner is told which fields were ignored, by path at any depth", "plugin/handlers.go", `body["unknown_manifest_fields"]`},
-		{"an update that marks a different column `primary_key` is refused before anything changes", "plugin/datastore.go", "update cannot change it"},
+		{"an update that marks a different column `primary_key` is refused before anything", "plugin/datastore.go", "neither an update nor a reinstall can change"},
+		{"as is a reinstall over the tables an earlier install left", "plugin/datastore.go", "refusePrimaryKeyChange(ctx, conn, slug, t)"},
 		{"Core refuses one it answers on itself", "plugin/schema_manifest.go", `" is reserved by Core"`},
+		{"and any language's code (`/fa`, `/en`, `/pt-br`)", "plugin/schema_manifest.go", `i18n.Language(strings.TrimPrefix(p, "/"))`},
+		{"The 16 counts every index Core builds on the table", "plugin/schema_tables.go", "len(tableIndexes(t)); n > maxIndexesPerTable"},
+		{"and the one a list page's `order_by` adds", "plugin/schema_manifest.go", "range TablesWithListIndexes(m.Tables, m.AdminPages)"},
+		{"no table the name Postgres gives another's primary key", "plugin/schema_tables.go", `pkeyPaths[t.Name+"_pkey"]`},
+		{"A plain-number default must fit its column", "plugin/schema_tables.go", "return numberFits(def, typ)"},
 	} {
 		if !strings.Contains(doc, c.claim) {
 			t.Errorf("PLUGIN_SDK.md no longer says %q", c.claim)

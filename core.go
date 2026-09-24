@@ -79,7 +79,8 @@ func (c *Core) HasCapability(key string) bool { return slices.Contains(c.Granted
 //
 // Bounded per plugin, because the site's own password resets travel on the same sending reputation: 60 may
 // leave at once, and the allowance refills at one a second — 60 a minute sustained. Past it the call answers
-// codes.ResourceExhausted at once; slow down and retry.
+// codes.ResourceExhausted at once, with a google.rpc.RetryInfo detail saying when there is room again; slow
+// down and retry.
 func (c *Core) SendEmail(ctx context.Context, to, subject, body string) error {
 	_, err := c.host.SendEmail(ctx, &contract.SendEmailRequest{To: to, Subject: subject, Body: body})
 	return err
@@ -128,7 +129,9 @@ func (c *Core) RevokeIdentity(ctx context.Context, provider, subject, reason str
 // ---- kv (scoped Dragonfly namespace) ----
 //
 // At most 500 calls a second per plugin (bursts of 1,000), all four methods together — the store is shared
-// with the site's sessions and cache. Past that a call answers codes.ResourceExhausted at once.
+// with the site's sessions and cache. Past that a call answers codes.ResourceExhausted at once, with a
+// google.rpc.RetryInfo detail saying when there is room again. A write to a FULL namespace answers
+// ResourceExhausted too, with no RetryInfo: waiting does not make room there — delete keys or give them a TTL.
 
 func (c *Core) KVGet(ctx context.Context, key string) (string, bool, error) {
 	res, err := c.host.KVGet(ctx, &contract.KVGetRequest{Key: key})
@@ -178,7 +181,8 @@ func (c *Core) KVIncr(ctx context.Context, key string) (int64, error) {
 // name to tell it who sent an event, so a name anyone could use is a forgery.
 //
 // At most 20 a second per plugin (bursts of 100) — each is a fan-out to every subscriber. Past that the call
-// answers codes.ResourceExhausted at once. Emit returns before the subscribers have run: delivery happens on
+// answers codes.ResourceExhausted at once, with a google.rpc.RetryInfo detail saying when there is room
+// again. Emit returns before the subscribers have run: delivery happens on
 // Core's side, on its own budget, so an Emit inside one of your hooks does not spend that hook's time. And
 // events are not ordered: Core delivers each emit on its own goroutine, so two you emit a moment apart can
 // reach a subscriber the other way round.

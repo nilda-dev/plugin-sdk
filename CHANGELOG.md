@@ -49,6 +49,17 @@ No change to the Go API (`surface.txt` and `nildatest/surface.txt` are as in v0.
 - The `kv` row: one plugin's 10,000 keys and 16 MiB now hold on every install. Core used to keep them on a
   Lite install only, and keeps them on Dragonfly too now — a plugin there past either answers
   `ResourceExhausted`, where it used to be let through.
+- A call past Core's rate limit (email, emit, kv) answers `ResourceExhausted` **with a `google.rpc.RetryInfo`**
+  saying when there is room again; a write to a full kv namespace answers the same code with none — waiting
+  does not help there. The two could not be told apart before.
+- `route_prefix`: Core now refuses `/category`, `/tag`, `/search` and any language's code (`/fa`, `/en`,
+  `/pt-br`) — Core serves pages under each, after a plugin's route has had its turn, so a plugin holding one
+  answered every category page or every Persian one. A plugin already installed under one of them keeps it
+  until its next update.
+- Tables: the 16-index cap counts every index Core builds (unique columns and a list page's `order_by`
+  included); a table may not be named like another's primary key (`orders_pkey`); a plain-number default must
+  fit its column's range; and a reinstall over the tables an earlier install left cannot move a primary key,
+  as an update already could not.
 - `CHANGELOG.md` (this file).
 
 ## v0.10.0 — 2026-09-24
