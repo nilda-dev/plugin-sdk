@@ -44,7 +44,7 @@ flowchart LR
     EG --> EXT
 ```
 
-Four doors, and each is capability-gated:
+Five doors, and each is capability-gated:
 
 | Door | Transport | What it is for | Needs |
 |---|---|---|---|
@@ -75,9 +75,11 @@ func main() { nilda.Serve(&Shop{}) }
 func (s *Shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, error) {
 	s.core = core
 	return nilda.InitResult{
-		Hooks:  []string{"content.saved"}, // requires `hooks`
-		Events: []string{"order.paid"},    // requires `events`
-		Schedules: []nilda.Schedule{       // requires `schedule`
+		Hooks: []string{"content.saved"}, // requires `hooks`
+		// requires `events`. Nilda's own shop plugin emits this when an order is paid, and Core lets
+		// only the plugin holding `commerce` use the `ecommerce.*` names, so no other plugin can fake one.
+		Events: []string{"ecommerce.order_paid"},
+		Schedules: []nilda.Schedule{ // requires `schedule`
 			{Name: "reminders", Cron: "0 9 * * *"},
 		},
 		// RouteAddr: addr,                // requires `route` — see §5
@@ -113,11 +115,13 @@ authenticates API tokens. The content type is part of the PATH.
 ```go
 var apiErr *nilda.APIError
 if errors.As(err, &apiErr) {
-    apiErr.Forbidden()   // the manifest is missing a capability — a backoff will not fix it
-    apiErr.NotFound()
-    apiErr.Conflict()
-    apiErr.RateLimited()
-    apiErr.Code          // Core's own error code, rather than matching on a sentence
+    switch {
+    case apiErr.Forbidden(): // the manifest is missing a capability — a backoff will not fix it
+    case apiErr.NotFound():
+    case apiErr.Conflict():
+    case apiErr.RateLimited():
+    }
+    log.Print(apiErr.Code) // Core's own error code, rather than matching on a sentence
 }
 ```
 
@@ -127,7 +131,9 @@ key and it becomes safe:
 
 ```go
 for _, row := range rows {
-    err := api.WithIdempotencyKey(row.ID).Post(ctx, "/content/product", row, nil)
+    if err := api.WithIdempotencyKey(row.ID).Post(ctx, "/content/product", row, nil); err != nil {
+        return err
+    }
 }
 ```
 
@@ -141,7 +147,9 @@ its token, so they survive a restart.
 `WithMaxRetries` tunes the patience — a hook runs inside Core's budgets, so less is sometimes right. Each
 call Core makes to you has `PLUGIN_CALL_TIMEOUT` (5 seconds by default); every subscriber of one hook or
 event shares ten seconds; and everything one public page asks of plugins — its widgets and its footer
-scripts together — shares 1.5 seconds, past which the page renders without the rest.
+scripts together — shares 1.5 seconds, past which the page renders without the rest. Two calls get more:
+`Init` has `PLUGIN_INIT_TIMEOUT` (30 seconds by default), because a one-time data step runs there, and a
+payment gateway's three hooks have 15 seconds or `PLUGIN_CALL_TIMEOUT`, whichever is longer (PAYMENTS.md).
 
 ```go
 api := s.core.API()
@@ -274,7 +282,10 @@ What that means for you day to day:
   `txn_ref` and `gateway_txn` indexing `ref` would share a name, and so would an index and a table called
   what it would be called. Either is refused, naming both declarations — one of the two would otherwise
   never be built.
-- **`nilda plugin check` validates all of this locally**, naming the exact table and column.
+- **`nilda plugin check` validates the declaration locally** — types, defaults, limits, names — naming the
+  exact table and column. The two rules that depend on what a site already holds — moving the primary key,
+  and a new unique column or index the existing rows cannot take — need that site's tables, so they are
+  checked when the update is applied there, before anything changes.
 
 ### Your own content types and taxonomies
 
@@ -334,7 +345,7 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `hooks` | receive hook callbacks |
 | `events` | subscribe to events, and emit your own — see below for which names are yours |
 | `datastore` | a dedicated Postgres schema, tables Core creates from your declaration, DML-only access |
-| `kv` | a scoped key-value namespace for small state: a value is at most 64 KiB, and on a Lite install (where it lives in Core's memory) one plugin holds at most 10,000 keys and 16 MiB — past that a write answers `ResourceExhausted`; declare `datastore` for more |
+| `kv` | a scoped key-value namespace for small state: a value is at most 64 KiB (a larger one answers `InvalidArgument`), and on a Lite install (where it lives in Core's memory) one plugin holds at most 10,000 keys and 16 MiB — a write past that answers `ResourceExhausted`; declare `datastore` for more |
 | `route` | a reverse-proxied URL prefix |
 | `render.assets` | load its own scripts on public pages — see §4.1 |
 | `widget` | contribute page-builder widgets — see §4.1 |
@@ -368,12 +379,19 @@ edits is recorded as its work.
 
 **An event you emit is named for you.** `events` lets a plugin emit, and Core checks the NAME: yours start
 with your key — `shop` emits `shop.order_paid`, which `core.PluginKey + ".order_paid"` builds — or with a
-namespace a capability you hold owns: `commerce.*` belongs to the site's shop, the plugin holding
-`commerce`, whoever wrote it. Any other name is refused with `PermissionDenied`, and Core's own names
-(`content.*`, `form.*`, `comment.*`, …) are refused to every plugin, even one keyed `content`. The reason
-is the subscriber: a plugin listening for an order event has nothing but the name to tell it who sent it,
-so a name anyone could use would let one plugin announce an order nobody paid. `nildatest` refuses the same
-names — all but Core's own, which it cannot know — so a wrong one fails your tests first.
+namespace a capability you hold owns: `commerce.*` and `ecommerce.*` belong to the site's shop, the plugin
+holding `commerce`, whoever wrote it (`ecommerce.*` is the spelling Nilda's own shop plugin shipped its
+order events under). A name with no namespace at all — no dot — is refused with `InvalidArgument`; any
+other name that is not yours with `PermissionDenied`, and Core's own names (`content.*`, `form.*`,
+`comment.*`, …) are refused to every plugin, even one keyed `content`. The reason is the subscriber: a
+plugin listening for an order event has nothing but the name to tell it who sent it, so a name anyone
+could use would let one plugin announce an order nobody paid. `nildatest` refuses the same names — all but
+Core's own, which it cannot know — so a wrong one fails your tests first.
+
+**Events are not ordered.** `Emit` returns before any subscriber has run, and Core delivers each emit on
+its own goroutine, so two events you emit a moment apart can reach a subscriber the other way round.
+Carry what a subscriber needs to decide in the event itself — a status, a version — rather than relying on
+which arrived last.
 
 ### 4.1 Putting something on a public page
 
@@ -419,15 +437,18 @@ func (s *Shop) FooterScripts(ctx context.Context, req nilda.RenderAssetsRequest)
 A **path**, never markup — Core builds the `<script>` tag itself. `Src` must be root-relative,
 same-origin, and under your own declared route prefix, so this capability needs `route` as well — Core
 refuses a manifest that declares `render.assets` without it, because a plugin that serves no paths owns
-none. An absolute URL or someone else's prefix is dropped silently.
+none. An absolute URL or someone else's prefix is dropped — the page renders without it, and Core's log
+names the path it rejected.
 
-Implementing `AssetProvider` subscribes you to the hook automatically; you do not list it in `InitResult`.
-The widget hooks need no subscription at all — Core asks every plugin holding `widget`.
+Core delivers only a hook a plugin subscribed to, for these two as for every other. You do not list them in
+`InitResult`, because `Serve` does it for you: implementing `AssetProvider` subscribes `render.assets`, and
+implementing `WidgetProvider` subscribes `widget.describe` and `widget.render`. A plugin that handles the
+widget hooks by hand in `HandleHook`, without implementing `WidgetProvider`, has to list them itself.
 
 Core's limits, published as `nilda.MaxWidgetsPerPlugin` (20), `nilda.MaxWidgetHTMLBytes` (64 KiB) and
 `nilda.MaxAssetsPerPlugin` (5). Past a count, the excess is dropped and logged on Core's side.
 
-What one `DescribeWidgets` answer may carry is bounded too: 1 MiB for the whole answer, and in one widget
+What one `widget.describe` answer — your `Widgets()` list — may carry is bounded too: 1 MiB for the whole answer, and in one widget
 at most 200 fields — counted at every level, a repeater's sub-fields included — with at most 200 choices and
 50 rows in any one field. A widget past a bound is not offered at all (logged on Core's side, like the rest),
 and an answer past 1 MiB offers none.
@@ -449,11 +470,11 @@ settings that were never the problem.
   "nilda_compat": ">=0.1.0",
   "capabilities": ["content.write", "media.write", "datastore", "route", "hooks"],
   "route_prefix": "/shop",
-  "network": ["api.stripe.com", "*.twilio.com"],
-  "os": "linux",
-  "arch": "amd64"
+  "network": ["api.stripe.com", "*.twilio.com"]
 }
 ```
+
+No `os` or `arch` in a Go plugin's manifest — see §5.1 for why.
 
 **There is no `signature` field.** It used to live here, over the binary alone — which meant the signature
 did not cover the manifest, and the manifest is the thing a site owner approves. A package could have
@@ -488,17 +509,26 @@ scheme the other must reproduce. A `signature` entry INSIDE the archive is refus
 cannot cover the file that contains it.
 
 ```sh
-nilda plugin build . --sign-key ./signing.key     # or NILDA_SIGN_KEY
+nilda plugin build . --sign-key ./signing.key     # a file holding the base64 Ed25519 private key
 ```
 
-The key is read from a FILE by default rather than a flag value, because a private key passed on the
-command line lands in your shell history and in the process list. Unsigned packages are fine locally; the
-marketplace requires a signature, and `nilda plugin check` tells you so before a reviewer does.
+`--sign-key` names a FILE holding the key, base64, rather than taking the key as a flag value, because a
+private key passed on the command line lands in your shell history and in the process list. The
+alternative is `NILDA_SIGN_KEY`, which holds the base64 key ITSELF, not a path to it (the file wins when
+both are set). Without either, `build` writes unsigned packages and says so. Unsigned packages are fine
+locally; the marketplace requires a signature — `nilda plugin check` reports an unsigned package as a
+problem, and `nilda plugin publish` refuses one.
 
-`os` and `arch` are the platform this binary was built for. Core refuses a mismatch at install with a
-message naming both sides, instead of letting it fail later as an exec error about a bad executable format
-— after the install, from software the owner has just chosen to trust. Leave them out and the check is
-skipped; the marketplace expects them, because a version there ships one binary per platform.
+**Leave `os` and `arch` out of a Go plugin's manifest.** Core reads the platform out of the binary's own
+build information and refuses, at install, a binary built for another platform than the server's, with a
+message naming both — instead of letting it fail later as an exec error about a bad executable format. A
+DECLARED platform is checked against the binary as well, and a mismatch is refused as a package that
+describes something other than what would run. `nilda plugin build` copies one manifest into every
+platform's package, so a manifest declaring `"os": "linux", "arch": "amd64"` makes the darwin and arm64
+packages uninstallable. The two fields matter only for a binary with no Go build information — a stripped
+build, or a plugin in another language (ANY_LANGUAGE.md): a site in sideload mode then falls back to what
+the manifest declares, and the marketplace refuses the package, because it cannot tell what it would be
+distributing.
 
 `network` is the list of external hosts the plugin may reach — at most 32. The owner reads it at install
 beside the capabilities — and on the plugin's row afterwards — and Core routes outbound traffic through a
@@ -520,6 +550,25 @@ res, err := client.Get("https://api.stripe.com/v1/charges")
 is refused with a 503 rather than queued — and a tunnel nothing crosses, in either direction, for 10 minutes
 is closed. A pooled client stays far inside both; a plugin that opens a connection per request and never
 closes it does not.
+
+### "/" commands in the content editor (`editor_commands`)
+
+A plugin can add entries to the content editor's "/" menu. Like tables, they are DECLARED — there is no
+code to ship into the editor, and no capability to ask for:
+
+```json
+"editor_commands": [{
+  "key": "product_card", "label": "Product card", "group": "Shop", "keywords": ["product", "buy"],
+  "content": {"nodes": [{"type": "paragraph"}]}
+}]
+```
+
+`content` is what the command inserts: serialized editor nodes, the shape the editor's own clipboard uses.
+`group`, `icon` and `keywords` are optional; the key is namespaced with your plugin's key, so two plugins
+can both declare `callout`. Core refuses at install more than 24 commands, a `key` that is not a lowercase
+identifier or is declared twice, an empty `label` or one longer than 120 characters, and a `content` that is
+empty or not JSON — it does not check the nodes themselves, so try a command on a test site before you ship
+it. Only an active plugin's commands are in the menu: disable the plugin and they go with it.
 
 ### Recurring work (`schedule`)
 
@@ -582,6 +631,7 @@ one, so a typo costs an owner one permission click rather than an unguarded acti
 | Class | For |
 |---|---|
 | `read` | returns information, changes nothing |
+| `analyze` | audits the owner's own site — grades it, lists its problems; changes nothing |
 | `additive` | produces a draft or suggestion; nothing goes live |
 | `write` | edits live data |
 | `publish` | makes something public, or takes it down |
@@ -651,6 +701,7 @@ func (s *Shop) orders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// viewer.UserID is a Core user id — key your per-customer rows to it.
+	s.writeOrders(w, viewer.UserID)
 }
 ```
 
@@ -697,8 +748,13 @@ func (p *SMS) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, err
 }
 ```
 
-`Setting` reads text, `SettingNumber` a number, `SettingBool` a checkbox, and `HasSetting` whether the owner
-filled a field in at all.
+`Setting` reads text, `SettingNumber` a number, `SettingBool` a checkbox, and `HasSetting` whether a value
+arrived that is not empty text. That is "the owner filled it in" for a text or `secret` field only: Core
+sends every non-secret field of your settings pages at Init with a value of its type (a secret only once
+the owner has typed one), so a number or checkbox field arrives as
+your declared `default`, or as `0` / `false`, and `HasSetting` is true for it on a fresh install. A text
+field with a `default` is likewise never empty. Ask `HasSetting` about the text and secret fields your
+plugin cannot work without.
 
 Show your own rows with a `list` page:
 
@@ -727,9 +783,16 @@ storage the owner already approved at install.
 **It is read-only, and that is deliberate.** If Core let an administrator edit that row, it would set
 `status = 'refunded'` with no refund happening, no email going out and no stock coming back — your logic
 bypassed by your own admin screen. So Core shows the row and you change it. Pressing an action calls your
-hook:
+`admin.action` hook — and Core calls only a hook your Init SUBSCRIBED to. No interface implies this one,
+so list it yourself; its grant is `admin_page`, not `hooks`. Leave it out and every button on the page
+answers "plugin is not subscribed to hook admin.action":
 
 ```go
+func (p *Shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, error) {
+	p.core = core
+	return nilda.InitResult{Hooks: []string{nilda.AdminActionHook}}, nil
+}
+
 func (p *Shop) HandleHook(ctx context.Context, hook string, payload []byte) ([]byte, error) {
 	if out, handled, err := nilda.DispatchAdminAction(ctx, hook, payload, p.onAction); handled {
 		return out, err
@@ -741,11 +804,13 @@ func (p *Shop) HandleHook(ctx context.Context, hook string, payload []byte) ([]b
 func (p *Shop) onAction(ctx context.Context, a nilda.AdminAction) (nilda.AdminActionResult, error) {
 	switch a.Action {
 	case "refund":
-		amount, err := p.refund(ctx, a.ID) // your logic: the gateway, the email, the stock
-		if err != nil {
+		if err := p.refund(ctx, a.ID); err != nil { // your logic: the gateway, the email, the stock
 			return nilda.AdminActionResult{}, err // the owner is told this, so write it for them
 		}
-		return nilda.AdminActionResult{Message: "Refunded " + amount}, nil
+		// A FIXED sentence, translated in plugin.json's `translations` like your labels. "Refunded €12"
+		// built per press matches no translation and reaches every owner in English; the row already says
+		// which order it was.
+		return nilda.AdminActionResult{Message: "Refunded"}, nil
 	}
 	return nilda.AdminActionResult{}, fmt.Errorf("unknown action %q", a.Action)
 }
@@ -754,7 +819,8 @@ func (p *Shop) onAction(ctx context.Context, a nilda.AdminAction) (nilda.AdminAc
 **`Message` is the field the admin shows, and it is the only one.** An action that returns
 `{"result":"refunded"}` runs perfectly and the person who pressed the button is told "Done" — which is why
 the reply is a typed struct now rather than a map you fill in from memory. A button that gives no sign it
-did anything is worse than no button.
+did anything is worse than no button. The admin looks `Message` up in your `translations`, as it does your
+page labels, so answer with a fixed sentence and translate it there.
 
 **An action that runs out of time may still have run.** When your answer does not arrive within the call
 budget (`PLUGIN_CALL_TIMEOUT`), Core cannot tell "never started" from "finished, answer lost", so it tells
@@ -768,8 +834,10 @@ with your tables.
 **A `report` page is answered, not stored.** Its fields are filter inputs; each open calls your hook with a
 `nilda.AdminReportRequest` (every filter's current value in `Params`, a blank one simply absent), and you
 answer a `nilda.AdminReportResult` — columns in the same vocabulary a list page uses, the rows, and optional
-headline numbers above them. Route it the way actions are routed, with `nilda.DispatchAdminReport(ctx, hook,
-payload, p.onReport)`.
+headline numbers above them. Subscribe it the way actions are subscribed — `nilda.AdminReportHook` in
+`InitResult.Hooks`, under the same `admin_page` grant — and route it the way actions are routed, with
+`nilda.DispatchAdminReport(ctx, hook, payload, p.onReport)`. A plugin with both kinds of page lists both
+hooks: `Hooks: []string{nilda.AdminActionHook, nilda.AdminReportHook}`.
 
 The shapes a manifest declares here are Go types too — `nilda.AdminPage`, `nilda.SettingField`,
 `nilda.ListColumn`, `nilda.RowAction` — and their comments are the reference for every field.
@@ -797,7 +865,10 @@ control's shape, and asks you only what it cannot know:
 ```
 
 An editor building a content type or a form finds `IBAN` among the field types; what is stored is
-`<your key>.iban`. Two questions can reach you, each only if you declared it:
+`<your key>.iban`. Two questions can reach you, each only if you declared it — and they are not
+independent: `validates` alone is fine, but `choices` without `validates` is refused at install, because
+Core has no list of your options to check a saved value against, so only your `Validate` can say a value is
+one of them:
 
 - **`"choices": true`** — a picker's options (the base must be a choice type). `Choices` answers
   `[]nilda.FieldChoice` (a value and a label) for a `nilda.FieldChoicesRequest`, which names the field, its
@@ -871,9 +942,22 @@ func main() { nilda.ServeSearchProvider(&engine{}) }
 several (a shop that is also its own search engine, or has hooks of its own) serves one handler with
 `nilda.Serve` and hands each hook to the router for its role — `nilda.DispatchSearchHook`,
 `nilda.DispatchCommerceHook`, `nilda.DispatchFieldHook`, `nilda.DispatchAuthHook` — each of which answers
-`handled == false` for a hook that is not its, so the next one, or your own code, gets it:
+`handled == false` for a hook that is not its, so the next one, or your own code, gets it.
+
+Routing is half of it; the other half is the SUBSCRIPTION, because Core delivers only a hook your Init
+listed. `Serve` lists a provider's hooks for you only when the Handler ITSELF implements that interface —
+`p` below is the `Commerce`, so the commerce hooks are listed; `p.search` is a separate value `Serve`
+never sees, so its six hooks go in `InitResult.Hooks` by hand:
 
 ```go
+func (p *Shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, error) {
+	p.core = core
+	return nilda.InitResult{Hooks: []string{
+		nilda.HookSearchConfigure, nilda.HookSearchIndex, nilda.HookSearchRemove,
+		nilda.HookSearchTruncate, nilda.HookSearchQuery, nilda.HookSearchHealthy,
+	}}, nil
+}
+
 func (p *Shop) HandleHook(ctx context.Context, hook string, payload []byte) ([]byte, error) {
 	if out, handled, err := nilda.DispatchCommerceHook(ctx, p.core, p, hook, payload); handled {
 		return out, err
@@ -916,7 +1000,7 @@ plugin to ship its own thirty widgets. That is what WooCommerce does, and it pro
 that switches shops loses every page it built, no theme can style a product grid because it does not know
 what the grid is called, and a new shop has to write thirty widgets before it can compete on the one thing
 that matters. So the vocabulary lives in Nilda, once, and you supply the data: a site migrating to your
-plugin keeps its pages, a theme that styles `.pb-product-grid` styles yours, and you implement one
+plugin keeps its pages, a theme that styles `.pb-product-loop` styles yours, and you implement one
 interface instead of a widget library.
 
 Declare it:
@@ -949,8 +1033,8 @@ func (s *shop) Products(ctx context.Context, q nilda.CommerceQuery) ([]nilda.Com
 	}}, nil
 }
 
-// One product by id. The bool is "found" — return false and Core renders the not-found state rather
-// than an empty card.
+// One product by id. The bool is "found" — return false and the single-product widget renders nothing,
+// rather than an empty card.
 func (s *shop) Product(ctx context.Context, id string) (nilda.CommerceProduct, bool) {
 	p, ok := s.catalogue[id]
 	return p, ok
@@ -991,9 +1075,11 @@ and shared between visitors, so a server-rendered cart would serve one shopper's
 Nilda renders shells that call your endpoints from the browser. That constraint would apply just as much
 to a widget living inside your plugin, so nothing is lost by the widgets being Nilda's.
 
-**Your endpoints must be same-origin rooted paths** under your own route prefix. A shell posts a shopper's
-basket to whatever you name, so Nilda drops anything else — an absolute URL, a protocol-relative one — and
-logs which endpoint it dropped.
+**Your endpoints must be same-origin rooted paths.** A shell posts a shopper's basket to whatever you name,
+so Nilda drops anything that is not a path on this site — an absolute URL, a protocol-relative one
+(`//host`, `/\host`) — and logs which endpoint it dropped. That is the whole check: Core does not look at
+which prefix a path is under, so put them under your own `route_prefix`, the only paths that reach your
+server — a path under another prefix is kept, and goes wherever that prefix goes.
 
 **Counting is optional.** Implement `CountProducts` (the `nilda.CommerceCounter` interface, beside
 `nilda.Commerce`'s three methods) and a catalogue that pages says "showing 1–12 of 240"; skip it, or return
@@ -1028,24 +1114,28 @@ gateway answers with its processor's page, and the outcome arrives later — fro
 the gateway, from the gateway to Core, from Core to the consumer, which Core keeps telling until it answers.
 `_examples/gateway` is a whole gateway to copy, with its tests.
 
-A **gateway** is a Handler that is also a `nilda.PaymentGateway` — `DescribePayments`, `StartPayment`,
-`RefundPayment` — served with `nilda.ServePaymentGateway`, whose parameter type, `PaymentGatewayPlugin`, is
-both. It lists `nilda.PaymentMethod`s, answers `payment.start` with a `nilda.PaymentStartResult` (a
-`nilda.PaymentStartRequest` carries the `nilda.PaymentSession`), and answers `payment.refund`
-(`nilda.PaymentRefundRequest`, carrying a `nilda.PaymentRefund`) with a `nilda.PaymentRefundResult`; a
-describe answers with a `nilda.PaymentDescribeResponse`. From its webhook it reports through
-`core.API().Payments()`: `Resolve` with a `nilda.PaymentResolution`, `Reject` with a `nilda.PaymentRejection`,
-`MarkPending`, `Confirm`, `ResolveRefund`, `RejectRefund`.
+A **gateway** is a Handler that is also a `nilda.PaymentGateway`, served with `nilda.ServePaymentGateway`,
+whose parameter type, `PaymentGatewayPlugin`, is both. Its three methods take and return plain Go values:
+`DescribePayments(ctx)` lists `nilda.PaymentMethod`s, `StartPayment(ctx, nilda.PaymentSession)` answers a
+`nilda.PaymentStartResult`, and `RefundPayment(ctx, nilda.PaymentRefund, nilda.PaymentSession)` a
+`nilda.PaymentRefundResult`. From its webhook it reports through `core.API().Payments()`: `Resolve` with a
+`nilda.PaymentResolution`, `Reject` with a `nilda.PaymentRejection`, `MarkPending`, `Confirm`,
+`ResolveRefund`, `RejectRefund`.
 
-A **consumer** implements `nilda.PaymentConsumer` — `ConfirmPayment` (a `nilda.PaymentConfirmRequest`
-answered with a `nilda.PaymentConfirmResult`), `PaymentUpdated` (a `nilda.PaymentSessionUpdate`) and
-`RefundUpdated` (a `nilda.PaymentRefundUpdate`) — and calls `Methods` (a list of `nilda.PaymentOption`),
-`CreateSession` (with `nilda.PaymentSessionParams`), `GetSession`, `CreateRefund` (with
-`nilda.PaymentRefundParams`) and `GetRefund` on the same `nilda.Payments` client.
+A **consumer** implements `nilda.PaymentConsumer` — `ConfirmPayment(ctx, nilda.PaymentSession)` answering a
+`nilda.PaymentConfirmResult`, `PaymentUpdated(ctx, nilda.PaymentSession)` and
+`RefundUpdated(ctx, nilda.PaymentRefund, nilda.PaymentSession)` — and calls `Methods` (a list of
+`nilda.PaymentOption`), `CreateSession` (with `nilda.PaymentSessionParams`), `GetSession`, `CreateRefund`
+(with `nilda.PaymentRefundParams`) and `GetRefund` on the same `nilda.Payments` client.
 
-Serve subscribes and ANSWERS both interfaces' hooks — through `nilda.DispatchPaymentGatewayHook` and
-`nilda.DispatchPaymentConsumerHook`, which check what goes in and out — so nothing is listed in InitResult
-and nothing is routed in HandleHook. One state machine decides every move (`nilda.PaymentCanMove`,
+The hooks' JSON is Go types too, for a plugin that handles a hook by hand or reads the wire:
+`nilda.PaymentDescribeResponse`, `nilda.PaymentStartRequest`, `nilda.PaymentRefundRequest`,
+`nilda.PaymentConfirmRequest`, `nilda.PaymentSessionUpdate` and `nilda.PaymentRefundUpdate` — each wraps the
+session (and refund) your method receives.
+
+Serve subscribes and ANSWERS both interfaces' hooks — through `nilda.DispatchPaymentGatewayHook`, which
+checks what goes in and what comes out, and `nilda.DispatchPaymentConsumerHook`, which decodes and encodes
+— so nothing is listed in InitResult and nothing is routed in HandleHook. One state machine decides every move (`nilda.PaymentCanMove`,
 `nilda.RefundCanMove`), and amounts are ISO 4217 minor units, converted with `nilda.MinorUnits`,
 `nilda.ParseMinor` and `nilda.FormatMinor`:
 
@@ -1063,7 +1153,6 @@ Declare the method in `plugin.json`:
 ```json
 {
   "capabilities": ["auth_provider", "admin_page"],
-  "network": ["acme.okta.com"],
   "admin_pages": [{
     "key": "connection", "label": "Connection", "kind": "settings",
     "fields": [
@@ -1112,7 +1201,9 @@ func (p *Plugin) Complete(ctx context.Context, core *nilda.Core, req nilda.AuthC
 ```
 
 **You return an assertion. Core decides what follows.** You never mint a session, never name a Nilda user,
-never set a role, and never see the `state`. The reason is arithmetic rather than distrust: a plugin that
+never set a role, and never check the `state`: `auth.start` hands you the one Core minted, to put in the
+authorization URL, and Core checks it when the browser comes back — `auth.complete` does not carry it. The
+reason is arithmetic rather than distrust: a plugin that
 could say "this person is the owner" would be a takeover primitive guarded by one capability string.
 
 **On the `oidc` flow you hand over the identity provider's own signed token**, and Core verifies it against
@@ -1140,9 +1231,11 @@ document names as its authorization endpoint; on `oauth2` it is your manifest's 
 else is refused and the person lands back on the login page. The start endpoint is public and
 unauthenticated, so an unchecked answer would be an open redirect wearing the site's domain.
 
-**Reaching your identity provider.** Declare NO hosts in `network` for it. Nilda allows the issuer the site
-owner typed on your settings page, and nothing else — you cannot name it in advance, because it is different
-at every company that installs you.
+**Reaching your identity provider.** On the `oidc` flow, declare no host in `network` for it: Nilda's egress
+proxy allows the host of the issuer URL the site owner typed in the setting `issuer_setting` names — you
+cannot name it in advance, because it is different at every company that installs you. That is the issuer's
+host and nothing more, so a provider whose token endpoint lives on another host needs that host in
+`network`. On `oauth2` there is no issuer setting, and every host the plugin calls is a `network` entry.
 
 **Serving a route?** Register your handlers with `core.Route("/thing")`, not the bare path. Nilda proxies
 your declared prefix and forwards the WHOLE path, so a handler at `"/thing"` never sees a request for
@@ -1151,11 +1244,14 @@ declare it in `webhook_paths`, or Nilda refuses it with 403 for want of a CSRF t
 send. On a declared webhook path Nilda tells you nothing about who called: that is what makes exempting it
 safe, and it means those handlers must not depend on the caller's identity.
 
-**Making your own outbound calls?** Use `nilda.HTTPClient(...)` or `nilda.NewTransport(...)` rather than a
-bare `&http.Client{}`. The egress proxy allows a host only if YOUR manifest declared it, which means it has
-to know who is calling, and that label is what these add — on the request and, for HTTPS, on the CONNECT
-that opens the tunnel. `NewOIDCClient` already does this. A hand-rolled client is refused on every call
-with "this plugin did not declare that host" while your manifest declares it perfectly.
+**Making your own outbound calls?** The egress proxy allows a host only if YOUR manifest declared it, so it
+has to know who is calling — and Core tells it: the proxy address it puts in `HTTPS_PROXY` carries your
+plugin key as its user name, so any client that takes its proxy from the environment, a bare
+`&http.Client{}` included, is identified on every request and on the CONNECT that opens a TLS tunnel.
+`nilda.HTTPClient(...)` and `nilda.NewTransport(...)` add the key as a header as well, and `HTTPClient` sets
+a timeout; `NewOIDCClient` uses them. What is refused with "this plugin did not declare that host", while
+your manifest declares it perfectly, is a client that ignores the environment and is pointed at the proxy
+by hand with neither that user name nor the header.
 
 ### Signing somebody out when your directory says they are gone
 
@@ -1201,10 +1297,13 @@ shape, and "anything before 1.1" quietly includes versions that never existed an
 For work that is safe to repeat and cheap to check — re-registering a webhook with a provider, warming a
 cache — `core.IsUpgrade(currentVersion)` is true on any start that follows a different version.
 
-**It runs once.** Core records your version only after your Init RETURNS, so a plugin the supervisor restarts
-after a crash is told it is running the version it already initialised at. If your Init fails, the record is
-not written and the step runs again next time — which is the direction you want, because half-finished is the
-one state you cannot detect from inside.
+**It runs once, nearly — write it so a second run changes nothing.** Core records your version only after
+your Init RETURNS, so a plugin the supervisor restarts after a crash is told it is running the version it
+already initialised at. If your Init fails, the record is not written and the step runs again next time —
+which is the direction you want, because half-finished is the one state you cannot detect from inside. And
+if your Init succeeded but Core could not write the record, the plugin stays up and the step runs again on
+its next start, over data it already moved: "fill `price_num` where it is still empty" survives that,
+"multiply every price by 100" does not.
 
 **What you cannot do:** drop a column, retype one, drop a table. Declare a new table, move the rows with the
 DML you already have, and stop writing to the old one.
@@ -1241,9 +1340,10 @@ in, the stored value of a choice is still the declared one, and your section's p
 by your plugin key — so a translated name cannot scatter somebody's arrangement.
 
 Bounded, because a manifest is downloaded, stored and read on every admin page load: 12 languages, 300
-strings each, 400 characters a string — and 128 KiB for all of it together, which binds first: twelve full
-languages of full-length strings would be far larger. Past any of those the package is refused at install
-rather than quietly truncated.
+strings each, 400 bytes a string, source or translation — and 128 KiB for all of it together, which binds
+first: twelve full languages of full-length strings would be far larger. The string bound is counted in
+BYTES, not characters: a Persian or Arabic letter takes two, so a translation in those scripts holds about
+200 letters. Past any of those the package is refused at install rather than quietly truncated.
 
 **You ship no JavaScript into the admin.** You declare; Core draws the controls. Every other CMS extends its
 admin by injecting code — a WordPress plugin enqueues a script, a Strapi plugin ships React — and pays for it
@@ -1281,9 +1381,11 @@ intact, named after your plugin — filtered by the same level the rest of the s
 point: your plugin runs on machines you will never have access to, so the site owner reading their log is
 how you find out what went wrong.
 
-Do not use `fmt.Println`. **Stdout carries the go-plugin handshake** — writing to it breaks the connection.
-Anything you print to stderr without going through `Log()` still reaches Core, but as an opaque line at
-debug, with no level and no fields.
+Do not use `fmt.Println`. **Stdout carries the go-plugin handshake**: a line printed before `Serve` has
+written it — in `main`, in a package's `init` — is read as part of the handshake and the plugin does not
+load. After the handshake go-plugin sends your stdout to Core over its stdio stream, and Core discards it:
+it does not break anything, it goes nowhere. Anything you print to stderr without going through `Log()`
+still reaches Core, but as an opaque line at debug, with no level and no fields.
 
 Nothing is filtered inside your process, deliberately: Core applies the site's configured level. If both
 ends filtered, an owner turning the level up to debug your plugin would still see nothing.
@@ -1332,7 +1434,7 @@ plugin could fetch one page by slug and page through one content type. Porting:
 | v1 | v2 |
 |---|---|
 | `core.Site(ctx)` | `api.Get(ctx, "/site", nil, &out)` |
-| `core.PageBySlug(ctx, s)` | `api.Get(ctx, "/content/"+typeKey, url.Values{"slug": {s}}, &out)` |
+| `core.PageBySlug(ctx, s)` | `api.Get(ctx, "/pages/"+url.PathEscape(s), nil, &out)` — published items only; `url.Values{"type": {typeKey}}` narrows it to one type (a `slug` filter on `/content/:type` does not exist; it is ignored) |
 | `core.ContentList(ctx, t, p, n)` | `api.Get(ctx, "/content/"+t, url.Values{…}, &out)` |
 | `core.UserByID(ctx, id)` | `api.Get(ctx, "/users/"+id, nil, &out)` |
 | `core.MediaByID(ctx, id)` | `api.Get(ctx, "/media/"+id, nil, &out)` |
@@ -1350,10 +1452,10 @@ cd shop
 go test ./...                # no running Core needed
 
 nilda plugin dev .           # rebuild + reload on every save
-nilda plugin trigger content.saved --data '{"title":"x"}'
+nilda plugin trigger content.saved --data '{"content_id":"…","type":"product"}'   # Core's own shape
 
 nilda plugin check .         # the gates Core and the marketplace apply
-nilda plugin build .         # every platform, one signed .nplug each, into dist/
+nilda plugin build . --sign-key ./signing.key   # every platform, one .nplug each (+ .sig), into dist/
 nilda plugin publish . --changelog "what changed"
 ```
 
@@ -1368,6 +1470,9 @@ schedule. Core must have `PLUGIN_DEV_TOOLS=true`; it is off by default. It deliv
 receives — a hook or event its Init subscribes to, under a capability it holds — exactly as Core delivers a
 real one; anything else is refused with a sentence saying Core does not deliver it to your plugin.
 
+**`build`** signs each package only when given a key (`--sign-key`, or `NILDA_SIGN_KEY` — §5.1); without
+one it writes unsigned packages, and `publish` refuses those.
+
 **`publish`** uploads the built packages and submits the version for review. It reads each artifact's
 platform out of the binary inside it, so there are no slots to label and none to mislabel — and the
 marketplace reads your capabilities and network hosts out of the manifest inside the package rather than
@@ -1375,9 +1480,12 @@ from anything the CLI typed into a JSON body, so what a reviewer approves is wha
 listing itself — name, summary, screenshots, price — you create once on the web, because those are things you
 want to see while setting them.
 
-**Set `PLUGIN_LOG_LEVEL=debug` on Core while developing.** The default is `warn`, and go-plugin routes your
-plugin's stdout through that logger — so at the default your own log lines go nowhere and you debug by
-guessing.
+**Your `Log()` lines follow the site's `LOG_LEVEL`** (debug in development, info in production, by default),
+because after the handshake they reach Core's own logger (§5, "Saying something"): a `Debug` line shows only
+on a Core logging at debug. `PLUGIN_LOG_LEVEL` (default `warn`) is a different logger — go-plugin's own,
+which carries what reaches your process's stderr outside that stream: a line written before `Serve`'s
+handshake, a Go runtime crash's trace, go-plugin's messages about starting you. Set it to `debug` on Core
+while developing, and a plugin that fails before it loads says why.
 
 ### Unit tests
 
@@ -1385,17 +1493,24 @@ guessing.
 
 ```go
 core, host := nildatest.New("shop", "hooks", "events", "email", "kv")
+p := &Shop{core: core}
 
-_, err := p.HandleHook(ctx, "content.saved", payload)
+if _, err := p.HandleHook(ctx, "content.saved", payload); err != nil {
+	t.Fatal(err)
+}
 
 host.Events()   // what the plugin emitted
 host.Emails()   // what it asked Core to send
 host.KV()       // what it wrote
 ```
 
-It **enforces capabilities** the same deny-by-default way Core does, so a plugin that quietly relies on
-something its manifest never declared fails here rather than on someone else's site. `host.Grant(...)` and
-`host.Revoke(...)` let one test cover the before and the after. `host.Fail = err` covers the case nobody
+It **enforces the capability behind every call your plugin makes into Core** — KV, emitting, email,
+`RevokeIdentity` — the same deny-by-default way Core does, so a plugin that quietly relies on something its
+manifest never declared fails here rather than on someone else's site. `host.Grant(...)` and
+`host.Revoke(...)` let one test cover the before and the after. What it does NOT model is delivery in the
+other direction: your test calls `HandleHook` and `HandleEvent` itself, so a hook your Init never
+subscribed to, or one your grants do not admit, still reaches your code here — and Core would never send
+it. Assert on what `Init` returns (its `Hooks` and `Events`) for that half. `host.Fail = err` covers the case nobody
 writes: what your plugin does when Core is having a bad day — one that ignores a failed `SendEmail` loses a
 customer's receipt with nothing recorded anywhere.
 
@@ -1408,8 +1523,12 @@ scope and a 500 from an outage are different bugs and a plugin should behave dif
 internals rather than the missing dependency.
 
 A worked example lives in `_examples/shop` — a plugin that writes content, keeps a counter on a schedule, and
-emails a receipt, with the tests to match. **CI compiles and runs it**, which is why the snippets on this page
-can be trusted: an SDK change that would make them wrong turns the pipeline red.
+mails its owner when the site's shop reports an order paid, with the tests to match — and `_examples/gateway`
+is a whole payment gateway. **CI compiles and runs both.** The snippets on this page are not compiled: a test
+checks that each Go block parses and that every `nilda.`, `nildatest.` and `core.` name it uses exists in
+this module (`docs_compile_test.go`, `docs_truth_test.go`), so a renamed or invented identifier fails the
+build — but a snippet can still have a type error. When one matters, the code under `_examples/` is the
+version that is known to build.
 
 ---
 
@@ -1430,46 +1549,45 @@ can be trusted: an SDK change that would make them wrong turns the pipeline red.
 **Recorded from Core's `SPEC_121 §14.20` — and since BUILT: the next section is the vocabulary that shipped.
 This one is kept as the record of why it had to exist.**
 
-This SDK already lets a plugin contribute page-builder widgets: `WidgetDef`, `WidgetField`,
+On 2026-08-03 this SDK already let a plugin contribute page-builder widgets: `WidgetDef`, `WidgetField`,
 `HookWidgetDescribe`, `HookWidgetRender`, bounded by `MaxWidgetsPerPlugin` (20) and
-`MaxWidgetHTMLBytes` (64 KB). That part works.
+`MaxWidgetHTMLBytes` (64 KB).
 
-**The gap is the field vocabulary.** `WidgetField.Type` accepts seven kinds — `text`, `richtext`,
-`number`, `boolean`, `link`, `image`, `select` — while Core's own widgets declare
+**The gap was the field vocabulary.** `WidgetField.Type` accepted seven kinds — `text`, `richtext`,
+`number`, `boolean`, `link`, `image`, `select` — while Core's own widgets declared
 `ConfigSchema []contenttype.FieldDef`, which is richer (repeaters, media references, relationships,
-conditional fields, per-field validation rules). So a plugin cannot express a control that Core's own
-widgets use freely.
+conditional fields, per-field validation rules). So a plugin could not express a control that Core's own
+widgets used freely.
 
-Until 2026-08-03 that was a fairness problem: plugin widgets are second-class, and an author hits the
+Until 2026-08-03 that was a fairness problem: plugin widgets were second-class, and an author hit the
 ceiling on their first non-trivial widget. Two owner decisions turned it into a blocker:
 
 1. **Nilda's widget panel covers the full third-party catalogue** (Core `SPEC_121 §14.17.2`, ~361
    capabilities). Many of those are repeater-driven — a testimonial carousel, a pricing table, an icon
-   list are all "a list of items, each with fields". A plugin cannot build one today.
+   list are all "a list of items, each with fields". A plugin could not build one.
 2. **The AI must be able to drive every widget by instruction** (Core `SPEC_121 §14.18`). The AI's
    instruction set IS the widget's declared schema. A plugin widget whose controls cannot be expressed in
-   the shared vocabulary is a widget the AI cannot drive — so the gap would produce a catalogue where
+   the shared vocabulary is a widget the AI cannot drive — so the gap would have produced a catalogue where
    some widgets answer the user and others silently do not.
 
-### What to build
+### What shipped
 
-- **Widen `WidgetField` to Core's field vocabulary**, sharing the definition rather than mirroring it.
-  A mirrored list drifts on the first field type Core adds, and the failure is silent: a plugin declares
-  a field Core does not understand, or omits one it does.
-- **Consume Core's published widget registry.** Core generates it from the live `Widgets()` registry
-  (never hand-maintained, guarded by a drift test in the way `internal/themedoc` guards
-  `THEME_CONTRACT.md`). An author should be able to see what already exists before writing a widget that
-  duplicates it — and the same document is what the AI and a THEME AUTHOR consume (`theme-sdk` was
-  deleted 2026-08-22; a Nilda theme is `trees/*.json`, so its author is still the reader). One registry, three
-  consumers.
-- **Keep the limits.** Widening the vocabulary must not widen the safety envelope: the per-plugin widget
-  cap, the HTML byte cap, and the escape-everything render contract are unchanged. A richer field type is
-  a richer INPUT, never a route to raw markup.
+- **`WidgetField` speaks Core's field vocabulary** — the next section. MIRRORED rather than shared: Core
+  imports this module, and this module cannot import Core's `internal/contenttype`, so the list lives in
+  `widgets.go` and Core's `internal/plugin/sdk_mirror_test.go` holds it to Core's registry in both
+  directions — the drift a mirror invites fails Core's build instead of reaching an author.
+- **Core publishes its widget registry.** `docs/WIDGET_REGISTRY.json` in Core is generated from the live
+  registry by `internal/widgetdoc`, never by hand, and its `TestReferenceIsCurrent` fails when the file and
+  the code disagree. Read it before writing a widget that duplicates one Core already has; the AI and a theme
+  author read the same file. This SDK does not load it — it is for reading.
+- **The limits held.** The per-plugin widget cap and the HTML byte cap are unchanged, and a widget's HTML is
+  still sanitized by Core with its component policy (§4.1): `class` and `data-*` survive, anything that runs
+  does not. A richer field type is a richer INPUT, never a route to raw markup.
 
 
 ## Widget field types — the full vocabulary (2026-08-03)
 
-`WidgetField.Type` accepts **26 types**, not the seven it started with. The old list made a whole class of
+`WidgetField.Type` accepts **28 types**, not the seven it started with. The old list made a whole class of
 widget impossible to write as a plugin: no repeater, so no list-shaped widget at all; no media beyond a
 single image; no date, no colour, no icon. An author hitting that had no way to tell an unsupported type
 from a misspelled one, because the failure is a field DROPPED silently on Core's side.
@@ -1481,9 +1599,10 @@ fell eighteen types behind without anyone noticing, and it caught a type added t
 
 Types Core has that plugins deliberately do NOT get are declared with a reason in that test rather than left
 as an undeclared gap — `relationship`, `user` and `taxonomy_term` resolve against the site's own content and
-a plugin cannot know what they point at; `password` because a widget's config is stored in the layout tree,
-which is not a secret store; `json` because an arbitrary blob defeats the typed schema the seam exists to
-provide.
+a plugin cannot know what they point at; `flexible` because it picks between layouts a content type
+defines, and a widget has none; `password` because a widget's config is stored in the layout tree, which is
+not a secret store; `hidden` because a control the author cannot see is state, not configuration; `json`
+because an arbitrary blob defeats the typed schema the seam exists to provide.
 
 **Structural fields.** `FieldRepeater` and `FieldGroup` take sub-fields in `WidgetField.Fields`, which is
 what makes a list-shaped widget expressible. Nesting is bounded at two levels **by Core**, not by asking

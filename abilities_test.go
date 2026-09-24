@@ -3,9 +3,14 @@ package nilda
 import (
 	"context"
 	"encoding/json"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -157,6 +162,10 @@ func TestTwoAbilitiesWithOneNameAreRefused(t *testing.T) {
 // M3 (2026-09-23 plugin hunt): the SDK's Class vocabulary is Core's, name for name. `analyze` was added to
 // Core's risk classes and never to this list, so an author had no constant for it and a typo'd string became
 // the most restricted class without a word.
+//
+// Both sides are READ, never typed here: Core's from its catalog.go, the SDK's from every constant of type
+// Class this package declares. A hand-written SDK list would agree with itself — a class added to the SDK
+// alone, or to Core alone and to this test, would pass.
 func TestTheClassesAreCores(t *testing.T) {
 	raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "agent", "catalog.go"))
 	if os.IsNotExist(err) {
@@ -173,9 +182,66 @@ func TestTheClassesAreCores(t *testing.T) {
 	if len(core) < 5 {
 		t.Fatalf("found %d classes in core's catalog.go — the parse is broken, repoint this guard", len(core))
 	}
-	sdk := []string{string(ClassRead), string(ClassAnalyze), string(ClassAdditive), string(ClassWrite),
-		string(ClassPublish), string(ClassStructural), string(ClassDestructive), string(ClassAccess), string(ClassInfra)}
-	if strings.Join(core, ",") != strings.Join(sdk, ",") {
-		t.Fatalf("core's risk classes are %v; the SDK offers %v", core, sdk)
+	sdk := declaredClasses(t)
+	if len(sdk) < 5 {
+		t.Fatalf("found %d Class constants in this package — the parse is broken, repoint this guard", len(sdk))
 	}
+	if strings.Join(core, ",") != strings.Join(sdk, ",") {
+		t.Fatalf("core's risk classes are %v; the SDK declares %v", core, sdk)
+	}
+	// And the guide's class table lists exactly them, in the same order — it is where an author picks one.
+	var table []string
+	for _, m := range regexp.MustCompile("(?m)^\\| `([a-z]+)` \\| ").FindAllStringSubmatch(
+		mdSection(t, "docs/PLUGIN_SDK.md", "### Telling the AI agent what you can do"), -1) {
+		table = append(table, m[1])
+	}
+	if strings.Join(table, ",") != strings.Join(sdk, ",") {
+		t.Errorf("PLUGIN_SDK.md's class table lists %v; the classes are %v", table, sdk)
+	}
+}
+
+// declaredClasses is the value of every constant of type Class in this package's non-test source, in
+// declaration order — the vocabulary as an author can import it.
+func declaredClasses(t *testing.T) []string {
+	t.Helper()
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sort.Strings(files)
+	var out []string
+	fset := token.NewFileSet()
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(fset, f, nil, 0)
+		if err != nil {
+			t.Fatalf("parsing %s: %v", f, err)
+		}
+		for _, d := range file.Decls {
+			gen, ok := d.(*ast.GenDecl)
+			if !ok || gen.Tok != token.CONST {
+				continue
+			}
+			for _, spec := range gen.Specs {
+				vs := spec.(*ast.ValueSpec)
+				if id, ok := vs.Type.(*ast.Ident); !ok || id.Name != "Class" {
+					continue
+				}
+				for _, v := range vs.Values {
+					lit, ok := v.(*ast.BasicLit)
+					if !ok || lit.Kind != token.STRING {
+						t.Fatalf("%s declares a Class that is not a string literal — teach this guard", f)
+					}
+					s, err := strconv.Unquote(lit.Value)
+					if err != nil {
+						t.Fatal(err)
+					}
+					out = append(out, s)
+				}
+			}
+		}
+	}
+	return out
 }

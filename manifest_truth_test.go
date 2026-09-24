@@ -106,7 +106,6 @@ func TestTheManifestRulesTheDocsNameAreCores(t *testing.T) {
 		{"`1.09.0` is refused", "plugin/schema_semver.go", "len(p) > 1 && p[0] == '0'"},
 		{"the owner is told which fields were ignored, by path at any depth", "plugin/handlers.go", `body["unknown_manifest_fields"]`},
 		{"an update that marks a different column `primary_key` is refused before anything changes", "plugin/datastore.go", "update cannot change it"},
-		{"would put two existing rows on one value", "plugin/datastore.go", "func refuseSharedValues("},
 		{"Core refuses one it answers on itself", "plugin/schema_manifest.go", `" is reserved by Core"`},
 	} {
 		if !strings.Contains(doc, c.claim) {
@@ -114,6 +113,45 @@ func TestTheManifestRulesTheDocsNameAreCores(t *testing.T) {
 		}
 		if !strings.Contains(read(strings.Split(c.file, "/")...), c.line) {
 			t.Errorf("core's %s no longer has %q, which the docs' %q describes", c.file, c.line, c.claim)
+		}
+	}
+
+	// "An update whose new unique column or index would put two existing rows on one value … is refused before
+	// anything changes" — held to the CALL in the update's dry run, not to the function existing: a
+	// refuseSharedValues nothing calls refuses nothing, and this guard used to pass on the declaration alone.
+	datastore := read("plugin", "datastore.go")
+	start := strings.Index(datastore, "func (p *Provisioner) CheckTables(")
+	if start < 0 {
+		t.Fatal("core's datastore.go no longer declares Provisioner.CheckTables, the update's dry run — repoint this guard")
+	}
+	check := datastore[start:]
+	check = check[:strings.Index(check, "\n}\n")]
+	if !strings.Contains(check, "if err := refuseSharedValues(ctx, tx, slug, t, cols); err != nil {") {
+		t.Error("core's CheckTables no longer refuses a unique column or index the existing rows cannot take — " +
+			"re-read the docs' \"would put two existing rows on one value\"")
+	}
+	if !strings.Contains(doc, "would put two existing rows on one value") {
+		t.Error("PLUGIN_SDK.md no longer says an update \"would put two existing rows on one value\" is refused")
+	}
+
+	// The "/" editor commands a manifest may declare, and what install refuses of them.
+	manifestSrc := read("plugin", "schema_manifest.go")
+	for _, line := range []string{
+		`tooMany("editor_commands", len(m.EditorCommands), maxEditorCommands, "editor commands")`,
+		`tooLong("editor_commands["+strconv.Itoa(i)+"].label", c.Label)`,
+		"if utf8.RuneCountInString(s) > maxDeclaredLabelLen {",
+		"if len(c.Content) == 0 || !json.Valid(c.Content) {",
+	} {
+		if !strings.Contains(manifestSrc, line) {
+			t.Errorf("core's schema_manifest.go no longer has %q — re-read the docs' editor_commands section", line)
+		}
+	}
+	for _, want := range []string{
+		"Core refuses at install more than " + n(manifestSrc, "schema_manifest.go", "maxEditorCommands") + " commands",
+		"one longer than " + n(manifestSrc, "schema_manifest.go", "maxDeclaredLabelLen") + " characters",
+	} {
+		if !strings.Contains(doc, want) {
+			t.Errorf("PLUGIN_SDK.md does not say %q, which is Core's bound", want)
 		}
 	}
 }

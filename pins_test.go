@@ -53,9 +53,10 @@ func TestEveryPluginPinNamesAnSDKVersionThatCouldResolve(t *testing.T) {
 	strayRE := regexp.MustCompile(`(?m)^\s*(\S*plugin-sdk)\s+(v\S+)`)
 
 	// THE CONSUMERS ARE DISCOVERED, NOT LISTED. This loop used to walk a fixed
-	// []string{"commerce", "forms", "booking", "sso"}: two of those never became repositories, and `frames`
-	// — which pins this module — was never added, so its pin went unchecked while the log said "2 plugin
-	// pins checked". Any sibling module whose go.mod names a plugin-sdk is a consumer, Core included.
+	// []string{"commerce", "forms", "booking", "sso"}: two of those (booking, forms) are repositories that
+	// were simply not checked out beside this one, and `frames` — which pins this module — was never added,
+	// so its pin went unchecked while the log said "2 plugin pins checked". Any sibling module whose go.mod
+	// names a plugin-sdk is a consumer, Core included — and one that is not checked out here is not checked.
 	gomods, err := filepath.Glob(filepath.Join("..", "*", "go.mod"))
 	if err != nil {
 		t.Fatalf("listing the sibling modules: %v", err)

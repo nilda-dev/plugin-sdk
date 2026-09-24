@@ -1,11 +1,17 @@
 package nilda
 
 import (
+	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -162,23 +168,55 @@ func TestThePaymentBoundsAreCores(t *testing.T) {
 	}
 }
 
-// The numbers PAYMENTS.md gives an author: fifteen seconds a gateway hook, the ordinary five for a consumer's,
-// a day's life for a session its gateway gives no expiry.
+// The numbers PAYMENTS.md gives an author: fifteen seconds a gateway hook (or the ordinary budget if that is
+// longer), the ordinary five for a consumer's, a day's life for a session its gateway gives no expiry, and the
+// five-minute sweep that closes it. Each number is read from Core, and each is held where Core APPLIES it —
+// a constant nothing uses would leave every sentence here green and false.
 func TestThePaymentNumbersInTheGuideAreCores(t *testing.T) {
 	doc := strings.Join(strings.Fields(readText(t, "docs/PAYMENTS.md")), " ")
-	for file, want := range map[string]string{
-		"internal/plugin/payments.go":  "const PaymentHookBudget = 15 * time.Second",
-		"internal/payments/service.go": "const sessionLifetime = 24 * time.Hour",
-		"pkg/config/config.go":         `parseDuration("PLUGIN_CALL_TIMEOUT", 5*time.Second)`,
+	flat := func(parts ...string) string {
+		return strings.Join(strings.Fields(corePaymentsSource(t, parts...)), " ")
+	}
+	number := func(src, file string, re string) string {
+		t.Helper()
+		m := regexp.MustCompile(re).FindStringSubmatch(src)
+		if m == nil {
+			t.Fatalf("core's %s no longer matches %s — repoint this guard", file, re)
+		}
+		return m[1]
+	}
+	plugin, host := flat("internal", "plugin", "payments.go"), flat("internal", "plugin", "host.go")
+	service, module := flat("internal", "payments", "service.go"), flat("internal", "payments", "module.go")
+	config := flat("pkg", "config", "config.go")
+
+	gateway := number(plugin, "internal/plugin/payments.go", `const PaymentHookBudget = ([0-9]+) \* time\.Second`)
+	ordinary := number(config, "pkg/config/config.go", `parseDuration\("PLUGIN_CALL_TIMEOUT", ([0-9]+)\*time\.Second\)`)
+	lifetime := number(service, "internal/payments/service.go", `const sessionLifetime = ([0-9]+) \* time\.Hour`)
+	sweep := number(module, "internal/payments/module.go", `\{Spec: "@every ([0-9]+)m", JobType: JobExpire\}`)
+
+	// Where each is applied: every hook call takes its budget from hookBudget, which gives the gateway's three
+	// hooks PaymentHookBudget only when it is the longer — and nothing else; a session's expiry starts at
+	// sessionLifetime from its creation.
+	for _, c := range []struct{ src, file, want string }{
+		{host, "internal/plugin/host.go", "callCtx, cancel := context.WithTimeout(ctx, hookBudget(hook, h.cfg.CallTimeout))"},
+		{plugin, "internal/plugin/payments.go", "func hookBudget(hook string, ordinary time.Duration) time.Duration { " +
+			"switch hook { case HookPaymentDescribe, HookPaymentStart, HookPaymentRefund: " +
+			"if PaymentHookBudget > ordinary { return PaymentHookBudget } } return ordinary }"},
+		{service, "internal/payments/service.go", "ExpiresAt: s.now().Add(sessionLifetime),"},
 	} {
-		if !strings.Contains(corePaymentsSource(t, strings.Split(file, "/")...), want) {
-			t.Errorf("core's %s no longer has %q — re-read what PAYMENTS.md says about it", file, want)
+		if !strings.Contains(c.src, c.want) {
+			t.Errorf("core's %s no longer has %q — re-read what PAYMENTS.md says about it", c.file, c.want)
 		}
 	}
+	words := map[string]string{"5": "five", "10": "ten", "15": "fifteen"}
 	for _, want := range []string{
-		"**15 seconds** for each payment hook, instead of the ordinary plugin call's 5",
-		"| a gateway's hook | 15 seconds |",
-		"| a session nothing decided | 24 hours, unless the gateway says |",
+		"**" + gateway + " seconds** for each payment hook, instead of the ordinary plugin call's " + ordinary,
+		"the longer of " + gateway + " seconds and the site's `PLUGIN_CALL_TIMEOUT`",
+		"| a gateway's hook | " + gateway + " seconds, or `PLUGIN_CALL_TIMEOUT` if that is longer |",
+		"| a consumer's hook | " + ordinary + " seconds, the default of `PLUGIN_CALL_TIMEOUT` |",
+		"| a session nothing decided | " + lifetime + " hours, unless the gateway says |",
+		"(" + lifetime + " hours after it was created if you say nothing",
+		"a sweep that runs every " + words[sweep] + " minutes, so a session can stay open up to " + words[sweep] + " minutes past its time",
 	} {
 		if !strings.Contains(doc, want) {
 			t.Errorf("PAYMENTS.md does not say %q", want)
@@ -244,59 +282,140 @@ func TestThePaymentScopesAreCores(t *testing.T) {
 	}
 }
 
-// The routes: every call PAYMENTS.md §6 lists is one Core registers, every route Core registers is listed, and
-// every path the SDK's client builds is one of them.
+// The routes: where they are mounted, every call PAYMENTS.md §6 lists is one Core registers and every route
+// Core registers is listed — with the side that may call it — and every request the SDK's client sends, by
+// method and full path, is one of them.
 func TestThePaymentRoutesAreCores(t *testing.T) {
 	src := corePaymentsSource(t, "internal", "payments", "rest.go")
-	core := map[string]bool{}
-	for _, m := range regexp.MustCompile(`g\.(GET|POST|PUT|PATCH|DELETE)\("([^"]+)"`).FindAllStringSubmatch(src, -1) {
-		core[m[1]+" /payments"+m[2]] = true
+	flat := func(s string) string { return strings.Join(strings.Fields(s), " ") }
+
+	// Where: the module mounts the handlers under a prefix, rest.go groups them, and the prefix is the path a
+	// plugin's API client is handed as its base (PLUGIN_API_BASE_URL's default). Nothing here is typed.
+	mount := regexp.MustCompile(`\{Prefix: "([^"]+)", Mounter: NewRESTHandlers\(`).FindStringSubmatch(
+		corePaymentsSource(t, "internal", "payments", "module.go"))
+	group := regexp.MustCompile(`g := rg\.Group\("([^"]+)"`).FindStringSubmatch(src)
+	base := regexp.MustCompile(`getEnv\("PLUGIN_API_BASE_URL", fmt\.Sprintf\("http://127\.0\.0\.1:%d([^"]+)"`).FindStringSubmatch(
+		flat(corePaymentsSource(t, "pkg", "config", "config.go")))
+	if mount == nil || group == nil || base == nil {
+		t.Fatal("core no longer mounts the payment routes as `{Prefix: …, Mounter: NewRESTHandlers(…)}` under " +
+			"`rg.Group(…)`, or no longer defaults PLUGIN_API_BASE_URL to a local path — repoint this guard")
+	}
+	if mount[1] != base[1] {
+		t.Errorf("core mounts the payment routes under %s, and hands a plugin %s as its API base", mount[1], base[1])
+	}
+	docText := readText(t, "docs/PAYMENTS.md")
+	if !strings.Contains(flat(docText), "Calls into Core, under `"+mount[1]+"`") {
+		t.Errorf("PAYMENTS.md §6 does not say the calls are under `%s`", mount[1])
+	}
+
+	// Who: each route's handler asks for one scope, naming one side. The side is what §6's "who" column
+	// says, and the scope is one only that side's capability grants (or both, for "either side").
+	sides := map[string]string{"sideConsumer": "consumer", "sideGateway": "gateway", "sideEither": "either side of it"}
+	scopes := constValues(corePaymentsSource(t, "internal", "apistandards", "scopes.go"))
+	identity := flat(corePaymentsSource(t, "internal", "plugin", "identity.go"))
+	grants := func(cap string) map[string]bool {
+		m := regexp.MustCompile(cap + `: \{([^}]*)\}`).FindStringSubmatch(identity)
+		if m == nil {
+			t.Fatalf("core's identity.go no longer grants %s scopes as a list — repoint this guard", cap)
+		}
+		out := map[string]bool{}
+		for _, s := range strings.Split(m[1], ",") {
+			out[strings.Trim(strings.TrimSpace(s), `"`)] = true
+		}
+		return out
+	}
+	consumer, gateway := grants("CapPaymentSession"), grants("CapPaymentGateway")
+	core := map[string]string{} // "METHOD /payments/…" -> who
+	for _, m := range regexp.MustCompile(`g\.(GET|POST|PUT|PATCH|DELETE)\("([^"]+)", h\.(\w+)\)`).FindAllStringSubmatch(src, -1) {
+		fn := src[strings.Index(src, "func (h *RESTHandlers) "+m[3]+"(c *gin.Context) {"):]
+		c := regexp.MustCompile(`caller\(c, apistandards\.(\w+), (side\w+)\)`).FindStringSubmatch(fn[:strings.Index(fn, "\n}")])
+		if c == nil {
+			t.Fatalf("core's %s handler no longer asks caller() for a scope and a side — repoint this guard", m[3])
+		}
+		who, scope := sides[c[2]], scopes[c[1]]
+		if who == "" || scope == "" {
+			t.Fatalf("core's %s handler names %s / %s, which this guard cannot read", m[3], c[1], c[2])
+		}
+		ok := map[string]bool{
+			"consumer":          consumer[scope] && !gateway[scope],
+			"gateway":           gateway[scope] && !consumer[scope],
+			"either side of it": consumer[scope] && gateway[scope],
+		}[who]
+		if !ok {
+			t.Errorf("core's %s %s is for the %s, and asks for %q, which is not a scope only that side holds", m[1], m[2], who, scope)
+		}
+		core[m[1]+" "+group[1]+m[2]] = who
 	}
 	if len(core) < 10 {
 		t.Fatalf("found %d routes in core's rest.go — the parse is broken, repoint this guard", len(core))
 	}
-	doc := map[string]bool{}
-	for _, m := range regexp.MustCompile("(?m)^\\| `(GET|POST) (/payments/[^` ?]+)").FindAllStringSubmatch(readText(t, "docs/PAYMENTS.md"), -1) {
-		doc[m[1]+" "+strings.ReplaceAll(m[2], "{id}", ":id")] = true
+	doc := map[string]string{}
+	for _, m := range regexp.MustCompile("(?m)^\\| `(GET|POST) (/payments/[^` ?]+)[^|]*\\| ([^|]+) \\|").FindAllStringSubmatch(docText, -1) {
+		doc[m[1]+" "+strings.ReplaceAll(m[2], "{id}", ":id")] = strings.TrimSpace(m[3])
 	}
-	for r := range doc {
-		if !core[r] {
+	for r, who := range doc {
+		if coreWho, ok := core[r]; !ok {
 			t.Errorf("PAYMENTS.md lists %s; core registers no such route", r)
+		} else if coreWho != who {
+			t.Errorf("PAYMENTS.md says %s is for %q; core lets the %s call it", r, who, coreWho)
 		}
 	}
 	for r := range core {
-		if !doc[r] {
+		if _, ok := doc[r]; !ok {
 			t.Errorf("core registers %s; PAYMENTS.md does not list it", r)
 		}
 	}
-	// A client path is a literal ("/payments/methods") or a prefix, an id and a suffix; a suffix held in a
-	// variable (the refund verbs) must still lead to a route under that prefix.
-	client := readText(t, "paymentapi.go")
-	built := 0
-	for _, m := range regexp.MustCompile(`"(/payments/[a-z/]*)"(?:, \w+, (?:"(/?[a-z]*)"|(\w+)))?`).FindAllStringSubmatch(client, -1) {
-		path, exact := m[1], true
-		if strings.HasSuffix(path, "/") {
-			path += ":id"
-			if m[3] != "" {
-				exact = false
-			} else {
-				path += m[2]
-			}
-		}
-		built++
-		found := false
-		for r := range core {
-			route := r[strings.Index(r, " ")+1:]
-			if (exact && route == path) || (!exact && strings.HasPrefix(route, path+"/")) {
-				found = true
-			}
-		}
-		if !found {
-			t.Errorf("paymentapi.go builds %s; core registers no such route", path)
+
+	// What the client SENDS: every method of *Payments, driven against a server that records the method and
+	// the full path, must hit a route Core registers — exactly, by method — and together they must hit all.
+	var mu sync.Mutex
+	sent := map[string]bool{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, mount[1])
+		path = strings.NewReplacer("/sid/", "/:id/", "/rid/", "/:id/").Replace(path + "/")
+		mu.Lock()
+		sent[r.Method+" "+strings.TrimSuffix(path, "/")] = true
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"data":null}`)
+	}))
+	defer srv.Close()
+	pay := newAPI(srv.URL+mount[1], "tok", nil).Payments()
+	ctx := context.Background()
+	calls := map[string]func(){
+		"Methods": func() { _, _ = pay.Methods(ctx, "EUR") },
+		"CreateSession": func() {
+			_, _ = pay.CreateSession(ctx, "k1", PaymentSessionParams{Gateway: "g", Method: "m", Reference: "r",
+				AmountMinor: 1, Currency: "EUR", ReturnURL: "https://site.test/x"})
+		},
+		"GetSession":    func() { _, _ = pay.GetSession(ctx, "sid") },
+		"CreateRefund":  func() { _, _ = pay.CreateRefund(ctx, "k2", "sid", PaymentRefundParams{AmountMinor: 1}) },
+		"GetRefund":     func() { _, _ = pay.GetRefund(ctx, "rid") },
+		"Resolve":       func() { _, _ = pay.Resolve(ctx, "sid", PaymentResolution{AmountMinor: 1, Currency: "EUR"}) },
+		"Reject":        func() { _, _ = pay.Reject(ctx, "sid", PaymentRejection{FailureCode: PaymentFailDeclined}) },
+		"MarkPending":   func() { _, _ = pay.MarkPending(ctx, "sid", "") },
+		"Confirm":       func() { _, _ = pay.Confirm(ctx, "sid") },
+		"ResolveRefund": func() { _, _ = pay.ResolveRefund(ctx, "rid", "") },
+		"RejectRefund":  func() { _, _ = pay.RejectRefund(ctx, "rid", PaymentRejection{FailureCode: PaymentFailDeclined}) },
+	}
+	methods := reflect.TypeOf(pay)
+	for i := 0; i < methods.NumMethod(); i++ {
+		if _, ok := calls[methods.Method(i).Name]; !ok {
+			t.Errorf("*Payments has a method %s this guard does not drive — add it to calls", methods.Method(i).Name)
 		}
 	}
-	if built < 9 {
-		t.Fatalf("found %d paths in paymentapi.go — the parse is broken, repoint this guard", built)
+	for _, call := range calls {
+		call()
+	}
+	for r := range sent {
+		if _, ok := core[r]; !ok {
+			t.Errorf("the SDK's client sends %s; core registers no such route", r)
+		}
+	}
+	for r := range core {
+		if !sent[r] {
+			t.Errorf("core registers %s and no method of the SDK's client sends it", r)
+		}
 	}
 }
 

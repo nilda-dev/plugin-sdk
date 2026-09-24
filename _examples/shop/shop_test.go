@@ -144,27 +144,39 @@ func TestScheduledHookIncrementsItsCounter(t *testing.T) {
 	}
 }
 
+// savedPayload is content.saved as Core sends it: the item's id and its type, nothing else (core's
+// cmd/server/main.go, SetOnLifecycle). A fixture in any other shape tests a hook Core never calls.
+func savedPayload(id, typ string) []byte {
+	b, _ := json.Marshal(map[string]string{"content_id": id, "type": typ})
+	return b
+}
+
 func TestContentHookEmitsOnlyForProducts(t *testing.T) {
 	core, host := nildatest.New("shop", "hooks", "events")
 	s := &Shop{core: core}
 	ctx := context.Background()
 
-	payload, _ := json.Marshal(map[string]string{"id": "p1", "type": "product", "title": "Widget"})
+	payload := savedPayload("p1", "product")
 	out, err := s.HandleHook(ctx, "content.saved", payload)
 	if err != nil {
 		t.Fatalf("hook: %v", err)
 	}
-	// A filter hook must echo what it does not change. Returning nothing would DROP the payload for every
-	// plugin downstream.
+	// content.saved is an action, so Core ignores the answer; the example echoes it anyway, which is what
+	// a filter hook would need.
 	if string(out) != string(payload) {
 		t.Fatalf("the payload was altered: %s", out)
 	}
 	if len(host.Events()) != 1 || host.Events()[0].Type != "shop.product.touched" {
 		t.Fatalf("events = %+v", host.Events())
 	}
+	// The id travels from Core's content_id: a hook reading any other name emits an event about nothing.
+	var touched map[string]string
+	if err := json.Unmarshal(host.Events()[0].Data, &touched); err != nil || touched["id"] != "p1" {
+		t.Fatalf("the emitted event does not name the saved item: %s (%v)", host.Events()[0].Data, err)
+	}
 
 	// A post is not a product: nothing more should be emitted.
-	other, _ := json.Marshal(map[string]string{"id": "b1", "type": "post"})
+	other := savedPayload("b1", "post")
 	if _, err := s.HandleHook(ctx, "content.saved", other); err != nil {
 		t.Fatalf("hook: %v", err)
 	}
@@ -180,7 +192,7 @@ func TestAnUndeclaredCapabilityFailsInTheTest(t *testing.T) {
 	core, host := nildatest.New("shop", "hooks") // no `events`
 	s := &Shop{core: core}
 
-	payload, _ := json.Marshal(map[string]string{"id": "p1", "type": "product"})
+	payload := savedPayload("p1", "product")
 	_, err := s.HandleHook(context.Background(), "content.saved", payload)
 	if err == nil {
 		t.Fatal("emitting an event without the `events` capability succeeded")
@@ -202,24 +214,30 @@ func TestAnUndeclaredCapabilityFailsInTheTest(t *testing.T) {
 	}
 }
 
-func TestOrderPaidSendsOneReceipt(t *testing.T) {
+// paidPayload is ecommerce.order_paid as Nilda's own shop plugin emits it (commerce's onlinepay.go).
+func paidPayload(orderID string) []byte {
+	b, _ := json.Marshal(map[string]any{"order_id": orderID, "total_cents": 4900})
+	return b
+}
+
+func TestOrderPaidSendsOneNotice(t *testing.T) {
 	core, host := nildatest.New("shop", "events", "email")
+	nildatest.SetSettings(core, map[string]any{"notify_email": "warehouse@example.com"})
 	s := &Shop{core: core}
 
-	data, _ := json.Marshal(map[string]string{"email": "buyer@example.com", "total": "£49"})
-	if err := s.HandleEvent(context.Background(), "order.paid", data); err != nil {
+	if err := s.HandleEvent(context.Background(), OrderPaid, paidPayload("ord_42")); err != nil {
 		t.Fatalf("event: %v", err)
 	}
 	mails := host.Emails()
 	if len(mails) != 1 {
 		t.Fatalf("emails = %+v", mails)
 	}
-	if mails[0].To != "buyer@example.com" || !strings.Contains(mails[0].Body, "£49") {
-		t.Fatalf("the receipt is wrong: %+v", mails[0])
+	if mails[0].To != "warehouse@example.com" || !strings.Contains(mails[0].Body, "ord_42") {
+		t.Fatalf("the notice is wrong: %+v", mails[0])
 	}
 
-	// An unrelated event must not send mail. A plugin that mails on everything is how a customer gets six
-	// receipts for one order.
+	// An unrelated event must not send mail. A plugin that mails on everything is how a warehouse gets six
+	// notices for one order.
 	if err := s.HandleEvent(context.Background(), "content.published", []byte("{}")); err != nil {
 		t.Fatalf("unrelated event: %v", err)
 	}
@@ -228,16 +246,29 @@ func TestOrderPaidSendsOneReceipt(t *testing.T) {
 	}
 }
 
-// What a plugin does when Core is having a bad day. A plugin that ignores a failed SendEmail loses a
-// customer's receipt with nothing recorded anywhere.
+// Not configured is the first state every install is in: no address, no mail, and no error either.
+func TestOrderPaidWithNoAddressSendsNothing(t *testing.T) {
+	core, host := nildatest.New("shop", "events", "email")
+	s := &Shop{core: core}
+
+	if err := s.HandleEvent(context.Background(), OrderPaid, paidPayload("ord_42")); err != nil {
+		t.Fatalf("an unconfigured plugin failed the event: %v", err)
+	}
+	if len(host.Emails()) != 0 {
+		t.Fatalf("mail went out with no address configured: %+v", host.Emails())
+	}
+}
+
+// What a plugin does when Core is having a bad day. A plugin that ignores a failed SendEmail loses the
+// notice with nothing recorded anywhere.
 func TestAFailingHostSurfacesAsAnError(t *testing.T) {
 	core, host := nildatest.New("shop", "events", "email")
+	nildatest.SetSettings(core, map[string]any{"notify_email": "warehouse@example.com"})
 	host.Fail = errAPIDown
 	s := &Shop{core: core}
 
-	data, _ := json.Marshal(map[string]string{"email": "buyer@example.com", "total": "£49"})
-	if err := s.HandleEvent(context.Background(), "order.paid", data); err == nil {
-		t.Fatal("a failed send was swallowed — the receipt is lost and nothing says so")
+	if err := s.HandleEvent(context.Background(), OrderPaid, paidPayload("ord_42")); err == nil {
+		t.Fatal("a failed send was swallowed — the notice is lost and nothing says so")
 	}
 }
 

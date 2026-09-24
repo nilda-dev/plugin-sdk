@@ -37,7 +37,10 @@ type InitResult struct {
 	// Hooks are the hook names to receive. The content-lifecycle hooks require `hooks`; a provider's own hooks
 	// are admitted by that provider's grant instead — commerce.* by `commerce`, search.* by
 	// `search_provider`, admin.action/admin.report by `admin_page`, field.* by `field`, auth.* by
-	// `auth_provider`, widget.* by `widget`, render.assets by `render.assets` — and `hooks` does not admit them.
+	// `auth_provider`, widget.* by `widget`, render.assets by `render.assets`,
+	// payment.describe/payment.start/payment.refund by `payment_gateway`, and
+	// payment.session.confirm/payment.session.updated/payment.refund.updated by `payment_session` — and
+	// `hooks` does not admit them.
 	Hooks  []string
 	Events []string // event types to receive (requires `events`)
 	// Schedules is recurring work Core runs on the plugin's behalf (requires `schedule`). The plugin is a

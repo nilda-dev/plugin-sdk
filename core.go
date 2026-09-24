@@ -41,7 +41,7 @@ type Core struct {
 	// Core stays safe.
 	settings map[string]any
 
-	// api is how the plugin READS AND WRITES real data — Core's own /api/v1, with a scoped token
+	// api is how the plugin READS AND WRITES real data — Core's own /api/rest/v1, with a scoped token
 	// (api.go). nil when no granted capability implies API access. See HasAPI/API.
 	api *API
 }
@@ -62,12 +62,12 @@ func (c *Core) HasCapability(key string) bool { return slices.Contains(c.Granted
 // feature and external integration uses. What replaced each of them:
 //
 //	Site()          -> api.Get(ctx, "/site", nil, &out)
-//	PageBySlug(s)   -> api.Get(ctx, "/content", url.Values{"slug": {s}}, &out)
-//	ContentList(t)  -> api.Get(ctx, "/content", url.Values{"type": {t}, "page": {"1"}}, &out)
+//	PageBySlug(s)   -> api.Get(ctx, "/pages/"+url.PathEscape(s), nil, &out)
+//	ContentList(t)  -> api.Get(ctx, "/content/"+t, url.Values{"page": {"1"}}, &out)
 //	UserByID(id)    -> api.Get(ctx, "/users/"+id, nil, &out)
 //	MediaByID(id)   -> api.Get(ctx, "/media/"+id, nil, &out)
 //
-// and, newly possible: api.Post(ctx, "/content", item, &created), api.Patch, api.Delete, api.UploadMedia,
+// and, newly possible: api.Post(ctx, "/content/"+t, item, &created), api.Patch, api.Delete, api.UploadMedia,
 // bulk import, GraphQL. A plugin holding `datastore` can also query Core's published data in SQL through
 // the read-only views, joining it against its own tables in one statement.
 
@@ -77,8 +77,9 @@ func (c *Core) HasCapability(key string) bool { return slices.Contains(c.Granted
 // site's address — and a booking plugin sends its own confirmations without needing SMTP credentials of its
 // own, or the owner configuring mail a second time.
 //
-// At most 60 a minute per plugin: the site's own password resets travel on the same sending reputation.
-// Past that the call answers codes.ResourceExhausted at once; slow down and retry.
+// Bounded per plugin, because the site's own password resets travel on the same sending reputation: 60 may
+// leave at once, and the allowance refills at one a second — 60 a minute sustained. Past it the call answers
+// codes.ResourceExhausted at once; slow down and retry.
 func (c *Core) SendEmail(ctx context.Context, to, subject, body string) error {
 	_, err := c.host.SendEmail(ctx, &contract.SendEmailRequest{To: to, Subject: subject, Body: body})
 	return err
@@ -171,13 +172,16 @@ func (c *Core) KVIncr(ctx context.Context, key string) (int64, error) {
 // Emit publishes a plugin-originated event into Core's event pipeline (requires `events`).
 //
 // Name it under your own key — `shop` emits `shop.order_paid`, which c.PluginKey + ".order_paid" builds — or
-// under a namespace a capability you hold owns (`commerce.*` is the site's shop's). Core refuses any other
-// name with PermissionDenied, and its own namespaces (`content.*`, `form.*`, …) to every plugin: a subscriber
-// has nothing but the name to tell it who sent an event, so a name anyone could use is a forgery.
+// under a namespace a capability you hold owns (`commerce.*` and `ecommerce.*` are the site's shop's). A name
+// with no namespace — no dot — answers InvalidArgument; any other name that is not yours PermissionDenied,
+// and so do Core's own namespaces (`content.*`, `form.*`, …) to every plugin: a subscriber has nothing but the
+// name to tell it who sent an event, so a name anyone could use is a forgery.
 //
 // At most 20 a second per plugin (bursts of 100) — each is a fan-out to every subscriber. Past that the call
 // answers codes.ResourceExhausted at once. Emit returns before the subscribers have run: delivery happens on
-// Core's side, on its own budget, so an Emit inside one of your hooks does not spend that hook's time.
+// Core's side, on its own budget, so an Emit inside one of your hooks does not spend that hook's time. And
+// events are not ordered: Core delivers each emit on its own goroutine, so two you emit a moment apart can
+// reach a subscriber the other way round.
 func (c *Core) Emit(ctx context.Context, eventType string, data any) error {
 	raw, err := json.Marshal(data)
 	if err != nil {
@@ -200,7 +204,8 @@ func (c *Core) Emit(ctx context.Context, eventType string, data any) error {
 // a name being available does. baseURL/token empty means no API client, which is what the plugin-side
 // half of nildatest wants; newAPI already reads it that way.
 //
-// It cannot live in nildatest: Core's fields here are unexported, and a second package cannot set them.
+// It cannot live in nildatest: the fields it sets — the host client and the API client — are unexported,
+// and a second package cannot set them.
 // That is also why it stays exported, and why the compatibility policy in README.md scopes it out of the
 // stable surface along with contract/.
 func NewCoreForTest(pluginKey string, granted []string, host contract.HostServiceClient,

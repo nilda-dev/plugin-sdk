@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"os"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -104,8 +105,9 @@ func TestTheGeneratedContractStaysOutOfTheSurface(t *testing.T) {
 		"field PluginClient.Plugin": "the Core-side transport seam; Core IS the other end of the protocol",
 		// The plugin-side service implementation, set by Serve and read by go-plugin's GRPCServer.
 		"field GRPCPlugin.Impl": "the plugin-side transport seam, registered with the generated server",
-		// The one test constructor. Core's fields are unexported, so no other package can build a *Core —
-		// which is also why it cannot move into nildatest.
+		// The one test constructor. The fields that make a Core work — its host client and its API client —
+		// are unexported, so no other package can build a working *Core — which is also why it cannot move
+		// into nildatest.
 		"func NewCoreForTest": "no other package can set Core's unexported fields",
 	}
 	for _, entry := range publicSurface(t) {
@@ -345,5 +347,32 @@ func TestTheReadmeCountsTheSurfaceItPromises(t *testing.T) {
 	if !strings.Contains(string(raw), want) {
 		t.Errorf("README.md's compatibility section does not say %q — the surface moved and the promise "+
 			"still describes the old one", want)
+	}
+	// And the kit's: its count, and every entry of it that names a generated type — the ones README scopes
+	// out with contract/ — named there by method, so the exception cannot grow without the promise saying so.
+	kit := surfaceOf(t, "nildatest", "nildatest", 10)
+	readme := strings.Join(strings.Fields(string(raw)), " ")
+	if want := fmt.Sprintf("`nildatest/surface.txt` (%d entries)", len(kit)); !strings.Contains(readme, want) {
+		t.Errorf("README.md does not say %q — the kit's surface moved and the promise describes the old one", want)
+	}
+	words := map[int]string{1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine"}
+	var generated int
+	for _, entry := range kit {
+		if !strings.Contains(entry, "contract.") && !strings.Contains(entry, "grpc.") {
+			continue
+		}
+		generated++
+		m := regexp.MustCompile(`^method \(\*Host\) (\w+)\(`).FindStringSubmatch(entry)
+		if m == nil {
+			t.Errorf("nildatest's %q names a generated type and is not a *Host method — README's exception "+
+				"covers only those; decide what this one is and say so there", entry)
+			continue
+		}
+		if !strings.Contains(readme, "`"+m[1]+"`") {
+			t.Errorf("nildatest's *Host.%s names a generated type and README's exception does not list it", m[1])
+		}
+	}
+	if w, ok := words[generated]; !ok || !strings.Contains(readme, w+" of its `*Host` methods") {
+		t.Errorf("README.md does not say %q of nildatest's *Host methods name generated types", w)
 	}
 }

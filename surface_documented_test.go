@@ -26,7 +26,20 @@ var undocumentedOnPurpose = map[string]string{
 }
 
 func TestEveryFrozenEntryPointIsDocumented(t *testing.T) {
-	doc := readText(t, "docs/PLUGIN_SDK.md")
+	// Only CODE counts as naming an entry point — an inline `span` or a fenced block — never prose. A word
+	// match anywhere let an ordinary English word stand in for an identifier ("Handler", "Viewer", "Payments"
+	// read in a sentence), so an entry point could pass without the guide ever showing it as the thing an
+	// author types.
+	raw := readText(t, "docs/PLUGIN_SDK.md")
+	var code []string
+	for _, m := range regexp.MustCompile("(?s)```[a-z]*\\n(.*?)```").FindAllStringSubmatch(raw, -1) {
+		code = append(code, m[1])
+	}
+	prose := regexp.MustCompile("(?s)```[a-z]*\\n.*?```").ReplaceAllString(raw, "")
+	for _, m := range regexp.MustCompile("`([^`\\n]+)`").FindAllStringSubmatch(prose, -1) {
+		code = append(code, m[1])
+	}
+	doc := strings.Join(code, "\n")
 	entry := regexp.MustCompile(`^(?:func (\w+)|type (\w+)|method \(\*?Core\) (\w+))`)
 	inSurface := map[string]bool{}
 	var missing []string

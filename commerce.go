@@ -21,7 +21,7 @@ import (
 // widgets before it can compete on the one thing that matters.
 //
 // So the VOCABULARY lives in Core, once, and you supply the data. A site migrating to your plugin keeps
-// its pages. A theme that styles `.pb-product-grid` styles yours. And you implement one interface instead
+// its pages. A theme that styles `.pb-product-loop` styles yours. And you implement one interface instead
 // of a widget library.
 //
 // # What Core will never ask you, and never do itself
@@ -52,8 +52,10 @@ import (
 // That constraint would apply just as much to a widget living inside your plugin, so nothing is lost by
 // the widgets being Core's — and the page cache stays correct by construction.
 //
-// Your endpoints must be SAME-ORIGIN ROOTED PATHS under your own route prefix ("/shop/cart"). Core drops
-// anything else and logs which one, because a shell posts a shopper's basket to whatever you name.
+// Your endpoints must be SAME-ORIGIN ROOTED PATHS ("/shop/cart"). Core drops anything that is not a path on
+// this site — an absolute URL, "//host", "/\host" — and logs which one, because a shell posts a shopper's
+// basket to whatever you name. That is the whole check: Core does not look at the prefix, so put them under
+// your own route prefix, the only paths that reach your server.
 //
 // # The shape
 //

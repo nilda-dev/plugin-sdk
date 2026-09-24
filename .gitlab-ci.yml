@@ -52,9 +52,11 @@ contract-is-generated:
 test:
   stage: test
   script:
-    # pins_test.go reads the go.mod AT each tag to prove the four plugin pins could resolve. A shallow
-    # clone arrives with no tags, and that test skips rather than lies when it finds none — so fetch them,
-    # or the one check that knows which versions exist quietly stops running.
+    # pins_test.go reads the go.mod AT each tag to prove that every module checked out beside this one — the
+    # plugins, Core — pins a version that could resolve. It finds those modules itself, and this job clones
+    # the SDK alone, so here it finds none and skips; so do the tests that read ../core (README.md, "Tests
+    # that read Core"). The tags are fetched anyway: a shallow clone arrives with none, and the test skips
+    # rather than lies without them.
     - git fetch --tags --force --quiet
     - go test -race ./...
 

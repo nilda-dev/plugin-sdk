@@ -51,7 +51,7 @@ so it is written down here first, before anyone can hold us to something nobody 
 
 | | what it versions | what moves it |
 |---|---|---|
-| the module version (`v0.6.0`) | the **Go API** — the names and signatures a plugin author compiles against | a breaking change to any of them |
+| the module version (`v0.10.0`) | the **Go API** — the names and signatures a plugin author compiles against | a breaking change to any of them |
 | `ProtocolVersion` (`2`) | the **wire contract** — `contract/plugin.proto` | a breaking change to the proto |
 
 They are independent, and confusing them is the mistake this section exists to prevent. A plugin built
@@ -71,9 +71,17 @@ words.
   version. Three exported names unavoidably mention its types and are listed as exceptions in
   `surface_test.go`: `GRPCPlugin.Impl` and `PluginClient.Plugin`, which are the Core↔plugin transport
   seam and therefore *are* the protobuf, and `NewCoreForTest`, which no other package can write because
-  `Core`'s fields are unexported.
-- **`NewCoreForTest`** — plumbing for `nildatest`. Write plugin tests against `nildatest`; it is the
-  supported kit and it does not name a gRPC type.
+  the `Core` fields it sets — the host client and the API client — are unexported (seven others, from
+  `PluginKey` to `PreviousVersion`, are exported and in `surface.txt`).
+- **`NewCoreForTest`** — plumbing for `nildatest`. Write plugin tests against `nildatest`, the supported
+  kit.
+
+**`nildatest` has a ledger of its own**, `nildatest/surface.txt` (60 entries), checked on every run the same
+way. The promise covers it on the same terms as the SDK's, with the same exception: seven of its `*Host`
+methods — `KVGet`, `KVSet`, `KVDel`, `KVIncr`, `EmitEvent`, `SendEmail`, `RevokeIdentity` — name `contract.*`
+and `grpc.*` types, because a `*Host` IS the fake `HostService` client `NewCoreForTest` is handed. Those
+seven move with `ProtocolVersion`, like `contract/`. A test reaches them through the `*nilda.Core` that
+`nildatest.New` returns — `core.KVSet`, `core.Emit`, `core.SendEmail` — and never needs to call them.
 - **`_examples/`** — not a package of this module (the underscore keeps the Go tool out), so it is not
   importable and not frozen. It changes whenever the thing it teaches changes. CI still builds and runs it.
 
@@ -106,6 +114,25 @@ Cutting a release:
 every tag before `v0.7.0` still declares the old path — so no consumer may pin below `v0.7.0` under the
 current path. That fault is closed; the rule it taught is the section above.
 
+## Tests that read Core
+
+Many of this module's tests hold a document or a mirror to **Core's source** — a number to the constant
+Core enforces, a sentence to the line that makes it true (`docs_truth_test.go`, `guide_truth_test.go`,
+`limits_truth_test.go`, `manifest_truth_test.go`, `payments_truth_test.go`, `abilities_test.go` and the
+kit's own in `nildatest/`). They read it from `../core`, so they hold only on a checkout with Core beside
+this repository; without it each one calls `t.Skip` and says so. **The CI pipeline clones this repository
+alone, so in CI they all skip** — "held to Core's source" is true on a full checkout, and it is checked
+there or nowhere. Core's repository is private, so that means a machine with access to it. To run them:
+
+```sh
+git clone git@gitlab.com:nildalabs/nildacms/core.git ../core   # beside this directory
+GOWORK=off go test -count=1 ./...                              # the verdict: must exit 0
+GOWORK=off go test -count=1 -v ./... | grep -- '--- SKIP'      # then what skipped: no "core is not checked out"
+```
+
+`pins_test.go` is the same kind: it checks the SDK pin of every module checked out beside this one, and
+finds none in CI.
+
 ## Docs
 `docs/` — **`PLUGIN_SDK.md`** (the contract, the developer surface, capabilities, the manifest,
 what Core guarantees and what it does not) · `PAYMENTS.md` (the payment contract: a gateway plugin,
@@ -120,13 +147,13 @@ This repo is one of several. How they fit together:
 core            — CMS (Go backend + admin panel + default theme)   needs → plugin-sdk
 central         — nilda.dev control-plane (pay/license/market)     standalone
 plugin-sdk      — plugin gRPC contract + API client (Go)           used by core + plugins
-commerce · booking · forms · sso — plugins                      need → plugin-sdk
+commerce · booking · forms · sso · frames — plugins             need → plugin-sdk
 ```
 
-Repositories — every one under the `nildalabs` group, checked against the remotes on 2026-08-06:
+Repositories — every one under the `nildalabs` group, checked against the remotes on 2026-09-24:
 - `gitlab.com/nildalabs/nildacms/core` · `gitlab.com/nildalabs/nildacms/central`
 - `gitlab.com/nildalabs/nilda-sdk/plugin-sdk`
-- `gitlab.com/nildalabs/nilda-plugins/commerce` · `…/booking` · `…/forms` · `…/sso`
+- `gitlab.com/nildalabs/nilda-plugins/commerce` · `…/booking` · `…/forms` · `…/sso` · `…/frames`
 
 Ecosystem-wide docs (architecture, roadmap, spec index) live in **core** (`docs/files/`).
 

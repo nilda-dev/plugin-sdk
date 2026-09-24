@@ -35,15 +35,25 @@ func TestTheCallLimitsTheDocsNameAreCores(t *testing.T) {
 	flat := func(s string) string { return strings.Join(strings.Fields(strings.ReplaceAll(s, "\n//", " ")), " ") }
 	anyLang := flat(readText(t, "docs/ANY_LANGUAGE.md"))
 	core := flat(readText(t, "core.go"))
+	// The email bucket is a burst of emailsPerMinute refilling at one every minute/emailsPerMinute: a flat
+	// "N a minute" undersells the burst, so the docs name both halves — and only while the bucket is built so.
+	if !strings.Contains(limits, "rate.NewLimiter(rate.Every(time.Minute/emailsPerMinute), emailsPerMinute)") {
+		t.Error("core's email limiter is no longer a burst of emailsPerMinute refilling evenly over the minute — re-read the docs' email bound")
+	}
+	emails := strconv.Itoa(num("emailsPerMinute"))
+	refill := "one a second"
+	if num("emailsPerMinute") != 60 {
+		refill = "one every " + strconv.Itoa(60/num("emailsPerMinute")) + " seconds"
+	}
 	for doc, wants := range map[string][]string{
 		anyLang: {
-			"at most " + strconv.Itoa(num("emailsPerMinute")) + " emails a minute",
+			emails + " emails at once, then " + refill + " as the allowance refills (" + emails + " a minute sustained)",
 			strconv.Itoa(num("eventsPerSecond")) + " events a second (bursts of " + strconv.Itoa(num("eventBurst")) + ")",
 			strconv.Itoa(num("kvOpsPerSecond")) + " key-value calls a second (bursts of " + addThousands(num("kvBurst")) + ")",
 			strconv.Itoa(num("logLinesPerSecond")) + " lines of your log a second (bursts of " + strconv.Itoa(num("logBurst")),
 		},
 		core: {
-			"At most " + strconv.Itoa(num("emailsPerMinute")) + " a minute per plugin",
+			emails + " may leave at once, and the allowance refills at " + refill + " — " + emails + " a minute sustained",
 			"At most " + strconv.Itoa(num("eventsPerSecond")) + " a second per plugin (bursts of " + strconv.Itoa(num("eventBurst")) + ")",
 			"At most " + strconv.Itoa(num("kvOpsPerSecond")) + " calls a second per plugin (bursts of " + addThousands(num("kvBurst")) + ")",
 		},
@@ -54,8 +64,26 @@ func TestTheCallLimitsTheDocsNameAreCores(t *testing.T) {
 			}
 		}
 	}
+	// Emit's two promises about delivery, each held both ways: Core runs the fan-out on a goroutine of its
+	// own, detached from the emitter's call — which is what makes "returns before the subscribers have run"
+	// true, and also what makes two emits' order unreliable — and core.go and the guide say both.
 	if !strings.Contains(read("hostservice.go"), "go (*dispatcher).EmitFromPlugin(context.WithoutCancel(ctx)") {
 		t.Error("core no longer delivers an emitted event detached from the emitter's call — re-read Emit's doc")
+	}
+	guide := flat(readText(t, "docs/PLUGIN_SDK.md"))
+	for doc, wants := range map[string][]string{
+		"core.go (Emit)": {"Emit returns before the subscribers have run", "events are not ordered: Core delivers each emit on its own goroutine"},
+		"PLUGIN_SDK.md":  {"`Emit` returns before any subscriber has run, and Core delivers each emit on its own goroutine"},
+	} {
+		text := core
+		if doc == "PLUGIN_SDK.md" {
+			text = guide
+		}
+		for _, want := range wants {
+			if !strings.Contains(text, want) {
+				t.Errorf("%s no longer says %q, which core's hostservice.go makes true", doc, want)
+			}
+		}
 	}
 }
 

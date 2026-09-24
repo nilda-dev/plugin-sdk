@@ -355,8 +355,11 @@ type PaymentDescribeResponse struct {
 	Methods []PaymentMethod `json:"methods"`
 }
 
-// PaymentStartRequest is what HookPaymentStart carries. Session.ID is your idempotency key at the processor:
-// Core asks again for the same session when an answer was lost, and the payer must be charged once.
+// PaymentStartRequest is what HookPaymentStart carries. Core asks ONCE per session: an answer that does not
+// arrive — a timeout, a crash — closes the session as rejected, provider_unavailable (no payer has seen a
+// processor's page, so no money can have moved), and the consumer may offer the payer another try, which is
+// a new session. Session.ID is still your idempotency key at the processor, so a retry inside your own
+// StartPayment cannot open two checkouts for one session.
 type PaymentStartRequest struct {
 	Session PaymentSession `json:"session"`
 }

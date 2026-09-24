@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -43,6 +44,24 @@ func TestTheGuidesNumbersAndNamesAreCores(t *testing.T) {
 	budget := core("internal", "plugin", "pagebudget", "pagebudget.go")
 	has(budget, "internal/plugin/pagebudget/pagebudget.go", "const PublicPage = 1500 * time.Millisecond")
 	has(budget, "internal/plugin/pagebudget/pagebudget.go", "const ExtensionPoint = 10 * time.Second")
+	// "Every subscriber of one hook or event shares ten seconds" is true only while the fan-outs spend
+	// ExtensionPoint: the budget is dispatchBudget, it is set from ExtensionPoint, and each fan-out — a
+	// filter and an action in hooks.go, a Core event and a plugin's event in events.go — opens it.
+	hooks := core("internal", "plugin", "hooks.go")
+	has(hooks, "internal/plugin/hooks.go", "var dispatchBudget = pagebudget.ExtensionPoint")
+	for file, src := range map[string]string{"hooks.go": hooks, "events.go": core("internal", "plugin", "events.go")} {
+		if n := strings.Count(src, "context.WithTimeout(ctx, dispatchBudget)"); n != 2 {
+			t.Errorf("core's internal/plugin/%s opens dispatchBudget in %d fan-outs, want 2 — re-read the "+
+				"guide's ten seconds for every subscriber of one hook or event", file, n)
+		}
+	}
+	// And the two calls the guide says get more than PLUGIN_CALL_TIMEOUT.
+	host := core("internal", "plugin", "host.go")
+	has(host, "internal/plugin/host.go", "initCtx, cancel := context.WithTimeout(ctx, r.host.cfg.InitTimeout)")
+	has(host, "internal/plugin/host.go", "context.WithTimeout(ctx, hookBudget(hook, h.cfg.CallTimeout))")
+	has(core("pkg", "config", "config.go"), "pkg/config/config.go", `parseDuration("PLUGIN_INIT_TIMEOUT", 30*time.Second)`)
+	says(guide, "PLUGIN_SDK.md", "`Init` has `PLUGIN_INIT_TIMEOUT` (30 seconds by default)")
+	says(guide, "PLUGIN_SDK.md", "a payment gateway's three hooks have 15 seconds or `PLUGIN_CALL_TIMEOUT`, whichever is longer")
 	says(guide, "PLUGIN_SDK.md", "`PLUGIN_CALL_TIMEOUT` (5 seconds by default); every subscriber of one hook or event shares ten seconds")
 	says(guide, "PLUGIN_SDK.md", "shares 1.5 seconds")
 	says(plugins, "PLUGINS.md", "5 s a call (PLUGIN_CALL_TIMEOUT), 10 s for every subscriber of one hook or event together, 1.5 s for everything one public page asks of plugins")
@@ -56,7 +75,10 @@ func TestTheGuidesNumbersAndNamesAreCores(t *testing.T) {
 	for _, c := range []string{"maxTranslationLocales = 12", "maxTranslationStrings = 300", "maxTranslationLen     = 400", "maxTranslationBytes = 128 << 10"} {
 		has(manifest, "internal/plugin/schema_manifest.go", c)
 	}
-	says(guide, "PLUGIN_SDK.md", "12 languages, 300 strings each, 400 characters a string — and 128 KiB for all of it together")
+	// Counted with len(), so in BYTES — which a Persian string reaches at half the letters.
+	has(manifest, "internal/plugin/schema_manifest.go", "if len(src) > maxTranslationLen || len(translated) > maxTranslationLen {")
+	says(guide, "PLUGIN_SDK.md", "12 languages, 300 strings each, 400 bytes a string, source or translation — and 128 KiB for all of it together")
+	says(guide, "PLUGIN_SDK.md", "The string bound is counted in BYTES, not characters")
 
 	// A field type's choices.
 	fields := core("internal", "plugin", "fields.go")
@@ -95,6 +117,13 @@ func TestTheGuidesNumbersAndNamesAreCores(t *testing.T) {
 	for extra := range named {
 		t.Errorf("the guide names a storefront widget Core does not register: %q", extra)
 	}
+
+	// The class a theme styles the product grid by is the one Core's Products widget renders.
+	has(widgets, "internal/pagebuilder/commercewidgets.go", `<ul class="pb-product-loop pb-product-loop--%s %s">`)
+	says(guide, "PLUGIN_SDK.md", "a theme that styles `.pb-product-loop` styles yours")
+
+	// The widget field vocabulary's size, as the guide writes it, is FieldTypes()'s.
+	says(guide, "PLUGIN_SDK.md", "`WidgetField.Type` accepts **"+strconv.Itoa(len(FieldTypes()))+" types**")
 
 	// content.published is an EVENT: the admin_page example receives it as one.
 	has(core("internal", "events", "events.go"), "internal/events/events.go", `ContentPublished   Type = "content.published"`)

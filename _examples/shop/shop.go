@@ -19,10 +19,17 @@ import (
 	nilda "gitlab.com/nildalabs/nilda-sdk/plugin-sdk"
 )
 
-// Shop is the example plugin: it watches content, writes content, keeps a counter, and emails a receipt.
+// Shop is the example plugin: it watches content, writes content, keeps a counter, and mails its owner when
+// the site's shop reports an order paid.
 type Shop struct {
 	core *nilda.Core
 }
+
+// OrderPaid is the event this example listens for. Nilda's own shop plugin (`commerce`) emits it when an
+// order is paid, with the order's id among its fields; Core lets only the plugin holding the `commerce`
+// capability emit an `ecommerce.*` event (core's internal/plugin/eventprovenance.go), so no other plugin can
+// announce an order nobody paid.
+const OrderPaid = "ecommerce.order_paid"
 
 // Init receives everything Core granted, exactly once.
 func (s *Shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, error) {
@@ -38,7 +45,7 @@ func (s *Shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, er
 
 	return nilda.InitResult{
 		Hooks:  []string{"content.saved"},
-		Events: []string{"order.paid"},
+		Events: []string{OrderPaid},
 		Schedules: []nilda.Schedule{
 			{Name: "reconcile", Cron: "0 3 * * *"},
 		},
@@ -92,7 +99,9 @@ func (s *Shop) PublishedProducts(ctx context.Context) (int, error) {
 	return page.Meta.Total, nil
 }
 
-// HandleHook is filter-style: return the payload, modified or not. Returning nothing DROPS it.
+// HandleHook answers one hook. For a FILTER hook the answer is the payload, modified or not, and returning
+// nothing drops it; content.saved is an ACTION — Core ignores what comes back — so echoing it is simply
+// harmless.
 func (s *Shop) HandleHook(ctx context.Context, hook string, payload []byte) ([]byte, error) {
 	switch hook {
 	case nilda.ScheduleHook("reconcile"):
@@ -103,17 +112,18 @@ func (s *Shop) HandleHook(ctx context.Context, hook string, payload []byte) ([]b
 		return payload, nil
 
 	case "content.saved":
+		// Core sends the saved item's id and its content type — nothing else (core's cmd/server/main.go,
+		// SetOnLifecycle). Read the rest through the API if you need it.
 		var item struct {
-			ID    string `json:"id"`
-			Type  string `json:"type"`
-			Title string `json:"title"`
+			ContentID string `json:"content_id"`
+			Type      string `json:"type"`
 		}
 		if err := json.Unmarshal(payload, &item); err != nil {
 			// A malformed payload is not this plugin's to fix, and swallowing it would hide a Core bug.
 			return nil, err
 		}
 		if item.Type == "product" {
-			if err := s.core.Emit(ctx, "shop.product.touched", map[string]any{"id": item.ID}); err != nil {
+			if err := s.core.Emit(ctx, "shop.product.touched", map[string]any{"id": item.ContentID}); err != nil {
 				return nil, err
 			}
 		}
@@ -123,18 +133,24 @@ func (s *Shop) HandleHook(ctx context.Context, hook string, payload []byte) ([]b
 }
 
 // HandleEvent is fire-and-forget: there is nothing to return but an error.
+//
+// The event carries the order's id and total, not the buyer — the shop keeps its customers — so this mails
+// the address the site owner typed on the plugin's settings page ("notify_email"), and nothing while none is
+// set: not configured is a state, not an error.
 func (s *Shop) HandleEvent(ctx context.Context, eventType string, data []byte) error {
-	if eventType != "order.paid" {
+	if eventType != OrderPaid {
 		return nil
 	}
 	var order struct {
-		Email string `json:"email"`
-		Total string `json:"total"`
+		OrderID string `json:"order_id"`
 	}
 	if err := json.Unmarshal(data, &order); err != nil {
 		return err
 	}
+	if !s.core.HasSetting("notify_email") {
+		return nil
+	}
 	// Core fixes the sender, so a plugin can address mail but never forge who it is from.
-	return s.core.SendEmail(ctx, order.Email, "Your order",
-		fmt.Sprintf("Thank you — your order for %s is confirmed.", order.Total))
+	return s.core.SendEmail(ctx, s.core.Setting("notify_email"), "Order paid",
+		fmt.Sprintf("Order %s is paid — time to ship it.", order.OrderID))
 }

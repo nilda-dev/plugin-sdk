@@ -15,7 +15,8 @@ import (
 // # The one rule, and why it is not negotiable
 //
 // You return an ASSERTION. Core decides what follows. You never mint a session, never name a Nilda user,
-// never set a role, and never see the `state` Core is using to bind the flow to a browser.
+// never set a role, and never check the `state` Core is using to bind the flow to a browser: auth.start
+// hands you the one Core minted, to put in the authorization URL, and Core checks it on the way back.
 //
 // The reason is arithmetic rather than distrust: a plugin that could say "this person is the owner" would be
 // a takeover primitive guarded by one capability string. So the boundary is drawn where it can be CHECKED —

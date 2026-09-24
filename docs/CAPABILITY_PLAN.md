@@ -1,19 +1,24 @@
 # Nilda — Plugin Capability Plan
 
-> **Do this BEFORE SSO** (`core` D-34). Owner's sequencing, 2026-08-05.
+> **Done before SSO** (`core` D-34), as the owner sequenced it on 2026-08-05; SSO shipped as `nilda-sso` on
+> 2026-08-06 (§3.4).
 >
 > This lives in `plugin-sdk` because the vocabulary is the SDK's contract: a capability is a promise to
 > a developer writing Go against `plugin-sdk`, and Core's `internal/plugin/schema_capabilities.go` is
-> the half that ENFORCES it. Both halves change together, and `internal/plugin/sdk_mirror_test.go`
-> already fails if they drift.
+> the half that ENFORCES it. Both halves change together. What holds them together is Core's
+> `internal/plugin/sdk_doc_test.go`, which fails when the capability table in this SDK's
+> `docs/PLUGIN_SDK.md` §4 and Core's catalogue differ — when plugin-sdk is checked out beside Core — and
+> Core's `internal/plugin/sdk_mirror_test.go`, which holds the wire shapes, the hook names, the limits and
+> the field vocabulary both ways.
 >
 > The marketplace infrastructure is built — 7,658 lines of it: gRPC over a separate process, signing,
-> a signed package format, `nilda plugin new/build/check/dev/publish`, and a review pipeline. Four
-> first-party plugins run on it (`commerce`, `booking`, `forms`, `sso` — checked against the remotes
-> 2026-09-24), which is what proves the transport works.
+> a signed package format, `nilda plugin new/build/check/dev/publish`, and a review pipeline. Five
+> first-party plugins run on it (`commerce`, `booking`, `forms`, `sso`, `frames` — checked against the
+> remotes 2026-09-24), which is what proves the transport works.
 >
-> What is missing is not infrastructure. It is the VOCABULARY: the list of things a plugin is allowed
-> to contribute. Today that list cannot express the two things developers most often build.
+> What was missing on 2026-08-05 was not infrastructure. It was the VOCABULARY: the list of things a plugin
+> is allowed to contribute. That list could not then express the two things developers most often build;
+> §3.1 and §3.2 are how it came to.
 
 ---
 
@@ -42,21 +47,23 @@ what. Sorted by what each one needs the host to let it do:
 
 **120 of the 219 categorised plugins — 55% — could not be built against Nilda when this was written.**
 
-The three biggest gaps were the first three rows, and they were 120 of the 219 between them.
+The three biggest gaps were `field`, `admin_page` and `auth_provider` — the table's second, third and fourth
+rows, since `route` already existed — and they were 120 of the 219 between them.
 
 > **Where it stands, 2026-08-05 (end of day).** All three were built. What remains blocked is
 > `storage_provider` (3) — **3 of 219, under 2%** — the last row, deferred deliberately in §3.5 with the
-> design question that has to be answered first. `search_provider` was built the same day this note was
-> written. The rest of this document is kept as written, because the reasoning is what makes the shapes
+> design question that has to be answered first. `search_provider` was built the next day, 2026-08-06.
+> The rest of this document is kept as written, because the reasoning is what makes the shapes
 > reviewable; the per-section BUILT markers are the current state.
 
 ---
 
 ## 2. What Nilda has, and where it stops
 
-Twenty-six capabilities exist (registered in `internal/plugin/schema_capabilities.go`; `field`,
-`auth_provider`, `search_provider`, `commerce` and the two payment ones declare their constants next to
-their dispatch, in `fields.go`, `authproviders.go`, `searchprovider.go`, `commerce.go` and `payments.go`):
+Twenty-six capabilities exist (registered in `internal/plugin/schema_capabilities.go`; `search_provider`,
+`commerce` and the two payment ones declare their constants next to their dispatch, in `searchprovider.go`,
+`commerce.go` and `payments.go`, and the rest — `field` and `auth_provider` among them — in
+`schema_capabilities.go` itself):
 
 ```
 content.read   users.read     media.read      taxonomy.read   menus.read
@@ -88,10 +95,11 @@ own, and Rule 0 is met by deleting the parallel paths once it exists. It is the 
 the SDK's half is in this module from v0.10.0 (docs/PAYMENTS.md), Core's is `internal/payments`, and Core
 accepts the two capabilities from the release built on v0.10.0.
 
-The shape of the gap is specific: **a plugin can serve its own pages and own its own data, but it
-cannot add anything to a screen Core already renders.** `widget` is the one exception — it puts a
-plugin's markup on the page-builder canvas — and it is exactly the pattern the two biggest gaps need
-copied.
+The shape of the gap, as it was on 2026-08-05, was specific: **a plugin could serve its own pages and own
+its own data, but it could not add anything to a screen Core already renders.** `widget` was the one
+exception — it puts a plugin's markup on the page-builder canvas — and it was exactly the pattern the two
+biggest gaps needed copied. They were built that way: `field`, `admin_page`, `auth_provider`,
+`search_provider` and `commerce` all add to screens Core renders now.
 
 ---
 
@@ -116,7 +124,8 @@ actually work is the plugin's own JavaScript in the admin origin — a session-s
 every author. Nothing in this catalogue ships code into a browser, and a field type is not the place to
 start.
 
-So a field type is DECLARED, like everything else here. It names one of Core's 26 controls as its `base` and
+So a field type is DECLARED, like everything else here. It names one of Core's own field types as its `base`
+— any but a repeater, group or flexible field, which nest sub-fields a declaration cannot describe — and
 Core draws that; two hooks carry what a declaration cannot:
 
 * `field.choices` → a picker whose options come from the plugin (a country list, a warehouse list)
@@ -125,9 +134,9 @@ Core draws that; two hooks carry what a declaration cannot:
 The declaration itself carries the key, the label, the help, the base, and the plugin's own per-field
 settings — everything the third hook was for.
 
-The existing field vocabulary is 26 types (`plugin-sdk/widgets.go`, mirrored by
-`internal/plugin/sdk_mirror_test.go` in both directions), so the seam for "what a field IS" is already
-written down and guarded.
+The widget field vocabulary is 28 types today (`plugin-sdk/widgets.go`'s `FieldTypes()`, mirrored by
+`internal/plugin/sdk_mirror_test.go` in both directions), so the seam for "what a field IS" is written down
+and guarded.
 
 **Watch:** validation must run in Core's save path, not only in the admin. A field type whose
 validation lives in the browser is a field type that stores anything a script posts.
@@ -144,8 +153,8 @@ context is alive when the check runs. Found by installing a real plugin and watc
 the capability could be declared and approved, and no code anywhere dispatched it. The deletion was
 right. What has to come back is the implementation, not the string.
 
-A plugin that owns data (`datastore`) and serves routes (`route`) still has nowhere to put a human
-interface. That is why `commerce` has a `/shop` prefix and no admin screen.
+A plugin that owned data (`datastore`) and served routes (`route`) still had nowhere to put a human
+interface. That is why `commerce` had a `/shop` prefix and no admin screen — it has admin pages now.
 
 The constraint that makes this safe is the same one `widget` already lives under: the plugin returns
 **content, not code**. Core renders it inside its own shell, sanitized, with the plugin's key
@@ -172,7 +181,7 @@ Four decisions worth keeping:
   nobody arranged. Someone who uses a plugin daily drags it up themselves — the per-user arrangement built
   the same day (`web/admin/src/layout/navlayout.ts`) is what makes that acceptable rather than a limitation.
 * **A per-plugin permission**, `plugin.<key>.configure`. Gating on `plugin.manage` would mean the only person
-  who can set the shop's payment key is the person who can uninstall Nilda's plugins.
+  who can set a payment gateway's key is the person who can uninstall Nilda's plugins.
 * **Credentials are Core's.** A `secret` field is encrypted at rest, never sent to the browser, and delivered
   to the PLUGIN in plaintext at Init. It cannot have a default — that would ship one shared key to every site
   that installs the plugin — and saving restarts the plugin, so no running process holds a replaced key.
@@ -186,9 +195,11 @@ and it changes without a reload. A key is never translated: the action on the wi
 choice and the sidebar id all stay the declared ones, so a translation cannot change what a button does or
 where a section sits.
 
-Still to build on this foundation: a `list` page kind, so a shop can show Products and Orders rather than
-only Settings. The page-kind field exists and an unknown kind is dropped rather than rendered blank, so it
-slots in without a redesign.
+Built since on this foundation: a `list` page kind — rows from one of the plugin's own tables, read-only,
+with row actions that call the plugin — so a shop shows its orders and shipments rather than only Settings;
+and a `report` kind, whose rows the plugin computes fresh on each open (PLUGIN_SDK.md, "Your own section of
+the admin"). `commerce/plugin.json` declares both kinds. They slotted in as the page-kind field promised: an unknown kind is dropped rather than rendered
+blank.
 
 ### 3.3 `auth_provider` — a plugin contributes a way to log in — **15 plugins** — ✅ **BUILT 2026-08-05**
 
@@ -204,7 +215,8 @@ the plugin system so SSO lives in its own repository from day one.** SPEC_98 §5
 matters for an author is the shape.
 
 **The seam, and why it can be trusted.** A plugin returns an ASSERTION and Core decides everything that
-follows. It cannot mint a session, name a Nilda user, set a role, or see the CSRF `state`. On the `oidc`
+follows. It cannot mint a session, name a Nilda user, set a role, or check the CSRF `state` — it is handed
+the one Core minted, to put in the authorization URL, and Core checks it on the way back. On the `oidc`
 flow it hands Core the identity provider's own signed `id_token` and CORE verifies it against the keys that
 provider publishes — so the guarantee is arithmetic rather than a promise: a hostile plugin would need the
 IdP's private key. The `oauth2` flow, for a provider with no signed token, returns attributes marked as
@@ -222,8 +234,9 @@ Four invariants, each of which is a way somebody signs in as a person they are n
 4. **The site owner chooses the verifier.** The manifest names WHERE the issuer and client id are typed;
    the values live in Core's settings store, writable only by an administrator.
 
-**Revocation, and the rule to remember: never mint, may revoke.** `core.RevokeIdentity(provider, subject,
-reason)` ends every session of the person behind one of your own identities — for back-channel logout, or
+**Revocation, and the rule to remember: never mint, may revoke.** `n, err := core.RevokeIdentity(ctx,
+provider, subject, reason)` ends every session of the person behind one of your own identities, and says how
+many it ended — for back-channel logout, or
 whatever your directory tells you. It is safe to delegate for exactly one reason: nothing on the plugin
 channel creates authority, so the worst a hostile plugin achieves is signing people out. It is also what
 makes SSO mean what it promises, because login-time-only integration cannot deliver "deprovisioned there,
@@ -267,7 +280,7 @@ something real.
 **The built-in generic `oidc` provider was deleted in the same pass.** It did what the plugin does, less
 well, from environment variables. Extraction that leaves the original behind is not extraction.
 
-### 3.5 `search_provider` — **BUILT 2026-08-05** — and `storage_provider`, still open
+### 3.5 `search_provider` — **BUILT 2026-08-06** — and `storage_provider`, still open
 
 `search_provider` (6 plugins) is built. `storage_provider` (3) is not, and is the last row in the table.
 
@@ -382,8 +395,10 @@ private version table, and two hundred authors inventing that is two hundred cha
 `InitRequest` now carries `previous_version`, read through `core.IsFirstRun()`, `core.UpgradedFrom(…)` and
 `core.IsUpgrade(…)`. Core records it **after Init returns**, which is the point: a plugin the supervisor
 restarts after a crash is told it is running the version it already initialised at, so a one-time step does
-not run twice. An Init that FAILS leaves the record alone and the step is retried — the right direction,
-because half-finished is the one state a plugin cannot detect from inside.
+not run again for that. An Init that FAILS leaves the record alone and the step is retried — the right
+direction, because half-finished is the one state a plugin cannot detect from inside. Not quite once,
+though: an Init that succeeded while Core failed to write the record runs the step again on the next start
+(`upgrade.go`, "RUNS ONCE, NEARLY"), so a step must be safe to repeat.
 
 **What remains impossible, deliberately.** Dropping a column, retyping one, dropping a table. No destructive
 DDL exists anywhere in the plugin path, which is what makes "could this plugin destroy the site owner's
@@ -393,15 +408,22 @@ moves the rows with the DML they already have — and now knows exactly when to 
 ### Priority: these come FIRST
 
 Ahead of `field`, `admin_page` and `auth_provider`. Those three add new things a plugin can do; these
-three make things ALREADY PROMISED usable. `commerce` declares `datastore` today and has no supported
-way to evolve its schema, and no plugin can be configured by the person who installed it.
+three made things ALREADY PROMISED usable. On 2026-08-05 `commerce` declared `datastore` and had no
+supported way to evolve its data, and no plugin could be configured by the person who installed it. All
+three are resolved above.
 
-## 3.7 The SDK repository has to be public before the marketplace opens
+## 3.7 The SDK repository had to be public before the marketplace opens — it is
 
 Not a capability and not code — a release step, recorded because it is invisible from inside the team and
 total from outside it.
 
-`plugin-sdk` is private. On a machine with SSH access to the group, the whole loop works and was verified
+> **Where it stands, 2026-09-24:** done. `plugin-sdk` answers an ANONYMOUS request to GitLab's API — it is
+> public — and every tag from `v0.1.0` to `v0.10.0` is on the remote. `nilda plugin new` pins `v0.10.0`
+> (Core's `internal/cli/plugin_dev.go`, `sdkVersion`). Tags before `v0.7.0` carry the module's old path,
+> which no pin under the current path can use (README, "History worth keeping"). The rest of this section
+> is the record of how it stood on 2026-08-05 and 2026-08-06.
+
+On 2026-08-05 `plugin-sdk` was private. On a machine with SSH access to the group, the whole loop worked and was verified
 end to end on 2026-08-05 from a throwaway module with `GOWORK=off` (so the workspace could not resolve the
 local copy and hide a broken pin):
 
@@ -412,11 +434,11 @@ go build ./...            →  ok
 go test ./...             →  ok  my_seo  0.520s
 ```
 
-A developer outside the group gets `unknown revision` on the first command, because `go get` cannot read a
+A developer outside the group got `unknown revision` on the first command, because `go get` cannot read a
 private repository. There is no error message that explains this and no way for them to work around it.
 
-Nothing to do while building — the owner's call, 2026-08-05 — but it gates the marketplace: on the day
-someone outside the team is invited to write a plugin, this has to already be true.
+Nothing to do while building — the owner's call, 2026-08-05 — but it gated the marketplace: on the day
+someone outside the team is invited to write a plugin, this had to already be true.
 
 ### The module path did not name this repository — fixed 2026-08-06
 
@@ -448,9 +470,10 @@ Two things worth knowing, because both would have shipped silently:
   a name it was never computed for, which is a verification failure waiting for the first real fetch. They
   are deleted; Go rewrites them correctly the first time the module is actually downloaded.
 
-**What is still left, and it is now a one-line operation.** The remote's tags stop at `v0.3.0`. `v0.5.0`,
-`v0.5.1` and `v0.6.0` — the last of which is what `nilda plugin new` pins into every new plugin — exist only
-on the owner's machine. Push them, make the repository public, and the loop above works for a stranger.
+**What was still left on 2026-08-06, as a one-line operation.** The remote's tags stopped at `v0.3.0`.
+`v0.5.0`, `v0.5.1` and `v0.6.0` — the last of which was what `nilda plugin new` pinned into every new plugin
+then — existed only on the owner's machine. Push them, make the repository public, and the loop above
+works for a stranger. Both have since been done (the note at the top of this section).
 
 *(Same day, same audit: the `v0.3.0` tag existed only locally and pointed three commits behind — before
 `abilities`, before the 7→26 field vocabulary, before the signed-package work. Moving it was safe precisely
@@ -465,8 +488,11 @@ were additive.)*
   review process then vouches for it.
 * Each ships with a first-party consumer, because a seam whose only user is a test is a seam nobody
   has proved.
-* `plugin-sdk` exports the Go-side types for each, mirrored both ways by
-  `internal/plugin/sdk_mirror_test.go` so the two definitions cannot drift.
+* `plugin-sdk` exports the Go-side types for each, held to Core's copy by a mirror test in Core that can
+  import both — `internal/plugin/sdk_mirror_test.go` for the plugin runtime's shapes and hook names,
+  `internal/payments/sdk_mirror_test.go` for the payment contract — so the two definitions cannot drift;
+  and the capability itself appears in PLUGIN_SDK.md §4, which Core's `internal/plugin/sdk_doc_test.go`
+  holds to the catalogue.
 * The marketplace review gates (`nilda plugin check`) understand each new capability, including what
   it may NOT do.
 
@@ -475,7 +501,8 @@ were additive.)*
 ## 5. One thing to fix on the way past — DONE
 
 Commerce's manifest declared **`payments`**, a capability the catalogue had retired (*"a plugin that asked
-for `payments` was approved to take something no code granted"*). It no longer does: the manifest is
+for `payments` was approved to take money and then given no way to"* — Core's `schema_capabilities.go`). It
+no longer does: the manifest is
 `commerce/plugin.json`, and its capability list — checked 2026-09-24 — holds only capabilities of the
 catalogue above. Taking a card payment is D-84's payment contract: every gateway its own plugin, through
 Core (docs/PAYMENTS.md; Core accepts it from the release built on plugin-sdk v0.10.0).

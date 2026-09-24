@@ -1,9 +1,10 @@
 # Nilda — Plugins (NOT Core — the catalogue of what belongs in a plugin)
 
-> **Where this stands (checked 2026-09-24):** nothing in this file is Core. The plugin runtime and this SDK
-> are built, and four first-party plugins are built on them, each in its own repository under
-> `nildalabs/nilda-plugins`: `commerce` (the shop), `booking` (bookings and reservations), `forms` (the
-> advanced forms tier) and `sso` (sign-in through a company's identity provider). Everything else below is
+> **Where this stands (checked against the remotes 2026-09-24):** nothing in this file is Core. The plugin
+> runtime and this SDK are built, and five first-party plugins are built on them, each in its own repository
+> under `nildalabs/nilda-plugins`: `commerce` (the shop), `booking` (bookings and reservations), `forms` (the
+> advanced forms tier), `sso` (sign-in through a company's identity provider) and `frames` (turns a video
+> into the image sequence the page builder's `scroll_sequence` widget plays). Everything else below is
 > planned, not built. The file keeps these features recorded in one place — and OUT of Core.
 >
 > **Why plugins are separate:** Core must stay lean and extremely fast. A plugin
@@ -11,12 +12,13 @@
 > every request. Plugins run as separate **gRPC** processes — if one
 > crashes or is slow, Core and the site keep running.
 >
-> **Plugins are Go-only (for now):** per the Go-only plugin policy (SPEC_98), every
-> plugin here is written in **Go** and ships as a self-contained binary — no extra
-> runtime on the end user's server. This includes the big ones below (E-commerce,
-> Newsletter & Membership, etc.): they are large Go plugins on top of Core, exactly
-> like WooCommerce is a big plugin on top of WordPress. Multi-language plugins could
-> be enabled later, but are out of scope now. Revisitable.
+> **Go is the supported language (for now):** per the plugin policy in Core's SPEC_98 §1, Nilda officially
+> supports Go plugins only, and every plugin here is written in **Go** and ships as a self-contained binary —
+> no extra runtime on the end user's server. This includes the big ones below (E-commerce, Newsletter &
+> Membership, etc.): they are large Go plugins on top of Core, exactly like WooCommerce is a big plugin on
+> top of WordPress. The protocol itself is not Go's: `docs/ANY_LANGUAGE.md` is the whole contract for a
+> plugin in another language, which runs with the same capabilities and isolation — but installs only on a
+> site in sideload mode, never through the marketplace, which takes Go builds only. Revisitable.
 
 ---
 
@@ -74,12 +76,13 @@ plugin draws nothing where it would have — it cannot take the site down.
 ## Our own plugins (we build + sell these)
 
 Built so far: E-commerce (`commerce`), Booking & Reservation (`booking`), the OpenID Connect sign-in part of
-Enterprise Auth / SSO (`sso`), and the advanced forms tier (`forms`). The rest of this table is planned.
+Enterprise Auth / SSO (`sso`), the advanced forms tier (`forms`), and `frames` — which is not in this table:
+it makes the image sequences Core's `scroll_sequence` widget plays. The rest of this table is planned.
 
 | Plugin | What it does | Model |
 |--------|-------------|-------|
-| **Newsletter & Membership** (flagship) | Ghost-style: bulk newsletters, visual drag-drop email builder (MJML), A/B subject testing, campaign analytics, free/paid membership tiers, paywall/content gating, Stripe payments, offers/promotions, subscriber analytics. (Core ships the full transactional email layer + deliverability + base signup form + basic subscriber count; this plugin adds marketing-email tooling.) | Paid |
-| **E-commerce** | Products, cart, orders, checkout, inventory. Card payment comes from the site's gateway plugins (Stripe, PayPal — each its own plugin, through Core's payment contract, D-84 — decided, not built). Also brings e-commerce SEO: Product schema (price/stock/GTIN/MPN), shopping/merchant feed, variant canonicals, out-of-stock handling. | Paid |
+| **Newsletter & Membership** (flagship) | Ghost-style: bulk newsletters, visual drag-drop email builder (MJML), A/B subject testing, campaign analytics, free/paid membership tiers, paywall/content gating, paid tiers taken through the site's payment gateway plugins (Core's payment contract, D-84), offers/promotions, subscriber analytics. (Core ships the full transactional email layer + deliverability + base signup form + basic subscriber count; this plugin adds marketing-email tooling.) | Paid |
+| **E-commerce** | Products, cart, orders, checkout, inventory. Card payment comes from the site's gateway plugins (Stripe, PayPal — each its own plugin, through Core's payment contract, D-84: built in Core and in plugin-sdk v0.10.0, docs/PAYMENTS.md). Also brings e-commerce SEO: Product schema (price/stock/GTIN/MPN), shopping/merchant feed, variant canonicals, out-of-stock handling. | Paid |
 | **SEO Pro** | The Pro tier of the built-in SEO (also sold standalone). Adds off-site tools that need external data: backlink monitoring, disavow, competitor analysis. | Paid |
 | **Local SEO** | Google Business Profile sync, NAP consistency, store locator + map, multi-location landing pages, per-location schema | Paid |
 | **Booking & Reservation** | Appointments, slots, calendar, reminders | Paid |
@@ -133,7 +136,8 @@ Enterprise Auth / SSO (`sso`), and the advanced forms tier (`forms`). The rest o
 
 Plugins and themes above are sold/distributed through the Nilda Marketplace
 (part of nilda.dev — Central's marketplace, which the admin's Market screen browses
-and buys from; see NILDA_PRD.md §10). Each creator picks
+and buys from; see Core's `docs/files/NILDA_PRD.md` §9 "Marketplace" and the first of its two §10s,
+"Revenue Model"). Each creator picks
 their own model: **free, paid, or freemium** (free base + paid Pro). Ours = 100%
 margin; third-party = we take 30% commission. Free items cost nothing. This is
 like the WordPress plugin directory or an app store — every model coexists.

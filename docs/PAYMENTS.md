@@ -29,8 +29,11 @@ declares either.
 - **Starting is short; the outcome comes later.** That is how every processor works — Stripe Checkout, PayPal
   Orders, Mollie — and every platform on top of them (Shopify's payments apps, Saleor, Medusa). Nothing in the
   contract waits for a payer.
-- **Core holds no provider code, no keys, and makes no outbound call.** A gateway's keys live on its own
-  settings page, encrypted; its calls to the processor are its own.
+- **The contract holds no provider code, no keys, and makes no outbound call.** A gateway's keys live on its
+  own settings page, encrypted; its calls to the processor are its own. One piece of Core predates the
+  contract and is not yet on it: the page builder's Stripe payment button (Core's `internal/stripe`), which
+  still calls Stripe itself with a key from Core's own settings. Moving it onto this contract, key and all,
+  is planned; until then it is the one payment call Core makes on its own.
 
 ## 2. Money is an integer in the currency's smallest unit
 
@@ -71,10 +74,11 @@ expired    → pending, resolved                     (a late payment is still mo
 resolved, rejected: final
 ```
 
-- **The same report twice is a no-op** (200, the session unchanged). A processor sends the same webhook more
-  than once as a matter of course.
-- **A report that cannot move the session is refused with 409.** A payment that ended one way does not end
-  another way because a late webhook says so.
+- **A report of the status the session already has is a no-op** (200, the session unchanged) — the same
+  report twice, and also a second `Reject` with a different code, or a second `Resolve` with a different
+  reference: the first one stands. A processor sends the same webhook more than once as a matter of course.
+- **A report that would MOVE the session somewhere the table does not allow is refused with 409.** A payment
+  that ended one way does not end another way because a late webhook says so.
 
 A **refund** gives money back from a resolved session: `requested → pending → resolved | rejected`
 (`RefundCanMove`). Core refuses one that would take the session's refunds — resolved and still in flight —
@@ -86,12 +90,18 @@ gateway reporting one is refused:
 | code | who | means |
 |---|---|---|
 | `declined` | gateway | the processor said no |
-| `cancelled` | gateway | the payer walked away — not a problem to investigate |
-| `provider_unavailable` | gateway | the processor could not be reached; nothing was charged |
+| `cancelled` | gateway, or a person | the payer walked away — not a problem to investigate; also what a person's reject of a pending payment records |
+| `provider_unavailable` | gateway, or Core | the processor could not be reached; nothing was charged. Core records it too when the gateway does not answer `payment.start`, or answers something Core cannot act on |
 | `invalid_request` | gateway | the processor cannot take this payment (a currency, a minimum) |
 | `expired` | gateway | the processor's page expired before the payer paid |
-| `amount_mismatch` | Core | the processor took a different amount or currency; held `pending` for a person |
+| `amount_mismatch` | Core, then a person | the processor took a different amount or currency; held `pending` for a person — and kept as the code when that person rejects it |
 | `consumer_refused` | Core | the consumer's confirm step said no |
+
+**A person can settle a pending payment.** The site owner, in the admin, may resolve or reject a payment that
+is `pending` — one held for `amount_mismatch`, or one a processor has sat on. Resolve moves it to `resolved`
+and clears the failure code; reject moves it to `rejected` with `amount_mismatch` if that is why it was held,
+`cancelled` otherwise. Either way the person's note is written into `failure_message` — so a `resolved`
+session can carry one — and the consumer is told the change like any other.
 
 ## 4. Writing a gateway
 
@@ -134,7 +144,10 @@ A gateway is a `nilda.Handler` whose `Init` keeps the `*Core`, reads the keys an
 and a `nilda.PaymentGateway` — three calls, none of which waits for a payer:
 
 ```go
-type Gateway struct{ core *nilda.Core }
+type Gateway struct {
+	core   *nilda.Core
+	routes http.Handler // kept so a test can deliver a webhook to it (below)
+}
 
 func main() { nilda.ServePaymentGateway(&Gateway{}) }
 
@@ -142,9 +155,17 @@ func (g *Gateway) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult,
 	g.core = core
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+core.Route("/webhook"), g.webhook)
+	g.routes = mux
 	addr, err := nilda.StartHTTP(mux)
 	return nilda.InitResult{RouteAddr: addr}, err
 }
+
+// The rest of nilda.Handler. Serve answers the payment hooks before HandleHook sees them, and a gateway
+// subscribes to nothing else, so both have nothing to do.
+func (g *Gateway) HandleHook(ctx context.Context, hook string, payload []byte) ([]byte, error) {
+	return nil, fmt.Errorf("unexpected hook %q", hook)
+}
+func (g *Gateway) HandleEvent(ctx context.Context, eventType string, data []byte) error { return nil }
 
 func (g *Gateway) DescribePayments(ctx context.Context) ([]nilda.PaymentMethod, error)
 func (g *Gateway) StartPayment(ctx context.Context, s nilda.PaymentSession) (nilda.PaymentStartResult, error)
@@ -168,15 +189,20 @@ test order is never shipped as paid. **No keys yet: offer nothing**, not methods
 return nilda.PaymentStartResult{Status: nilda.PaymentRedirected, RedirectURL: checkout.URL, ProviderRef: checkout.ID}, nil
 ```
 
-- **`s.ID` is your idempotency key at the processor.** Core asks again for the same session when an answer was
-  lost; the payer must be charged once.
+- **Core asks once.** An answer that does not arrive — a timeout, a crash, one Core cannot act on — closes
+  the session as `rejected`, `provider_unavailable`: no payer has seen a processor's page, so no money can
+  have moved, and the consumer may offer the payer another try, which is a new session. **`s.ID` is still
+  your idempotency key at the processor**, so a retry inside your own `StartPayment` cannot open two
+  checkouts for one session.
 - Send the processor `s.ReturnURL` and `s.CancelURL` — absolute, on the site; Core fills CancelURL when the
   consumer gave none. Or send your OWN route as the processor's return address, finish there (PayPal's
   capture, say), and redirect the payer on to `s.ReturnURL`.
 - `s.Reference` (the consumer's order id, at most 200 characters — Stripe's own bound on
   `client_reference_id`), `s.Description`, `s.Email` and `s.Locale` are there to hand on.
-- Report `ExpiresAt` if the processor's page expires; Core closes the session then (24 hours if you say
-  nothing — Stripe Checkout's own default).
+- Report `ExpiresAt` if the processor's page expires; Core closes the session once that time has passed (24
+  hours after it was created if you say nothing — Stripe Checkout's own default). The closing is a sweep that
+  runs every five minutes, so a session can stay open up to five minutes past its time, and only one nothing
+  has decided (`created`, `redirected`) is closed — a `pending` one is the processor's to decide.
 - **A processor you cannot reach is a RESULT, not an error**: `Status: rejected, FailureCode:
   provider_unavailable`. An error counts against the plugin, and enough of them switch it off — a processor's
   bad afternoon would become a site with no checkout until somebody switched it back on.
@@ -223,10 +249,19 @@ consumer one last say before money moves:
 
 ```go
 res, err := g.core.API().Payments().Confirm(ctx, sessionID)
+var apiErr *nilda.APIError
 switch {
-case err != nil:      // Core could not ask the consumer: ask again later — an authorisation holds for days
-case !res.Proceed:    // Core has ALREADY rejected the session (consumer_refused): void the authorisation
-default:              // capture, then Resolve with what the processor captured
+case errors.As(err, &apiErr) && !apiErr.Retryable():
+	// FINAL: 409, the session expired or already ended; 404, not a session of yours. Asking again gets
+	// the same answer — void the authorisation.
+case err != nil:
+	// A transport error, a 429 or a 5xx — 503 is Core saying it could not ask the consumer. Ask again
+	// later: an authorisation holds for days, and capturing unasked is the one wrong move.
+case !res.Proceed:
+	// Core has ALREADY rejected the session (consumer_refused) — unless it had ended another way while the
+	// consumer was asked. Void the authorisation either way.
+default:
+	// capture, then Resolve with what the processor captured
 }
 ```
 
@@ -240,7 +275,8 @@ Answer `resolved`, `rejected` (with a code), or `pending` and report the end lat
 ### What Core gives a gateway
 
 - **15 seconds** for each payment hook, instead of the ordinary plugin call's 5 — a processor's API on a
-  slow day, not a plugin that is broken.
+  slow day, not a plugin that is broken. Precisely: the longer of 15 seconds and the site's
+  `PLUGIN_CALL_TIMEOUT`, so an operator who raised that past 15 is never given less.
 - Its own sessions only: every other session answers 404, to reads and to reports alike.
 
 ### Testing a gateway with nothing running
@@ -319,7 +355,8 @@ nil. So:
 On the payer's return page, read `Payments.GetSession`: they are often back before the processor's webhook.
 
 **`ConfirmPayment`** answers from your own state, fast — stock, price. `Proceed: false` rejects the session
-with your `Reason` (shown to the payer); an ERROR means you could not decide, and the gateway asks again.
+with your `Reason` (shown to the payer); an ERROR means you could not decide: Core answers the gateway 503,
+and a gateway that follows §4 asks again later.
 
 **Refunds:** `pay.CreateRefund(ctx, key, session.ID, nilda.PaymentRefundParams{AmountMinor: 500, Reason:
 "one item returned"})`, keyed like a session — repeating a refund must not give the money back twice. Its end
@@ -400,8 +437,8 @@ a refund past what was paid, a reused key on a different request; **403** a miss
 | `locale` | 35 characters, a language tag | RFC 5646's minimum a reader must support |
 | `Idempotency-Key` | 255 bytes | Core's, which is Stripe's |
 | a session nothing decided | 24 hours, unless the gateway says | Stripe Checkout's own default |
-| a gateway's hook | 15 seconds | Core's budget for a processor's API |
-| a consumer's hook | 5 seconds | the ordinary plugin call (`PLUGIN_CALL_TIMEOUT`) |
+| a gateway's hook | 15 seconds, or `PLUGIN_CALL_TIMEOUT` if that is longer | Core's budget for a processor's API |
+| a consumer's hook | 5 seconds, the default of `PLUGIN_CALL_TIMEOUT` | the ordinary plugin call |
 
 ## 8. What the contract does not do
 

@@ -158,9 +158,14 @@ func (p *Payments) MarkPending(ctx context.Context, sessionID, providerRef strin
 
 // Confirm asks the consumer, through Core, whether this payment may still go through — call it after the
 // payer has authorised and before you capture, if your processor separates the two. Proceed false means Core
-// has already REJECTED the session (consumer_refused): release the authorisation at your processor, and do
-// not capture. An error means Core could not ask; the authorisation holds for days at every processor, so
-// ask again later rather than capturing unasked.
+// has already REJECTED the session (consumer_refused), unless it had ended another way while the consumer was
+// asked: release the authorisation at your processor, and do not capture.
+//
+// An error is one of two kinds. A transport error, a 429 or a 5xx (*APIError.Retryable — a 503 is Core
+// saying it could not ask the consumer) may succeed later: the authorisation holds for days at every
+// processor, so ask again later rather than capturing unasked. A 409 (the session expired or already ended)
+// or a 404 (not a session of this gateway's) is final — asking again gets the same answer — so release the
+// authorisation.
 func (p *Payments) Confirm(ctx context.Context, sessionID string) (PaymentConfirmResult, error) {
 	path, err := paymentPath("/payments/sessions/", sessionID, "/confirm")
 	if err != nil {

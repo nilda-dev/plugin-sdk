@@ -29,13 +29,15 @@ import (
 // handle them by hand in HandleHook still needs to match on something other than a string literal.
 const (
 	// HookWidgetDescribe asks the plugin what widgets it offers. Core sends `{}` and expects the widget
-	// list. Dispatched to every plugin granted `widget` — it is NOT a subscription, so nothing has to be
-	// listed in InitResult.Hooks for it to arrive.
+	// list. Like every hook it arrives only at a plugin that SUBSCRIBED to it, under the `widget` grant —
+	// Core's Host.Call refuses anything else. Serve subscribes it for you when your Handler implements
+	// WidgetProvider; a plugin answering it by hand in HandleHook lists it in InitResult.Hooks itself.
 	HookWidgetDescribe = "widget.describe"
-	// HookWidgetRender asks for one widget's HTML. Also grant-driven, not subscription-driven.
+	// HookWidgetRender asks for one widget's HTML. Subscribed the same way, under the same grant.
 	HookWidgetRender = "widget.render"
-	// HookRenderAssets asks for the scripts to add to a public page. Unlike the widget hooks this IS a
-	// subscription: it only arrives if "render.assets" is in InitResult.Hooks (AssetProvider adds it).
+	// HookRenderAssets asks for the scripts to add to a public page. It arrives only if "render.assets" is in
+	// InitResult.Hooks, under the `render.assets` grant; Serve adds it for a Handler that implements
+	// AssetProvider.
 	HookRenderAssets = "render.assets"
 )
 
@@ -48,9 +50,10 @@ const (
 // their spelling was wrong, because the failure is a dropped field with no message.
 //
 // KEEPING IT IN STEP IS ENFORCED, NOT REMEMBERED. Core depends on this module, so `FieldTypes()` below is
-// walked by a test in Core (`internal/pagebuilder`) that asserts every type here is one its field registry
-// actually accepts, and that nothing Core offers plugin authors is missing here. Adding a type to Core
-// without adding it here is a build failure there, not a discovery by a plugin author.
+// walked by a test in Core (`internal/plugin/sdk_mirror_test.go`, TestTheSDKFieldVocabularyMatchesCore)
+// that asserts every type here is one its field registry (`internal/contenttype`) actually accepts, and
+// that every type Core has is either here or declared there as not for plugins, with the reason. Adding a
+// type to Core without adding it here is a build failure there, not a discovery by a plugin author.
 const (
 	// Text-like.
 	FieldText     = "text"

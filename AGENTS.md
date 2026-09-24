@@ -49,9 +49,11 @@ So: prove a release from OUTSIDE the workspace (`GOWORK=off`, `go get …@<tag>`
 
 ## What "the plugin has an API" does not mean
 
-`core.API()` is **nil unless a capability granted it**. Check `HasAPI()`. A plugin that assumes the
-client exists crashes on an install where the owner did not grant the capability, which is the normal
-case rather than an edge one.
+`core.API()` is **nil unless a capability granted it**. Check `HasAPI()` — or better, `HasCapability` for
+the one you need. Every `*API` method is nil-safe, so a plugin that assumes the client exists does not
+crash: every call it makes returns an error ("this plugin has no API access"), on an install where the
+owner did not grant the capability — the normal case rather than an edge one. Fail at `Init` with a
+sentence naming the capability instead of failing every call later.
 
 ## Packaging
 
@@ -62,10 +64,26 @@ manifest digest; that is the design being avoided.
 
 ## Before you say you are done
 
+What CI runs (`.gitlab-ci.yml`), plus the one step it cannot:
+
 ```bash
-go test ./...
+GOWORK=off go build ./...              # the module builds alone, as a consumer and CI see it
+test -z "$(gofmt -l .)"                # gofmt-clean
 go vet ./...
+go test -race ./...
+go vet ./_examples/gateway ./_examples/shop       # ./... never reaches _examples: the Go tool
+go test -count=1 ./_examples/gateway ./_examples/shop   # skips an underscore directory
 ```
+
+If you changed `contract/plugin.proto`, regenerate `contract/*.pb.go` with `protoc` exactly as the
+`contract-is-generated` job does and commit the result — that job fails on any difference.
+
+**The tests that read Core's source skip without it.** `docs_truth_test.go`, `guide_truth_test.go`,
+`limits_truth_test.go`, `manifest_truth_test.go`, `payments_truth_test.go`, `abilities_test.go` and the
+Core-reading tests in `nildatest/` hold this module's documents and mirrors to `../core`; CI clones this
+repository alone, so there they all skip. Run them with Core checked out beside this directory, and read
+the skips: `go test -count=1 -v ./... | grep -- '--- SKIP'` should name none that says "core is not checked
+out". A change that passes CI and was never run beside Core has not been checked against Core.
 
 If `pins_test.go` goes red, a consumer's pin cannot resolve — fix the pin or cut the tag; never "fix" it by
 loosening what it checks. If you change

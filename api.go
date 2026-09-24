@@ -93,9 +93,10 @@ func newAPI(baseURL, token string, scopes []string) *API {
 }
 
 // NewTransport wraps an http.RoundTripper so requests carry this plugin's identity to Core's egress
-// proxy. Exported because a plugin author making its OWN outbound calls — to a payment gateway, an SMS
-// provider — should use it too: without the label the proxy cannot tell which manifest's declared hosts
-// apply, and the call is refused.
+// proxy. Exported for a plugin author making its OWN outbound calls — to a payment gateway, an SMS
+// provider. The proxy has to know who is calling to apply the right manifest's hosts; a client that takes
+// its proxy from the environment is identified already, by the proxy address Core hands the process (see
+// below), and this adds the key as a header too.
 //
 // Pass nil for http.DefaultTransport. Go already routes through the proxy from the environment Core sets;
 // this adds the label that says who is asking.
@@ -151,9 +152,10 @@ func withConnectIdentity(tr *http.Transport, key string) *http.Transport {
 	return tr
 }
 
-// HTTPClient is a ready-made client for a plugin's own outbound calls, already carrying the identity the
-// egress proxy needs. Using it is the difference between "declared api.stripe.com and it works" and
-// "declared api.stripe.com and every call is refused".
+// HTTPClient is a ready-made client for a plugin's own outbound calls, carrying the identity the egress
+// proxy needs and a timeout. A bare http.Client that takes its proxy from the environment is identified
+// too, by the proxy address Core hands the process; what the proxy refuses — "this plugin did not declare
+// that host" for a host the manifest declares — is a client pointed at it by hand with no identity at all.
 func HTTPClient(timeout time.Duration) *http.Client {
 	if timeout <= 0 {
 		timeout = 30 * time.Second

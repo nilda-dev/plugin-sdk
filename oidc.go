@@ -76,15 +76,16 @@ func NewOIDCClient(issuer, clientID, clientSecret string, scopes ...string) *OID
 	return &OIDCClient{
 		issuer: strings.TrimRight(issuer, "/"), clientID: clientID, clientSecret: clientSecret,
 		scopes: all,
-		// HTTPClient, not a bare http.Client: the egress proxy identifies the caller by a header the SDK's
-		// transport adds, and without it every call is refused as "this plugin did not declare that host"
-		// — even when the manifest declares it perfectly.
+		// HTTPClient: it carries the plugin's key as a header as well as a timeout. The egress proxy has to
+		// know who is calling to apply the right manifest's hosts, and today any client that takes its
+		// proxy from the environment is identified by the proxy address Core hands the process
+		// (HTTPS_PROXY=http://<key>@…) — a bare http.Client included.
 		//
-		// This client shipped with a bare `&http.Client{}` and the mistake was invisible in tests, which
-		// have no proxy, and fatal in production, which does. It surfaced on a live install: the plugin
-		// reported itself not ready, and the reason was Forbidden from a proxy that could not tell who was
-		// asking. Every author writing outbound calls by hand can make the same mistake — which is exactly
-		// why this client exists.
+		// That was not always so. This client shipped with a bare `&http.Client{}` while the header was the
+		// ONLY identity the proxy read, and the mistake was invisible in tests, which have no proxy, and fatal
+		// in production, which does: the plugin reported itself not ready, and the reason was Forbidden
+		// from a proxy that could not tell who was asking. The key in the proxy address (core's
+		// faultisolation.go, the 2026-09-23 plugin hunt's M6) is what closed that for every client.
 		//
 		// What bounds a login is the context of the call Core made — its per-call deadline (5s by default,
 		// PLUGIN_CALL_TIMEOUT) travels in ctx, and every request below is made with it. This client's own

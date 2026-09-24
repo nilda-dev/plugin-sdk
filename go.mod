@@ -2,15 +2,16 @@ module gitlab.com/nildalabs/nilda-sdk/plugin-sdk
 
 go 1.25.0
 
-// Both pre-v0.2.0 tags speak contract v1, and Core rejects a v1 plugin outright: ProtocolVersion is 2
-// since the five read-only data RPCs were removed in favour of a scoped token onto Core's real API. A
-// plugin built against either one therefore compiles, ships, and is refused at install with a version
-// error — a failure whose cause is nowhere near where it surfaces.
+// Both pre-v0.2.0 tags speak contract v1, which Core rejects outright: ProtocolVersion is 2 since the five
+// read-only data RPCs were removed in favour of a scoped token onto Core's real API.
 //
-// Retracted rather than deleted because a published Go version cannot be deleted: proxy.golang.org
-// caches every version anyone has ever fetched, permanently. `retract` is the only lever, and it works
-// by being read from the LATEST version's go.mod — which is why this block lives here and must survive
-// every future release.
+// Both were also tagged under the module's OLD path, gitlab.com/nilda-sdk/plugin-sdk — every tag before
+// v0.7.0 was (README.md, "History worth keeping") — so a requirement of THIS path at v0.1.0 or v0.1.1 does
+// not resolve at all: `go` reads the go.mod at the tag and finds a different module path. These two lines
+// therefore guard nothing a consumer can reach today. They stay because a retraction costs nothing, because
+// Core's archtest reads this block to refuse a plugin pinned to either version, and because `retract` is
+// the only lever a published version has — proxy.golang.org caches what it has served, and a retraction
+// works by being read from the LATEST version's go.mod, which is why it must survive every release.
 retract (
 	v0.1.0 // contract v1: Core refuses it (ProtocolVersion 1 ≠ 2)
 	v0.1.1 // contract v1: Core refuses it (ProtocolVersion 1 ≠ 2)

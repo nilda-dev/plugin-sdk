@@ -57,7 +57,21 @@ func TestEveryDocumentedCoreMethodExists(t *testing.T) {
 // only where it is being denied.
 func TestNothingCallsFaultIsolationASecuritySandbox(t *testing.T) {
 	denies := regexp.MustCompile(`(?i)not a security sandbox|older word`)
-	for _, f := range sdkTextFiles(t) {
+	// Every file an author or an agent reads, not only the root: the generated contract and its .proto, the
+	// test kit, and the examples an author copies whole.
+	files := sdkTextFiles(t)
+	for _, pattern := range []string{"contract/*.proto", "contract/*.go", "nildatest/*.go", "_examples/*/*.go",
+		"_examples/*/*.json", ".gitlab-ci.yml"} {
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(matches) == 0 {
+			t.Fatalf("%s matches nothing — the layout moved; repoint this guard", pattern)
+		}
+		files = append(files, matches...)
+	}
+	for _, f := range files {
 		for i, line := range strings.Split(readText(t, f), "\n") {
 			if strings.Contains(strings.ToLower(line), "sandbox") && !denies.MatchString(line) {
 				t.Errorf("%s:%d says %q — there is no security sandbox; a plugin runs as the same OS user as "+
@@ -200,6 +214,113 @@ func TestTheAbilityGateTheDocsNameIsTheOneCoreApplies(t *testing.T) {
 	}
 }
 
+// TestTheHookGrantsInitResultNamesAreCores holds InitResult.Hooks' doc comment — which grant admits which
+// hook — to the switch in core's filterHooks (internal/plugin/renderassets.go), pair by pair. The comment
+// once listed every grant but the two payment ones, and an author reading it could not learn that
+// `payment_session`, not `hooks`, admits a consumer's hooks.
+func TestTheHookGrantsInitResultNamesAreCores(t *testing.T) {
+	dir := filepath.Join("..", "core", "internal", "plugin")
+	src, err := os.ReadFile(filepath.Join(dir, "renderassets.go"))
+	if os.IsNotExist(err) {
+		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Every constant core's plugin package declares, so a case can be read by value.
+	values := map[string]string{}
+	files, err := filepath.Glob(filepath.Join(dir, "*.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	decl := regexp.MustCompile(`(?m)^\s*(?:const\s+)?(\w+)\s*=\s*"([^"]*)"`)
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		for _, m := range decl.FindAllStringSubmatch(readText(t, f), -1) {
+			values[m[1]] = m[2]
+		}
+	}
+	body := string(src)
+	start := strings.Index(body, "func filterHooks(")
+	if start < 0 {
+		t.Fatal("core's renderassets.go no longer declares filterHooks — repoint this guard")
+	}
+	body = body[start:]
+	body = body[:strings.Index(body, "\n}\n")]
+	if !strings.Contains(body, "allowed := contains(grants, CapHooks)") {
+		t.Fatal("core's filterHooks no longer defaults to the `hooks` grant — re-read InitResult.Hooks")
+	}
+	grantOf := map[string]string{} // hook value -> capability value, from core
+	caseRE := regexp.MustCompile(`(?s)^([A-Za-z0-9_,\s]+):.*?allowed = contains\(grants, (Cap\w+)\)`)
+	for _, chunk := range regexp.MustCompile(`(?m)^\t\tcase `).Split(body, -1)[1:] {
+		m := caseRE.FindStringSubmatch(chunk)
+		if m == nil {
+			t.Fatalf("a case of core's filterHooks does not read as `case Hooks…: allowed = contains(grants, Cap…)` — teach this guard:\n%s", chunk)
+		}
+		capability, ok := values[m[2]]
+		if !ok {
+			t.Fatalf("core's filterHooks grants by %s, which no constant in internal/plugin names", m[2])
+		}
+		for _, name := range strings.Split(m[1], ",") {
+			hook, ok := values[strings.TrimSpace(name)]
+			if !ok {
+				t.Fatalf("core's filterHooks names %s, which no constant in internal/plugin names", name)
+			}
+			grantOf[hook] = capability
+		}
+	}
+	if len(grantOf) < 20 {
+		t.Fatalf("read %d hooks from core's filterHooks — the parse is broken, repoint this guard", len(grantOf))
+	}
+
+	// The comment's pairs: "<hooks> by `<grant>`", where <hooks> is a name, a family ("commerce.*") or names
+	// joined by "/".
+	serve := readText(t, "serve.go")
+	c := serve[strings.Index(serve, "// Hooks are the hook names to receive."):]
+	c = strings.Join(strings.Fields(strings.ReplaceAll(c[:strings.Index(c, "Hooks  []string")], "//", " ")), " ")
+	said := map[string]string{} // pattern -> capability
+	for _, m := range regexp.MustCompile("([a-z][a-z._*/]*) by `([a-z_.]+)`").FindAllStringSubmatch(c, -1) {
+		for _, p := range strings.Split(m[1], "/") {
+			said[p] = m[2]
+		}
+	}
+	matches := func(pattern, hook string) bool {
+		if fam, ok := strings.CutSuffix(pattern, ".*"); ok {
+			return strings.HasPrefix(hook, fam+".")
+		}
+		return pattern == hook
+	}
+	for hook, capability := range grantOf {
+		found := false
+		for pattern, sdk := range said {
+			if !matches(pattern, hook) {
+				continue
+			}
+			found = true
+			if sdk != capability {
+				t.Errorf("core admits %s by `%s`; InitResult.Hooks says `%s`", hook, capability, sdk)
+			}
+		}
+		if !found {
+			t.Errorf("core admits %s by `%s`, and InitResult.Hooks never says which grant admits it", hook, capability)
+		}
+	}
+	for pattern := range said {
+		used := false
+		for hook := range grantOf {
+			used = used || matches(pattern, hook)
+		}
+		if !used {
+			t.Errorf("InitResult.Hooks names %s, which core's filterHooks has no case for", pattern)
+		}
+	}
+	if !strings.Contains(c, "require `hooks`") {
+		t.Error("InitResult.Hooks no longer says the content-lifecycle hooks require `hooks`, core's default")
+	}
+}
+
 // TestTheKVLimitsTheDocsNameAreCores holds the capability table's `kv` row to Core's own caps (the 2026-09-23
 // plugin hunt's C19), read from core's internal/plugin/kvquota.go.
 func TestTheKVLimitsTheDocsNameAreCores(t *testing.T) {
@@ -326,8 +447,9 @@ func readText(t *testing.T, path string) string {
 
 // M20 (2026-09-23 plugin hunt): the SDK told authors Core strips `class` and `data-*` from a widget's HTML,
 // while Core renders plugin widgets with its COMPONENT policy, which keeps both on purpose. An author who
-// believed the doc stopped using the two hooks the policy exists to preserve. Held to Core's source: if
-// Render ever moves to another policy, this fails and the sentence gets re-read.
+// believed the doc stopped using the two hooks the policy exists to preserve. Held to Core's source: the call
+// in Render, AND the policy lines that make the sentence true — a policy that stopped allowing `class` or
+// `data-*`, or started allowing a style or a script, would leave the call in place and the doc wrong.
 func TestTheWidgetSanitizerTheDocsDescribeIsCores(t *testing.T) {
 	raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "plugin", "widgets.go"))
 	if os.IsNotExist(err) {
@@ -338,6 +460,37 @@ func TestTheWidgetSanitizerTheDocsDescribeIsCores(t *testing.T) {
 	}
 	if !strings.Contains(string(raw), "security.SanitizeComponentHTML(res.HTML)") {
 		t.Fatal("core's WidgetCatalog.Render no longer sanitizes with the component policy — re-read what the docs say is kept")
+	}
+	policy := readText(t, filepath.Join("..", "core", "pkg", "security", "sanitize.go"))
+	for _, want := range []string{
+		"componentPolicy = newComponentPolicy()",
+		"func SanitizeComponentHTML(html string) string { return componentPolicy.Sanitize(html) }",
+	} {
+		if !strings.Contains(policy, want) {
+			t.Errorf("core's sanitize.go no longer has %q — SanitizeComponentHTML may not be the policy the docs describe", want)
+		}
+	}
+	body := func(fn string) string {
+		start := strings.Index(policy, "func "+fn+"() *bluemonday.Policy {")
+		if start < 0 {
+			t.Fatalf("core's sanitize.go no longer declares %s — repoint this guard", fn)
+		}
+		b := policy[start:]
+		return b[:strings.Index(b, "\n}")]
+	}
+	component, rich := body("newComponentPolicy"), body("newRichPolicy")
+	for _, want := range []string{"p := newRichPolicy()", `p.AllowAttrs("class").Globally()`, "p.AllowDataAttributes()"} {
+		if !strings.Contains(component, want) {
+			t.Errorf("core's component policy no longer has %q — the docs say `class` and `data-*` are kept", want)
+		}
+	}
+	if !strings.Contains(rich, "p := bluemonday.UGCPolicy()") {
+		t.Error("core's rich policy no longer starts from bluemonday's UGC policy — re-read what the docs say is removed")
+	}
+	for _, refused := range []string{"AllowStyles", "AllowUnsafe", `"style"`, `"script"`, `"iframe"`, `AllowAttrs("on`} {
+		if strings.Contains(component+rich, refused) {
+			t.Errorf("core's widget policy now contains %s — the docs say scripts, iframes, on* handlers and style are removed", refused)
+		}
 	}
 	for _, file := range []string{"widgets.go", "docs/PLUGIN_SDK.md"} {
 		text := readText(t, file)
@@ -493,21 +646,38 @@ func TestTheAdminPageRulesTheDocsNameAreCores(t *testing.T) {
 		}
 		return m[1]
 	}
+	// Each marker is what DOES the thing the sentence says, not a name that survives its removal: the
+	// primary key appears in the list's SELECT too, the reason constant outlives the branch that returns it,
+	// and a function nothing calls creates no index. So the tie-break is held in the ORDER BY, the reason in
+	// the timeout branch, and the index helper at the call that provisions the tables.
+	flat := func(s string) string { return strings.Join(strings.Fields(s), " ") }
+	service := read("service.go")
 	section := strings.Join(strings.Fields(mdSection(t, "docs/PLUGIN_SDK.md", "### Your own section of the admin")), " ")
-	for _, c := range []struct{ src, marker, says string }{
-		{manifest, "the 'admin_page' capability is declared but no admin page is", "and the capability without a page"},
-		{manifest, "admin pages are declared but the 'admin_page' capability is not", "`admin_pages` without the `admin_page` capability"},
-		{manifest, "is also a field of the settings page", "One field key on two settings pages"},
-		{list, "ReasonActionOutcomeUnknown", "Core cannot tell \"never started\" from \"finished, answer lost\""},
-		{list, "primaryKeyOf(table)", "then by the table's primary key"},
-		{tables, "func TablesWithListIndexes", "Core creates one with your tables"},
+	for _, c := range []struct {
+		src    string
+		marker *regexp.Regexp
+		says   string
+	}{
+		{manifest, regexp.MustCompile(regexp.QuoteMeta("the 'admin_page' capability is declared but no admin page is")), "and the capability without a page"},
+		{manifest, regexp.MustCompile(regexp.QuoteMeta("admin pages are declared but the 'admin_page' capability is not")), "`admin_pages` without the `admin_page` capability"},
+		{manifest, regexp.MustCompile(regexp.QuoteMeta("is also a field of the settings page")), "One field key on two settings pages"},
+		{flat(list), regexp.MustCompile(`if errors\.Is\(err, context\.DeadlineExceeded\) \|\| status\.Code\(err\) == codes\.DeadlineExceeded \{ ` +
+			`return nil, apperr\.New\(apperr\.CodeConflict, [^{}]*\)\. WithDetails\(map\[string\]string\{"reason": ReasonActionOutcomeUnknown\}\) \}`),
+			"Core cannot tell \"never started\" from \"finished, answer lost\""},
+		{flat(list), regexp.MustCompile(regexp.QuoteMeta(`if pk := primaryKeyOf(table); pk != "" && pk != page.OrderBy { ` +
+			`order = append(order, pgx.Identifier{pk}.Sanitize()+" "+dir) }`)), "then by the table's primary key"},
+		{flat(service), regexp.MustCompile(regexp.QuoteMeta("man.Tables = TablesWithListIndexes(man.Tables, man.AdminPages)") +
+			`.*` + regexp.QuoteMeta("ProvisionDatastore(ctx, p.Key, p.Publisher, man.Tables,")), "Core creates one with your tables"},
 	} {
-		if !strings.Contains(c.src, c.marker) {
-			t.Errorf("core no longer has %q — re-read the admin_page section's sentence %q", c.marker, c.says)
+		if !c.marker.MatchString(c.src) {
+			t.Errorf("core no longer has %s — re-read the admin_page section's sentence %q", c.marker, c.says)
 		}
 		if !strings.Contains(section, c.says) {
-			t.Errorf("the admin_page section no longer says %q, which core's %q makes true", c.says, c.marker)
+			t.Errorf("the admin_page section no longer says %q, which core's %s makes true", c.says, c.marker)
 		}
+	}
+	if !strings.Contains(tables, "func TablesWithListIndexes(") {
+		t.Error("core's tables.go no longer declares TablesWithListIndexes — repoint this guard")
 	}
 	for _, want := range []string{
 		"More than " + num(manifest, "maxAdminPages") + " pages",
