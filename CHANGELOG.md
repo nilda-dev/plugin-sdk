@@ -6,9 +6,38 @@ here.
 
 ## Unreleased
 
-Documentation, the example programs and the tests that hold them to Core — no change to the Go API or to
-what any exported function does.
+No change to the Go API (`surface.txt` and `nildatest/surface.txt` are as in v0.10.0). What a plugin can notice:
 
+### Changed — the SDK
+
+- **`API.UploadMedia` with an Idempotency-Key sends the same bytes on every run** — its multipart boundary is
+  derived from the key. A keyed upload re-run after a crash was refused by Core as "a different request".
+- **The plugin's key no longer rides an https request's own headers.** `NewTransport` / `HTTPClient` put it on
+  the CONNECT (which the egress proxy reads) and, for plain http, on the request; on https the request headers
+  travel inside TLS to the provider, which learned the key.
+
+### Changed — `nildatest.Payments`, following Core
+
+- **`CreateRefund` answers `requested`, and `Deliver` asks the gateway.** Core asks a gateway about a refund from
+  its delivery job, never inside the consumer's call; a test that read the gateway's answer straight from
+  `CreateRefund` calls `Deliver` first.
+- A refund whose gateway cannot be asked answers **503**, and a 503 gives its Idempotency-Key back (the same
+  key runs again); the method's currencies are not checked again for a refund.
+- A keyed request sent again while the first is still running answers **409**.
+- A mismatched resolve writes no failure message (Core keeps the processor's amount for the owner), and the
+  same mismatch reported twice changes nothing; a pending report on a pending session changes nothing; a
+  processor's reference past 255 bytes is refused on a pending report and a refund resolve.
+
+### Documentation
+
+- `docs/PAYMENTS.md` says what Core does now: refunds are asked from a job; a consumer's "tell me again" error
+  is not counted against the plugin; money reported on a refused payment is recorded for the owner (still
+  409); a person accepting a mismatch resolves at the processor's amount; no readable site address refuses a
+  payment; the 503 and in-flight 409 refusals.
+- A shop that must emit its catalogue event is a Handler served with `Serve` (it keeps the `*Core` from Init);
+  `ServeCommerce` never hands its `Commerce` one. The guide's walkthrough and `commerce.go` show that shape.
+- The API token's rate limit (`API_RATE_LIMIT_PER_TOKEN`, 1,000 an hour by default) and what the client does
+  when it runs out.
 - The guides now say what Core does where they said otherwise: which hooks need a subscription (every one —
   `Serve` lists a provider's for you, and a row action or a report page is listed by hand), what
   `nilda plugin build` does with `os`/`arch` and the signing key, where a plugin's log lines go and at which

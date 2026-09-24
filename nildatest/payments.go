@@ -53,7 +53,8 @@ type Payments struct {
 	sessions  map[string]*nilda.PaymentSession
 	order     []string // session ids, oldest first
 	refunds   map[string]*nilda.PaymentRefund
-	refundDue map[string]bool   // refunds whose payment.refund failed: the delivery job asks again
+	refundDue map[string]bool   // refunds the delivery job still has to ask their gateway about
+	reported  map[string]string // session id → the mismatched amount a processor reported, as Core keeps it
 	keys      map[string]replay // caller + idempotency key → the first answer
 	owed      []owed            // what the consumers have not heard yet, oldest change first
 	log       []Delivery
@@ -86,6 +87,9 @@ const (
 	// sessionLifetime is Core's default expiry for a session its gateway gave none: 24 hours, the default
 	// Stripe Checkout gives its own sessions.
 	sessionLifetime = 24 * time.Hour
+	// maxProviderRef is the bound on a processor's reference, Core's and the SDK's (payment.go's, which the
+	// SDK's TestTheKitsBoundsAreTheSDKs holds this copy to).
+	maxProviderRef = 255
 )
 
 // NewPayments builds an empty payment service.
@@ -97,6 +101,7 @@ func NewPayments() *Payments {
 		sessions:  map[string]*nilda.PaymentSession{},
 		refunds:   map[string]*nilda.PaymentRefund{},
 		refundDue: map[string]bool{},
+		reported:  map[string]string{},
 		keys:      map[string]replay{},
 	}
 }
@@ -297,7 +302,8 @@ func (p *Payments) routes(caller string) http.Handler {
 
 // keyed runs a write that must name its attempt, and answers a repeat the way Core's idempotency layer does:
 // the same key and the same request get the first answer back, marked Idempotent-Replayed; the same key on a
-// different request is refused; a refused request (4xx) keeps nothing, so a corrected retry runs.
+// different request is refused; a repeat while the first is still running is a 409; a refused request (4xx)
+// and an UNAVAILABLE one (503: nothing changed) keep nothing, so a retry runs.
 func (p *Payments) keyed(w http.ResponseWriter, r *http.Request, caller string, body []byte, run func() (int, any, error)) {
 	key := r.Header.Get("Idempotency-Key")
 	if strings.TrimSpace(key) == "" {
@@ -312,10 +318,18 @@ func (p *Payments) keyed(w http.ResponseWriter, r *http.Request, caller string, 
 	sum := sha256.Sum256(append([]byte(r.Method+" "+r.URL.Path+"\n"), body...))
 	p.mu.Lock()
 	prev, seen := p.keys[slot]
+	if !seen {
+		p.keys[slot] = replay{sum: sum} // claimed: status 0 until the first answer is in
+	}
 	p.mu.Unlock()
 	if seen {
 		if prev.sum != sum {
 			writeError(w, invalid("this Idempotency-Key was used for a different request"))
+			return
+		}
+		if prev.status == 0 {
+			writeError(w, &apiError{http.StatusConflict, "CONFLICT",
+				"a request with this Idempotency-Key is still being processed; ask again in a moment"})
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -327,11 +341,13 @@ func (p *Payments) keyed(w http.ResponseWriter, r *http.Request, caller string, 
 	status, v, err := run()
 	rec := httptest.NewRecorder()
 	answer(rec, status, v, err)
-	if rec.Code < 400 || rec.Code >= 500 {
-		p.mu.Lock()
+	p.mu.Lock()
+	if (rec.Code >= 400 && rec.Code < 500) || rec.Code == http.StatusServiceUnavailable {
+		delete(p.keys, slot) // it changed nothing: the key is given back
+	} else {
 		p.keys[slot] = replay{sum: sum, status: rec.Code, body: rec.Body.Bytes()}
-		p.mu.Unlock()
 	}
+	p.mu.Unlock()
 	for k, vs := range rec.Header() {
 		w.Header()[k] = vs
 	}
@@ -666,12 +682,17 @@ func (p *Payments) report(ctx context.Context, caller, id, verb string, body []b
 			if s.Status != nilda.PaymentPending && !nilda.PaymentCanMove(s.Status, nilda.PaymentPending) {
 				return nil, conflict(s)
 			}
+			// The same mismatch again — the processor's redelivery — changes nothing, as in Core. What the
+			// processor reported is the owner's to read (Settings → Payments), not the wire's: no failure message.
+			seen := fmt.Sprintf("%d %s", r.AmountMinor, strings.ToUpper(r.Currency))
+			if s.Status == nilda.PaymentPending && s.FailureCode == nilda.PaymentFailAmountMismatch && p.reported[s.ID] == seen {
+				return *s, nil
+			}
+			p.reported[s.ID] = seen
 			if r.ProviderRef != "" {
 				s.ProviderRef = r.ProviderRef
 			}
-			s.FailureCode = nilda.PaymentFailAmountMismatch
-			s.FailureMessage = fmt.Sprintf("the processor reported %d %s; the session asked for %d %s",
-				r.AmountMinor, strings.ToUpper(r.Currency), s.AmountMinor, s.Currency)
+			s.FailureCode, s.FailureMessage = nilda.PaymentFailAmountMismatch, ""
 			if !p.move(s, nilda.PaymentPending) {
 				// Already pending: the status is the same, the reason is not — the consumer hears it.
 				s.UpdatedAt = time.Now().UTC()
@@ -716,7 +737,16 @@ func (p *Payments) report(ctx context.Context, caller, id, verb string, body []b
 				return nil, invalid("the body is not a pending report: %v", err)
 			}
 		}
-		if r.ProviderRef != "" && s.Status != nilda.PaymentResolved && s.Status != nilda.PaymentRejected {
+		if len(r.ProviderRef) > maxProviderRef {
+			return nil, invalid("a processor's reference is at most %d bytes", maxProviderRef)
+		}
+		if s.Status == nilda.PaymentPending {
+			return *s, nil // already pending: nothing changes, the reference included (Core's MarkPending)
+		}
+		if !nilda.PaymentCanMove(s.Status, nilda.PaymentPending) {
+			return nil, conflict(s)
+		}
+		if r.ProviderRef != "" {
 			s.ProviderRef = r.ProviderRef
 		}
 		return p.apply(s, nilda.PaymentPending)
@@ -790,11 +820,21 @@ func (p *Payments) createRefund(ctx context.Context, caller, sessionID string, p
 	gateway, method, currency := s.Gateway, s.Method, s.Currency
 	p.mu.Unlock()
 
-	m, err := p.method(ctx, gateway, method, currency)
-	if err != nil {
-		return nilda.PaymentRefund{}, err
+	// As Core's refundable: a gateway that is not running, or cannot be asked what it offers, is UNAVAILABLE —
+	// ask again later — and the method must say it gives money back. The currency is not asked again: the
+	// payment was taken, whatever the method lists today.
+	methods, ok := p.describe(ctx, gateway)
+	if !ok {
+		return nilda.PaymentRefund{}, &apiError{http.StatusServiceUnavailable, "UNAVAILABLE",
+			fmt.Sprintf("the gateway %q that took this payment is not running or could not be asked; ask again later", gateway)}
 	}
-	if !m.Refunds {
+	refunds := false
+	for _, m := range methods {
+		if m.Key == method && m.Refunds {
+			refunds = true
+		}
+	}
+	if !refunds {
 		return nilda.PaymentRefund{}, invalid("gateway %q's %q cannot give money back through Nilda", gateway, method)
 	}
 	now := time.Now().UTC()
@@ -808,9 +848,11 @@ func (p *Payments) createRefund(ctx context.Context, caller, sessionID string, p
 		return nilda.PaymentRefund{}, err
 	}
 	p.refunds[rf.ID] = rf
+	// Asked by the delivery job (Deliver), as Core asks it: CreateRefund answers REQUESTED and never waits on
+	// the processor inside the consumer's call — an owner's row action has five seconds, a processor fifteen.
+	p.refundDue[rf.ID] = true
+	got := *rf
 	p.mu.Unlock()
-	p.askRefund(ctx, rf.ID)
-	got, _ := p.GetRefund(rf.ID)
 	return got, nil
 }
 
@@ -917,6 +959,9 @@ func (p *Payments) reportRefund(caller, id, verb string, body []byte) (any, erro
 			if err := json.Unmarshal(body, &r); err != nil {
 				return nil, invalid("the body is not a refund resolution: %v", err)
 			}
+		}
+		if len(r.ProviderRef) > maxProviderRef {
+			return nil, invalid("a processor's reference is at most %d bytes", maxProviderRef)
 		}
 		if r.ProviderRef != "" && rf.Status != nilda.RefundResolved && rf.Status != nilda.RefundRejected {
 			rf.ProviderRef = r.ProviderRef

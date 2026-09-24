@@ -3,6 +3,8 @@ package nilda
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -169,7 +171,11 @@ type pluginTransport struct {
 }
 
 func (t *pluginTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	if t.key == "" {
+	// PLAIN HTTP ONLY. For an https request the identity rides the CONNECT (withConnectIdentity), and the
+	// request's own headers travel INSIDE the TLS session to the provider, where the proxy cannot strip them:
+	// every call a plugin made to api.stripe.com told Stripe the plugin's key (Core's 2026-09-24 whole-plan
+	// review, A-9). A plain http request is read by the proxy, which removes the header before forwarding.
+	if t.key == "" || !strings.EqualFold(r.URL.Scheme, "http") {
 		return t.base.RoundTrip(r)
 	}
 	// Clone: RoundTrip must not mutate the caller's request.
@@ -369,6 +375,16 @@ func (a *API) UploadMedia(ctx context.Context, filename string, file io.Reader, 
 	}
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
+	// A KEYED upload sends the same bytes every time it is run (Core's 2026-09-24 whole-plan review, I-12). The
+	// writer picks a random boundary, and Core fingerprints the body under the key: the importer re-run after a
+	// crash — the case a key exists for — was refused "already used for a different request". Derived from the
+	// key, the boundary is the same on every run of it, and still unguessable to anything reading the file.
+	if a.idempotencyKey != "" {
+		sum := sha256.Sum256([]byte("nilda-upload\x00" + a.idempotencyKey))
+		if err := mw.SetBoundary("nilda" + hex.EncodeToString(sum[:24])); err != nil {
+			return err
+		}
+	}
 	part, err := mw.CreateFormFile("file", filename)
 	if err != nil {
 		return err

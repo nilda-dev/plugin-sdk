@@ -485,3 +485,64 @@ func TestAPluginCanUploadMedia(t *testing.T) {
 		t.Fatalf("id = %q after %d attempts, want m1 after a retry", out.Data.ID, attempts)
 	}
 }
+
+// I-12 of Core's 2026-09-24 whole-plan review — a keyed upload sends the SAME bytes on every run. Core fingerprints
+// a keyed request's body; the random multipart boundary made an importer's re-run after a crash a "different
+// request", refused. Two separate runs of the same key must be byte for byte one request; another key must not.
+func TestAKeyedUploadIsTheSameRequestEveryTimeItIsRun(t *testing.T) {
+	var bodies []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		bodies = append(bodies, r.Header.Get("Content-Type")+"\n"+string(b))
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	defer srv.Close()
+	upload := func(key string) {
+		t.Helper()
+		api := newAPI(srv.URL, "tok", []string{"write:media"}).WithIdempotencyKey(key)
+		if err := api.UploadMedia(context.Background(), "kettle.png", strings.NewReader("PNGBYTES"), "A kettle", nil); err != nil {
+			t.Fatalf("upload: %v", err)
+		}
+	}
+	upload("row-312")
+	upload("row-312") // the importer, run again after it crashed
+	upload("row-313")
+	if len(bodies) != 3 {
+		t.Fatalf("%d requests, want 3", len(bodies))
+	}
+	if bodies[0] != bodies[1] {
+		t.Fatalf("two runs of one keyed upload sent different bytes — Core refuses the second as another request:\n%s\n---\n%s",
+			bodies[0], bodies[1])
+	}
+	if bodies[0] == bodies[2] {
+		t.Fatal("two different keys sent the same boundary — the boundary must come from the key")
+	}
+}
+
+// A-9 of Core's 2026-09-24 whole-plan review — the plugin's key never rides an https request's own headers, which
+// travel inside the TLS session to the provider (the CONNECT carries it for the egress proxy). A plain http
+// request, which the proxy reads and strips, still carries it.
+func TestThePluginKeyNeverReachesAnHTTPSProvider(t *testing.T) {
+	t.Setenv("NILDA_PLUGIN_KEY", "stripe")
+	var seen []string
+	rt := roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		seen = append(seen, r.URL.Scheme+"="+r.Header.Get("X-Nilda-Plugin"))
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("")), Header: http.Header{}}, nil
+	})
+	client := &http.Client{Transport: NewTransport(rt)}
+	for _, u := range []string{"https://api.stripe.com/v1/checkout/sessions", "http://legacy.example/api"} {
+		resp, err := client.Get(u)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+	}
+	if len(seen) != 2 || seen[0] != "https=" || seen[1] != "http=stripe" {
+		t.Fatalf("headers the provider received: %v — want none on https, the key on plain http", seen)
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }

@@ -110,7 +110,13 @@ The base URL is Core's `/api/rest/v1` — the versioned contract of SPEC_73/74, 
 authenticates API tokens. The content type is part of the PATH.
 
 **Failures worth branching on.** A 429 or a 5xx is retried for you with exponential backoff, honouring
-`Retry-After`; a 4xx is not, because repeating it changes nothing.
+`Retry-After` up to ten seconds a wait; a 4xx is not, because repeating it changes nothing.
+
+**Your token is rate-limited like any API token.** Core allows `API_RATE_LIMIT_PER_TOKEN` requests in its
+window — 1,000 an hour unless the operator set otherwise — and answers the next with 429 and a `Retry-After`
+that can be most of the hour. The client will not wait that long inside your code: after its retries it returns
+the 429, and the call has failed. Plan bulk work to fit (one `/batch` call carries 50 operations), and read
+`APIError.RetryAfter` to schedule the rest yourself.
 
 ```go
 var apiErr *nilda.APIError
@@ -1020,7 +1026,23 @@ know it, so Nilda refuses the second at install rather than at the first missing
 Implement it:
 
 ```go
-type shop struct{ catalogue map[string]nilda.CommerceProduct }
+type shop struct {
+	core      *nilda.Core // kept from Init: how the shop Emits that its catalogue changed (below)
+	catalogue map[string]nilda.CommerceProduct
+}
+
+// A shop is a Handler as well as a Commerce, because it must EMIT, and Emit is a method of the *Core only Init
+// hands out. Serve answers the commerce hooks for any Handler that is also a Commerce.
+func (s *shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, error) {
+	s.core = core
+	addr, err := nilda.StartHTTP(s) // the cart and checkout, on your route
+	if err != nil {
+		return nilda.InitResult{}, err
+	}
+	return nilda.InitResult{RouteAddr: addr}, nil
+}
+func (s *shop) HandleHook(ctx context.Context, hook string, p []byte) ([]byte, error) { return nil, nil }
+func (s *shop) HandleEvent(ctx context.Context, event string, p []byte) error        { return nil }
 
 func (s *shop) Products(ctx context.Context, q nilda.CommerceQuery) ([]nilda.CommerceProduct, error) {
 	// q.Term / q.Search / q.Sort / q.Featured are what an AUTHOR chose in a panel.
@@ -1044,8 +1066,8 @@ func (s *shop) Endpoints(ctx context.Context) nilda.CommerceEndpoints {
 	return nilda.CommerceEndpoints{Cart: "/shop/cart", AddToCart: "/shop/add", Checkout: "/shop/checkout"}
 }
 
-// The paths Endpoints names. Because shop is an http.Handler, ServeCommerce serves it on your route
-// (route_prefix "/shop"); without this method the storefront's cart buttons have nothing to call.
+// The paths Endpoints names, served on your route (route_prefix "/shop") by the StartHTTP in Init; without
+// this method the storefront's cart buttons have nothing to call.
 func (s *shop) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/shop/cart", "/shop/add", "/shop/checkout":
@@ -1055,8 +1077,11 @@ func (s *shop) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func main() { nilda.ServeCommerce(&shop{}) }
+func main() { nilda.Serve(&shop{}) }
 ```
+
+`nilda.ServeCommerce(c)` does the same for a bare `Commerce` that is not a Handler — and so never receives a
+`*Core`, which means it can never Emit. Use it only for a catalogue nothing outside Core ever changes.
 
 **Three things worth knowing before you write it.**
 

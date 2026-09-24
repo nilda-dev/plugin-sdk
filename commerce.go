@@ -59,7 +59,21 @@ import (
 //
 // # The shape
 //
-//	type shop struct{ /* your catalogue */ }
+//	type shop struct {
+//	    core *nilda.Core // kept from Init: Emit (below) is how the storefront hears a price changed
+//	    /* your catalogue */
+//	}
+//
+//	func (s *shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, error) {
+//	    s.core = core
+//	    addr, err := nilda.StartHTTP(s) // the cart and checkout, on your route
+//	    if err != nil {
+//	        return nilda.InitResult{}, err
+//	    }
+//	    return nilda.InitResult{RouteAddr: addr}, nil // Serve adds the commerce hooks for a Commerce
+//	}
+//	func (s *shop) HandleHook(ctx context.Context, hook string, p []byte) ([]byte, error) { return nil, nil }
+//	func (s *shop) HandleEvent(ctx context.Context, event string, p []byte) error { return nil }
 //
 //	func (s *shop) Products(ctx context.Context, q CommerceQuery) ([]CommerceProduct, error) { … }
 //	func (s *shop) Product(ctx context.Context, id string) (CommerceProduct, bool) { … }
@@ -69,7 +83,13 @@ import (
 //	// The cart and checkout the shells call — the paths Endpoints names, under your route prefix.
 //	func (s *shop) ServeHTTP(w http.ResponseWriter, r *http.Request) { … }
 //
-//	func main() { nilda.ServeCommerce(&shop{}) } // serves the hooks AND, because shop is an http.Handler, the route
+//	func main() { nilda.Serve(&shop{}) }
+//
+// A shop is a Handler as well as a Commerce because it must EMIT (EventCommerceCatalogChanged, below), and
+// Emit is a method of the *Core that only Init hands out. ServeCommerce takes a bare Commerce and keeps that
+// *Core to itself, so a shop built on it cannot emit at all — use it only for a catalogue nothing outside Core
+// ever changes (Core's 2026-09-24 whole-plan review, S-2). Serve answers the commerce hooks for any Handler
+// that is also a Commerce, exactly as ServeCommerce does.
 //
 // Declare it in the manifest — `events` too, because the catalogue-changed event below is not optional:
 //

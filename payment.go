@@ -356,9 +356,11 @@ type PaymentDescribeResponse struct {
 }
 
 // PaymentStartRequest is what HookPaymentStart carries. Core asks ONCE per session: an answer that does not
-// arrive — a timeout, a crash — closes the session as rejected, provider_unavailable (no payer has seen a
-// processor's page, so no money can have moved), and the consumer may offer the payer another try, which is
-// a new session. Session.ID is still your idempotency key at the processor, so a retry inside your own
+// arrive — a timeout, a crash — closes the session as rejected, provider_unavailable, and the consumer may offer
+// the payer another try, which is a new session. Usually no money has moved (no payer has reached a processor's
+// page), but a gateway that charges on the spot — a saved card — may have charged before its answer was lost:
+// report that money anyway (Resolve). Core answers 409, since the session is closed, and records it for the
+// owner to refund. Session.ID is still your idempotency key at the processor, so a retry inside your own
 // StartPayment cannot open two checkouts for one session.
 type PaymentStartRequest struct {
 	Session PaymentSession `json:"session"`

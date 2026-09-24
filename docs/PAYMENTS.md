@@ -82,7 +82,16 @@ resolved, rejected: final
 
 A **refund** gives money back from a resolved session: `requested → pending → resolved | rejected`
 (`RefundCanMove`). Core refuses one that would take the session's refunds — resolved and still in flight —
-past what was paid. `RefundedMinor` on the session is the sum of its resolved refunds.
+past what was paid. `RefundedMinor` on the session is the sum of its resolved refunds. `CreateRefund` answers
+with the refund **`requested`**: Core asks the gateway from its delivery job a moment later, never inside the
+consumer's own call (an owner's refund button has five seconds; a processor may take fifteen), and the consumer
+hears how it ends as `payment.refund.updated`.
+
+**Money on a payment already refused** — a bank transfer that cleared after the payment was rejected, a charge
+made before a lost `payment.start` answer — is still a 409 to the gateway: rejected is final. Core records it for
+the owner (the amount on Settings → Payments, "Money to refund", the reference in the audit log): the payer paid
+for an order that is closed, and a person refunds it at the processor. Nothing a gateway or consumer reads
+changes.
 
 **FailureCode**, a closed set. The gateway reports the first five; the last two are Core's own verdicts, and a
 gateway reporting one is refused:
@@ -99,9 +108,12 @@ gateway reporting one is refused:
 
 **A person can settle a pending payment.** The site owner, in the admin, may resolve or reject a payment that
 is `pending` — one held for `amount_mismatch`, or one a processor has sat on. Resolve moves it to `resolved`
-and clears the failure code; reject moves it to `rejected` with `amount_mismatch` if that is why it was held,
-`cancelled` otherwise. Either way the person's note is written into `failure_message` — so a `resolved`
-session can carry one — and the consumer is told the change like any other.
+and clears the failure code; a held mismatch is resolved **at the amount the processor took** — the session's
+`AmountMinor` becomes that amount, so a consumer books the money that exists and a refund is bounded by it (a
+mismatch in another CURRENCY cannot be resolved: it is refunded at the processor and rejected). Reject moves it
+to `rejected` with `amount_mismatch` if that is why it was held, `cancelled` otherwise, and the person's note
+becomes its `failure_message`. A `resolved` session carries no failure message; the note is in the audit log.
+The consumer is told the change like any other.
 
 ## 4. Writing a gateway
 
@@ -339,18 +351,22 @@ if session.Status == nilda.PaymentRedirected {
 - **"This site" is the site's public address**: the owner's Settings → General address (`site.base_url`), or
   the server's `APP_BASE_URL` when none is set. `GET /site` answers `base_url` from the setting alone, so a
   consumer that builds its return address from it offers no online payment until the owner sets one, and
-  says why, rather than offering methods Core will refuse.
+  says why, rather than offering methods Core will refuse. When neither is a readable `http(s)://host`
+  address, Core refuses the payment (422, "this site has no public address") rather than check nothing.
 
 **`PaymentUpdated` is the one place an order's payment state changes.** Core tells you every change of a
 session you created — including the one `CreateSession` already returned — and repeats it until you return
-nil. So:
+nil. Returning an error IS the way to say "not now": Core does not count it against your plugin (a timeout or a
+crash still counts), so a database that blinks during a busy delivery pass does not switch your shop off. So:
 
 - key what you do by `(p.ID, p.Status)`, never by arrival: the same news can come twice;
 - you are told the LATEST state, and may never see the ones in between (`redirected → pending → resolved`
   while you were down arrives as `resolved`);
 - `resolved` after `expired` is a late payment — the money is real; decide what it means for an order you may
   already have cancelled (reinstate it, or refund it);
-- `pending` with `FailureCode == amount_mismatch` is held for a person: ship nothing.
+- `pending` with `FailureCode == amount_mismatch` is held for a person: ship nothing;
+- `resolved` with an `AmountMinor` other than what you asked is a mismatch a person accepted: that is what
+  the processor took, and what you book and refund against.
 
 On the payer's return page, read `Payments.GetSession`: they are often back before the processor's webhook.
 
@@ -359,8 +375,11 @@ with your `Reason` (shown to the payer); an ERROR means you could not decide: Co
 and a gateway that follows §4 asks again later.
 
 **Refunds:** `pay.CreateRefund(ctx, key, session.ID, nilda.PaymentRefundParams{AmountMinor: 500, Reason:
-"one item returned"})`, keyed like a session — repeating a refund must not give the money back twice. Its end
-arrives in `RefundUpdated`.
+"one item returned"})`, keyed like a session — repeating a refund must not give the money back twice. It answers
+`requested`; its end arrives in `RefundUpdated` (Core asks the gateway from its job, and the news may reach you
+before `CreateRefund`'s own answer does — record what you asked first, or recognise the refund by its id). A 503
+means the gateway is not running or could not be asked: nothing was recorded, and asking again with the same key
+runs again.
 
 **Testing a consumer** — `nildatest.StubGateway` is a gateway whose answers you set, and `Deliver` runs the job
 that tells the consumer (Core tells it from a job, never inside the call that changed the session):
@@ -382,6 +401,9 @@ s, _ := core.API().Payments().CreateSession(ctx, "order-1#1", params)
 _, _ = gw.API().Payments().Resolve(ctx, s.ID, nilda.PaymentResolution{AmountMinor: 1234, Currency: "EUR"})
 owed := pay.Deliver(ctx)   // 0 once the shop has heard; pay.Deliveries() shows every attempt
 ```
+
+`Deliver` is also what asks a gateway about a refund: `CreateRefund` answers `requested` there as in Core, and
+the next `Deliver` sends `payment.refund` and then tells the consumer how it ended.
 
 ## 6. The wire — for a plugin not written in Go
 
@@ -419,11 +441,15 @@ Calls into Core, under `/api/rest/v1`, with the plugin's token; answers inside `
 | `POST /payments/refunds/{id}/resolve` | gateway | `{"provider_ref"}` | the refund |
 | `POST /payments/refunds/{id}/reject` | gateway | `{"failure_code","failure_message","provider_ref"}` | the refund |
 
-Refusals: **404** a session that is not yours; **409** a report the session has moved past, or a refund of an
-unpaid session; **422** what `Validate` checks, a method the gateway does not offer, an address off the site,
-a refund past what was paid, a reused key on a different request; **403** a missing capability; **503** from
-`confirm` when the consumer could not be asked. The token's scopes: `payment_session` →
-`read:payments write:payments`, `payment_gateway` → `read:payments report:payments`.
+Refusals: **404** a session that is not yours; **409** a report the session has moved past, a refund of an
+unpaid session, or a keyed request sent again while the first is still being answered; **422** what `Validate`
+checks, a method the gateway does not offer, an address off the site (or no site address to check it
+against), a refund past what was paid, a reused key on a different request; **403** a missing capability;
+**503** from `confirm` when the consumer could not be asked, and from a refund whose gateway is not running or
+could not be asked. A 503 changed nothing, so Core gives its Idempotency-Key back: the same request with the
+same key runs again (any other 5xx is kept and answered again for 24 hours, since it may have come after a
+write). The token's scopes: `payment_session` → `read:payments write:payments`, `payment_gateway` →
+`read:payments report:payments`.
 
 ## 7. The bounds
 

@@ -217,11 +217,14 @@ func TestAPaymentOfTheWrongAmountIsHeldForAPerson(t *testing.T) {
 func TestARefundIsSettledOnTheSpot(t *testing.T) {
 	r := newRig(t, map[string]any{"signing_secret": secret})
 	s := r.paid(t)
-	rf, err := r.shop.API().Payments().CreateRefund(context.Background(), "refund-1", s.ID,
+	asked, err := r.shop.API().Payments().CreateRefund(context.Background(), "refund-1", s.ID,
 		nilda.PaymentRefundParams{AmountMinor: 500, Reason: "one item returned"})
 	if err != nil {
 		t.Fatalf("CreateRefund: %v", err)
 	}
+	// Core asks the gateway from its delivery job, not inside the consumer's call; Deliver runs that job.
+	r.pay.Deliver(context.Background())
+	rf, _ := r.pay.GetRefund(asked.ID)
 	if rf.Status != nilda.RefundResolved || rf.ProviderRef != "tpr_"+rf.ID {
 		t.Fatalf("the refund should settle on the spot: %+v", rf)
 	}
@@ -233,10 +236,15 @@ func TestARefundIsSettledOnTheSpot(t *testing.T) {
 func TestARefundTheProcessorSettlesLaterArrivesByWebhook(t *testing.T) {
 	r := newRig(t, map[string]any{"signing_secret": secret, "refunds_later": true})
 	s := r.paid(t)
-	rf, err := r.shop.API().Payments().CreateRefund(context.Background(), "refund-1", s.ID,
+	asked, err := r.shop.API().Payments().CreateRefund(context.Background(), "refund-1", s.ID,
 		nilda.PaymentRefundParams{AmountMinor: 1234})
-	if err != nil || rf.Status != nilda.RefundPending {
-		t.Fatalf("the refund should wait on the processor: %+v %v", rf, err)
+	if err != nil {
+		t.Fatalf("CreateRefund: %v", err)
+	}
+	r.pay.Deliver(context.Background()) // Core's delivery job asks the gateway
+	rf, _ := r.pay.GetRefund(asked.ID)
+	if rf.Status != nilda.RefundPending {
+		t.Fatalf("the refund should wait on the processor: %+v", rf)
 	}
 	raw, h := signed(t, map[string]any{"type": "refund.succeeded", "refund": rf.ID, "ref": "tpr_x"})
 	if res := nildatest.Webhook(r.gw.routes, "/testpay/webhook", raw, h); res.StatusCode != http.StatusOK {

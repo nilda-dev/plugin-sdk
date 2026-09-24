@@ -188,6 +188,7 @@ func TestThePaymentNumbersInTheGuideAreCores(t *testing.T) {
 	plugin, host := flat("internal", "plugin", "payments.go"), flat("internal", "plugin", "host.go")
 	service, module := flat("internal", "payments", "service.go"), flat("internal", "payments", "module.go")
 	config := flat("pkg", "config", "config.go")
+	queries := flat("internal", "db", "queries", "payments.sql")
 
 	gateway := number(plugin, "internal/plugin/payments.go", `const PaymentHookBudget = ([0-9]+) \* time\.Second`)
 	ordinary := number(config, "pkg/config/config.go", `parseDuration\("PLUGIN_CALL_TIMEOUT", ([0-9]+)\*time\.Second\)`)
@@ -196,13 +197,16 @@ func TestThePaymentNumbersInTheGuideAreCores(t *testing.T) {
 
 	// Where each is applied: every hook call takes its budget from hookBudget, which gives the gateway's three
 	// hooks PaymentHookBudget only when it is the longer — and nothing else; a session's expiry starts at
-	// sessionLifetime from its creation.
+	// sessionLifetime from its creation, counted on the DATABASE's clock (Core's whole-plan review, P-m1: the
+	// sweep that closes it reads that clock).
 	for _, c := range []struct{ src, file, want string }{
 		{host, "internal/plugin/host.go", "callCtx, cancel := context.WithTimeout(ctx, hookBudget(hook, h.cfg.CallTimeout))"},
 		{plugin, "internal/plugin/payments.go", "func hookBudget(hook string, ordinary time.Duration) time.Duration { " +
 			"switch hook { case HookPaymentDescribe, HookPaymentStart, HookPaymentRefund: " +
 			"if PaymentHookBudget > ordinary { return PaymentHookBudget } } return ordinary }"},
-		{service, "internal/payments/service.go", "ExpiresAt: s.now().Add(sessionLifetime),"},
+		{service, "internal/payments/service.go", "Lifetime: sessionLifetime,"},
+		{queries, "internal/db/queries/payments.sql", "idempotency_key, expires_at ) VALUES ( $1, $2, $3, $4, $5, $6, $7, " +
+			"'created', $8, $9, $10, $11, $12, $13, $14, now() + sqlc.arg('lifetime')::interval )"},
 	} {
 		if !strings.Contains(c.src, c.want) {
 			t.Errorf("core's %s no longer has %q — re-read what PAYMENTS.md says about it", c.file, c.want)

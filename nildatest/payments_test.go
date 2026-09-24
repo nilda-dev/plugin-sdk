@@ -3,6 +3,7 @@ package nildatest
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -73,6 +74,73 @@ func httpStatus(t *testing.T, err error) int {
 	return ae.Status
 }
 
+// downAfterPaying is a StubGateway that stops answering describe when down is set — a gateway restarting.
+type downAfterPaying struct {
+	StubGateway
+	down bool
+}
+
+func (g *downAfterPaying) DescribePayments(ctx context.Context) ([]nilda.PaymentMethod, error) {
+	if g.down {
+		return nil, errors.New("restarting")
+	}
+	return g.StubGateway.DescribePayments(ctx)
+}
+
+// The kit refuses and bounds what Core refuses and bounds (Core's 2026-09-24 whole-plan review, P-m7): a refund
+// through a gateway that cannot be asked is UNAVAILABLE — ask again — not a VALIDATION; a processor's reference
+// past 255 bytes is refused on a pending report and a refund resolve; a pending report on a pending session
+// changes nothing, its reference included.
+func TestTheKitRefusesWhatCoreRefuses(t *testing.T) {
+	ctx := context.Background()
+	pay := NewPayments()
+	gw := &downAfterPaying{}
+	pay.Gateway("testpay", gw)
+	pay.Consumer("shop", &shopConsumer{confirm: nilda.PaymentConfirmResult{Proceed: true}})
+	shopCore, _, s1 := pay.Core("shop", "payment_session")
+	gwCore, _, s2 := pay.Core("testpay", "payment_gateway")
+	t.Cleanup(s1.Close)
+	t.Cleanup(s2.Close)
+	shop, gwAPI := shopCore.API().Payments(), gwCore.API().Payments()
+
+	s, err := shop.CreateSession(ctx, "k1", params())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := gwAPI.MarkPending(ctx, s.ID, "pi_first"); err != nil {
+		t.Fatal(err)
+	}
+	if again, err := gwAPI.MarkPending(ctx, s.ID, "pi_second"); err != nil || again.ProviderRef != "pi_first" {
+		t.Fatalf("a pending report on a pending session changed it: %+v %v", again, err)
+	}
+	var out json.RawMessage
+	long := strings.Repeat("r", 256)
+	if err := gwCore.API().Post(ctx, "/payments/sessions/"+s.ID+"/pending", map[string]string{"provider_ref": long}, &out); httpStatus(t, err) != http.StatusUnprocessableEntity {
+		t.Fatalf("a 256-byte reference on a pending report answered %v, want 422", err)
+	}
+	if _, err := gwAPI.Resolve(ctx, s.ID, nilda.PaymentResolution{AmountMinor: 1234, Currency: "EUR"}); err != nil {
+		t.Fatal(err)
+	}
+	rf, err := shop.CreateRefund(ctx, "r1", s.ID, nilda.PaymentRefundParams{AmountMinor: 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pay.Deliver(ctx)
+	if err := gwCore.API().Post(ctx, "/payments/refunds/"+rf.ID+"/resolve", map[string]string{"provider_ref": long}, &out); httpStatus(t, err) != http.StatusUnprocessableEntity {
+		t.Fatalf("a 256-byte reference on a refund resolve answered %v, want 422", err)
+	}
+
+	gw.down = true
+	if _, err := shop.CreateRefund(ctx, "r2", s.ID, nilda.PaymentRefundParams{AmountMinor: 100}); httpStatus(t, err) != http.StatusServiceUnavailable {
+		t.Fatalf("a refund through a gateway that cannot be asked answered %v, want 503 — ask again later", err)
+	}
+	// …and a 503 changed nothing, so the same key asks again once the gateway is back, instead of replaying it.
+	gw.down = false
+	if rf2, err := shop.CreateRefund(ctx, "r2", s.ID, nilda.PaymentRefundParams{AmountMinor: 100}); err != nil || rf2.Status != nilda.RefundRequested {
+		t.Fatalf("the same key after the gateway came back answered %+v %v — the 503 was kept", rf2, err)
+	}
+}
+
 func TestASessionIsStartedAndItsConsumerToldFromAJob(t *testing.T) {
 	w := newWorld(t)
 	ctx := context.Background()
@@ -117,6 +185,47 @@ func TestTheSameKeyGetsTheSameSessionAndAnotherRequestIsRefused(t *testing.T) {
 	res, err := http.Post(srv.URL+"/payments/sessions", "application/json", strings.NewReader(`{}`))
 	if err != nil || res.StatusCode != http.StatusUnprocessableEntity {
 		t.Fatalf("a keyless create answered %v %v, want 422", res.StatusCode, err)
+	}
+}
+
+// heldStart is a StubGateway whose start waits until release is closed — a processor that is slow to answer.
+type heldStart struct {
+	StubGateway
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (g *heldStart) StartPayment(ctx context.Context, s nilda.PaymentSession) (nilda.PaymentStartResult, error) {
+	close(g.entered)
+	<-g.release
+	return g.StubGateway.StartPayment(ctx, s)
+}
+
+// A keyed request sent again while the first is still being answered is a 409, as in Core's idempotency layer
+// (S-55 of Core's 2026-09-24 whole-plan review: the kit ran both).
+func TestARepeatWhileTheFirstIsRunningIsRefused(t *testing.T) {
+	ctx := context.Background()
+	pay := NewPayments()
+	gw := &heldStart{entered: make(chan struct{}), release: make(chan struct{})}
+	pay.Gateway("testpay", gw)
+	pay.Consumer("shop", &shopConsumer{confirm: nilda.PaymentConfirmResult{Proceed: true}})
+	shopCore, _, srv := pay.Core("shop", "payment_session")
+	t.Cleanup(srv.Close)
+	shop := shopCore.API().Payments()
+
+	first := make(chan error, 1)
+	go func() {
+		_, err := shop.CreateSession(ctx, "k1", params())
+		first <- err
+	}()
+	<-gw.entered
+	_, err := shop.CreateSession(ctx, "k1", params())
+	close(gw.release)
+	if httpStatus(t, err) != http.StatusConflict {
+		t.Fatalf("the same key while the first was running answered %v, want 409", err)
+	}
+	if err := <-first; err != nil {
+		t.Fatalf("the first request: %v", err)
 	}
 }
 
@@ -273,9 +382,21 @@ func TestAWrongAmountIsHeldForAPersonAndTheRightOneResolves(t *testing.T) {
 	if err != nil || got.Status != nilda.PaymentPending || got.FailureCode != nilda.PaymentFailAmountMismatch {
 		t.Fatalf("a short payment: %+v %v", got, err)
 	}
+	// A different mismatch is news; the same one again is not (Core's rule: the processor's redelivery). What
+	// the processor reported is the owner's to read in Core — the wire carries no failure message for it.
+	before := len(w.pay.Deliveries())
+	w.pay.Deliver(ctx)
+	heard := len(w.pay.Deliveries())
 	got, err = w.gwAPI.Resolve(ctx, s.ID, nilda.PaymentResolution{AmountMinor: 1234, Currency: "USD"})
-	if err != nil || got.Status != nilda.PaymentPending || !strings.Contains(got.FailureMessage, "USD") {
+	if err != nil || got.Status != nilda.PaymentPending || got.FailureCode != nilda.PaymentFailAmountMismatch || got.FailureMessage != "" {
 		t.Fatalf("a payment in another currency: %+v %v", got, err)
+	}
+	if again, err := w.gwAPI.Resolve(ctx, s.ID, nilda.PaymentResolution{AmountMinor: 1234, Currency: "USD"}); err != nil || again.UpdatedAt != got.UpdatedAt {
+		t.Fatalf("the same mismatch reported again changed the session: %+v %v", again, err)
+	}
+	w.pay.Deliver(ctx)
+	if n := len(w.pay.Deliveries()) - heard; n != 1 || heard <= before {
+		t.Fatalf("the consumer heard %d deliveries for a new mismatch and its redelivery, want exactly 1", n)
 	}
 	got, err = w.gwAPI.Resolve(ctx, s.ID, nilda.PaymentResolution{AmountMinor: 1234, Currency: "EUR"})
 	if err != nil || got.Status != nilda.PaymentResolved || got.FailureCode != "" {
@@ -395,9 +516,14 @@ func TestARefundIsBoundedByWhatWasPaid(t *testing.T) {
 		t.Error("a refund of an unpaid session was not refused 409")
 	}
 	_, _ = w.gwAPI.Resolve(ctx, s.ID, nilda.PaymentResolution{AmountMinor: 1234, Currency: "EUR"})
+	// REQUESTED: as in Core, the gateway is asked by the delivery job, never inside the consumer's call.
 	first, err := w.shopAPI.CreateRefund(ctx, "r1", s.ID, nilda.PaymentRefundParams{AmountMinor: 1000})
-	if err != nil || first.Status != nilda.RefundPending {
+	if err != nil || first.Status != nilda.RefundRequested {
 		t.Fatalf("refund: %+v %v", first, err)
+	}
+	w.pay.Deliver(ctx)
+	if got, _ := w.pay.GetRefund(first.ID); got.Status != nilda.RefundPending {
+		t.Fatalf("after Deliver the refund is %q, want the gateway's answer (pending)", got.Status)
 	}
 	// 1000 is still in flight: 1000 + 235 would pass what was paid, even though nothing is refunded yet.
 	if _, err := w.shopAPI.CreateRefund(ctx, "r2", s.ID, nilda.PaymentRefundParams{AmountMinor: 235}); httpStatus(t, err) != http.StatusUnprocessableEntity {
@@ -457,10 +583,12 @@ func TestARefundAnswerAfterItsWebhookChangesNothing(t *testing.T) {
 		w.pay.Gateway("testpay", &settledByWebhook{api: w.gwAPI, answer: answer})
 		s, _ := w.shopAPI.CreateSession(ctx, "k1", params())
 		_, _ = w.gwAPI.Resolve(ctx, s.ID, nilda.PaymentResolution{AmountMinor: 1234, Currency: "EUR"})
-		rf, err := w.shopAPI.CreateRefund(ctx, "r1", s.ID, nilda.PaymentRefundParams{AmountMinor: 500})
+		created, err := w.shopAPI.CreateRefund(ctx, "r1", s.ID, nilda.PaymentRefundParams{AmountMinor: 500})
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
+		w.pay.Deliver(ctx) // the job asks the gateway, as Core's does
+		rf, _ := w.pay.GetRefund(created.ID)
 		if rf.Status != nilda.RefundResolved || rf.ProviderRef != "re_webhook" || rf.FailureCode != "" {
 			t.Errorf("an answer of %s after the webhook changed the refund: %+v", name, rf)
 		}
