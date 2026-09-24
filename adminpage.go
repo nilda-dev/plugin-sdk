@@ -242,9 +242,11 @@ type AdminActionResult struct {
 //		return nilda.AdminActionResult{}, fmt.Errorf("unknown action %q", a.Action)
 //	}
 //
-// An error you return reaches the owner as the reason the action did not run, so make it a sentence they
-// can act on. handled=false means the hook was not a row action, so a plugin with hooks of its own passes
-// it on rather than failing it.
+// An error you return reaches the owner as the reason the action did not run — its first 300 characters,
+// through plugin.json's translations like Message — so make it a fixed sentence they can act on. It is your
+// answer, not a failure: refusing an action, however often, never counts toward switching the plugin off
+// (running out of time or crashing does). handled=false means the hook was not a row action, so a plugin
+// with hooks of its own passes it on rather than failing it.
 func DispatchAdminAction(ctx context.Context, hook string, payload []byte, fn func(context.Context, AdminAction) (AdminActionResult, error)) (out []byte, handled bool, err error) {
 	if hook != AdminActionHook {
 		return nil, false, nil

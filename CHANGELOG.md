@@ -62,6 +62,25 @@ No change to the Go API (`surface.txt` and `nildatest/surface.txt` are as in v0.
   as an update already could not.
 - `CHANGELOG.md` (this file).
 
+### Changed — what Core does, and the guides say so
+
+- **A row action's error reaches the owner in your words** — its first 300 characters, through your
+  `translations` like a success `Message`. It used to arrive as "internal error". An error you give a person
+  (a row action, a report, an ability) no longer counts toward `PLUGIN_MAX_FAILURES`; a timeout or a crash on
+  those calls still does, and a row action whose process stopped mid-call is "may have run", like a timeout.
+- **An Idempotency-Key replays only under the same scopes.** A repeat made after an update changed your
+  plugin's scopes is a different request (422), never the first answer.
+- **The egress proxy challenges a request that names no plugin** (`407` with a Basic challenge) instead of
+  refusing it as undeclared, and keeps no connection to the provider open after a plain (http) request.
+- A hook, schedule, ability or event subscription your capabilities do not admit is logged by name at start
+  (it was dropped in silence).
+- `admin_pages` and `editor_commands`: help past 500 characters, a placeholder, a choice, a page icon, a
+  command's group, icon or keyword past 120, and more than 16 keywords are refused at install.
+- `nilda plugin check` refuses a field Nilda does not know, as the guide said it did — only `build` did.
+- `backup.*` is Core's event namespace too: a plugin emitting under it is refused.
+- `POST /api/rest/v1/media` takes the media upload limit, not the general body limit.
+- The guides say an ability is not told which person ran it (Core records that as a known limit).
+
 ## v0.10.0 — 2026-09-24
 
 ### Added

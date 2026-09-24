@@ -147,6 +147,8 @@ func TestTheManifestRulesTheDocsNameAreCores(t *testing.T) {
 		`tooLong("editor_commands["+strconv.Itoa(i)+"].label", c.Label)`,
 		"if utf8.RuneCountInString(s) > maxDeclaredLabelLen {",
 		"if len(c.Content) == 0 || !json.Valid(c.Content) {",
+		`tooMany(where+".keywords", len(c.Keywords), maxCommandKeywords, "keywords")`,
+		`tooLong(where+".keywords["+strconv.Itoa(k)+"]", kw)`,
 	} {
 		if !strings.Contains(manifestSrc, line) {
 			t.Errorf("core's schema_manifest.go no longer has %q — re-read the docs' editor_commands section", line)
@@ -155,6 +157,7 @@ func TestTheManifestRulesTheDocsNameAreCores(t *testing.T) {
 	for _, want := range []string{
 		"Core refuses at install more than " + n(manifestSrc, "schema_manifest.go", "maxEditorCommands") + " commands",
 		"one longer than " + n(manifestSrc, "schema_manifest.go", "maxDeclaredLabelLen") + " characters",
+		"more than " + n(manifestSrc, "schema_manifest.go", "maxCommandKeywords") + " keywords",
 	} {
 		if !strings.Contains(doc, want) {
 			t.Errorf("PLUGIN_SDK.md does not say %q, which is Core's bound", want)

@@ -205,7 +205,8 @@ func (t *pluginTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 //   - the same key on a DIFFERENT request is refused with 422;
 //   - a repeat that arrives while the first is still running is refused with 409;
 //   - a request Core REFUSED (any 4xx) changed nothing, so its key is given back and a corrected retry runs;
-//   - keys are scoped to your plugin's identity, not its token, so they hold across a restart.
+//   - keys are scoped to your plugin's identity, not its token, so they hold across a restart — under the
+//     same scopes: a repeat made with different ones is a different request (422).
 func (a *API) WithIdempotencyKey(key string) *API {
 	if a == nil {
 		return nil

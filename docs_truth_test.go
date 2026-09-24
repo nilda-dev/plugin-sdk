@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"gitlab.com/nildalabs/nilda-sdk/plugin-sdk/contract"
 )
 
 // THE DOCUMENTATION A PLUGIN AUTHOR — OR THEIR CODING AGENT — COPIES MUST NOT CLAIM WHAT THE CODE DOES NOT DO.
@@ -155,6 +157,53 @@ func TestTheShopWalkthroughEmitsTheCatalogueEvent(t *testing.T) {
 					"requires is refused with PermissionDenied", walk.where, c[1])
 			}
 		}
+	}
+}
+
+// TestAKeyHoldsAcrossARestartOnlyUnderTheSameScopes holds the guide and api.go to Core's idempotency layer (its
+// 2026-09-24 whole-plan review, I-11): a repeat is replayed only under the scopes the first request had, because
+// Core writes the token's scopes into the fingerprint.
+func TestAKeyHoldsAcrossARestartOnlyUnderTheSameScopes(t *testing.T) {
+	src := filepath.Join("..", "core", "internal", "apistandards", "idempotency.go")
+	raw, err := os.ReadFile(src)
+	if os.IsNotExist(err) {
+		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `io.WriteString(h, "scopes "+strings.Join(sorted, " ")+"\n")`) {
+		t.Error("core's idempotency fingerprint no longer carries the token's scopes — re-read \"under the same scopes\"")
+	}
+	for doc, want := range map[string]string{
+		"docs/PLUGIN_SDK.md": "so they survive a restart — under the same scopes: a repeat made with different ones",
+		"api.go":             "so they hold across a restart — under the same scopes: a repeat made with different ones is a different request (422)",
+	} {
+		text := strings.Join(strings.Fields(strings.ReplaceAll(readText(t, doc), "\n//", " ")), " ")
+		if !strings.Contains(text, want) {
+			t.Errorf("%s no longer says %q, which core's idempotency.go makes true", doc, want)
+		}
+	}
+}
+
+// TestTheGuideSaysAnAbilityIsNotToldWhoAsked holds the other half of C10 (Core's 2026-09-24 whole-plan review,
+// I-8): the call carries the hook's name and its input and nothing about the person — the wire's own shape, so a
+// field added to carry the person turns this red until the sentence is rewritten.
+func TestTheGuideSaysAnAbilityIsNotToldWhoAsked(t *testing.T) {
+	var fields []string
+	rt := reflect.TypeOf(contract.HookRequest{})
+	for i := range rt.NumField() {
+		if f := rt.Field(i); f.IsExported() {
+			fields = append(fields, f.Name)
+		}
+	}
+	if strings.Join(fields, ",") != "Hook,Payload" {
+		t.Fatalf("contract.HookRequest carries %v now, not only the hook and its input — re-read the guide's "+
+			"\"What you are NOT told is who that person was\"", fields)
+	}
+	if doc := strings.Join(strings.Fields(readText(t, "docs/PLUGIN_SDK.md")), " "); !strings.Contains(doc,
+		"What you are NOT told is who that person was: the call carries the hook's name and its input, and nothing about the person") {
+		t.Error("the guide no longer says an ability is not told who asked, which contract.HookRequest makes true")
 	}
 }
 
@@ -597,6 +646,28 @@ func TestTheEgressLimitsTheDocsNameAreCores(t *testing.T) {
 	}
 }
 
+// Core's 2026-09-24 whole-plan review, A-10: a request that names no plugin is challenged — 407 with a Basic
+// Proxy-Authenticate — and both guides say so, where they said such a call was refused as "not declared".
+func TestTheDocsSayAnUnnamedRequestIsChallenged(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "plugin", "egress.go"))
+	if os.IsNotExist(err) {
+		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(raw)
+	if !strings.Contains(src, `w.Header().Set("Proxy-Authenticate", `+"`"+`Basic realm=`) || !strings.Contains(src, "http.StatusProxyAuthRequired") {
+		t.Error("core's egress proxy no longer challenges a request that names no plugin — re-read the guides' 407 sentence")
+	}
+	for _, doc := range []string{"docs/PLUGIN_SDK.md", "docs/ANY_LANGUAGE.md"} {
+		text := strings.Join(strings.Fields(readText(t, doc)), " ")
+		if !strings.Contains(text, "`407 Proxy Authentication Required` with a Basic challenge") {
+			t.Errorf("%s no longer says an unnamed request is challenged with 407, which core's egress.go does", doc)
+		}
+	}
+}
+
 // M13 (2026-09-23 plugin hunt): a field type's choices and validate requests now carry Locale. Core pins this
 // SDK by tag, so its own mirror test cannot name the new field until the pin moves; until then this side
 // holds Core to it — the field on Core's copy of both requests, under the same JSON name, and Core filling it
@@ -668,9 +739,14 @@ func TestTheAdminPageRulesTheDocsNameAreCores(t *testing.T) {
 		{manifest, regexp.MustCompile(regexp.QuoteMeta("the 'admin_page' capability is declared but no admin page is")), "and the capability without a page"},
 		{manifest, regexp.MustCompile(regexp.QuoteMeta("admin pages are declared but the 'admin_page' capability is not")), "`admin_pages` without the `admin_page` capability"},
 		{manifest, regexp.MustCompile(regexp.QuoteMeta("is also a field of the settings page")), "One field key on two settings pages"},
-		{flat(list), regexp.MustCompile(`if errors\.Is\(err, context\.DeadlineExceeded\) \|\| status\.Code\(err\) == codes\.DeadlineExceeded \{ ` +
+		{flat(list), regexp.MustCompile(`if actionOutcomeUnknown\(err\) \{ ` +
 			`return nil, apperr\.New\(apperr\.CodeConflict, [^{}]*\)\. WithDetails\(map\[string\]string\{"reason": ReasonActionOutcomeUnknown\}\) \}`),
 			"Core cannot tell \"never started\" from \"finished, answer lost\""},
+		// Which answers count as lost: the call's time running out, and the process going away mid-call
+		// (Core's 2026-09-24 whole-plan review, A-4).
+		{flat(list), regexp.MustCompile(`func actionOutcomeUnknown\(err error\) bool \{ if errors\.Is\(err, context\.DeadlineExceeded\) \|\| ` +
+			`status\.Code\(err\) == codes\.DeadlineExceeded \{ return true \}.*case codes\.Unavailable, codes\.Canceled: return true`),
+			"the call budget (`PLUGIN_CALL_TIMEOUT`) ran out, or your process stopped mid-call"},
 		{flat(list), regexp.MustCompile(regexp.QuoteMeta(`if pk := primaryKeyOf(table); pk != "" && pk != page.OrderBy { ` +
 			`order = append(order, pgx.Identifier{pk}.Sanitize()+" "+dir) }`)), "then by the table's primary key"},
 		{flat(service), regexp.MustCompile(regexp.QuoteMeta("man.Tables = TablesWithListIndexes(man.Tables, man.AdminPages)") +
@@ -694,9 +770,94 @@ func TestTheAdminPageRulesTheDocsNameAreCores(t *testing.T) {
 		num(manifest, "maxRowActions") + " row actions",
 		num(manifest, "maxSettingChoices") + " choices on a field",
 		"longer than " + num(manifest, "maxDeclaredLabelLen") + " characters",
+		// The strings M34 left unbounded (Core's 2026-09-24 whole-plan review, A-15).
+		"help longer than " + num(manifest, "maxDeclaredHelpLen") + " characters",
 	} {
 		if !strings.Contains(section, want) {
 			t.Errorf("the admin_page section does not say %q, which is Core's bound", want)
 		}
+	}
+}
+
+// S-6 (Core's 2026-09-24 whole-plan review): "an error you return reaches the owner as the reason the action
+// did not run" was false — Core passed the plugin's error on raw, the owner read "internal error", and each
+// refusal counted toward switching the plugin off. Held to Core's source both ways: the row action turns the
+// plugin's own error into its words (bounded by the same 300 the sentence names), and the failure count asks
+// refusalIsAnAnswer for the three calls a person makes.
+func TestARowActionsRefusalIsTheOwnersReasonAndNotAFailure(t *testing.T) {
+	read := func(name string) string {
+		raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "plugin", name))
+		if os.IsNotExist(err) {
+			t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(raw)
+	}
+	list, host, fields := read("adminlist.go"), read("host.go"), read("fields.go")
+	for _, want := range []string{
+		"if said := pluginRefusal(err); said != \"\" {\n\t\t\t\treturn nil, apperr.New(apperr.CodeConflict, \"the plugin did not run this action: \"+said).\n" +
+			"\t\t\t\t\tWithDetails(map[string]string{\"reason\": ReasonActionRefused, \"said\": said})",
+		"return trimTo(strings.TrimSpace(st.GRPCStatus().Message()), maxValidationMsgLen)",
+		"if hook != AdminActionHook && hook != AdminReportHook && !strings.HasPrefix(hook, AbilityHookPrefix) {",
+		"return callCtx.Err() == nil && status.Code(err) == codes.Unknown",
+	} {
+		if !strings.Contains(list, want) {
+			t.Errorf("core's adminlist.go no longer has %q — re-read DispatchAdminAction's error sentence and ANY_LANGUAGE's failure count", want)
+		}
+	}
+	if !strings.Contains(host, "askAgainIsAnAnswer(callCtx, hook, err) || refusalIsAnAnswer(callCtx, hook, err)") {
+		t.Error("core's host.go no longer spares a person's refusal from the failure count — re-read ANY_LANGUAGE's sentence")
+	}
+	if !regexp.MustCompile(`\bmaxValidationMsgLen\s*=\s*300\b`).MatchString(fields) {
+		t.Error("core's refusal bound is no longer 300 — re-read DispatchAdminAction's \"first 300 characters\"")
+	}
+	// "through plugin.json's translations": the admin looks the bare words up as it does a success Message.
+	screen, err := os.ReadFile(filepath.Join("..", "core", "web", "admin", "src", "screens", "PluginPage.tsx"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(screen), "details?.reason === REASON_ACTION_REFUSED && details.said ? pt(details.said)") {
+		t.Error("core's admin no longer translates a refusal through the plugin's translations — re-read DispatchAdminAction's sentence")
+	}
+	sdk := strings.Join(strings.Fields(strings.ReplaceAll(readText(t, "adminpage.go"), "\n//", "\n")), " ")
+	for _, want := range []string{
+		"An error you return reaches the owner as the reason the action did not run — its first 300 characters, through plugin.json's translations like Message",
+		"refusing an action, however often, never counts toward switching the plugin off",
+	} {
+		if !strings.Contains(sdk, want) {
+			t.Errorf("adminpage.go no longer says %q, which core makes true", want)
+		}
+	}
+	anyLang := strings.Join(strings.Fields(readText(t, "docs/ANY_LANGUAGE.md")), " ")
+	if !strings.Contains(anyLang, "An error you give a PERSON is not a failed call: a row action, a report or an ability that answers with an error has answered") {
+		t.Error("ANY_LANGUAGE.md no longer says a person's refusal is not a failed call, which core's host.go makes true")
+	}
+}
+
+// S-33 (Core's 2026-09-24 whole-plan review): the guide says `nilda plugin check` refuses an unknown field; it
+// decoded plugin.json with plain json.Unmarshal and passed "capabilties". Held to the command's source.
+func TestPluginCheckRefusesAnUnknownFieldAsTheGuideSays(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "core", "internal", "cli", "plugin_dev.go"))
+	if os.IsNotExist(err) {
+		t.Skip("core is not checked out beside plugin-sdk — run this from a full nilda checkout")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(raw)
+	start := strings.Index(src, "func cmdPluginCheck(")
+	if start < 0 {
+		t.Fatal("core's plugin_dev.go no longer declares cmdPluginCheck — repoint this guard")
+	}
+	body := src[start:]
+	body = body[:strings.Index(body, "\n}\n")]
+	if !strings.Contains(body, "plugin.ParseManifestStrict(raw)") {
+		t.Error("core's `nilda plugin check` no longer reads plugin.json strictly — re-read the guide's \"An unknown field is REFUSED\"")
+	}
+	guide := strings.Join(strings.Fields(readText(t, "docs/PLUGIN_SDK.md")), " ")
+	if !strings.Contains(guide, "An unknown field is REFUSED by `nilda plugin check`") {
+		t.Error("PLUGIN_SDK.md no longer says check refuses an unknown field — drop this guard or restore the sentence")
 	}
 }

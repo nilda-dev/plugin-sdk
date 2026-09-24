@@ -148,7 +148,8 @@ producing 312 duplicates. Core keeps the FIRST result for each key and hands it 
 same request (marked `Idempotent-Replayed: true`), errors included, so a retry after a 5xx cannot write
 twice. The same key on a different request is refused (422); a repeat while the first is still running is
 refused (409); a request Core refused (4xx) gives its key back. Keys belong to your plugin's identity, not
-its token, so they survive a restart.
+its token, so they survive a restart — under the same scopes: a repeat made with different ones (an update
+changed what your plugin may do) is a different request, refused 422, never handed the first answer.
 
 `WithMaxRetries` tunes the patience — a hook runs inside Core's budgets, so less is sometimes right. Each
 call Core makes to you has `PLUGIN_CALL_TIMEOUT` (5 seconds by default); every subscriber of one hook or
@@ -577,7 +578,8 @@ code to ship into the editor, and no capability to ask for:
 `content` is what the command inserts: serialized editor nodes, the shape the editor's own clipboard uses.
 `group`, `icon` and `keywords` are optional; the key is namespaced with your plugin's key, so two plugins
 can both declare `callout`. Core refuses at install more than 24 commands, a `key` that is not a lowercase
-identifier or is declared twice, an empty `label` or one longer than 120 characters, and a `content` that is
+identifier or is declared twice, an empty `label` or one longer than 120 characters (a `group`, an `icon`
+and each keyword too), more than 16 keywords, and a `content` that is
 empty or not JSON — it does not check the nodes themselves, so try a command on a test site before you ship
 it. Only an active plugin's commands are in the menu: disable the plugin and they go with it.
 
@@ -656,7 +658,9 @@ which *person* may ask for it. Core runs an ability only for someone who holds `
 `plugin.<key>.configure` — the per-plugin permission your own admin section (`admin_page`) is gated on. An
 Editor who holds `content.edit` and nothing of yours is refused, and the site's chat does not offer them the
 action at all. You declare nothing for this: it is the same list your admin screens use, so a button your
-screen refuses someone is an action the chat refuses them too.
+screen refuses someone is an action the chat refuses them too. What you are NOT told is who that person was:
+the call carries the hook's name and its input, and nothing about the person (a limit Core records in its
+known issues).
 
 `InputSchema` is required and must be a JSON Schema **object** — an agent that cannot see the shape of
 your input will call you with the wrong thing. `ObjectSchema` builds one so you do not hand-write JSON.
@@ -834,8 +838,9 @@ the reply is a typed struct now rather than a map you fill in from memory. A but
 did anything is worse than no button. The admin looks `Message` up in your `translations`, as it does your
 page labels, so answer with a fixed sentence and translate it there.
 
-**An action that runs out of time may still have run.** When your answer does not arrive within the call
-budget (`PLUGIN_CALL_TIMEOUT`), Core cannot tell "never started" from "finished, answer lost", so it tells
+**An action whose answer never comes back may still have run.** When your answer does not arrive — the call
+budget (`PLUGIN_CALL_TIMEOUT`) ran out, or your process stopped mid-call — Core cannot tell "never started"
+from "finished, answer lost", so it tells
 the owner exactly that — check the row before pressing again — instead of a failure that reads as "nothing
 happened". Make every action safe to press twice: a refund reads the row's state before it moves money.
 
@@ -861,7 +866,7 @@ The shapes a manifest declares here are Go types too — `nilda.AdminPage`, `nil
   (`core.Setting("api_key")`), so the second page would silently hand you the first page's value.
 - More than 12 pages, 48 fields on a settings page, 20 filters on a report page, 20 columns or 20 search
   columns on a list page, 8 row actions, or 100 choices on a field; or a name or label longer than 120
-  characters.
+  characters — and so is a placeholder, a choice or a page's icon — or help longer than 500 characters.
 
 ### Contributing a field type (`field`)
 
@@ -1280,9 +1285,9 @@ has to know who is calling — and Core tells it: the proxy address it puts in `
 plugin key as its user name, so any client that takes its proxy from the environment, a bare
 `&http.Client{}` included, is identified on every request and on the CONNECT that opens a TLS tunnel.
 `nilda.HTTPClient(...)` and `nilda.NewTransport(...)` add the key as a header as well, and `HTTPClient` sets
-a timeout; `NewOIDCClient` uses them. What is refused with "this plugin did not declare that host", while
-your manifest declares it perfectly, is a client that ignores the environment and is pointed at the proxy
-by hand with neither that user name nor the header.
+a timeout; `NewOIDCClient` uses them. A request that names no plugin at all — a client pointed at the proxy
+by hand with neither that user name nor the header — is answered `407 Proxy Authentication Required` with a
+Basic challenge, so a client that sends proxy credentials only when challenged sends the key then.
 
 ### Signing somebody out when your directory says they are gone
 

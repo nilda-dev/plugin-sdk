@@ -199,7 +199,9 @@ that is not a bug you should work around.
   again as probes; two that succeed close the circuit, and one that fails opens it for another 30 seconds.
   **You do not need to expose a recovery endpoint.** Just be healthy when the probes arrive. Separately, a
   run of failed calls in a row — `PLUGIN_MAX_FAILURES`, 5 by default, counted afresh each time the circuit
-  opens — disables the plugin until the site owner enables it again.
+  opens — disables the plugin until the site owner enables it again. An error you give a PERSON is not
+  a failed call: a row action, a report or an ability that answers with an error has answered; only
+  running out of time or going away on those calls counts.
 - **A concurrency bound of 16.** Nilda will never have more than 16 hook and event calls open to your
   process at once, and it refuses the 17th on its own side rather than queueing it. So you can size your
   worker pool to 16 and stop there — and if you are a language with a single-threaded runtime, know that
@@ -296,9 +298,9 @@ sends that as `Proxy-Authorization` — on plain requests and on the **CONNECT**
 so you do nothing beyond using the environment's proxy.
 
 If your client ignores the environment and you configure the proxy by hand, keep the user name, or set the
-header `X-Nilda-Plugin: <your plugin key>` on every request AND on the CONNECT. Lose it and every HTTPS call
-is refused with "this plugin did not declare that host" while your manifest declares it perfectly — the
-Go SDK once shipped exactly that bug.
+header `X-Nilda-Plugin: <your plugin key>` on every request AND on the CONNECT. Lose both and the proxy
+answers `407 Proxy Authentication Required` with a Basic challenge — a client that sends credentials only
+when challenged then sends the user name — and one that cannot answer it has no outbound network at all.
 
 **One exception you do not declare**: a sign-in plugin's identity provider, on the `oidc` flow. Nilda
 allows the host of the issuer URL the site owner typed on your settings page — you cannot name it in
