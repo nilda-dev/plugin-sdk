@@ -46,6 +46,9 @@ No change to the Go API (`surface.txt` and `nildatest/surface.txt` are as in v0.
 - `_examples/shop` reads `content.saved` in the shape Core sends (`content_id`, `type`) and listens for
   `ecommerce.order_paid`, an event the site's shop really emits, instead of `order.paid`, which nothing
   sends.
+- The `kv` row: one plugin's 10,000 keys and 16 MiB now hold on every install. Core used to keep them on a
+  Lite install only, and keeps them on Dragonfly too now — a plugin there past either answers
+  `ResourceExhausted`, where it used to be let through.
 - `CHANGELOG.md` (this file).
 
 ## v0.10.0 — 2026-09-24

@@ -248,7 +248,7 @@ func (h *Host) KVGet(_ context.Context, in *contract.KVGetRequest, _ ...grpc.Cal
 }
 
 // maxKVValueBytes is Core's cap on one KV value (core's internal/plugin/kvquota.go); a guard in this package
-// reads that file and fails when the two differ. Core also caps keys and bytes per plugin on a Lite install —
+// reads that file and fails when the two differ. Core also caps keys and bytes per plugin, on every install —
 // this fake does not model the store's memory, so it does not refuse those.
 const maxKVValueBytes = 64 << 10
 

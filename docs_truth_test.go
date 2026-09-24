@@ -362,6 +362,13 @@ func TestTheKVLimitsTheDocsNameAreCores(t *testing.T) {
 			t.Errorf("the kv row does not say %q, which is Core's cap:\n%s", want, row)
 		}
 	}
+	// WHERE they hold: every install since Core keeps the count on Dragonfly too (its kvshared.go; the 2026-09-24
+	// review's B-F5). The row said "on a Lite install", and a plugin on Dragonfly met ResourceExhausted it was
+	// told it would not.
+	if _, err := os.Stat(filepath.Join("..", "core", "internal", "plugin", "kvshared.go")); err == nil &&
+		!strings.Contains(row, "on every install") {
+		t.Errorf("the kv row does not say the key and byte caps hold on every install, as Core keeps them:\n%s", row)
+	}
 }
 
 // addThousands writes 10000 as 10,000.
