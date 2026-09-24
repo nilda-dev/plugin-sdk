@@ -268,7 +268,7 @@ package beside your executable (§9):
   "key": "acme_thing",
   "name": "Acme Thing",
   "version": "1.0.0",
-  "sdk_version": "0.9.0",
+  "sdk_version": "0.10.0",
   "nilda_compat": ">=0.1.0",
   "os": "linux",
   "arch": "amd64",

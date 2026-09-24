@@ -110,9 +110,10 @@ const (
 var gatewayFailureCodes = []string{PaymentFailDeclined, PaymentFailCancelled, PaymentFailProviderUnavailable,
 	PaymentFailInvalidRequest, PaymentFailExpired}
 
-// THE STATE MACHINE, one table. Core holds its own copy and TestCoresPaymentMachineIsTheSDKs
-// (payments_truth_test.go, which reads Core's machine.go) holds the two equal, so the fake an author tests
-// against (nildatest.Payments) cannot move a session in a way Core would refuse.
+// THE STATE MACHINE, one table. Core holds its own copy, and two tests hold the two equal — Core's
+// TestTheMachineIsTheSDKs against this module, and TestCoresPaymentMachineIsTheSDKs here (payments_truth_test.go,
+// which reads Core's machine.go) — so the fake an author tests against (nildatest.Payments) cannot move a
+// session in a way Core would refuse.
 //
 // Moving to the status a session already has is not in the table: Core answers an identical report as a
 // no-op — a processor delivers the same webhook twice as a matter of course — and a report that cannot move

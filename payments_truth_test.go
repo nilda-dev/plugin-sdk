@@ -11,8 +11,9 @@ import (
 
 // THE PAYMENT CONTRACT, HELD TO CORE (D-84). payment.go, paymentapi.go, nildatest.Payments and
 // docs/PAYMENTS.md describe what Core does with a payment; each guard below reads the Core source that does it,
-// so a change on either side fails here rather than in a gateway author's first live checkout. Core pins the SDK
-// by tag, so until Core carries a mirror test of its own this file is where the two copies meet.
+// so a change on either side fails here rather than in a gateway author's first live checkout. Core holds the
+// same contract from its side against the tag it builds on (core/internal/payments/sdk_mirror_test.go); this
+// file sees Core's WORKING source, so it also catches a Core change before Core moves to a new tag.
 
 func corePaymentsSource(t *testing.T, parts ...string) string {
 	t.Helper()
