@@ -419,8 +419,8 @@ three are resolved above.
 Not a capability and not code — a release step, recorded because it is invisible from inside the team and
 total from outside it.
 
-> **Where it stands, 2026-09-24:** done. `plugin-sdk` answers an ANONYMOUS request to GitLab's API — it is
-> public — and every tag from `v0.1.0` to `v0.10.0` is on the remote. `nilda plugin new` pins `v0.10.0`
+> **Where it stands, 2026-09-25:** done. `plugin-sdk` answers an ANONYMOUS request to GitLab's API — it is
+> public — and every tag from `v0.1.0` to `v0.10.1` is on the remote. `nilda plugin new` pins `v0.10.1`
 > (Core's `internal/cli/plugin_dev.go`, `sdkVersion`). Tags before `v0.7.0` carry the module's old path,
 > which no pin under the current path can use (README, "History worth keeping"). The rest of this section
 > is the record of how it stood on 2026-08-05 and 2026-08-06.

@@ -51,7 +51,7 @@ so it is written down here first, before anyone can hold us to something nobody 
 
 | | what it versions | what moves it |
 |---|---|---|
-| the module version (`v0.10.0`) | the **Go API** — the names and signatures a plugin author compiles against | a breaking change to any of them |
+| the module version (`v0.10.1`) | the **Go API** — the names and signatures a plugin author compiles against | a breaking change to any of them |
 | `ProtocolVersion` (`2`) | the **wire contract** — `contract/plugin.proto` | a breaking change to the proto |
 
 They are independent, and confusing them is the mistake this section exists to prevent. A plugin built

@@ -130,7 +130,7 @@ is in it, and its tests show how each piece is tested with nothing running.
   "key": "stripe",
   "name": "Stripe",
   "version": "1.0.0",
-  "sdk_version": "0.10.0",
+  "sdk_version": "0.10.1",
   "capabilities": ["payment_gateway", "route", "admin_page"],
   "route_prefix": "/stripe",
   "webhook_paths": ["/webhook"],
