@@ -6,7 +6,13 @@ here.
 
 ## Unreleased
 
-No change to the Go API.
+One addition to the Go API: `CommerceEndpoints.Reviews` (`surface.txt`).
+
+### Added — commerce
+
+- **`CommerceEndpoints.Reviews`**: a GET answering one product's reviews and review form as a fragment. Core's
+  new Product Reviews widget asks it with `?sku=<product id>` and draws it inside the site's page; empty, the
+  widget draws nothing.
 
 ### Documented — Core's storefront shell
 

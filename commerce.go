@@ -9,9 +9,9 @@ import (
 
 // BEING THE SITE'S SHOP.
 //
-// Nilda ships eight storefront widgets — Products, Product Field, Product Categories, Cart, Cart Count,
-// Add To Cart, Checkout, My Account — and no commerce code at all. Your plugin supplies the products,
-// the prices and the cart URLs; the WIDGETS stay Core's.
+// Nilda ships nine storefront widgets — Products, Product Field, Product Categories, Cart, Cart Count,
+// Add To Cart, Checkout, My Account, Product Reviews — and no commerce code at all. Your plugin supplies
+// the products, the prices and the cart URLs; the WIDGETS stay Core's.
 //
 // # Why the widgets are not yours, and why that is in your interest
 //
@@ -282,6 +282,11 @@ type CommerceEndpoints struct {
 	// Checkout and Account are pages you own.
 	Checkout string `json:"checkout,omitempty"`
 	Account  string `json:"account,omitempty"`
+	// Reviews is a GET answering ONE product's reviews (and your review form) as an HTML fragment. Core's
+	// Product Reviews widget asks it with `?sku=<the product's id>` — the id your Products/Product answer —
+	// and draws the answer inside the site's page; the form in it is sent by the shell (see "Forms in your
+	// fragments" above). Leave it empty and the widget draws nothing.
+	Reviews string `json:"reviews,omitempty"`
 }
 
 // Commerce is the interface a shop plugin implements.

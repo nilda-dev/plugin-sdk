@@ -106,13 +106,13 @@ func TestTheGuidesNumbersAndNamesAreCores(t *testing.T) {
 	for _, m := range regexp.MustCompile(`Type: "[a-z_]+", Label: "([^"]+)", Category: "(?:dynamic|navigation|commerce)"`).FindAllStringSubmatch(widgets, -1) {
 		labels = append(labels, m[1])
 	}
-	for _, m := range regexp.MustCompile(`registerCommerceShell\("[a-z_]+", "([^"]+)"`).FindAllStringSubmatch(widgets, -1) {
+	for _, m := range regexp.MustCompile(`registerCommerce(?:Product)?Shell\("[a-z_]+", "([^"]+)"`).FindAllStringSubmatch(widgets, -1) {
 		labels = append(labels, m[1])
 	}
-	if len(labels) != 8 {
-		t.Fatalf("core registers %d storefront widgets (%v); the guide says eight — count them again", len(labels), labels)
+	if len(labels) != 9 {
+		t.Fatalf("core registers %d storefront widgets (%v); the guide says nine — count them again", len(labels), labels)
 	}
-	list := regexp.MustCompile(`Nilda ships eight storefront widgets — ([^—]+) — and no commerce code at all`).FindStringSubmatch(guide)
+	list := regexp.MustCompile(`Nilda ships nine storefront widgets — ([^—]+) — and no commerce code at all`).FindStringSubmatch(guide)
 	if list == nil {
 		t.Fatal("PLUGIN_SDK.md no longer lists the storefront widgets in the sentence this guard reads")
 	}

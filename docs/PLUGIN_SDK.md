@@ -1025,9 +1025,9 @@ Store them, so a `PublicOnly` query can be answered inside your engine instead o
 
 ### Being the site's shop (`commerce`)
 
-Nilda ships eight storefront widgets — Products, Product Field, Product Categories, Cart Count, Add To
-Cart, Cart, Checkout, My Account — and no commerce code at all. Your plugin supplies the products, the
-prices and the cart, checkout and account URLs; the widgets stay Nilda's.
+Nilda ships nine storefront widgets — Products, Product Field, Product Categories, Cart Count, Add To
+Cart, Cart, Checkout, My Account, Product Reviews — and no commerce code at all. Your plugin supplies the
+products, the prices and the cart, checkout, account and reviews URLs; the widgets stay Nilda's.
 
 **Why the widgets are not yours, and why that is in your interest.** The obvious design is for a shop
 plugin to ship its own thirty widgets. That is what WooCommerce does, and it produces a world where a site

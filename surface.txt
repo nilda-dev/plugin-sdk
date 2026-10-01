@@ -158,6 +158,7 @@ field CommerceEndpoints.Account string json:account
 field CommerceEndpoints.AddToCart string json:add_to_cart
 field CommerceEndpoints.Cart string json:cart
 field CommerceEndpoints.Checkout string json:checkout
+field CommerceEndpoints.Reviews string json:reviews
 field CommerceProduct.Badge string json:badge
 field CommerceProduct.Excerpt string json:excerpt
 field CommerceProduct.Extra map[string]string json:extra
