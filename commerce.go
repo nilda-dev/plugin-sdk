@@ -52,6 +52,21 @@ import (
 // That constraint would apply just as much to a widget living inside your plugin, so nothing is lost by
 // the widgets being Core's — and the page cache stays correct by construction.
 //
+// # Forms in your fragments
+//
+// A fragment may carry ordinary `<form method="post" action="/shop/...">` forms — a checkout, a cart line's
+// Remove, an address book. Core's shell sends them itself rather than letting the browser navigate away from
+// the themed page: it POSTs the form's fields urlencoded to the form's action (same-origin only; a form with
+// no action posts to the mount's own endpoint), and draws your answer back in place — into the nearest
+// element inside the mount marked `data-pb-fragment` around the form, else into the whole mount. Answer with
+// the HTML that should stand there. To send the shopper to another page (a payment processor's), answer 200
+// with the header `Nilda-Redirect: <absolute https URL>` — not a 3xx, which the shell's fetch cannot follow
+// across origins — and put the same URL in the body as a link for a browser that posted the form itself. A
+// non-2xx answer keeps the form, with what the shopper typed, and shows the mount's failure sentence.
+//
+// Core's CSRF check lets these through because the browser stamps them same-origin (Sec-Fetch-Site / Origin);
+// a plain form a shopper's browser posts to your route without the shell passes the same way.
+//
 // Your endpoints must be SAME-ORIGIN ROOTED PATHS ("/shop/cart"). Core drops anything that is not a path on
 // this site — an absolute URL, "//host", "/\host" — and logs which one, because a shell posts a shopper's
 // basket to whatever you name. That is the whole check: Core does not look at the prefix, so put them under

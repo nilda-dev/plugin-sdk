@@ -4,6 +4,17 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## Unreleased
+
+No change to the Go API.
+
+### Documented — Core's storefront shell
+
+- **Forms in your commerce fragments** (`commerce.go`): Core's shell sends a POST form found in its mount
+  itself and draws your answer back in place (or into the `data-pb-fragment` around the form); send the shopper
+  to a processor's page with the `Nilda-Redirect` header on a 200, not a 3xx. Core's CSRF check now accepts the
+  browser's same-origin stamp, so these forms — and a plain form posted to your route — are no longer refused.
+
 ## v0.10.1 — 2026-09-25
 
 One addition to the Go API: `nildatest.Payments.Decide` (`nildatest/surface.txt`). `surface.txt` is as in
