@@ -101,8 +101,15 @@ func TestTheManifestRulesTheDocsNameAreCores(t *testing.T) {
 		{"as is switching on a reinstall over the tables an earlier install left (the install itself succeeds; its first enable is refused)",
 			"plugin/datastore.go", "if err := refusePrimaryKeyChange(ctx, conn, slug, t); err != nil {"},
 		{"Core refuses one it answers on itself", "plugin/schema_manifest.go", `" is reserved by Core"`},
-		// The language rule: the refusal in Validate, and the whole-segment comparison it asks.
-		{"and any language's code (`/fa`, `/en`, `/pt`)", "plugin/schema_manifest.go", `case hasRoute && prefixLanguage(m.RoutePrefix) != "":`},
+		// The language rule: the refusal in Validate, and the whole-segment comparison it asks. Since core's
+		// c4e745bb1 (2026-09-29) Validate refuses through RoutePrefixReserved — the answer archtest holds to
+		// Core's router — so the claim is held to the call AND to that function counting a language's code, and
+		// to the refusal naming the language, which is what `nilda plugin check` shows the author.
+		{"and any language's code (`/fa`, `/en`, `/pt`)", "plugin/schema_manifest.go", "case hasRoute && RoutePrefixReserved(m.RoutePrefix):"},
+		{"and any language's code (`/fa`, `/en`, `/pt`)", "plugin/schema_manifest.go",
+			`func RoutePrefixReserved(p string) bool { return reservedRoutePrefixes[p] || prefixLanguage(p) != "" }`},
+		{"and any language's code (`/fa`, `/en`, `/pt`)", "plugin/schema_manifest.go",
+			`if lang := prefixLanguage(m.RoutePrefix); lang != "" && !reservedRoutePrefixes[m.RoutePrefix] {`},
 		{"The code is the WHOLE prefix, as the site matches it: `/my-account` or `/to-do` is yours", "plugin/schema_manifest.go",
 			"if l, ok := i18n.Language(seg); ok && l.Code == seg {"},
 		{"The " + n(tables, "schema_tables.go", "maxIndexesPerTable") + " counts every index Core builds on the table", "plugin/schema_tables.go", "len(tableIndexes(t)); n > maxIndexesPerTable"},
