@@ -1,0 +1,92 @@
+# CI for the plugin SDK. Moved from .gitlab-ci.yml on 2026-10-03, job for job.
+#
+# The `examples` job is the one with a story. docs/PLUGIN_SDK.md once described four methods that had never
+# existed — nilda.ServeApp, core.Datastore.DB(), core.Routes.Mount(), an OnContentSaved handler — and anyone
+# following it wrote code that did not compile. Prose cannot be verified. Code can. Every non-trivial snippet
+# in the documentation lives under _examples/ and is compiled and run here, so an SDK change that would
+# quietly make the docs wrong turns this pipeline red instead.
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  GOFLAGS: -mod=mod
+
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # The module must build with the WORKSPACE OFF: go.work is a developer's file, and a go.mod that is
+      # wrong is invisible from inside the workspace, which supplies the real code and never reads the pin.
+      - run: GOWORK=off go build ./...
+      - run: test -z "$(gofmt -l .)" || (gofmt -l . && echo "run gofmt -w ." && exit 1)
+
+  vet:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+
+  # The contract is generated. A hand-edit to a .pb.go is how the published v0.1.0 shipped a corrupt
+  # descriptor that panicked every importing binary at init — regenerate from the .proto instead, and this
+  # proves the checked-in files match it.
+  contract-is-generated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq protobuf-compiler
+      - run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - run: protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative contract/plugin.proto
+      - run: git diff --exit-code -- contract/ || (echo "contract/*.pb.go is out of date — regenerate from contract/plugin.proto" && exit 1)
+
+  test:
+    needs: [fmt, vet, contract-is-generated]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # pins_test.go reads the go.mod AT each tag; a shallow clone arrives with no tags, and the test skips
+      # rather than lies without them — so the full history and its tags are fetched.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test -race ./...
+
+  # Named separately from `test` so a failure here reads as what it is: the documentation is now wrong.
+  # `cd`, not `go test ./_examples/...`: the Go tool ignores an underscore directory even when the pattern
+  # names it, so that matches NO packages and exits 0 — a job that agrees with anything.
+  examples:
+    needs: [fmt, vet, contract-is-generated]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: cd _examples && go build ./... && go test ./... -count=1
