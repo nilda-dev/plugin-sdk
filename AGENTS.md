@@ -64,7 +64,7 @@ manifest digest; that is the design being avoided.
 
 ## Before you say you are done
 
-What CI runs (`.gitlab-ci.yml`), plus two steps it does not — vetting the examples (CI builds and tests them,
+What CI runs (`.github/workflows/ci.yml`), plus two steps it does not — vetting the examples (CI builds and tests them,
 `cd _examples && go build ./... && go test ./...`) and the Core-reading tests (below):
 
 ```bash

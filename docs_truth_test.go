@@ -63,7 +63,7 @@ func TestNothingCallsFaultIsolationASecuritySandbox(t *testing.T) {
 	// test kit, and the examples an author copies whole.
 	files := sdkTextFiles(t)
 	for _, pattern := range []string{"contract/*.proto", "contract/*.go", "nildatest/*.go", "_examples/*/*.go",
-		"_examples/*/*.json", ".gitlab-ci.yml"} {
+		"_examples/*/*.json", ".github/workflows/*.yml"} {
 		matches, err := filepath.Glob(pattern)
 		if err != nil {
 			t.Fatal(err)
