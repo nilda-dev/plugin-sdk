@@ -46,18 +46,32 @@ jobs:
   # The contract is generated. A hand-edit to a .pb.go is how the published v0.1.0 shipped a corrupt
   # descriptor that panicked every importing binary at init — regenerate from the .proto instead, and this
   # proves the checked-in files match it.
+  #
+  # THE GENERATORS ARE PINNED to the versions the checked-in files name in their headers (protoc 29.3,
+  # protoc-gen-go v1.36.8, protoc-gen-go-grpc v1.5.1). With `@latest` and the distribution's protoc, the
+  # check compared the files against whatever was newest that day: the first run regenerated them with
+  # protoc 3.21.12 and protoc-gen-go-grpc v1.6.2, which differ in the header and in the code (status.Errorf
+  # became status.Error), and failed with a .proto nobody had touched. Moving a generator is a commit that
+  # bumps the pin here AND regenerates contract/ in the same diff.
   contract-is-generated:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      PROTOC_VERSION: "29.3"
+      PROTOC_GEN_GO_VERSION: v1.36.8
+      PROTOC_GEN_GO_GRPC_VERSION: v1.5.1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq protobuf-compiler
       - run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+          curl -fsSL -o /tmp/protoc.zip "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip"
+          sudo unzip -q -o /tmp/protoc.zip -d /usr/local bin/protoc 'include/*'
+          protoc --version
+      - run: |
+          go install "google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VERSION}"
+          go install "google.golang.org/grpc/cmd/protoc-gen-go-grpc@${PROTOC_GEN_GO_GRPC_VERSION}"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - run: protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative contract/plugin.proto
       - run: git diff --exit-code -- contract/ || (echo "contract/*.pb.go is out of date — regenerate from contract/plugin.proto" && exit 1)

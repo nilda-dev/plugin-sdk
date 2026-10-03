@@ -174,11 +174,11 @@ func (fieldOnly) Validate(context.Context, *Core, FieldValidateRequest) string {
 
 type searchOnly struct{ plainOnly }
 
-func (searchOnly) Configure(context.Context) error              { return nil }
-func (searchOnly) Index(context.Context, []SearchDoc) error     { return nil }
-func (searchOnly) Remove(context.Context, []string) error       { return nil }
-func (searchOnly) Truncate(context.Context) error               { return nil }
-func (searchOnly) Healthy(context.Context) bool                 { return true }
+func (searchOnly) Configure(context.Context) error          { return nil }
+func (searchOnly) Index(context.Context, []SearchDoc) error { return nil }
+func (searchOnly) Remove(context.Context, []string) error   { return nil }
+func (searchOnly) Truncate(context.Context) error           { return nil }
+func (searchOnly) Healthy(context.Context) bool             { return true }
 func (searchOnly) Query(context.Context, SearchQuery) (SearchResults, error) {
 	return SearchResults{}, nil
 }
