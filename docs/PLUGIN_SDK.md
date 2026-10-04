@@ -330,7 +330,10 @@ Declare them, and Core creates them on every enable — additively, never deleti
 Views, not tables, on Core's side: `core_content`, `core_users`, `core_media`, `core_terms`,
 `core_content_terms`. They carry published rows and public columns only — a view cannot apply per-viewer
 visibility, so anything whose answer depends on *who is asking* goes through the API, which enforces it
-properly. Your role cannot read Core's tables and cannot reach another plugin's schema.
+properly. `core_content` also leaves out what the site hides from everyone — embargoed items and items past
+their expiry — and has an `unlisted` column: an unlisted item is readable by its link, so it is there for your
+joins, but leave it out of anything you list, as the site's own lists do. Your role cannot read Core's tables
+and cannot reach another plugin's schema.
 
 ### What happens when a site owner removes your plugin
 
