@@ -4,7 +4,7 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
-## Unreleased
+## v0.10.2 — 2026-10-04
 
 One addition to the Go API: `CommerceEndpoints.Reviews` (`surface.txt`).
 
