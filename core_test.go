@@ -10,7 +10,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 
-	"github.com/nilda-dev/plugin-sdk/contract"
+	"gitlab.com/nildalabs/nilda-sdk/plugin-sdk/contract"
 )
 
 // fakeHost is an in-process HostService used to prove the contract + Core wrappers round-trip.

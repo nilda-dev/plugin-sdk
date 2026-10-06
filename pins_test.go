@@ -14,7 +14,7 @@ import (
 //
 // Every module checked out beside this one that requires it — the plugins, and Core itself — names it by
 // version. Not one of the plugins ever reads that requirement:
-// each has `replace github.com/nilda-dev/plugin-sdk => ../plugin-sdk`, and every developer works
+// each has `replace gitlab.com/nildalabs/nilda-sdk/plugin-sdk => ../plugin-sdk`, and every developer works
 // inside a go.work workspace that supplies this directory anyway. So the pin is consulted by exactly one
 // kind of reader — someone who clones ONE repository: CI, the marketplace build, an outside contributor —
 // and it is wrong for all of them without ever being wrong for us.
@@ -35,7 +35,7 @@ import (
 //
 // The second is the subtle one and it is why a tag existing is not enough. `go` resolves a requirement by
 // reading the go.mod AT that version: if the tag says `module gitlab.com/nilda-sdk/plugin-sdk` while the
-// plugin requires `github.com/nilda-dev/plugin-sdk`, the build fails with a non-matching module
+// plugin requires `gitlab.com/nildalabs/nilda-sdk/plugin-sdk`, the build fails with a non-matching module
 // path — and a directory `replace` fails the same way, so even the CI job that clones this repo at the tag
 // cannot rescue it.
 //

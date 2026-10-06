@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nilda-dev/plugin-sdk/contract"
+	"gitlab.com/nildalabs/nilda-sdk/plugin-sdk/contract"
 )
 
 // THE DOCUMENTATION A PLUGIN AUTHOR — OR THEIR CODING AGENT — COPIES MUST NOT CLAIM WHAT THE CODE DOES NOT DO.

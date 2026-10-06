@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/nilda-dev/plugin-sdk/contract"
+	"gitlab.com/nildalabs/nilda-sdk/plugin-sdk/contract"
 )
 
 // Handler is what a plugin implements — plain Go, no gRPC. Light plugins implement the hooks/events

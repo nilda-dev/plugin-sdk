@@ -1468,7 +1468,7 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"\x06KVIncr\x12\x1e.nilda.plugin.v2.KVIncrRequest\x1a\x1f.nilda.plugin.v2.KVIncrResponse\x12R\n" +
 	"\tEmitEvent\x12!.nilda.plugin.v2.EmitEventRequest\x1a\".nilda.plugin.v2.EmitEventResponse\x12R\n" +
 	"\tSendEmail\x12!.nilda.plugin.v2.SendEmailRequest\x1a\".nilda.plugin.v2.SendEmailResponse\x12a\n" +
-	"\x0eRevokeIdentity\x12&.nilda.plugin.v2.RevokeIdentityRequest\x1a'.nilda.plugin.v2.RevokeIdentityResponseB*Z(github.com/nilda-dev/plugin-sdk/contractb\x06proto3"
+	"\x0eRevokeIdentity\x12&.nilda.plugin.v2.RevokeIdentityRequest\x1a'.nilda.plugin.v2.RevokeIdentityResponseB4Z2gitlab.com/nildalabs/nilda-sdk/plugin-sdk/contractb\x06proto3"
 
 var (
 	file_contract_plugin_proto_rawDescOnce sync.Once

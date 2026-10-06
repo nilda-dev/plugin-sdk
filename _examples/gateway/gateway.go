@@ -27,7 +27,7 @@ import (
 	"net/http"
 	"net/url"
 
-	nilda "github.com/nilda-dev/plugin-sdk"
+	nilda "gitlab.com/nildalabs/nilda-sdk/plugin-sdk"
 )
 
 func main() { nilda.ServePaymentGateway(&Gateway{}) }

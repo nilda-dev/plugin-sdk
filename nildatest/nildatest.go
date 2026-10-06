@@ -38,8 +38,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	nilda "github.com/nilda-dev/plugin-sdk"
-	"github.com/nilda-dev/plugin-sdk/contract"
+	nilda "gitlab.com/nildalabs/nilda-sdk/plugin-sdk"
+	"gitlab.com/nildalabs/nilda-sdk/plugin-sdk/contract"
 )
 
 // Email is one message a plugin asked Core to send.

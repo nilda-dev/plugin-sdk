@@ -1,12 +1,12 @@
-module github.com/nilda-dev/plugin-sdk
+module gitlab.com/nildalabs/nilda-sdk/plugin-sdk
 
 go 1.25.0
 
 // Both pre-v0.2.0 tags speak contract v1, which Core rejects outright: ProtocolVersion is 2 since the five
 // read-only data RPCs were removed in favour of a scoped token onto Core's real API.
 //
-// Both were also tagged under an OLD path, gitlab.com/nilda-sdk/plugin-sdk — every tag before v0.10.3 carries
-// a GitLab path (README.md, "History worth keeping") — so a requirement of THIS path at v0.1.0 or v0.1.1 does
+// Both were also tagged under the module's OLD path, gitlab.com/nilda-sdk/plugin-sdk — every tag before
+// v0.7.0 was (README.md, "History worth keeping") — so a requirement of THIS path at v0.1.0 or v0.1.1 does
 // not resolve at all: `go` reads the go.mod at the tag and finds a different module path. These two lines
 // therefore guard nothing a consumer can reach today. They stay because a retraction costs nothing, because
 // Core's archtest reads this block to refuse a plugin pinned to either version, and because `retract` is

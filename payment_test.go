@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nilda-dev/plugin-sdk/contract"
+	"gitlab.com/nildalabs/nilda-sdk/plugin-sdk/contract"
 )
 
 // THE STATE MACHINE, written out move by move: every pair of statuses, and whether it may happen. Core holds
