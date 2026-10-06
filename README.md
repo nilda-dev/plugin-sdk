@@ -26,7 +26,7 @@ to write anything, and no application-class plugin could be built against them.
 
 ## Use
 ```go
-import nilda "gitlab.com/nildalabs/nilda-sdk/plugin-sdk"
+import nilda "github.com/nilda-dev/plugin-sdk"
 
 func main() { nilda.Serve(&MyPlugin{}) }
 
@@ -106,13 +106,15 @@ Cutting a release:
 
 1. tag the commit, `git push --tags`;
 2. prove it from OUTSIDE the workspace: a throwaway module with `GOWORK=off` that runs
-   `go get gitlab.com/nildalabs/nilda-sdk/plugin-sdk@<tag>` and builds — the only view an outside
+   `go get github.com/nilda-dev/plugin-sdk@<tag>` and builds — the only view an outside
    developer ever gets;
 3. move the consumers' pins to it, and `pins_test.go` confirms each one resolves.
 
-**History worth keeping:** the module was renamed from `gitlab.com/nilda-sdk/plugin-sdk` in `4ec856d`, and
-every tag before `v0.7.0` still declares the old path — so no consumer may pin below `v0.7.0` under the
-current path. That fault is closed; the rule it taught is the section above.
+**History worth keeping:** the module was renamed twice. Old path one, `gitlab.com/nilda-sdk/plugin-sdk`, was
+renamed to old path two, `github.com/nilda-dev/plugin-sdk`, in `4ec856d` (tags before `v0.7.0`);
+old path two was renamed on 2026-10-06 to `github.com/nilda-dev/plugin-sdk` when the GitLab group was
+retired (tags `v0.7.0`–`v0.10.2`). `v0.10.3` is the first tag under the current path, so no consumer may pin below it. That
+fault is closed; the rule it taught is the section above.
 
 ## Tests that read Core
 
@@ -125,7 +127,7 @@ alone, so in CI they all skip** — "held to Core's source" is true on a full ch
 there or nowhere. Core's repository is private, so that means a machine with access to it. To run them:
 
 ```sh
-git clone git@gitlab.com:nildalabs/nildacms/core.git ../core   # beside this directory
+git clone git@github.com:nilda-dev/core.git ../core   # beside this directory
 GOWORK=off go test -count=1 ./...                              # the verdict: must exit 0
 GOWORK=off go test -count=1 -v ./... | grep 'core is not checked out'   # must print nothing
 ```
@@ -150,10 +152,10 @@ plugin-sdk      — plugin gRPC contract + API client (Go)           used by cor
 commerce · booking · forms · sso · frames — plugins             need → plugin-sdk
 ```
 
-Repositories — every one under the `nildalabs` group, checked against the remotes on 2026-09-24:
-- `gitlab.com/nildalabs/nildacms/core` · `gitlab.com/nildalabs/nildacms/central`
-- `gitlab.com/nildalabs/nilda-sdk/plugin-sdk`
-- `gitlab.com/nildalabs/nilda-plugins/commerce` · `…/booking` · `…/forms` · `…/sso` · `…/frames`
+Repositories — every one under the `nilda-dev` GitHub organisation, checked against the remotes on 2026-10-06:
+- `github.com/nilda-dev/core` · `github.com/nilda-dev/central`
+- `github.com/nilda-dev/plugin-sdk`
+- `github.com/nilda-dev/plugin-commerce` · `…/plugin-sso` · `…/plugin-frames` (`plugin-booking` and `plugin-forms` are planned)
 
 Ecosystem-wide docs (architecture, roadmap, spec index) live in **core** (`docs/files/`).
 

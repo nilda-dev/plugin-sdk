@@ -16,7 +16,7 @@ import (
 	"fmt"
 	"net/url"
 
-	nilda "gitlab.com/nildalabs/nilda-sdk/plugin-sdk"
+	nilda "github.com/nilda-dev/plugin-sdk"
 )
 
 // Shop is the example plugin: it watches content, writes content, keeps a counter, and mails its owner when

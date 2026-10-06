@@ -431,7 +431,7 @@ local copy and hide a broken pin):
 
 ```
 nilda plugin new my-seo   →  5 files
-go mod tidy               →  downloads gitlab.com/nildalabs/nilda-sdk/plugin-sdk v0.3.0
+go mod tidy               →  downloads github.com/nilda-dev/plugin-sdk v0.3.0
 go build ./...            →  ok
 go test ./...             →  ok  my_seo  0.520s
 ```
@@ -445,7 +445,7 @@ someone outside the team is invited to write a plugin, this had to already be tr
 ### The module path did not name this repository — fixed 2026-08-06
 
 Worse than private, and separate from it: the module was `gitlab.com/nilda-sdk/plugin-sdk`, and the
-repository is at `gitlab.com/nildalabs/nilda-sdk/plugin-sdk`. On GitLab an import path must carry the
+repository is at `github.com/nilda-dev/plugin-sdk`. On GitLab an import path must carry the
 subgroups, so that path named a top-level group that does not exist. Making the repository public would
 not have helped — `go get` would have looked somewhere else and reported `unknown revision`, the same
 message a private repo gives, which is how this survived: two different causes wearing one error.

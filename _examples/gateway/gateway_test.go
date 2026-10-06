@@ -15,8 +15,8 @@ import (
 	"strings"
 	"testing"
 
-	nilda "gitlab.com/nildalabs/nilda-sdk/plugin-sdk"
-	"gitlab.com/nildalabs/nilda-sdk/plugin-sdk/nildatest"
+	nilda "github.com/nilda-dev/plugin-sdk"
+	"github.com/nilda-dev/plugin-sdk/nildatest"
 )
 
 // These tests are the other half of the template: how a gateway is tested with nothing running. The payment

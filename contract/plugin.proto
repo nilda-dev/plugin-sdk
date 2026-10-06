@@ -26,7 +26,7 @@ syntax = "proto3";
 
 package nilda.plugin.v2;
 
-option go_package = "gitlab.com/nildalabs/nilda-sdk/plugin-sdk/contract";
+option go_package = "github.com/nilda-dev/plugin-sdk/contract";
 
 // ============================== Core -> plugin ==============================
 

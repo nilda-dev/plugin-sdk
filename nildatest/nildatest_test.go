@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	nilda "gitlab.com/nildalabs/nilda-sdk/plugin-sdk"
+	nilda "github.com/nilda-dev/plugin-sdk"
 )
 
 // The fake refuses the event names Core refuses, with Core's codes — an author whose plugin emits another

@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	nilda "gitlab.com/nildalabs/nilda-sdk/plugin-sdk"
+	nilda "github.com/nilda-dev/plugin-sdk"
 )
 
 // The payment fake must refuse what Core refuses and allow what Core allows: a gateway or a consumer tested
