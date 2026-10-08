@@ -4,6 +4,12 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## v0.10.3 — 2026-10-08
+
+No change to the Go API (`surface.txt` is untouched) and none to the wire contract. The module path is now
+`github.com/nilda-dev/plugin-sdk`: the GitLab group is retired, and `v0.10.3` is the first tag that declares it.
+Every earlier tag declares a GitLab path, so a plugin or Core must pin `v0.10.3` or later once it imports the new path.
+
 ## v0.10.2 — 2026-10-04
 
 One addition to the Go API: `CommerceEndpoints.Reviews` (`surface.txt`).
