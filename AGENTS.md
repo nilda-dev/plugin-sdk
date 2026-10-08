@@ -37,8 +37,8 @@ yourself adding a data method to `contract/plugin.proto`, you are rebuilding v1.
 Read the README section before cutting anything. In short:
 
 1. `go` reads the go.mod **at the tag**. A consumer's pin resolves only if that tag exists and its go.mod
-   declares `gitlab.com/nildalabs/nilda-sdk/plugin-sdk`. Tags before `v0.7.0` carry the old path
-   (renamed in `4ec856d`), so nothing may pin below `v0.7.0`.
+   declares `github.com/nilda-dev/plugin-sdk`. Tags before `v0.10.3` carry an old GitLab path
+   (renamed in `4ec856d`, and again on 2026-10-06), so nothing may pin below `v0.10.3`.
 2. **From inside the go.work workspace a bad pin is invisible**, because the workspace supplies this
    directory and never reads a pin. A green local build proves nothing about whether anyone else can
    compile a plugin.

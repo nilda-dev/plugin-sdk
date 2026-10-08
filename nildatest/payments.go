@@ -17,7 +17,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	nilda "gitlab.com/nildalabs/nilda-sdk/plugin-sdk"
+	nilda "github.com/nilda-dev/plugin-sdk"
 )
 
 // Payments is Core's side of the payment contract, in memory: the sessions and refunds, the one state machine,

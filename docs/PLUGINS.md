@@ -2,7 +2,7 @@
 
 > **Where this stands (checked against the remotes 2026-09-24):** nothing in this file is Core. The plugin
 > runtime and this SDK are built, and five first-party plugins are built on them, each in its own repository
-> under `nildalabs/nilda-plugins`: `commerce` (the shop), `booking` (bookings and reservations), `forms` (the
+> under `github.com/nilda-dev` (`plugin-<name>`): `commerce` (the shop), `booking` (bookings and reservations), `forms` (the
 > advanced forms tier), `sso` (sign-in through a company's identity provider) and `frames` (turns a video
 > into the image sequence the page builder's `scroll_sequence` widget plays). Everything else below is
 > planned, not built. The file keeps these features recorded in one place — and OUT of Core.
