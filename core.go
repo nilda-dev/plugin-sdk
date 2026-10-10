@@ -25,6 +25,13 @@ type Core struct {
 	// Use it when you register your handlers: the proxy forwards the FULL path, so a mux entry for
 	// "/backchannel-logout" never matches. `core.Route("/backchannel-logout")` builds the right one.
 	RoutePrefix string
+	// SiteURL is the site's PUBLIC address, no trailing slash ("https://shop.example"): the owner's Settings →
+	// General address, or the program's own while none is set. Empty only on a Core older than v0.10.4's.
+	//
+	// What a processor calls back is SiteURL + Route("/webhook"). Core RESTARTS a plugin that has a route when the
+	// address changes, so a running plugin always holds the current one and can re-register what it registered
+	// on the old one.
+	SiteURL     string
 	KVNamespace string // informational; KV ops go through the host
 
 	// PreviousVersion is the version this plugin last COMPLETED an Init at, or "" on a fresh install.

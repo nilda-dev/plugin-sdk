@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 
 	nilda "github.com/nilda-dev/plugin-sdk"
@@ -104,7 +104,7 @@ func TestTheKitRefusesWhatCoreRefuses(t *testing.T) {
 	pay.Gateway("testpay", gw)
 	pay.Consumer("shop", &shopConsumer{confirm: nilda.PaymentConfirmResult{Proceed: true}})
 	shopCore, _, s1 := pay.Core("shop", "payment_session")
-	gwCore, _, s2 := pay.Core("testpay", "payment_gateway")
+	gwCore, gwHost, s2 := pay.Core("testpay", "payment_gateway")
 	t.Cleanup(s1.Close)
 	t.Cleanup(s2.Close)
 	shop, gwAPI := shopCore.API().Payments(), gwCore.API().Payments()
@@ -136,17 +136,25 @@ func TestTheKitRefusesWhatCoreRefuses(t *testing.T) {
 		t.Fatalf("a 256-byte reference on a refund resolve answered %v, want 422", err)
 	}
 
+	// A gateway that cannot say what it offers right now does NOT stop a refund (v0.10.4, B3): what the method could
+	// do is the session's own Supports, copied when it was paid — the gateway is asked later, by the job.
 	gw.down = true
-	if _, err := shop.CreateRefund(ctx, "r2", s.ID, nilda.PaymentRefundParams{AmountMinor: 100}); httpStatus(t, err) != http.StatusServiceUnavailable {
-		t.Fatalf("a refund through a gateway that cannot be asked answered %v, want 503 — ask again later", err)
+	if rf2, err := shop.CreateRefund(ctx, "r-down", s.ID, nilda.PaymentRefundParams{AmountMinor: 100}); err != nil || rf2.Status != nilda.RefundRequested {
+		t.Fatalf("a refund while the gateway cannot describe itself answered %+v %v, want it requested", rf2, err)
 	}
-	// Core asks whether the gateway can refund BEFORE it adds up the refunds: an over-refund while the gateway is
-	// down is the same 503, not the 422 it will be once the gateway answers.
+	gw.down = false
+
+	// A gateway that is not RUNNING cannot be asked at all: 503, ask again later. Core checks that BEFORE it adds up
+	// the refunds, so an over-refund then is the same 503, not the 422 it will be once the gateway runs.
+	gwHost.Revoke("payment_gateway")
+	if _, err := shop.CreateRefund(ctx, "r2", s.ID, nilda.PaymentRefundParams{AmountMinor: 100}); httpStatus(t, err) != http.StatusServiceUnavailable {
+		t.Fatalf("a refund through a gateway that is not running answered %v, want 503 — ask again later", err)
+	}
 	if _, err := shop.CreateRefund(ctx, "r-over", s.ID, nilda.PaymentRefundParams{AmountMinor: 5000}); httpStatus(t, err) != http.StatusServiceUnavailable {
-		t.Fatalf("an over-refund while the gateway is down answered %v, want Core's 503", err)
+		t.Fatalf("an over-refund while the gateway is not running answered %v, want Core's 503", err)
 	}
 	// …and a 503 changed nothing, so the same key asks again once the gateway is back, instead of replaying it.
-	gw.down = false
+	gwHost.Grant("payment_gateway")
 	if rf2, err := shop.CreateRefund(ctx, "r2", s.ID, nilda.PaymentRefundParams{AmountMinor: 100}); err != nil || rf2.Status != nilda.RefundRequested {
 		t.Fatalf("the same key after the gateway came back answered %+v %v — the 503 was kept", rf2, err)
 	}
@@ -347,55 +355,36 @@ func TestARefusedReportChangesNothing(t *testing.T) {
 	}
 }
 
-// barrierGateway holds DescribePayments, once armed, until two callers are inside it.
-type barrierGateway struct {
-	StubGateway
-	armed   atomic.Bool
-	arrived chan struct{}
-	release chan struct{}
-}
-
-func (g *barrierGateway) DescribePayments(ctx context.Context) ([]nilda.PaymentMethod, error) {
-	if g.armed.Load() {
-		g.arrived <- struct{}{}
-		<-g.release
-	}
-	return g.StubGateway.DescribePayments(ctx)
-}
-
 // Two refunds that each fit alone, asked for at the same moment, must not both be written: 1000 + 1000 of a
-// 1234 payment gives back more than was paid.
+// 1234 payment gives back more than was paid. Twenty at once, so the check and the write cannot be split.
 func TestTwoRefundsThatEachFitCannotBothBeWritten(t *testing.T) {
 	w := newWorld(t)
-	g := &barrierGateway{arrived: make(chan struct{}, 2), release: make(chan struct{})}
-	w.pay.Gateway("testpay", g)
 	ctx := context.Background()
 	s, _ := w.shopAPI.CreateSession(ctx, "k1", params())
 	if _, err := w.gwAPI.Resolve(ctx, s.ID, nilda.PaymentResolution{AmountMinor: 1234, Currency: "EUR"}); err != nil {
 		t.Fatal(err)
 	}
-	g.armed.Store(true)
-	errs := make(chan error, 2)
-	for _, key := range []string{"r1", "r2"} {
+	const n = 20
+	errs := make(chan error, n)
+	start := make(chan struct{})
+	for i := range n {
 		go func() {
-			_, err := w.shopAPI.CreateRefund(ctx, key, s.ID, nilda.PaymentRefundParams{AmountMinor: 1000})
+			<-start
+			_, err := w.shopAPI.CreateRefund(ctx, fmt.Sprintf("r%d", i), s.ID, nilda.PaymentRefundParams{AmountMinor: 1000})
 			errs <- err
 		}()
 	}
-	<-g.arrived // both have passed the first check and are asking the gateway about the method
-	<-g.arrived
-	g.armed.Store(false)
-	close(g.release)
+	close(start)
 	written, refused := 0, 0
-	for range 2 {
+	for range n {
 		if err := <-errs; err == nil {
 			written++
 		} else if httpStatus(t, err) == http.StatusUnprocessableEntity {
 			refused++
 		}
 	}
-	if written != 1 || refused != 1 {
-		t.Fatalf("%d refunds written and %d refused; one fits, the second would pass what was paid", written, refused)
+	if written != 1 || refused != n-1 {
+		t.Fatalf("%d refunds written and %d refused; one fits, every other would pass what was paid", written, refused)
 	}
 }
 
@@ -713,8 +702,16 @@ func TestARefundIsBoundedByWhatWasPaid(t *testing.T) {
 	if _, err := w.gwAPI.RejectRefund(ctx, first.ID, nilda.PaymentRejection{FailureCode: nilda.PaymentFailDeclined}); httpStatus(t, err) != http.StatusConflict {
 		t.Error("rejecting a resolved refund was not refused 409")
 	}
+	// A payment made through a method that cannot refund cannot be refunded. What decides it is what the method
+	// said WHEN THE PAYMENT WAS MADE (copied onto the session, v0.10.4): a method changed later changes nothing
+	// for a payment already taken (TestARefundIsDecidedByWhatTheMethodCouldDoWhenPaid).
 	w.gw.Methods = []nilda.PaymentMethod{{Key: "card", Label: "Card"}} // no refunds
-	if _, err := w.shopAPI.CreateRefund(ctx, "r3", s.ID, nilda.PaymentRefundParams{AmountMinor: 1}); httpStatus(t, err) != http.StatusUnprocessableEntity {
+	s2, err := w.shopAPI.CreateSession(ctx, "k2", params())
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = w.gwAPI.Resolve(ctx, s2.ID, nilda.PaymentResolution{AmountMinor: 1234, Currency: "EUR"})
+	if _, err := w.shopAPI.CreateRefund(ctx, "r3", s2.ID, nilda.PaymentRefundParams{AmountMinor: 1}); httpStatus(t, err) != http.StatusUnprocessableEntity {
 		t.Error("a refund through a method that cannot refund was accepted")
 	}
 }

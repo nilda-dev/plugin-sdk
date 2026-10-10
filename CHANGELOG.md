@@ -4,6 +4,44 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## v0.10.4 — unreleased (the payment contract's second step)
+
+Additions only (`surface.txt` grows by 96 entries, `nildatest/surface.txt` by 6; nothing removed). Needs a Core built
+on this release for the new routes and hooks; an older Core answers the new routes 404 and never sends the new
+hooks. `docs/PAYMENTS.md` has the whole of it.
+
+### Added — payments
+
+- **What a method can do is a list**: `PaymentMethod.Supports` / `PaymentOption.Supports` (`SupportRefund`,
+  `SupportPartialRefund`, `SupportDisputes`, `SupportSync`), read with `SupportsOf` (a method that lists nothing is
+  read as its `Refunds` bool says) and `Supports`. Core copies it onto `PaymentSession.Supports` when a payment is
+  made and decides every refund by it — a gateway that stopped offering a method no longer makes its old payments
+  unrefundable.
+- **The payer's addresses and what is fulfilled**: `PaymentSessionParams` / `PaymentSession` gain `Fulfilment`,
+  `BillingAddress`, `ShippingAddress` (`PaymentAddress`).
+- **Disputes**: `PaymentDispute`, `PaymentDisputeReport`, the dispute machine (`DisputeCanMove`, `DisputeFinal`),
+  `Payments.ReportDispute` / `ListDisputes` / `GetDispute`, and the optional `PaymentDisputeConsumer` hearing
+  `payment.dispute.updated` (`PaymentDisputeUpdate`).
+- **Refunds**: `Payments.ReverseRefund` (a refund undone at the processor stays resolved and gains
+  `PaymentRefund.ReversedAt`) and `Payments.ReportExternalRefund` (a refund made in the processor's dashboard,
+  `PaymentRefund.External`).
+- **The pull path**: the optional `PaymentSyncer` answering `payment.sync` (`PaymentSyncRequest`).
+- **A gateway's own secrets**: `Payments.SetSecret` / `GetSecret`, kept by Core, encrypted.
+- **`Core.SiteURL`**: the site's public address, from `Init` (`InitRequest.site_url`, field 13). Core restarts a
+  plugin with a route when it changes.
+
+### Changed — documented, not breaking
+
+- **A gateway's error on `payment.refund` is an answer**: "I do not know whether the processor paid it — ask again".
+  Core keeps the refund requested and no longer counts the error toward switching the plugin off.
+- `nildatest.Payments` decides a refund by the session's `Supports`, as Core does: a gateway that cannot describe
+  itself no longer blocks a refund; one that is not running is still a 503.
+
+### Reserved
+
+`credential`, `credential_types` (delegated payment tokens, UCP/ACP) and the `supports` tokens `capture`,
+`partial_capture`, `void`. `TestReservedPaymentNamesAreUnused` fails if anything takes them before they are built.
+
 ## v0.10.3 — 2026-10-08
 
 No change to the Go API (`surface.txt` is untouched) and none to the wire contract. The module path is now

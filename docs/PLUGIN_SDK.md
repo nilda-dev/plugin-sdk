@@ -389,7 +389,8 @@ declares `payment_gateway`; whatever takes the money declares `payment_session` 
 owns every payment and sends it to the gateway the payer chose. Plugins never call each other. The two
 capabilities arrive with plugin-sdk v0.10.0 and the Core release built on it — an older Core refuses a
 manifest that declares either. To take one payment from one page with no plugin at all — an ebook, a
-donation — the site owner drops a PayPal or Stripe button widget in the page builder. The names `payment`
+donation — the site owner drops a PayPal button widget in the page builder (Core's Stripe button was retired on
+2026-10-10; a card payment goes through a gateway plugin). The names `payment`
 and `payments` stay refused, so the retired meaning cannot come back by accident.
 
 A write capability applies to **every** content type, not a declared subset. What keeps that honest is
@@ -1199,6 +1200,17 @@ checks what goes in and what comes out, and `nilda.DispatchPaymentConsumerHook`,
 ```go
 minor, err := nilda.ParseMinor("12.34", "EUR") // 1234; ¥1,500 is 1500, 1.250 KWD is 1250
 ```
+
+**v0.10.4 adds** (PAYMENTS.md §3–§5): what a method can do as a list, `PaymentMethod.Supports`, read with
+`nilda.SupportsOf` and `nilda.Supports` and copied onto the session; the payer's `nilda.PaymentAddress` and a
+fulfilment hint on the session; disputes — a gateway reports a `nilda.PaymentDisputeReport` with `ReportDispute`,
+both sides read a `nilda.PaymentDispute` with `ListDisputes` and `GetDispute`, its status moves by
+`nilda.DisputeCanMove` and ends when `nilda.DisputeFinal` says so, and a consumer that implements
+`nilda.PaymentDisputeConsumer` hears a `nilda.PaymentDisputeUpdate`; a refund undone at the processor
+(`ReverseRefund`) and one made there (`ReportExternalRefund` with a `nilda.PaymentExternalRefund`); a gateway that
+implements `nilda.PaymentSyncer` answers `payment.sync` (a `nilda.PaymentSyncRequest`), the pull path for a
+missed webhook; a gateway's own secrets kept by Core (`SetSecret`, `GetSecret`); and `core.SiteURL`, the site's
+public address. Serve subscribes the two optional interfaces' hooks only when your handler implements them.
 
 `nildatest.Payments` is Core's side in memory, `nildatest.StubGateway` a gateway to test a consumer with, and
 `nildatest.Webhook` delivers a request the way Core's proxy delivers a webhook — PAYMENTS.md shows each.

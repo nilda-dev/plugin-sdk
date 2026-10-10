@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -57,12 +58,16 @@ type Payments struct {
 	refundDue map[string]bool          // refunds the delivery job still has to ask their gateway about
 	reported  map[string]reportedMoney // session id → what a processor took that did not match, as Core keeps it
 	keys      map[string]replay        // caller + idempotency key → the first answer
-	owed      []owed                   // what the consumers have not heard yet, oldest change first
+	disputes  map[string]*nilda.PaymentDispute
+	secrets   map[string]map[string]string // gateway key → name → value, as Core keeps them (encrypted there)
+	owed      []owed                       // what the consumers have not heard yet, oldest change first
 	log       []Delivery
 }
 
 // Delivery is one attempt to tell a consumer about a change.
 type Delivery struct {
+	// Dispute is the dispute told about, for nilda.HookPaymentDisputeUpdated; the zero value otherwise.
+	Dispute  nilda.PaymentDispute
 	Consumer string
 	// Hook is nilda.HookPaymentSessionUpdated or nilda.HookPaymentRefundUpdated.
 	Hook    string
@@ -72,7 +77,7 @@ type Delivery struct {
 	Err error
 }
 
-type owed struct{ session, refund string }
+type owed struct{ session, refund, dispute string }
 
 type replay struct {
 	sum    [sha256.Size]byte
@@ -116,6 +121,8 @@ func NewPayments() *Payments {
 		refundDue: map[string]bool{},
 		reported:  map[string]reportedMoney{},
 		keys:      map[string]replay{},
+		disputes:  map[string]*nilda.PaymentDispute{},
+		secrets:   map[string]map[string]string{},
 	}
 }
 
@@ -129,7 +136,17 @@ func (p *Payments) Core(key string, granted ...string) (*nilda.Core, *Host, *htt
 	p.hosts[key] = h
 	p.mu.Unlock()
 	srv := httptest.NewServer(p.routes(key))
-	return nilda.NewCoreForTest(key, granted, h, srv.URL, "test-token", scopesFor(granted)), h, srv
+	core := nilda.NewCoreForTest(key, granted, h, srv.URL, "test-token", scopesFor(granted))
+	core.SiteURL = strings.TrimRight(p.site(), "/") // what Core's Init hands a plugin (v0.10.4)
+	return core, h, srv
+}
+
+// site is the site's own origin, as SiteURL or its default.
+func (p *Payments) site() string {
+	if p.SiteURL == "" {
+		return "https://site.test"
+	}
+	return p.SiteURL
 }
 
 // Gateway installs g as the gateway plugin key. Core sends it the payment hooks only while that plugin holds
@@ -356,6 +373,26 @@ func (p *Payments) routes(caller string) http.Handler {
 			rf, err := p.readRefund(caller, parts[2])
 			answer(w, http.StatusOK, rf, err)
 
+		case r.Method == http.MethodPost && len(parts) == 4 && parts[1] == "sessions" && parts[3] == "disputes":
+			d, err := p.reportDispute(caller, parts[2], body)
+			answer(w, http.StatusOK, d, err)
+
+		case r.Method == http.MethodGet && len(parts) == 4 && parts[1] == "sessions" && parts[3] == "disputes":
+			list, err := p.listDisputes(caller, parts[2])
+			answer(w, http.StatusOK, list, err)
+
+		case r.Method == http.MethodGet && len(parts) == 3 && parts[1] == "disputes":
+			d, err := p.readDispute(caller, parts[2])
+			answer(w, http.StatusOK, d, err)
+
+		case r.Method == http.MethodPost && len(parts) == 4 && parts[1] == "sessions" && parts[3] == "external-refunds":
+			rf, err := p.externalRefund(caller, parts[2], body)
+			answer(w, http.StatusOK, rf, err)
+
+		case (r.Method == http.MethodPut || r.Method == http.MethodGet) && len(parts) == 3 && parts[1] == "secrets":
+			v, err := p.secret(caller, r.Method, parts[2], body)
+			answer(w, http.StatusOK, v, err)
+
 		case r.Method == http.MethodPost && len(parts) == 4 && parts[1] == "sessions":
 			s, err := p.report(ctx, caller, parts[2], parts[3], body)
 			answer(w, http.StatusOK, s, err)
@@ -514,7 +551,7 @@ func (p *Payments) methods(ctx context.Context, currency string) ([]nilda.Paymen
 		for _, m := range methods {
 			if takes(m, code) {
 				opts = append(opts, nilda.PaymentOption{Gateway: key, Method: m.Key, Label: m.Label,
-					Description: m.Description, Refunds: m.Refunds, Test: m.Test})
+					Description: m.Description, Refunds: m.Refunds, Test: m.Test, Supports: nilda.SupportsOf(m)})
 			}
 		}
 	}
@@ -553,10 +590,7 @@ func (p *Payments) onSite(field, raw string) error {
 	if raw == "" {
 		return nil
 	}
-	site := p.SiteURL
-	if site == "" {
-		site = "https://site.test"
-	}
+	site := p.site()
 	want, _ := url.Parse(site)
 	u, err := url.Parse(raw)
 	if err != nil || !strings.EqualFold(u.Scheme, want.Scheme) || !strings.EqualFold(u.Host, want.Host) {
@@ -590,6 +624,8 @@ func (p *Payments) createSession(ctx context.Context, consumer string, params ni
 		Reference: params.Reference, AmountMinor: params.AmountMinor, Currency: currency,
 		Status: nilda.PaymentCreated, Test: m.Test, Description: params.Description,
 		ReturnURL: params.ReturnURL, CancelURL: params.CancelURL, Email: params.Email, Locale: params.Locale,
+		Supports: nilda.SupportsOf(m), Fulfilment: params.Fulfilment,
+		BillingAddress: params.BillingAddress, ShippingAddress: params.ShippingAddress,
 		ExpiresAt: &expires, CreatedAt: now, UpdatedAt: now,
 	}
 	if s.CancelURL == "" {
@@ -674,31 +710,48 @@ func (p *Payments) deliver(ctx context.Context, o owed) {
 	p.mu.Lock()
 	s := *p.sessions[o.session]
 	var rf nilda.PaymentRefund
+	var dp nilda.PaymentDispute
 	hook := nilda.HookPaymentSessionUpdated
 	payload, _ := json.Marshal(nilda.PaymentSessionUpdate{Session: s})
-	if o.refund != "" {
+	switch {
+	case o.refund != "":
 		rf = *p.refunds[o.refund]
 		hook = nilda.HookPaymentRefundUpdated
 		payload, _ = json.Marshal(nilda.PaymentRefundUpdate{Refund: rf, Session: s})
+	case o.dispute != "":
+		dp = *p.disputes[o.dispute]
+		hook = nilda.HookPaymentDisputeUpdated
+		payload, _ = json.Marshal(nilda.PaymentDisputeUpdate{Dispute: dp, Session: s})
 	}
 	p.mu.Unlock()
 	c, ok := p.installedConsumer(s.Consumer)
 
 	var err error
+	handled := true
 	if !ok {
 		err = fmt.Errorf("consumer %q is not installed", s.Consumer)
 	} else {
 		cctx, cancel := context.WithTimeout(ctx, consumerHookBudget)
-		_, _, err = nilda.DispatchPaymentConsumerHook(cctx, nil, c, hook, payload)
+		_, handled, err = nilda.DispatchPaymentConsumerHook(cctx, nil, c, hook, payload)
 		cancel()
+	}
+	if ok && !handled {
+		// A consumer that does not take dispute news (no PaymentDisputeConsumer) is never subscribed to the hook,
+		// so Core cannot send it: the delivery is recorded as refused and not owed again — as Core keeps the row
+		// and shows the owner that this consumer does not hear disputes.
+		err = ErrNotSubscribed
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.log = append(p.log, Delivery{Consumer: s.Consumer, Hook: hook, Session: s, Refund: rf, Err: err})
-	if err != nil {
+	p.log = append(p.log, Delivery{Consumer: s.Consumer, Hook: hook, Session: s, Refund: rf, Dispute: dp, Err: err})
+	if err != nil && !errors.Is(err, ErrNotSubscribed) {
 		p.owe(o)
 	}
 }
+
+// ErrNotSubscribed is a delivery Core does not make because the plugin never subscribed to the hook: a consumer
+// that does not implement nilda.PaymentDisputeConsumer, a gateway that does not implement nilda.PaymentSyncer.
+var ErrNotSubscribed = errors.New("not subscribed")
 
 // readSession is the session, for its consumer or its gateway; anyone else is told it does not exist.
 func (p *Payments) readSession(caller, id string) (nilda.PaymentSession, error) {
@@ -951,25 +1004,22 @@ func (p *Payments) createRefund(ctx context.Context, caller, sessionID string, p
 		return nilda.PaymentRefund{}, &apiError{http.StatusConflict, "CONFLICT",
 			fmt.Sprintf("only a resolved payment can be refunded; this one is %s", s.Status)}
 	}
-	gateway, method, currency := s.Gateway, s.Method, s.Currency
+	gateway, currency, supports, paid := s.Gateway, s.Currency, s.Supports, s.AmountMinor
 	p.mu.Unlock()
 
-	// As Core's refundable: a gateway that is not running, or cannot be asked what it offers, is UNAVAILABLE —
-	// ask again later — and the method must say it gives money back. The currency is not asked again: the
-	// payment was taken, whatever the method lists today.
-	methods, ok := p.describe(ctx, gateway)
-	if !ok {
+	// As Core's refundable: a gateway that is not running is UNAVAILABLE — ask again later — and what the method
+	// could do is what it could do WHEN THE PAYMENT WAS MADE (the session's Supports, copied at creation), never
+	// what the gateway says today: a gateway whose key was removed would otherwise make every old payment
+	// unrefundable (v0.10.4, B3).
+	if _, ok := p.installedGateway(gateway); !ok {
 		return nilda.PaymentRefund{}, &apiError{http.StatusServiceUnavailable, "UNAVAILABLE",
-			fmt.Sprintf("the gateway %q that took this payment is not running or could not be asked; ask again later", gateway)}
+			fmt.Sprintf("the gateway %q that took this payment is not running; ask again later", gateway)}
 	}
-	refunds := false
-	for _, m := range methods {
-		if m.Key == method && m.Refunds {
-			refunds = true
-		}
+	if !nilda.Supports(supports, nilda.SupportRefund) {
+		return nilda.PaymentRefund{}, invalid("the method this payment was made with cannot give money back through Nilda")
 	}
-	if !refunds {
-		return nilda.PaymentRefund{}, invalid("gateway %q's %q cannot give money back through Nilda", gateway, method)
+	if params.AmountMinor < paid && !nilda.Supports(supports, nilda.SupportPartialRefund) {
+		return nilda.PaymentRefund{}, invalid("the method this payment was made with gives money back only in full")
 	}
 	now := time.Now().UTC()
 	rf := &nilda.PaymentRefund{ID: newID(), Session: sessionID, AmountMinor: params.AmountMinor,
@@ -1108,6 +1158,29 @@ func (p *Payments) reportRefund(caller, id, verb string, body []byte) (any, erro
 			rf.ProviderRef = r.ProviderRef
 		}
 		to = nilda.RefundResolved
+	case "reverse":
+		var r nilda.PaymentRejection
+		if err := json.Unmarshal(body, &r); err != nil {
+			return nil, invalid("the body is not a rejection: %v", err)
+		}
+		if err := r.Validate(); err != nil {
+			return nil, invalid("%v", err)
+		}
+		// Only a refund that went through can be undone; it STAYS resolved (a final status), gains ReversedAt, and
+		// the consumer is told again. The session's refunded total is not changed: what the consumer booked is the
+		// consumer's to correct.
+		if rf.Status != nilda.RefundResolved {
+			return nil, &apiError{http.StatusConflict, "CONFLICT",
+				fmt.Sprintf("only a resolved refund can be reversed; this one is %s", rf.Status)}
+		}
+		if rf.ReversedAt != nil {
+			return *rf, nil // the same news again
+		}
+		now := time.Now().UTC()
+		rf.ReversedAt, rf.UpdatedAt = &now, now
+		rf.FailureCode, rf.FailureMessage = r.FailureCode, r.FailureMessage
+		p.owe(owed{session: rf.Session, refund: rf.ID})
+		return *rf, nil
 	case "reject":
 		var r nilda.PaymentRejection
 		if err := json.Unmarshal(body, &r); err != nil {

@@ -1,4 +1,5 @@
 field Delivery.Consumer string
+field Delivery.Dispute nilda.PaymentDispute
 field Delivery.Err error
 field Delivery.Hook string
 field Delivery.Refund nilda.PaymentRefund
@@ -43,11 +44,15 @@ method (*Payments) CreateSession(context.Context, string, nilda.PaymentSessionPa
 method (*Payments) Decide(string, string, string) (nilda.PaymentSession, error)
 method (*Payments) Deliver(context.Context) (int)
 method (*Payments) Deliveries() ([]Delivery)
+method (*Payments) Disputes() ([]nilda.PaymentDispute)
 method (*Payments) Expire(string) (error)
 method (*Payments) Gateway(string, nilda.PaymentGateway)
+method (*Payments) GetDispute(string) (nilda.PaymentDispute, bool)
 method (*Payments) GetRefund(string) (nilda.PaymentRefund, bool)
 method (*Payments) GetSession(string) (nilda.PaymentSession, bool)
+method (*Payments) Secret(string, string) (string, bool)
 method (*Payments) Sessions() ([]nilda.PaymentSession)
+method (*Payments) Sync(context.Context, string) (error)
 method (*StubGateway) DescribePayments(context.Context) ([]nilda.PaymentMethod, error)
 method (*StubGateway) RefundPayment(context.Context, nilda.PaymentRefund, nilda.PaymentSession) (nilda.PaymentRefundResult, error)
 method (*StubGateway) StartPayment(context.Context, nilda.PaymentSession) (nilda.PaymentStartResult, error)
@@ -58,4 +63,5 @@ type Host
 type Payments
 type Revocation
 type StubGateway
+var ErrNotSubscribed
 var SessionsPerIdentity

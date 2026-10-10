@@ -113,8 +113,8 @@ func TestThePaymentHooksAreCores(t *testing.T) {
 	for _, m := range regexp.MustCompile(`(?m)^\s*Hook\w+\s*=\s*"(payment\.[a-z.]+)"`).FindAllStringSubmatch(src, -1) {
 		core = append(core, m[1])
 	}
-	sdk := []string{HookPaymentDescribe, HookPaymentStart, HookPaymentRefund, HookPaymentConfirm,
-		HookPaymentSessionUpdated, HookPaymentRefundUpdated}
+	sdk := []string{HookPaymentDescribe, HookPaymentStart, HookPaymentRefund, HookPaymentSync, HookPaymentConfirm,
+		HookPaymentSessionUpdated, HookPaymentRefundUpdated, HookPaymentDisputeUpdated}
 	sort.Strings(core)
 	sort.Strings(sdk)
 	if strings.Join(core, ",") != strings.Join(sdk, ",") {
@@ -191,11 +191,11 @@ func TestThePaymentNumbersInTheGuideAreCores(t *testing.T) {
 	for _, c := range []struct{ src, file, want string }{
 		{host, "internal/plugin/host.go", "callCtx, cancel := context.WithTimeout(ctx, hookBudget(hook, h.cfg.CallTimeout))"},
 		{plugin, "internal/plugin/payments.go", "func hookBudget(hook string, ordinary time.Duration) time.Duration { " +
-			"switch hook { case HookPaymentDescribe, HookPaymentStart, HookPaymentRefund: " +
+			"switch hook { case HookPaymentDescribe, HookPaymentStart, HookPaymentRefund, HookPaymentSync: " +
 			"if PaymentHookBudget > ordinary { return PaymentHookBudget } } return ordinary }"},
 		{service, "internal/payments/service.go", "Lifetime: sessionLifetime,"},
-		{queries, "internal/db/queries/payments.sql", "idempotency_key, expires_at ) VALUES ( $1, $2, $3, $4, $5, $6, $7, " +
-			"'created', $8, $9, $10, $11, $12, $13, $14, now() + sqlc.arg('lifetime')::interval )"},
+		{queries, "internal/db/queries/payments.sql", "shipping_address, expires_at ) VALUES ( $1, $2, $3, $4, $5, $6, $7, " +
+			"'created', $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, now() + sqlc.arg('lifetime')::interval )"},
 	} {
 		if !strings.Contains(c.src, c.want) {
 			t.Errorf("core's %s no longer has %q — re-read what PAYMENTS.md says about it", c.file, c.want)
@@ -359,8 +359,8 @@ func TestThePaymentRoutesAreCores(t *testing.T) {
 		t.Fatalf("found %d routes in core's rest.go — the parse is broken, repoint this guard", len(core))
 	}
 	doc := map[string]string{}
-	for _, m := range regexp.MustCompile("(?m)^\\| `(GET|POST) (/payments/[^` ?]+)[^|]*\\| ([^|]+) \\|").FindAllStringSubmatch(docText, -1) {
-		doc[m[1]+" "+strings.ReplaceAll(m[2], "{id}", ":id")] = strings.TrimSpace(m[3])
+	for _, m := range regexp.MustCompile("(?m)^\\| `(GET|POST|PUT) (/payments/[^` ?]+)[^|]*\\| ([^|]+) \\|").FindAllStringSubmatch(docText, -1) {
+		doc[m[1]+" "+strings.NewReplacer("{id}", ":id", "{name}", ":name").Replace(m[2])] = strings.TrimSpace(m[3])
 	}
 	for r, who := range doc {
 		if coreWho, ok := core[r]; !ok {
@@ -381,7 +381,7 @@ func TestThePaymentRoutesAreCores(t *testing.T) {
 	sent := map[string]bool{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, mount[1])
-		path = strings.NewReplacer("/sid/", "/:id/", "/rid/", "/:id/").Replace(path + "/")
+		path = strings.NewReplacer("/sid/", "/:id/", "/rid/", "/:id/", "/did/", "/:id/", "/proof_secret/", "/:name/").Replace(path + "/")
 		mu.Lock()
 		sent[r.Method+" "+strings.TrimSuffix(path, "/")] = true
 		mu.Unlock()
@@ -406,6 +406,18 @@ func TestThePaymentRoutesAreCores(t *testing.T) {
 		"Confirm":       func() { _, _ = pay.Confirm(ctx, "sid") },
 		"ResolveRefund": func() { _, _ = pay.ResolveRefund(ctx, "rid", "") },
 		"RejectRefund":  func() { _, _ = pay.RejectRefund(ctx, "rid", PaymentRejection{FailureCode: PaymentFailDeclined}) },
+		"ReverseRefund": func() { _, _ = pay.ReverseRefund(ctx, "rid", PaymentRejection{FailureCode: PaymentFailDeclined}) },
+		"ReportExternalRefund": func() {
+			_, _ = pay.ReportExternalRefund(ctx, "sid", PaymentExternalRefund{AmountMinor: 1, Currency: "EUR", ProviderRef: "re_1"})
+		},
+		"ReportDispute": func() {
+			_, _ = pay.ReportDispute(ctx, "sid", PaymentDisputeReport{ProviderRef: "dp_1", Stage: DisputeChargeback,
+				Status: DisputeNeedsResponse, AmountMinor: 1, Currency: "EUR"})
+		},
+		"ListDisputes": func() { _, _ = pay.ListDisputes(ctx, "sid") },
+		"GetDispute":   func() { _, _ = pay.GetDispute(ctx, "did") },
+		"SetSecret":    func() { _ = pay.SetSecret(ctx, "proof_secret", "v") },
+		"GetSecret":    func() { _, _, _ = pay.GetSecret(ctx, "proof_secret") },
 	}
 	methods := reflect.TypeOf(pay)
 	for i := 0; i < methods.NumMethod(); i++ {

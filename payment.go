@@ -51,6 +51,12 @@ const (
 	HookPaymentSessionUpdated = "payment.session.updated"
 	// HookPaymentRefundUpdated tells a consumer that a refund it asked for changed: PaymentRefundUpdate.
 	HookPaymentRefundUpdated = "payment.refund.updated"
+	// HookPaymentSync asks a GATEWAY that implements PaymentSyncer to look one session up at its processor and
+	// report what it finds: PaymentSyncRequest in, {} out.
+	HookPaymentSync = "payment.sync"
+	// HookPaymentDisputeUpdated tells a CONSUMER that implements PaymentDisputeConsumer that a dispute on one of
+	// its payments changed: PaymentDisputeUpdate.
+	HookPaymentDisputeUpdated = "payment.dispute.updated"
 )
 
 // A session's status, a closed set. A consumer branches on it, and a status nobody listed would land in
@@ -164,6 +170,9 @@ type PaymentMethod struct {
 	// Test is true while the gateway holds its processor's TEST credentials: no real money moves. Core shows
 	// it to the site owner and stamps it on every session, so a test order is never shipped as a paid one.
 	Test bool `json:"test,omitempty"`
+	// Supports is what this method can do (SupportRefund, SupportPartialRefund, SupportDisputes, SupportSync).
+	// Empty means what Refunds says: SupportsOf. Core copies it onto every session paid this way.
+	Supports []string `json:"supports,omitempty"`
 }
 
 // PaymentOption is one method a payer can choose, as a CONSUMER sees it (Payments.Methods): the gateway's
@@ -175,6 +184,8 @@ type PaymentOption struct {
 	Description string `json:"description,omitempty"`
 	Refunds     bool   `json:"refunds,omitempty"`
 	Test        bool   `json:"test,omitempty"`
+	// Supports is the method's capabilities, as SupportsOf reads them.
+	Supports []string `json:"supports,omitempty"`
 }
 
 // PaymentSession is one payment, as Core holds it. Core fills every field; the gateway and the consumer read.
@@ -209,6 +220,14 @@ type PaymentSession struct {
 	// the first and draw their page in the second.
 	Email  string `json:"email,omitempty"`
 	Locale string `json:"locale,omitempty"`
+	// Supports is what the method could do when this session was created (SupportsOf), copied by Core: a refund
+	// is decided by it, never by asking the gateway again.
+	Supports []string `json:"supports,omitempty"`
+	// Fulfilment, BillingAddress and ShippingAddress are the payer's, when the consumer gave them: for the
+	// processor's fraud checks and seller protection, never for Core.
+	Fulfilment      string          `json:"fulfilment,omitempty"`
+	BillingAddress  *PaymentAddress `json:"billing_address,omitempty"`
+	ShippingAddress *PaymentAddress `json:"shipping_address,omitempty"`
 	// ExpiresAt is when Core closes a session nothing decided: what the gateway reported at start, or Core's
 	// own default.
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
@@ -220,17 +239,23 @@ type PaymentSession struct {
 
 // PaymentRefund is one refund, as Core holds it.
 type PaymentRefund struct {
-	ID             string    `json:"id"`
-	Session        string    `json:"session"` // the session it gives money back from
-	AmountMinor    int64     `json:"amount_minor"`
-	Currency       string    `json:"currency"`
-	Status         string    `json:"status"`
-	Reason         string    `json:"reason,omitempty"`
-	ProviderRef    string    `json:"provider_ref,omitempty"`
-	FailureCode    string    `json:"failure_code,omitempty"`
-	FailureMessage string    `json:"failure_message,omitempty"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID             string `json:"id"`
+	Session        string `json:"session"` // the session it gives money back from
+	AmountMinor    int64  `json:"amount_minor"`
+	Currency       string `json:"currency"`
+	Status         string `json:"status"`
+	Reason         string `json:"reason,omitempty"`
+	ProviderRef    string `json:"provider_ref,omitempty"`
+	FailureCode    string `json:"failure_code,omitempty"`
+	FailureMessage string `json:"failure_message,omitempty"`
+	// External is a refund made at the processor, outside Nilda, that its gateway reported
+	// (Payments.ReportExternalRefund). It was never asked for by a consumer; it is already resolved.
+	External bool `json:"external,omitempty"`
+	// ReversedAt is set when a refund that had gone through was undone at the processor (a bank sent it back):
+	// the refund stays resolved, and the money is with the merchant again. FailureCode and FailureMessage say why.
+	ReversedAt *time.Time `json:"reversed_at,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
 }
 
 // PaymentSessionParams is what a CONSUMER sends to begin a payment (Payments.CreateSession).
@@ -253,6 +278,11 @@ type PaymentSessionParams struct {
 	// Email and Locale are the payer's, if you know them (an address, a BCP 47 tag like "de" or "pt-BR").
 	Email  string `json:"email,omitempty"`
 	Locale string `json:"locale,omitempty"`
+	// Fulfilment (FulfilmentPhysical, FulfilmentDigital, FulfilmentNone) and the payer's addresses, if you know
+	// them: a processor's fraud checks read them, and PayPal's seller protection needs the shipping address.
+	Fulfilment      string          `json:"fulfilment,omitempty"`
+	BillingAddress  *PaymentAddress `json:"billing_address,omitempty"`
+	ShippingAddress *PaymentAddress `json:"shipping_address,omitempty"`
 }
 
 // Validate refuses what Core refuses without asking anything: a missing gateway, method or reference, an
@@ -286,6 +316,16 @@ func (p PaymentSessionParams) Validate() error {
 	}
 	if p.Locale != "" && !validLocale(p.Locale) {
 		return fmt.Errorf("nilda: %q is not a language tag (\"de\", \"pt-BR\")", p.Locale)
+	}
+	if err := validFulfilment(p.Fulfilment); err != nil {
+		return err
+	}
+	for _, a := range []*PaymentAddress{p.BillingAddress, p.ShippingAddress} {
+		if a != nil {
+			if err := a.Validate(); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -516,6 +556,23 @@ func DispatchPaymentGatewayHook(ctx context.Context, _ *Core, g PaymentGateway, 
 		}
 		b, err := json.Marshal(res)
 		return b, true, err
+
+	case HookPaymentSync:
+		syncer, is := g.(PaymentSyncer)
+		if !is {
+			return nil, false, nil // not a syncer: Serve never subscribed it, and Core never sends it
+		}
+		var in PaymentSyncRequest
+		if err := json.Unmarshal(payload, &in); err != nil {
+			return nil, true, fmt.Errorf("nilda: payment.sync payload: %w", err)
+		}
+		if err := validSession(in.Session); err != nil {
+			return nil, true, err
+		}
+		if err := syncer.SyncPayment(ctx, in.Session); err != nil {
+			return nil, true, err
+		}
+		return []byte(`{}`), true, nil
 	}
 	return nil, false, nil
 }
@@ -552,6 +609,20 @@ func DispatchPaymentConsumerHook(ctx context.Context, _ *Core, c PaymentConsumer
 			return nil, true, fmt.Errorf("nilda: payment.refund.updated payload: %w", err)
 		}
 		if err := c.RefundUpdated(ctx, in.Refund, in.Session); err != nil {
+			return nil, true, err
+		}
+		return []byte(`{}`), true, nil
+
+	case HookPaymentDisputeUpdated:
+		dc, is := c.(PaymentDisputeConsumer)
+		if !is {
+			return nil, false, nil // does not take dispute news: Serve never subscribed it
+		}
+		var in PaymentDisputeUpdate
+		if err := json.Unmarshal(payload, &in); err != nil {
+			return nil, true, fmt.Errorf("nilda: payment.dispute.updated payload: %w", err)
+		}
+		if err := dc.DisputeUpdated(ctx, in.Dispute, in.Session); err != nil {
 			return nil, true, err
 		}
 		return []byte(`{}`), true, nil
@@ -639,6 +710,11 @@ func validMethods(methods []PaymentMethod) error {
 			return fmt.Errorf("nilda: payment.describe answered two methods keyed %q; a session names one by its key", m.Key)
 		}
 		seen[m.Key] = true
+		for _, sup := range m.Supports {
+			if sup == "" || len(sup) > 64 || strings.ContainsAny(sup, " \t\n,") {
+				return fmt.Errorf("nilda: payment.describe: method %q supports %q, which is not a capability token", m.Key, sup)
+			}
+		}
 		for _, c := range m.Currencies {
 			if _, ok := MinorUnits(c); !ok {
 				return fmt.Errorf("nilda: payment.describe: method %q takes %q, which is not a currency ISO 4217 prices", m.Key, c)

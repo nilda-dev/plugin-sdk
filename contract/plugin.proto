@@ -105,6 +105,14 @@ message InitRequest {
   // against this capability got it wrong exactly that way.
   string route_prefix = 12;
 
+  // The site's PUBLIC address (the owner's Settings → General address, or the program's own while none is
+  // set), with no trailing slash: where a processor's webhook reaches this plugin is this plus route_prefix.
+  //
+  // Sent because asking Core for it from Init needs a token the plugin may not hold, and because a webhook
+  // address registered at a processor is useless the day the domain changes. Core RESTARTS a plugin that has a
+  // route when the address changes, so a running plugin always holds the current one — as with its settings.
+  string site_url = 13;
+
   // WHEN A FIELD IS REMOVED FROM THIS MESSAGE, ITS NUMBER GOES ON A `reserved` LINE IN THE SAME COMMIT.
   //
   // protobuf identifies a field by its NUMBER, not its name. So the day a field is dropped here and its

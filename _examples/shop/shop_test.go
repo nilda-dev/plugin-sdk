@@ -304,7 +304,7 @@ func TestAnUndeclaredCapabilityFailsInTheTest(t *testing.T) {
 
 // paidPayload is ecommerce.order_paid as Nilda's own shop plugin emits it (commerce's onlinepay.go).
 func paidPayload(orderID string) []byte {
-	b, _ := json.Marshal(map[string]any{"order_id": orderID, "total_cents": 4900})
+	b, _ := json.Marshal(map[string]any{"order_id": orderID, "total_minor": 4900})
 	return b
 }
 

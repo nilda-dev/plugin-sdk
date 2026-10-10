@@ -2,7 +2,9 @@ package nilda
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 )
@@ -193,6 +195,121 @@ func (p *Payments) RejectRefund(ctx context.Context, refundID string, r PaymentR
 		return PaymentRefund{}, err
 	}
 	return p.reportRefund(ctx, refundID, "/reject", r)
+}
+
+// ReverseRefund reports that a refund that had gone through was undone at the processor — a bank sent the money
+// back. Only a resolved refund can be reversed; it stays resolved, Core sets its ReversedAt and tells the consumer
+// again. The rejection's code and message say why ("the card was closed").
+func (p *Payments) ReverseRefund(ctx context.Context, refundID string, r PaymentRejection) (PaymentRefund, error) {
+	if err := r.Validate(); err != nil {
+		return PaymentRefund{}, err
+	}
+	return p.reportRefund(ctx, refundID, "/reverse", r)
+}
+
+// ReportExternalRefund reports a refund made at the processor outside Nilda — by hand in its dashboard — on a
+// session routed to you. Core records it as a resolved, External refund, adds it to the session's refunded total
+// and tells the consumer, so the shop's books match the processor's. The same ProviderRef twice is one refund.
+func (p *Payments) ReportExternalRefund(ctx context.Context, sessionID string, r PaymentExternalRefund) (PaymentRefund, error) {
+	if err := r.Validate(); err != nil {
+		return PaymentRefund{}, err
+	}
+	r.Currency = strings.ToUpper(strings.TrimSpace(r.Currency))
+	path, err := paymentPath("/payments/sessions/", sessionID, "/external-refunds")
+	if err != nil {
+		return PaymentRefund{}, err
+	}
+	var out struct {
+		Data PaymentRefund `json:"data"`
+	}
+	err = p.api.Post(ctx, path, r, &out)
+	return out.Data, err
+}
+
+// ReportDispute reports a dispute on a session routed to you, as the processor holds it NOW (a snapshot: read
+// it again from the processor on each event). Core keeps one dispute per ProviderRef and tells the consumer; a
+// snapshot equal to the stored one changes nothing. A verdict cannot be taken back (409), and a chargeback
+// cannot become an inquiry again — but the money fields can change after the verdict.
+func (p *Payments) ReportDispute(ctx context.Context, sessionID string, r PaymentDisputeReport) (PaymentDispute, error) {
+	if err := r.Validate(); err != nil {
+		return PaymentDispute{}, err
+	}
+	r.Currency = strings.ToUpper(strings.TrimSpace(r.Currency))
+	path, err := paymentPath("/payments/sessions/", sessionID, "/disputes")
+	if err != nil {
+		return PaymentDispute{}, err
+	}
+	var out struct {
+		Data PaymentDispute `json:"data"`
+	}
+	err = p.api.Post(ctx, path, r, &out)
+	return out.Data, err
+}
+
+// ListDisputes reads a session's disputes, oldest first — for the consumer that created it or the gateway it was
+// routed to.
+func (p *Payments) ListDisputes(ctx context.Context, sessionID string) ([]PaymentDispute, error) {
+	path, err := paymentPath("/payments/sessions/", sessionID, "/disputes")
+	if err != nil {
+		return nil, err
+	}
+	var out struct {
+		Data []PaymentDispute `json:"data"`
+	}
+	if err := p.api.Get(ctx, path, nil, &out); err != nil {
+		return nil, err
+	}
+	if out.Data == nil {
+		out.Data = []PaymentDispute{}
+	}
+	return out.Data, nil
+}
+
+// GetDispute reads one dispute, for either side of its session.
+func (p *Payments) GetDispute(ctx context.Context, id string) (PaymentDispute, error) {
+	path, err := paymentPath("/payments/disputes/", id, "")
+	if err != nil {
+		return PaymentDispute{}, err
+	}
+	var out struct {
+		Data PaymentDispute `json:"data"`
+	}
+	err = p.api.Get(ctx, path, nil, &out)
+	return out.Data, err
+}
+
+// SetSecret keeps one of the gateway's own secrets — a webhook signing secret its processor shows only once —
+// in Core, encrypted at rest, under name. It survives a restart and a lost kv, which a plugin's own store does
+// not on every install. Setting a name again replaces its value.
+func (p *Payments) SetSecret(ctx context.Context, name, value string) error {
+	if err := validSecret(name, value); err != nil {
+		return err
+	}
+	return p.api.JSON(ctx, http.MethodPut, "/payments/secrets/"+name, secretBody{Value: value}, nil)
+}
+
+// GetSecret reads one of the gateway's own secrets back; found is false when none was set under name.
+func (p *Payments) GetSecret(ctx context.Context, name string) (value string, found bool, err error) {
+	if !secretName.MatchString(name) {
+		return "", false, fmt.Errorf("nilda: a secret's name is 1–64 lowercase letters, digits or underscores, got %q", name)
+	}
+	var out struct {
+		Data secretBody `json:"data"`
+	}
+	err = p.api.Get(ctx, "/payments/secrets/"+name, nil, &out)
+	var apiErr *APIError
+	if errors.As(err, &apiErr) && apiErr.NotFound() {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return out.Data.Value, true, nil
+}
+
+// secretBody is the body of a secret's write and read.
+type secretBody struct {
+	Value string `json:"value"`
 }
 
 // providerRefBody is the body of the two reports that carry nothing but the processor's reference.

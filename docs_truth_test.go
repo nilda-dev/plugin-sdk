@@ -861,12 +861,12 @@ func TestTheShopExamplesFixturesAreWhatTheirSendersSend(t *testing.T) {
 			t.Errorf("the example shop no longer reads %s — re-read this guard's fixtures", field)
 		}
 	}
-	if !strings.Contains(shopTest, `json.Marshal(map[string]any{"order_id": orderID, "total_cents": 4900})`) {
+	if !strings.Contains(shopTest, `json.Marshal(map[string]any{"order_id": orderID, "total_minor": 4900})`) {
 		t.Error("the example shop's ecommerce.order_paid fixture changed shape — re-read it against commerce's emit")
 	}
 	// The shop's emit last: skipped without commerce beside the SDK, which is most checkouts.
 	if !strings.Contains(siblingSource(t, "commerce", "onlinepay.go"),
-		`p.core.Emit(ctx, "ecommerce.order_paid", map[string]any{"order_id": order.ID.String(), "total_cents": order.TotalCents})`) {
+		`p.core.Emit(ctx, "ecommerce.order_paid", map[string]any{"order_id": order.ID.String(), "total_minor": order.TotalMinor})`) {
 		t.Error("commerce no longer emits ecommerce.order_paid as the example shop's fixture has it")
 	}
 }

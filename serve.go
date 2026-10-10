@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/go-plugin"
@@ -40,9 +41,9 @@ type InitResult struct {
 	// are admitted by that provider's grant instead — commerce.* by `commerce`, search.* by
 	// `search_provider`, admin.action/admin.report by `admin_page`, field.* by `field`, auth.* by
 	// `auth_provider`, widget.* by `widget`, render.assets by `render.assets`,
-	// payment.describe/payment.start/payment.refund by `payment_gateway`, and
-	// payment.session.confirm/payment.session.updated/payment.refund.updated by `payment_session` — and
-	// `hooks` does not admit them.
+	// payment.describe/payment.start/payment.refund/payment.sync by `payment_gateway`, and
+	// payment.session.confirm/payment.session.updated/payment.refund.updated/payment.dispute.updated by
+	// `payment_session` — and `hooks` does not admit them.
 	Hooks  []string
 	Events []string // event types to receive (requires `events`)
 	// Schedules is recurring work Core runs on the plugin's behalf (requires `schedule`). The plugin is a
@@ -161,6 +162,7 @@ func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (res
 		PreviousVersion: req.GetPreviousVersion(),
 		KVNamespace:     req.KvNamespace,
 		RoutePrefix:     req.GetRoutePrefix(),
+		SiteURL:         strings.TrimRight(req.GetSiteUrl(), "/"),
 		host:            contract.NewHostServiceClient(conn),
 		api:             newAPI(req.ApiBaseUrl, req.ApiToken, req.ApiScopes),
 	}

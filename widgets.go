@@ -317,14 +317,14 @@ func dispatchProvided(ctx context.Context, h Handler, hook string, payload []byt
 
 	// The payment hooks are answered here too, and for the reason WidgetProvider's are: a gateway that is
 	// subscribed and then fails every payment.start is a checkout that fails, silently, for every payer.
-	case HookPaymentDescribe, HookPaymentStart, HookPaymentRefund:
+	case HookPaymentDescribe, HookPaymentStart, HookPaymentRefund, HookPaymentSync:
 		g, is := h.(PaymentGateway)
 		if !is {
 			return nil, false, nil
 		}
 		return DispatchPaymentGatewayHook(ctx, nil, g, hook, payload)
 
-	case HookPaymentConfirm, HookPaymentSessionUpdated, HookPaymentRefundUpdated:
+	case HookPaymentConfirm, HookPaymentSessionUpdated, HookPaymentRefundUpdated, HookPaymentDisputeUpdated:
 		c, is := h.(PaymentConsumer)
 		if !is {
 			return nil, false, nil
@@ -408,4 +408,17 @@ var providerHooks = []struct {
 		[]string{HookPaymentDescribe, HookPaymentStart, HookPaymentRefund}},
 	{"PaymentConsumer", func(h Handler) bool { _, is := h.(PaymentConsumer); return is },
 		[]string{HookPaymentConfirm, HookPaymentSessionUpdated, HookPaymentRefundUpdated}},
+	// The two optional payment interfaces ride on their side's: payment.sync only for a gateway that syncs,
+	// payment.dispute.updated only for a consumer that takes dispute news — a consumer that does not is never sent
+	// one, and Core shows the owner so.
+	{"PaymentSyncer", func(h Handler) bool {
+		_, gw := h.(PaymentGateway)
+		_, is := h.(PaymentSyncer)
+		return gw && is
+	}, []string{HookPaymentSync}},
+	{"PaymentDisputeConsumer", func(h Handler) bool {
+		_, c := h.(PaymentConsumer)
+		_, is := h.(PaymentDisputeConsumer)
+		return c && is
+	}, []string{HookPaymentDisputeUpdated}},
 }

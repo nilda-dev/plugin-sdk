@@ -7,7 +7,10 @@ own plugin.
 
 The Go surface is in this module from **plugin-sdk v0.10.0** (`payment.go`, `paymentapi.go`, `currency.go`).
 Core accepts the two capabilities from the release built on v0.10.0; an older Core refuses a manifest that
-declares either.
+declares either. **v0.10.4** adds, all additively (`paymentmore.go`): what a method supports, carried on the
+session; the payer's addresses; disputes; refunds reversed after success and refunds made at the processor; the
+`payment.sync` pull path; a gateway's own secrets kept by Core; and the site's address handed to every plugin
+at `Init`. A route a Core before it does not have answers 404, and a hook nobody subscribed to is never sent.
 
 ## 1. The shape
 
@@ -30,11 +33,10 @@ declares either.
   Orders, Mollie — and every platform on top of them (Shopify's payments apps, Saleor, Medusa). Nothing in the
   contract waits for a payer.
 - **The contract holds no provider code, no keys, and makes no outbound call.** A gateway's keys live on its
-  own settings page, encrypted; its calls to the processor are its own. Two page-builder buttons predate the
-  contract and are not on it. The Stripe payment button (Core's `internal/stripe`) still calls Stripe itself
-  with a key from Core's own settings — moving it onto this contract, key and all, is planned, and until then
-  it is the one payment call Core makes on its own. The PayPal button is a plain form the payer's browser posts
-  to PayPal; Core makes no call and holds no key for it.
+  own settings page, or with Core through `SetSecret`, encrypted; its calls to the processor are its own. Core
+  makes no payment call of its own: its Stripe button and the Stripe client behind it were retired on 2026-10-10
+  (Core stays light — payments live only in gateway plugins). The page builder's PayPal button is a plain form the
+  payer's browser posts to PayPal; Core makes no call and holds no key for it.
 
 ## 2. Money is an integer in the currency's smallest unit
 
@@ -85,10 +87,41 @@ resolved, rejected: final
 
 A **refund** gives money back from a resolved session: `requested → pending → resolved | rejected`
 (`RefundCanMove`). Core refuses one that would take the session's refunds — resolved and still in flight —
-past what was paid. `RefundedMinor` on the session is the sum of its resolved refunds. `CreateRefund` answers
+past what was paid, and one the method could not carry out: **what a method can do is decided by the session's
+own `supports`**, the list Core copied from the method when the payment was made (`SupportsOf`: the method's
+`Supports`, or `refund` + `partial_refund` when it lists nothing and `Refunds` is true). `refund` is needed for
+any refund, `partial_refund` for one of less than was paid. The gateway is never asked again — a gateway whose
+key was removed made every old payment unrefundable while Core asked it. A gateway that is not RUNNING is a 503:
+ask again later. `RefundedMinor` on the session is the sum of its resolved refunds. `CreateRefund` answers
 with the refund **`requested`**: Core asks the gateway from its delivery job a moment later, never inside the
 consumer's own call (an owner's refund button has five seconds; a processor may take fifteen), and the consumer
 hears how it ends as `payment.refund.updated`.
+
+**A refund can be reversed** after it went through — a bank sent the money back (Stripe: up to 30 days). The
+gateway reports it (`ReverseRefund`); only a `resolved` refund can be, and it STAYS `resolved` (final): Core sets
+its `reversed_at`, keeps the reason in `failure_code`/`failure_message`, and tells the consumer again through
+`payment.refund.updated`. `RefundedMinor` is not changed — what was booked is the consumer's to correct.
+
+**A refund made at the processor**, outside Nilda — by hand in its dashboard — is reported by the gateway
+(`ReportExternalRefund`, keyed by the processor's refund id). Core records it as a refund that is `resolved` at
+once and `external`, adds it to `RefundedMinor`, and tells the consumer, so the shop's books match the money.
+
+**A dispute** — a payer's bank questioning a payment — is a SECOND object beside the session; the session's state
+machine never moves for it (`resolved` stays final). The gateway reports each dispute as a snapshot of what the
+processor holds now (`ReportDispute`; read it again from the processor on every event — they arrive out of
+order). One dispute per processor id; at most 10 per payment.
+
+| field | means |
+|---|---|
+| `stage` | `inquiry` (the bank asks, no money moved) → `chargeback` (the money is being taken back); never back |
+| `status` | `needs_response` ⇄ `under_review` → `won`, `lost` or `closed` (ended without a verdict); the last three final (`DisputeCanMove`) |
+| `funds_held`, `amount_minor`, `refundable`, `respond_by`, `url` | facts the processor reports; still updatable after the verdict (money comes back after "won") |
+
+A snapshot equal to the stored one is a no-op; one that takes a verdict back, or a chargeback back to an
+inquiry, is 409 — answer the processor 200, as for a session. The consumer hears every change as
+`payment.dispute.updated` if it implements `nilda.PaymentDisputeConsumer`; one that does not is never sent it,
+and Core shows the owner that it does not take dispute news. Nothing in the contract ANSWERS a dispute: the owner
+does that at the processor, through `url`.
 
 **Money on a payment already refused** — a bank transfer that cleared after the payment was rejected, a charge
 made before a lost `payment.start` answer — is still a 409 to the gateway: rejected is final. Core records it for
@@ -224,6 +257,23 @@ return nilda.PaymentStartResult{Status: nilda.PaymentRedirected, RedirectURL: ch
   provider_unavailable`. An error counts against the plugin, and enough of them switch it off — a processor's
   bad afternoon would become a site with no checkout until somebody switched it back on.
 
+### What else a gateway may do (v0.10.4)
+
+- **Say what each method supports** (`Supports`: `refund`, `partial_refund`, `disputes`, `sync`). Core copies it
+  onto every session paid that way and decides refunds by it.
+- **Read the payer's addresses** from the session (`Fulfilment`, `BillingAddress`, `ShippingAddress`) when the
+  consumer sent them — for the processor's fraud checks and seller protection; never required.
+- **Know where you are**: `core.SiteURL` is the site's public address, so your webhook is `core.SiteURL +
+  core.Route("/webhook")`. Core restarts a plugin that has a route when the address changes.
+- **Keep a secret your processor shows once** (a webhook signing secret): `Payments.SetSecret(ctx, name, value)`
+  and `GetSecret`. Core keeps it encrypted; it survives a restart and a lost kv.
+- **Report disputes** (`ReportDispute`), **reversed refunds** (`ReverseRefund`) and **refunds made in the
+  processor's dashboard** (`ReportExternalRefund`) — see §3.
+- **Answer `payment.sync`** by implementing `nilda.PaymentSyncer`: look the session up at the processor and
+  report what you find with the ordinary calls. Core asks when a payer is back on the return page and the session
+  is still open, and in a sweep of sessions nothing has decided for a while — so a webhook the processor gave up
+  on is not a payment lost. An error means "could not look now".
+
 ### The webhook
 
 ```go
@@ -288,6 +338,13 @@ default:
 Answer `resolved`, `rejected` (with a code), or `pending` and report the end later with
 `Payments.ResolveRefund` / `Payments.RejectRefund` from the webhook. A refund whose answer was lost stays
 `requested` and Core asks again — never fails it, since the processor may already have paid it out.
+
+**When you do not know whether the processor paid it** — it could not be reached, it refused your key — return an
+ERROR: the refund stays `requested` and Core asks again with a backoff. That error is an ANSWER, not a failure:
+Core does not count it toward switching your plugin off (a timeout or a crash still counts), so a processor's
+outage during a few refunds never takes the site's checkout down with it. Before creating a refund at the
+processor, look for one you already made for `r.ID` (a processor may forget an idempotency key after a day, and
+Core asks for longer than that).
 
 ### What Core gives a gateway
 
@@ -389,6 +446,19 @@ before `CreateRefund`'s own answer does — record what you asked first, or reco
 means the gateway is not running or could not be asked: nothing was recorded, and asking again with the same key
 runs again.
 
+**The payer, if you know them:** `Fulfilment` (`physical`, `digital`, `none`), `BillingAddress` and
+`ShippingAddress` (`PaymentAddress`, country as ISO 3166-1 alpha-2) on the session's parameters. A processor's
+fraud checks read them, and PayPal's seller protection needs the shipping address of physical goods. They are
+the gateway's to hand on; Core only carries them.
+
+**Disputes:** implement `nilda.PaymentDisputeConsumer` to hear `payment.dispute.updated` — same promise as
+`PaymentUpdated`, key it by `(d.ID, d.Stage, d.Status, d.FundsHeld)`. Without it you are never sent one, and the
+owner sees that your plugin does not take dispute news. Read a payment's disputes with `ListDisputes`.
+
+**A refund you did not ask for** can reach `RefundUpdated`: `r.External` is a refund made at the processor
+outside Nilda — book it; and a refund you were told was `resolved` can come again with `r.ReversedAt` set — the
+money went back to the merchant.
+
 **Testing a consumer** — `nildatest.StubGateway` is a gateway whose answers you set, and `Deliver` runs the job
 that tells the consumer (Core tells it from a job, never inside the call that changed the session):
 
@@ -419,26 +489,31 @@ Hooks arrive over the plugin protocol (docs/ANY_LANGUAGE.md) with these JSON pay
 
 | hook | to | payload in | answer |
 |---|---|---|---|
-| `payment.describe` | gateway | `{}` | `{"methods":[{"key","label","description","currencies","refunds","test"}]}` |
+| `payment.describe` | gateway | `{}` | `{"methods":[{"key","label","description","currencies","refunds","test","supports"}]}` |
 | `payment.start` | gateway | `{"session":{…}}` | `{"status","redirect_url","provider_ref","expires_at","failure_code","failure_message"}` |
 | `payment.refund` | gateway | `{"refund":{…},"session":{…}}` | `{"status","provider_ref","failure_code","failure_message"}` |
 | `payment.session.confirm` | consumer | `{"session":{…}}` | `{"proceed","reason"}` |
 | `payment.session.updated` | consumer | `{"session":{…}}` | `{}` — an error means "tell me again" |
 | `payment.refund.updated` | consumer | `{"refund":{…},"session":{…}}` | `{}` — the same |
+| `payment.sync` | gateway (a `PaymentSyncer`) | `{"session":{…}}` | `{}` — what it found is reported through the calls below |
+| `payment.dispute.updated` | consumer (a `PaymentDisputeConsumer`) | `{"dispute":{…},"session":{…}}` | `{}` — an error means "tell me again" |
 
 A session is `{"id","consumer","gateway","method","reference","amount_minor","currency","status","test",
 "description","return_url","cancel_url","redirect_url","provider_ref","failure_code","failure_message",
-"email","locale","expires_at","refunded_minor","created_at","updated_at"}`; a refund is `{"id","session",
-"amount_minor","currency","status","reason","provider_ref","failure_code","failure_message","created_at",
-"updated_at"}`.
+"email","locale","supports","fulfilment","billing_address","shipping_address","expires_at","refunded_minor",
+"created_at","updated_at"}`; a refund is `{"id","session","amount_minor","currency","status","reason",
+"provider_ref","failure_code","failure_message","external","reversed_at","created_at","updated_at"}`; an address
+is `{"name","line1","line2","city","postal_code","region","country"}`; a dispute is `{"id","session",
+"provider_ref","stage","status","reason","amount_minor","currency","respond_by","evidence_submitted_at",
+"funds_held","refundable","url","opened_at","closed_at","created_at","updated_at"}`.
 
 Calls into Core, under `/api/rest/v1`, with the plugin's token; answers inside `{"data": …}`, refusals as
 `{"error":{"code","message"}}`:
 
 | call | who | body | answer |
 |---|---|---|---|
-| `GET /payments/methods?currency=EUR` | consumer | — | `[{"gateway","method","label","description","refunds","test"}]` |
-| `POST /payments/sessions` + `Idempotency-Key` | consumer | `{"gateway","method","reference","amount_minor","currency","description","return_url","cancel_url","email","locale"}` | 201, the session |
+| `GET /payments/methods?currency=EUR` | consumer | — | `[{"gateway","method","label","description","refunds","test","supports"}]` |
+| `POST /payments/sessions` + `Idempotency-Key` | consumer | `{"gateway","method","reference","amount_minor","currency","description","return_url","cancel_url","email","locale","fulfilment","billing_address","shipping_address"}` | 201, the session |
 | `GET /payments/sessions/{id}` | either side of it | — | the session |
 | `POST /payments/sessions/{id}/refunds` + `Idempotency-Key` | consumer | `{"amount_minor","reason"}` | 201, the refund |
 | `GET /payments/refunds/{id}` | either side of it | — | the refund |
@@ -448,6 +523,13 @@ Calls into Core, under `/api/rest/v1`, with the plugin's token; answers inside `
 | `POST /payments/sessions/{id}/confirm` | gateway | — | `{"proceed","reason"}` |
 | `POST /payments/refunds/{id}/resolve` | gateway | `{"provider_ref"}` | the refund |
 | `POST /payments/refunds/{id}/reject` | gateway | `{"failure_code","failure_message","provider_ref"}` | the refund |
+| `POST /payments/refunds/{id}/reverse` | gateway | `{"failure_code","failure_message","provider_ref"}` | the refund, `reversed_at` set |
+| `POST /payments/sessions/{id}/external-refunds` | gateway | `{"amount_minor","currency","provider_ref","reason"}` | the refund, `external` |
+| `POST /payments/sessions/{id}/disputes` | gateway | `{"provider_ref","stage","status","reason","amount_minor","currency","respond_by","evidence_submitted_at","funds_held","refundable","url","opened_at"}` | the dispute |
+| `GET /payments/sessions/{id}/disputes` | either side of it | — | `[dispute]`, oldest first |
+| `GET /payments/disputes/{id}` | either side of it | — | the dispute |
+| `PUT /payments/secrets/{name}` | gateway | `{"value"}` | `{}` |
+| `GET /payments/secrets/{name}` | gateway | — | `{"value"}`; 404 when none is set |
 
 Refusals: **404** a session that is not yours; **409** a report the session has moved past, a refund of an
 unpaid session, or a keyed request sent again while the first is still being answered; **422** what `Validate`
@@ -469,6 +551,14 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
 | `return_url`, `cancel_url`, `redirect_url` | 2,048 bytes, absolute http(s) | Nilda's choice |
 | `email` | 254 bytes, a bare address | RFC 5321's longest address |
 | `locale` | 35 characters, a language tag | RFC 5646's minimum a reader must support |
+| an address's `name`, `line1`, `line2` | 200 characters | Nilda's choice |
+| an address's `city`, `region` | 100 characters | Nilda's choice |
+| an address's `postal_code` | 20 characters | Nilda's choice |
+| an address's `country` | 2 capital letters | ISO 3166-1 alpha-2 |
+| a dispute's `reason` | 100 characters | the processor's own code, verbatim |
+| disputes on one payment | 10 | a split dispute is rare; a loop is not |
+| a secret's name | 1–64 of `a-z 0-9 _` | Nilda's choice |
+| a secret's value | 4,096 bytes | a signing secret is under a hundred |
 | `Idempotency-Key` | 255 bytes | Core's, which is Stripe's |
 | a session nothing decided | 24 hours, unless the gateway says | Stripe Checkout's own default |
 | a gateway's hook | at most 15 seconds, or `PLUGIN_CALL_TIMEOUT` if that is longer | Core's budget for a processor's API |
@@ -476,8 +566,13 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
 
 ## 8. What the contract does not do
 
-- **No line items, no addresses.** A hosted checkout collects what its processor needs; the consumer sends
-  one amount and a description. A gateway that needs more asks the payer on the processor's page.
-- **No disputes or chargebacks**, no saved cards, no subscriptions — not in v0.10.0.
+- **No line items.** A hosted checkout collects what its processor needs; the consumer sends one amount, a
+  description and — when it knows them — the payer's addresses. A gateway that needs more asks the payer on the
+  processor's page.
+- **No answering a dispute.** Disputes are REPORTED (v0.10.4); the owner answers one at the processor.
+- **No saved cards, no subscriptions, no capture/void.** The names are reserved so the door stays additive:
+  `credential` and `credential_types` (a delegated payment token for agentic checkout, UCP/ACP — never stored,
+  logged or echoed when it is built), and the `supports` tokens `capture`, `partial_capture` and `void`. A guard on
+  each side fails if anything takes one of these names before the feature is built.
 - **No money arithmetic in Core** beyond comparing amounts and summing refunds. Prices, tax and rounding stay
   the consumer's.

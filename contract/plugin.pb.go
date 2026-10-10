@@ -96,7 +96,14 @@ type InitRequest struct {
 	// for "/sso/backchannel-logout" and answers 404. Without this the author has to hard-code the prefix a
 	// second time, in Go, matching a manifest nobody will remember to keep in step; the first plugin written
 	// against this capability got it wrong exactly that way.
-	RoutePrefix   string `protobuf:"bytes,12,opt,name=route_prefix,json=routePrefix,proto3" json:"route_prefix,omitempty"`
+	RoutePrefix string `protobuf:"bytes,12,opt,name=route_prefix,json=routePrefix,proto3" json:"route_prefix,omitempty"`
+	// The site's PUBLIC address (the owner's Settings → General address, or the program's own while none is
+	// set), with no trailing slash: where a processor's webhook reaches this plugin is this plus route_prefix.
+	//
+	// Sent because asking Core for it from Init needs a token the plugin may not hold, and because a webhook
+	// address registered at a processor is useless the day the domain changes. Core RESTARTS a plugin that has a
+	// route when the address changes, so a running plugin always holds the current one — as with its settings.
+	SiteUrl       string `protobuf:"bytes,13,opt,name=site_url,json=siteUrl,proto3" json:"site_url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -211,6 +218,13 @@ func (x *InitRequest) GetPreviousVersion() string {
 func (x *InitRequest) GetRoutePrefix() string {
 	if x != nil {
 		return x.RoutePrefix
+	}
+	return ""
+}
+
+func (x *InitRequest) GetSiteUrl() string {
+	if x != nil {
+		return x.SiteUrl
 	}
 	return ""
 }
@@ -1374,7 +1388,7 @@ var File_contract_plugin_proto protoreflect.FileDescriptor
 
 const file_contract_plugin_proto_rawDesc = "" +
 	"\n" +
-	"\x15contract/plugin.proto\x12\x0fnilda.plugin.v2\"\xc3\x03\n" +
+	"\x15contract/plugin.proto\x12\x0fnilda.plugin.v2\"\xde\x03\n" +
 	"\vInitRequest\x12\x1d\n" +
 	"\n" +
 	"plugin_key\x18\x01 \x01(\tR\tpluginKey\x12#\n" +
@@ -1391,7 +1405,8 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"\rsettings_json\x18\n" +
 	" \x01(\fR\fsettingsJson\x12)\n" +
 	"\x10previous_version\x18\v \x01(\tR\x0fpreviousVersion\x12!\n" +
-	"\froute_prefix\x18\f \x01(\tR\vroutePrefix\"\xcc\x01\n" +
+	"\froute_prefix\x18\f \x01(\tR\vroutePrefix\x12\x19\n" +
+	"\bsite_url\x18\r \x01(\tR\asiteUrl\"\xcc\x01\n" +
 	"\fInitResponse\x12\x1d\n" +
 	"\n" +
 	"route_addr\x18\x01 \x01(\tR\trouteAddr\x12\x14\n" +
