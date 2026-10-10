@@ -170,6 +170,11 @@ type PaymentMethod struct {
 	// Test is true while the gateway holds its processor's TEST credentials: no real money moves. Core shows
 	// it to the site owner and stamps it on every session, so a test order is never shipped as a paid one.
 	Test bool `json:"test,omitempty"`
+	// TestHint is how a payer pays in test mode with this method — the processor's test card, its test login —
+	// by language (en, fa, ar, de, es, fr; "en" is the one to fall back on), for a consumer to show beside the
+	// method while Test is true: "Use card 4242 4242 4242 4242, any future date, any CVC." Empty under live
+	// credentials. Core passes it to consumers on PaymentOption unchanged.
+	TestHint map[string]string `json:"test_hint,omitempty"`
 	// Supports is what this method can do (SupportRefund, SupportPartialRefund, SupportDisputes, SupportSync).
 	// Empty means what Refunds says: SupportsOf. Core copies it onto every session paid this way.
 	Supports []string `json:"supports,omitempty"`
@@ -184,6 +189,8 @@ type PaymentOption struct {
 	Description string `json:"description,omitempty"`
 	Refunds     bool   `json:"refunds,omitempty"`
 	Test        bool   `json:"test,omitempty"`
+	// TestHint is the method's PaymentMethod.TestHint: what a payer is told while Test is true (TestHintFor).
+	TestHint map[string]string `json:"test_hint,omitempty"`
 	// Supports is the method's capabilities, as SupportsOf reads them.
 	Supports []string `json:"supports,omitempty"`
 }
@@ -765,4 +772,12 @@ func validRefundResult(r PaymentRefundResult) error {
 		return fmt.Errorf("nilda: a failure message is at most %d characters", maxPaymentText)
 	}
 	return validProviderRef(r.ProviderRef)
+}
+
+// TestHintFor is a test hint in lang, or in English when it has none in lang; "" when there is no hint at all.
+func TestHintFor(hint map[string]string, lang string) string {
+	if h := hint[lang]; h != "" {
+		return h
+	}
+	return hint["en"]
 }

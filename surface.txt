@@ -291,6 +291,7 @@ field PaymentMethod.Label string json:label
 field PaymentMethod.Refunds bool json:refunds
 field PaymentMethod.Supports []string json:supports
 field PaymentMethod.Test bool json:test
+field PaymentMethod.TestHint map[string]string json:test_hint
 field PaymentOption.Description string json:description
 field PaymentOption.Gateway string json:gateway
 field PaymentOption.Label string json:label
@@ -298,6 +299,7 @@ field PaymentOption.Method string json:method
 field PaymentOption.Refunds bool json:refunds
 field PaymentOption.Supports []string json:supports
 field PaymentOption.Test bool json:test
+field PaymentOption.TestHint map[string]string json:test_hint
 field PaymentRefund.AmountMinor int64 json:amount_minor
 field PaymentRefund.CreatedAt time.Time json:created_at
 field PaymentRefund.Currency string json:currency
@@ -488,6 +490,7 @@ func ShowPricesIncludingTax(context.Context) (bool)
 func StartHTTP(http.Handler) (string, error)
 func Supports([]string, string) (bool)
 func SupportsOf(PaymentMethod) ([]string)
+func TestHintFor(map[string]string, string) (string)
 imethod AssetProvider.FooterScripts(context.Context, RenderAssetsRequest) ([]ScriptAsset)
 imethod AuthProvider.Complete(context.Context, *Core, AuthCompleteRequest) (AuthAssertion, error)
 imethod AuthProvider.Describe(context.Context, *Core) ([]AuthProviderStatus)

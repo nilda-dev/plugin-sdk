@@ -4,7 +4,20 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
-## v0.10.4 — unreleased (the payment contract's second step)
+## v0.10.5 — 2026-10-10 (a test-mode hint for the payer)
+
+Additions only (`surface.txt` grows by 3 entries; nothing removed). Cut from v0.10.4 on its own branch
+(`release/v0.10.x`), so it carries nothing of what `main` has added since.
+
+### Added — payments
+
+- **`PaymentMethod.TestHint` / `PaymentOption.TestHint`** (`test_hint`): how a payer pays in test mode with the
+  method — the processor's test card or test login — by language (`"en"` always; fa, ar, de, es, fr as the
+  gateway writes them). Set it with `Test`; Core passes it to consumers unchanged, and a shop shows it beside the
+  method while `Test` is true. **`TestHintFor(hint, lang)`** picks the language, falling back to English. A Core
+  built before this release drops the field: the consumer then shows no hint, as before.
+
+## v0.10.4 — 2026-10-10 (the payment contract's second step)
 
 Additions only (`surface.txt` grows by 96 entries, `nildatest/surface.txt` by 6; nothing removed). Needs a Core built
 on this release for the new routes and hooks; an older Core answers the new routes 404 and never sends the new
