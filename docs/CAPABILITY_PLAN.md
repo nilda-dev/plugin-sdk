@@ -60,7 +60,7 @@ rows, since `route` already existed — and they were 120 of the 219 between the
 
 ## 2. What Nilda has, and where it stops
 
-Twenty-six capabilities exist (registered in `internal/plugin/schema_capabilities.go`; `search_provider`,
+Twenty-seven capabilities exist (registered in `internal/plugin/schema_capabilities.go`; `search_provider`,
 `commerce` and the two payment ones declare their constants next to their dispatch, in `searchprovider.go`,
 `commerce.go` and `payments.go`, and the rest — `field` and `auth_provider` among them — in
 `schema_capabilities.go` itself):
@@ -71,7 +71,7 @@ content.write  media.write    taxonomy.write  menus.write
 events         hooks          datastore       kv              schedule
 route          widget         render.assets   email           abilities
 admin_page     auth_provider  field           search_provider commerce
-payment_gateway               payment_session
+payment_gateway               payment_session               secrets
 ```
 
 That is a real vocabulary — richer than the "widget only" a first reading of `main.go` suggests. A shop

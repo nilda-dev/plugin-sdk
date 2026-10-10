@@ -202,6 +202,8 @@ func scopesFor(granted []string) []string {
 		// the ones routed to it — never the other's power.
 		"payment_session": {"read:payments", "write:payments"},
 		"payment_gateway": {"read:payments", "report:payments"},
+		// A plugin's own secrets with Core: the plugin-only scope behind /plugin-secrets.
+		"secrets": {"manage:secrets"},
 	}
 	seen := map[string]bool{}
 	var out []string

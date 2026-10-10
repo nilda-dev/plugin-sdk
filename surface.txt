@@ -526,6 +526,7 @@ method (*API) Patch(context.Context, string, any, any) (error)
 method (*API) Payments() (*Payments)
 method (*API) Post(context.Context, string, any, any) (error)
 method (*API) Scopes() ([]string)
+method (*API) Secrets() (*Secrets)
 method (*API) UploadMedia(context.Context, string, io.Reader, string, any) (error)
 method (*API) WithIdempotencyKey(string) (*API)
 method (*API) WithMaxRetries(int) (*API)
@@ -580,6 +581,9 @@ method (*Payments) Resolve(context.Context, string, PaymentResolution) (PaymentS
 method (*Payments) ResolveRefund(context.Context, string, string) (PaymentRefund, error)
 method (*Payments) ReverseRefund(context.Context, string, PaymentRejection) (PaymentRefund, error)
 method (*Payments) SetSecret(context.Context, string, string) (error)
+method (*Secrets) Delete(context.Context, string) (bool, error)
+method (*Secrets) Get(context.Context, string) (string, bool, error)
+method (*Secrets) Set(context.Context, string, string) (error)
 method (PaymentAddress) Validate() (error)
 method (PaymentDisputeReport) Validate() (error)
 method (PaymentExternalRefund) Validate() (error)
@@ -660,6 +664,7 @@ type SearchHit
 type SearchProvider
 type SearchQuery
 type SearchResults
+type Secrets
 type SettingField
 type Viewer
 type WidgetDef

@@ -366,6 +366,7 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `datastore` | a dedicated Postgres schema, tables Core creates from your declaration, DML-only access |
 | `kv` | a scoped key-value namespace for small state: a value is at most 64 KiB (a larger one answers `InvalidArgument`), and on every install one plugin holds at most 10,000 keys and 16 MiB (in Core's memory on a Lite install, beside Core's cache on Dragonfly, where writes racing each other at the very edge can pass it together) — a write past that answers `ResourceExhausted`, after expired keys are cleared, with no `google.rpc.RetryInfo` (a call past the kv rate limit carries one; waiting does not empty a full namespace); declare `datastore` for more |
 | `route` | a reverse-proxied URL prefix |
+| `secrets` | keep your own secrets with Core — a sign-in token for a service the owner connects — encrypted, and still there after a restart; see "Keeping a secret" |
 | `render.assets` | load its own scripts on public pages — see §4.1 |
 | `widget` | contribute page-builder widgets — see §4.1 |
 | `email` | send mail through the site's mailer (Core fixes the sender) |
@@ -1214,6 +1215,44 @@ public address. Serve subscribes the two optional interfaces' hooks only when yo
 
 `nildatest.Payments` is Core's side in memory, `nildatest.StubGateway` a gateway to test a consumer with, and
 `nildatest.Webhook` delivers a request the way Core's proxy delivers a webhook — PAYMENTS.md shows each.
+
+### Keeping a secret (`secrets`)
+
+Some credentials are not something the owner types. An OAuth login hands your plugin a refresh token that **changes
+every time you use it**; a processor shows a signing secret once. They have to be written by the plugin, and they
+have to still be there after a restart. `kv` is the wrong home: on a Lite install it lives in Core's memory and a
+restart loses it, leaving the owner to reconnect an account by hand. (A value the owner types on your admin page
+with `secret: true` needs none of this: Core already keeps those and hands them to you at `Init`.)
+
+```go
+sec := core.API().Secrets() // needs the `secrets` capability
+
+err := sec.Set(ctx, "refresh_token", newToken) // replaces the value there
+tok, found, err := sec.Get(ctx, "refresh_token") // found is false when none was set
+removed, err := sec.Delete(ctx, "refresh_token") // false, not an error, when there was nothing
+```
+
+Core stores each value encrypted, hands it back to the plugin that wrote it and to nobody else — not another plugin,
+not the owner's screens, not the assistant — and writes the *name* (never the value) to the audit trail. The plugin is
+named by its token, not by the request, so there is no way to ask for someone else's. A name is 1–64 lowercase
+letters, digits or underscores, a value 1–4096 bytes, and a plugin keeps at most 32 names. **Replacing a name you
+already keep is always allowed**, so a plugin at the limit can still rotate its token. An uninstall removes them all:
+a credential must not pass to whatever is installed under the same key next.
+
+Rotate carefully. A refresh token that rotates is spent the moment the provider answers, so write the new one
+**before** you use it for anything else; if two requests refresh at once, the loser holds a dead token. Take your own
+lock around "read, refresh, write". `nildatest.NewSecrets()` is a fake of these routes that answers as Core does
+(403 without the capability, 422 for a bad name or value, 404 for an unset name, the limit of 32):
+
+```go
+sec := nildatest.NewSecrets()
+core, _, srv := sec.Core("higgsfield", "secrets", "route")
+defer srv.Close()
+// ... exercise the plugin ...
+got, _ := sec.Get("higgsfield", "refresh_token") // what Core would be holding
+```
+
+This is plugin-sdk v0.11.0 and needs a Core built on it; an older Core refuses the `secrets` capability at install.
 
 ### Contributing a way to sign in (`auth_provider`)
 

@@ -20,6 +20,7 @@ field StubGateway.Refund nilda.PaymentRefundResult
 field StubGateway.Start nilda.PaymentStartResult
 func New(string, ...string) (*nilda.Core, *Host)
 func NewPayments() (*Payments)
+func NewSecrets() (*Secrets)
 func NewWithAPI(string, http.Handler, ...string) (*nilda.Core, *Host, *httptest.Server)
 func SetSettings(*nilda.Core, map[string]any)
 func Webhook(http.Handler, string, []byte, http.Header) (*http.Response)
@@ -53,6 +54,10 @@ method (*Payments) GetSession(string) (nilda.PaymentSession, bool)
 method (*Payments) Secret(string, string) (string, bool)
 method (*Payments) Sessions() ([]nilda.PaymentSession)
 method (*Payments) Sync(context.Context, string) (error)
+method (*Secrets) Core(string, ...string) (*nilda.Core, *Host, *httptest.Server)
+method (*Secrets) Get(string, string) (string, bool)
+method (*Secrets) Names(string) ([]string)
+method (*Secrets) Uninstall(string)
 method (*StubGateway) DescribePayments(context.Context) ([]nilda.PaymentMethod, error)
 method (*StubGateway) RefundPayment(context.Context, nilda.PaymentRefund, nilda.PaymentSession) (nilda.PaymentRefundResult, error)
 method (*StubGateway) StartPayment(context.Context, nilda.PaymentSession) (nilda.PaymentStartResult, error)
@@ -62,6 +67,7 @@ type Event
 type Host
 type Payments
 type Revocation
+type Secrets
 type StubGateway
 var ErrNotSubscribed
 var SessionsPerIdentity

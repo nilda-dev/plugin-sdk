@@ -4,6 +4,25 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## v0.11.0 — unreleased (a place for a plugin's own secrets)
+
+Additions only (`surface.txt` grows by 5 entries, `nildatest/surface.txt` by 6; nothing removed). Needs a Core built
+on this release: an older Core refuses the new `secrets` capability at install, and answers the new routes 404.
+
+### Added
+
+- **The `secrets` capability and `API.Secrets()`** — `Set`, `Get`, `Delete`: a plugin keeps its own credentials with
+  Core, encrypted, surviving a restart, readable by that plugin alone (an OAuth refresh token that rotates on every
+  use; a signing secret shown once). A name is 1–64 lowercase letters, digits or underscores, a value 1–4096 bytes,
+  at most 32 names per plugin; replacing one is always allowed. An uninstall removes them all. `docs/PLUGIN_SDK.md`
+  "Keeping a secret".
+- **`nildatest.NewSecrets()`**, a fake of Core's `/plugin-secrets` routes that answers as Core does.
+
+### Unchanged — and why that is the design
+
+- `Payments.SetSecret` / `GetSecret` keep their route and their capability (`payment_gateway`). Core now answers them
+  from the same store, so a gateway built on v0.10.4 needs no change.
+
 ## v0.10.4 — 2026-10-10 (the payment contract's second step)
 
 Additions only (`surface.txt` grows by 96 entries, `nildatest/surface.txt` by 6; nothing removed). Needs a Core built
