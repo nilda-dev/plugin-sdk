@@ -229,7 +229,10 @@ currency never reaches you, and an answer Core could not act on is an error.
 **`DescribePayments`** lists what you offer, as configured right now: each `nilda.PaymentMethod` with a
 `Key`, a `Label` the payer reads, the `Currencies` it takes (empty = any), whether it `Refunds`, and `Test`
 while you hold the processor's TEST keys — Core shows that to the owner and stamps it on every session, so a
-test order is never shipped as paid. **No keys yet: offer nothing**, not methods that fail.
+test order is never shipped as paid. With `Test`, give a `TestHint`: how a payer pays in test mode, by language
+(`"en"` always, then any of fa, ar, de, es, fr) — `{"en": "Use card 4242 4242 4242 4242, any future date, any
+CVC."}`. Core hands it to consumers on `PaymentOption.TestHint`, and a shop shows it beside the method in its own
+language (`TestHintFor` falls back to English). **No keys yet: offer nothing**, not methods that fail.
 
 **`StartPayment`** creates the processor's checkout and answers with its page:
 
@@ -489,7 +492,7 @@ Hooks arrive over the plugin protocol (docs/ANY_LANGUAGE.md) with these JSON pay
 
 | hook | to | payload in | answer |
 |---|---|---|---|
-| `payment.describe` | gateway | `{}` | `{"methods":[{"key","label","description","currencies","refunds","test","supports"}]}` |
+| `payment.describe` | gateway | `{}` | `{"methods":[{"key","label","description","currencies","refunds","test","test_hint","supports"}]}` |
 | `payment.start` | gateway | `{"session":{…}}` | `{"status","redirect_url","provider_ref","expires_at","failure_code","failure_message"}` |
 | `payment.refund` | gateway | `{"refund":{…},"session":{…}}` | `{"status","provider_ref","failure_code","failure_message"}` |
 | `payment.session.confirm` | consumer | `{"session":{…}}` | `{"proceed","reason"}` |
@@ -512,7 +515,7 @@ Calls into Core, under `/api/rest/v1`, with the plugin's token; answers inside `
 
 | call | who | body | answer |
 |---|---|---|---|
-| `GET /payments/methods?currency=EUR` | consumer | — | `[{"gateway","method","label","description","refunds","test","supports"}]` |
+| `GET /payments/methods?currency=EUR` | consumer | — | `[{"gateway","method","label","description","refunds","test","test_hint","supports"}]` |
 | `POST /payments/sessions` + `Idempotency-Key` | consumer | `{"gateway","method","reference","amount_minor","currency","description","return_url","cancel_url","email","locale","fulfilment","billing_address","shipping_address"}` | 201, the session |
 | `GET /payments/sessions/{id}` | either side of it | — | the session |
 | `POST /payments/sessions/{id}/refunds` + `Idempotency-Key` | consumer | `{"amount_minor","reason"}` | 201, the refund |

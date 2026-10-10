@@ -1213,6 +1213,11 @@ implements `nilda.PaymentSyncer` answers `payment.sync` (a `nilda.PaymentSyncReq
 missed webhook; a gateway's own secrets kept by Core (`SetSecret`, `GetSecret`); and `core.SiteURL`, the site's
 public address. Serve subscribes the two optional interfaces' hooks only when your handler implements them.
 
+**v0.10.5 adds** a test-mode hint (PAYMENTS.md §3): a gateway holding its processor's test keys sets
+`PaymentMethod.TestHint` beside `Test` — how a payer pays in test mode, by language — and a consumer shows
+`PaymentOption.TestHint` beside the method, in its own language with `nilda.TestHintFor` (English when the gateway
+wrote none in it).
+
 `nildatest.Payments` is Core's side in memory, `nildatest.StubGateway` a gateway to test a consumer with, and
 `nildatest.Webhook` delivers a request the way Core's proxy delivers a webhook — PAYMENTS.md shows each.
 

@@ -189,9 +189,9 @@ func TestTheWireNamesAreTheContract(t *testing.T) {
 		"PaymentRefund": {refund, "amount_minor created_at currency failure_code failure_message id provider_ref " +
 			"reason session status updated_at"},
 		"PaymentMethod": {PaymentMethod{Key: "k", Label: "l", Description: "d", Currencies: []string{"EUR"},
-			Refunds: true, Test: true}, "currencies description key label refunds test"},
+			Refunds: true, Test: true, TestHint: map[string]string{"en": "h"}}, "currencies description key label refunds test test_hint"},
 		"PaymentOption": {PaymentOption{Gateway: "g", Method: "m", Label: "l", Description: "d", Refunds: true,
-			Test: true}, "description gateway label method refunds test"},
+			Test: true, TestHint: map[string]string{"en": "h"}}, "description gateway label method refunds test test_hint"},
 		"PaymentSessionParams": {PaymentSessionParams{Gateway: "g", Method: "m", Reference: "r", AmountMinor: 1,
 			Currency: "EUR", Description: "d", ReturnURL: "u", CancelURL: "u", Email: "e", Locale: "l"},
 			"amount_minor cancel_url currency description email gateway locale method reference return_url"},
@@ -473,5 +473,19 @@ func TestTheKitsBoundsAreTheSDKs(t *testing.T) {
 		if !strings.Contains(kit, want) {
 			t.Errorf("nildatest/payments.go does not say %q — the kit's bound has left the SDK's (payment.go)", want)
 		}
+	}
+}
+
+// A consumer shows the hint in its shop's language, and in English where the gateway wrote none in it.
+func TestATestHintFallsBackToEnglish(t *testing.T) {
+	t.Parallel()
+	hint := map[string]string{"en": "Use card 4242 4242 4242 4242.", "de": "Karte 4242 4242 4242 4242."}
+	for lang, want := range map[string]string{"de": hint["de"], "fa": hint["en"], "": hint["en"]} {
+		if got := TestHintFor(hint, lang); got != want {
+			t.Errorf("TestHintFor(%q) = %q, want %q", lang, got, want)
+		}
+	}
+	if got := TestHintFor(nil, "de"); got != "" {
+		t.Errorf("no hint at all gave %q", got)
 	}
 }
