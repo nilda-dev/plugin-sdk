@@ -1259,6 +1259,36 @@ got, _ := sec.Get("higgsfield", "refresh_token") // what Core would be holding
 
 This is plugin-sdk v0.11.0 and needs a Core built on it; an older Core refuses the `secrets` capability at install.
 
+### What the site's plan allows you (`limits`, `PlanLimit`)
+
+On Nilda Cloud a plan sets numbers as well as features — Free has 5 pages, Basic 2 languages. A plugin of Nilda's own
+company can have numbers of its own that a plan sets: a shop's products, a calendar's resources. Declare each one in
+plugin.json, and read it back from the site's plan with `PlanLimit`; **your plugin enforces it**, the way Core
+enforces its own.
+
+```json
+"limits": [
+  { "name": "products", "label": "Products", "unit": "count" }
+]
+```
+
+```go
+limit, limited, err := core.API().PlanLimit(ctx, "products") // no capability needed
+if err == nil && limited && productCount >= limit {
+    return errors.New("this site's plan includes " + strconv.FormatInt(limit, 10) + " products, and they are all in use")
+}
+```
+
+A name is a lowercase letter, then up to 47 lowercase letters, digits or underscores; a label 1–80 characters; a unit
+`count` or `words`. The marketplace reads them out of your package at submission and refuses a package that declares
+one twice or with no label. On Nilda Cloud's Plans screen the operator sets each one per plan — only for a plan that
+includes your plugin — under `<your plugin key>.<name>`, and the site's licence carries it. **`limited` false is no
+limit**: a self-hosted site, a plan that sets none, and a Core older than v0.11.0 (which answers the route 404, read as
+no limit) all answer it, so a plugin built on this release runs unchanged everywhere. Core names the plugin from its
+token, never from the request, so you can only read your own.
+
+This is plugin-sdk v0.11.0.
+
 ### Contributing a way to sign in (`auth_provider`)
 
 Declare the method in `plugin.json`:

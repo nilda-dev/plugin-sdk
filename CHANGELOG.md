@@ -4,9 +4,9 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
-## v0.11.0 — unreleased (a place for a plugin's own secrets)
+## v0.11.0 — unreleased (a place for a plugin's own secrets; what the plan allows a plugin)
 
-Additions only (`surface.txt` grows by 5 entries, `nildatest/surface.txt` by 6; nothing removed). Needs a Core built
+Additions only (`surface.txt` grows by 6 entries, `nildatest/surface.txt` by 6; nothing removed). Needs a Core built
 on this release: an older Core refuses the new `secrets` capability at install, and answers the new routes 404.
 
 ### Added
@@ -17,6 +17,10 @@ on this release: an older Core refuses the new `secrets` capability at install, 
   at most 32 names per plugin; replacing one is always allowed. An uninstall removes them all. `docs/PLUGIN_SDK.md`
   "Keeping a secret".
 - **`nildatest.NewSecrets()`**, a fake of Core's `/plugin-secrets` routes that answers as Core does.
+- **`API.PlanLimit(ctx, name)`** and the manifest's **`limits`** (`name`, `label`, `unit`): a plugin of Nilda's own
+  declares numbers a Nilda Cloud plan sets for it — a shop's products — and reads the site's back to enforce them.
+  `limited` false is no limit, and a Core older than this release answers 404, read as no limit.
+  `docs/PLUGIN_SDK.md` "What the site's plan allows you".
 
 ### Unchanged — and why that is the design
 
