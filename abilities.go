@@ -42,10 +42,14 @@ import (
 // connectors may call the ability at all, and to apply the owner's destructive-action policy (a `block`
 // refuses the class outright; a `dryrun` stops it from applying).
 //
-// What Core does NOT give a plugin's ability yet is its own tools' preview-then-confirm step — a staged
-// change the owner approves before it applies. There is no Preview in this contract, so a destructive
-// ability runs when it is called. Design one for that: take an exact identifier (an id, a code), never a
-// name a model could mismatch, and make a repeated call change nothing the first did not.
+// An ability of class write or above ASKS THE PERSON FIRST (a Core built on v0.11.0): the first call answers
+// with Core's own preview — the plugin, the label, the arguments — and the person's yes runs exactly those
+// arguments; Run is called once, after the yes. Still design for a confused model: take an exact identifier
+// (an id, a code), never a name it could mismatch, and make a repeated call change nothing the first did not.
+//
+// Each ability is also declared in plugin.json (name, label, description, class) — the marketplace review reads it
+// there, and Core offers only an ability declared exactly as Init returns it. nildatest.ManifestAbilities writes
+// and holds that list.
 //
 // Declare the TRUEST class, not the most convenient one: a lower class does not make an action safer, it
 // only makes it reachable by connectors the owner meant to keep on a short leash. A class Core does not

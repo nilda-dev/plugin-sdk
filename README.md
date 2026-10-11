@@ -76,7 +76,7 @@ words.
 - **`NewCoreForTest`** — plumbing for `nildatest`. Write plugin tests against `nildatest`, the supported
   kit.
 
-**`nildatest` has a ledger of its own**, `nildatest/surface.txt` (73 entries), checked on every run the same
+**`nildatest` has a ledger of its own**, `nildatest/surface.txt` (75 entries), checked on every run the same
 way. The promise covers it on the same terms as the SDK's, with the same exception: seven of its `*Host`
 methods — `KVGet`, `KVSet`, `KVDel`, `KVIncr`, `EmitEvent`, `SendEmail`, `RevokeIdentity` — name `contract.*`
 and `grpc.*` types, because a `*Host` IS the fake `HostService` client `NewCoreForTest` is handed. Those

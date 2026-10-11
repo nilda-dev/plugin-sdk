@@ -645,6 +645,29 @@ plugins can both offer `create_product` without colliding.
 deciding whether yours is the right tool for what the owner asked. "Adds a product" is a tool that never
 gets called; the version above says *when* to use it.
 
+**Describe, never sell.** The marketplace review refuses a description that ranks your plugin, steers the
+assistant toward it ("always use this", "instead of other plugins"), upsells ("upgrade to Pro"), or carries a
+link. The assistant chooses tools for the owner, not for you.
+
+**Declare them in `plugin.json` too — the SDK writes the list.** The review reads your package and never runs it,
+so each ability's `name`, `label`, `description` and `class` is also written in the manifest's `abilities`, and a
+Core built on v0.11.0 offers the assistant only an ability declared there exactly as `Init` returns it. One that is
+missing or whose words differ is not offered, and the plugin's start line names it. Do not type the list:
+
+```go
+func TestPluginJSONDeclaresTheAbilities(t *testing.T) {
+	nildatest.ManifestAbilities(t, "plugin.json", (&Shop{}).abilities())
+}
+```
+
+Run it once with `NILDA_WRITE_MANIFEST=1 go test -run PluginJSON .` and it writes the list into `plugin.json`,
+leaving the rest of the file as it was; from then on it fails whenever `Init` and the manifest disagree.
+
+**An ability that changes the site asks the person first.** `write` and every class above it take Core's own two
+steps: the first call answers with a preview — your plugin's name, the ability's label and the arguments — and runs
+nothing; the person's yes runs exactly the arguments they saw. Your plugin is called once, after the yes, and never
+sees the confirmation token. `read`, `analyze` and `additive` run on the first call.
+
 **Declare the truest `Class`, not the most convenient one.** The class is what Core's guardrails run on:
 each connector has a risk ceiling the owner sets, and an ability above it is refused before your plugin is
 ever reached. A lower class does not make your action safer — it makes it reachable by connectors the

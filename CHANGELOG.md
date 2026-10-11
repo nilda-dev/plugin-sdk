@@ -4,9 +4,9 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
-## v0.11.0 — unreleased (a place for a plugin's own secrets; what the plan allows a plugin)
+## v0.11.0 — unreleased (a place for a plugin's own secrets; what the plan allows a plugin; abilities in plugin.json)
 
-Additions only (`surface.txt` grows by 6 entries, `nildatest/surface.txt` by 6; nothing removed). Needs a Core built
+Additions only (`surface.txt` grows by 6 entries, `nildatest/surface.txt` by 8; nothing removed). Needs a Core built
 on this release: an older Core refuses the new `secrets` capability at install, and answers the new routes 404.
 
 ### Added
@@ -21,6 +21,14 @@ on this release: an older Core refuses the new `secrets` capability at install, 
   declares numbers a Nilda Cloud plan sets for it — a shop's products — and reads the site's back to enforce them.
   `limited` false is no limit, and a Core older than this release answers 404, read as no limit.
   `docs/PLUGIN_SDK.md` "What the site's plan allows you".
+
+- **The manifest's `abilities`** (`name`, `label`, `description`, `class`) and **`nildatest.ManifestAbilities`**, which
+  writes them from what `Init` returns (`NILDA_WRITE_MANIFEST=1`, **`nildatest.WriteManifestEnv`**) and fails while
+  the two disagree. **A Core built on this release offers the assistant only an ability declared there exactly**, so a
+  plugin with the `abilities` capability regenerates its `plugin.json` before it runs on that Core; the marketplace
+  review reads and checks the list (no ranking, steering, upselling or links). And on that Core an ability of class
+  `write` or above **asks the person first** — Run is called once, after the yes. `docs/PLUGIN_SDK.md` "Telling the AI
+  agent what you can do".
 
 ### Unchanged — and why that is the design
 

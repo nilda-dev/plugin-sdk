@@ -1,3 +1,4 @@
+const WriteManifestEnv
 field Delivery.Consumer string
 field Delivery.Dispute nilda.PaymentDispute
 field Delivery.Err error
@@ -18,6 +19,7 @@ field Revocation.Subject string
 field StubGateway.Methods []nilda.PaymentMethod
 field StubGateway.Refund nilda.PaymentRefundResult
 field StubGateway.Start nilda.PaymentStartResult
+func ManifestAbilities(testing.TB, string, []nilda.Ability)
 func New(string, ...string) (*nilda.Core, *Host)
 func NewPayments() (*Payments)
 func NewSecrets() (*Secrets)
