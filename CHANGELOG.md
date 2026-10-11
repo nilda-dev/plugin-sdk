@@ -4,7 +4,7 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
-## v0.11.0 — unreleased (a place for a plugin's own secrets; what the plan allows a plugin; abilities in plugin.json)
+## v0.11.0 — 2026-10-11 (a place for a plugin's own secrets; what the plan allows a plugin; abilities in plugin.json)
 
 Additions only (`surface.txt` grows by 6 entries, `nildatest/surface.txt` by 8; nothing removed). Needs a Core built
 on this release: an older Core refuses the new `secrets` capability at install, and answers the new routes 404.
