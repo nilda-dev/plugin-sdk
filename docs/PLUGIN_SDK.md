@@ -157,7 +157,7 @@ call Core makes to you has `PLUGIN_CALL_TIMEOUT` (5 seconds by default); every s
 event shares ten seconds; and everything one public page asks of plugins — its widgets and its footer
 scripts together — shares 1.5 seconds, past which the page renders without the rest. Two calls get more:
 `Init` has `PLUGIN_INIT_TIMEOUT` (30 seconds by default), because a one-time data step runs there, and a
-payment gateway's three hooks have at most 15 seconds or `PLUGIN_CALL_TIMEOUT`, whichever is longer — less
+payment gateway's four hooks (describe, start, refund, sync) have at most 15 seconds or `PLUGIN_CALL_TIMEOUT`, whichever is longer — less
 when the request that asked has less left, since `payment.start` and `payment.describe` run inside it
 (PAYMENTS.md).
 
@@ -697,8 +697,9 @@ which *person* may ask for it. Core runs an ability only for someone who holds `
 Editor who holds `content.edit` and nothing of yours is refused, and the site's chat does not offer them the
 action at all. You declare nothing for this: it is the same list your admin screens use, so a button your
 screen refuses someone is an action the chat refuses them too. What you are NOT told is who that person was:
-the call carries the hook's name and its input, and nothing about the person (a limit Core records in its
-known issues).
+the call carries the hook's name, its input and what `nilda.CallOf(ctx)` reads — the request's id, and for a
+call relayed by Core's service desk the contract, the asking plugin and an idempotency key — and nothing about
+the person (a limit Core records in its known issues).
 
 `InputSchema` is required and must be a JSON Schema **object** — an agent that cannot see the shape of
 your input will call you with the wrong thing. `ObjectSchema` builds one so you do not hand-write JSON.
@@ -1575,6 +1576,27 @@ still reaches Core, but as an opaque line at debug, with no level and no fields.
 
 Nothing is filtered inside your process, deliberately: Core applies the site's configured level. If both
 ends filtered, an owner turning the level up to debug your plugin would still see nothing.
+
+### What Core says about the call you are handling (`CallOf`, `EventOf`)
+
+Beside a hook's name and payload, Core can say which request led to the call — and, for a call relayed by its
+service desk from another plugin, the contract, the asking plugin and the caller's idempotency key:
+
+```go
+// Inside HandleHook, an ability's Run, or a provider method the SDK calls for a hook:
+call := nilda.CallOf(ctx)
+nilda.Log().Info("rating a parcel", "request_id", call.RequestID, "for", call.Caller)
+// call.IdempotencyKey: a call repeated with the same key must have the effect of one.
+```
+
+`CallOf` returns a `CallInfo`. An event carries its CloudEvents 1.0 context the same way — `nilda.EventOf(ctx)`
+inside `HandleEvent` returns an `EventInfo`: `ID`
+(unique per event, and kept by a redelivery, so an id you have seen is a repeat to drop), `Source` (set by Core,
+`/core` or `/plugins/<key>` — an emitter cannot claim another's), `Time`, `Subject` and `DataSchema`.
+
+Every field is empty from a Core that does not fill it, and Core's own hooks carry no `Contract` or `Caller`.
+Neither says who the PERSON was (see abilities, above). Log `RequestID` beside your own lines: one search in the
+owner's log then finds both halves of a failure.
 
 ---
 

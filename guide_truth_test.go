@@ -73,7 +73,7 @@ func TestTheGuidesNumbersAndNamesAreCores(t *testing.T) {
 	if gateway == nil {
 		t.Fatal("core's internal/plugin/payments.go no longer declares PaymentHookBudget in seconds — repoint this guard")
 	}
-	says(guide, "PLUGIN_SDK.md", "a payment gateway's three hooks have at most "+gateway[1]+" seconds or `PLUGIN_CALL_TIMEOUT`, whichever is longer — less when the request that asked has less left")
+	says(guide, "PLUGIN_SDK.md", "a payment gateway's four hooks (describe, start, refund, sync) have at most "+gateway[1]+" seconds or `PLUGIN_CALL_TIMEOUT`, whichever is longer — less when the request that asked has less left")
 	says(guide, "PLUGIN_SDK.md", "`PLUGIN_CALL_TIMEOUT` (5 seconds by default); every subscriber of one hook or event shares ten seconds")
 	says(guide, "PLUGIN_SDK.md", "shares 1.5 seconds")
 	says(plugins, "PLUGINS.md", "5 s a call (PLUGIN_CALL_TIMEOUT), 10 s for every subscriber of one hook or event together, 1.5 s for everything one public page asks of plugins")

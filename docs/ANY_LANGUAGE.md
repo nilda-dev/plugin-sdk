@@ -183,9 +183,19 @@ there, so here they are:
 
 Nilda applies a **5-second timeout** by default — a slow answer fails the call, not the site.
 
+Four more fields say who asked, and are empty when Nilda does not fill them: `request_id` (the request that led to
+this call, as Nilda's own log lines carry it), and for a call relayed by Nilda's service desk from another plugin
+`contract` (e.g. `shipping.carrier/v1`), `caller` (the asking plugin's key) and `idempotency_key` (a call
+repeated with it must have the effect of one). None of them is the person.
+
 ### `HandleEvent(EventRequest) → EventResponse`
 
 Fire-and-forget notification. Nothing waits for your answer.
+
+`type` and `data_json` are a CloudEvents 1.0 event's `type` and `data`; its other context attributes travel
+beside them, empty when Nilda does not fill them: `id` (unique per event and kept by a redelivery — an id you
+have seen is a repeat to drop), `source` (set by Nilda: `/core` or `/plugins/<key>`), `time` (RFC 3339),
+`subject` and `dataschema`. `specversion` is always `1.0` and the data always JSON, so neither travels.
 
 ### `Health(HealthRequest) → HealthResponse`
 
@@ -199,7 +209,7 @@ that is not a bug you should work around.
 
 - **A ceiling per call**: `PLUGIN_CALL_TIMEOUT`, 5 seconds by default, for a hook and for an event. Two
   calls get more: `Init` has `PLUGIN_INIT_TIMEOUT` (30 seconds by default), because a one-time data step
-  runs there, and a payment gateway's three hooks have at most 15 seconds or `PLUGIN_CALL_TIMEOUT`,
+  runs there, and a payment gateway's four hooks (describe, start, refund, sync) have at most 15 seconds or `PLUGIN_CALL_TIMEOUT`,
   whichever is longer — less when the request that asked has less left (PAYMENTS.md).
 - **A circuit breaker.** If at least half your calls fail within a two-minute window — once there are at
   least five calls in it, so a quiet site cannot trip you on one bad answer — Nilda stops calling you for

@@ -171,6 +171,10 @@ field AuthStartRequest.Nonce string json:nonce
 field AuthStartRequest.Provider string json:provider
 field AuthStartRequest.RedirectURI string json:redirect_uri
 field AuthStartRequest.State string json:state
+field CallInfo.Caller string
+field CallInfo.Contract string
+field CallInfo.IdempotencyKey string
+field CallInfo.RequestID string
 field CommerceEndpoints.Account string json:account
 field CommerceEndpoints.AddToCart string json:add_to_cart
 field CommerceEndpoints.Cart string json:cart
@@ -216,6 +220,11 @@ field Core.PluginKey string
 field Core.PreviousVersion string
 field Core.RoutePrefix string
 field Core.SiteURL string
+field EventInfo.DataSchema string
+field EventInfo.ID string
+field EventInfo.Source string
+field EventInfo.Subject string
+field EventInfo.Time time.Time
 field FieldChoice.Label string json:label
 field FieldChoice.Value string json:value
 field FieldChoicesRequest.Field string json:field
@@ -452,6 +461,7 @@ field WidgetRenderRequest.Title string json:title
 field WidgetRenderRequest.Type string json:type
 field WidgetRenderRequest.URL string json:url
 func AbilityHook(string) (string)
+func CallOf(context.Context) (CallInfo)
 func CurrentUser(*http.Request) (Viewer, bool)
 func DispatchAdminAction(context.Context, string, []byte, func(context.Context, AdminAction) (AdminActionResult, error)) ([]byte, bool, error)
 func DispatchAdminReport(context.Context, string, []byte, func(context.Context, AdminReportRequest) (AdminReportResult, error)) ([]byte, bool, error)
@@ -463,6 +473,7 @@ func DispatchPaymentGatewayHook(context.Context, *Core, PaymentGateway, string, 
 func DispatchSearchHook(context.Context, *Core, SearchProvider, string, []byte) ([]byte, bool, error)
 func DisputeCanMove(string, string) (bool)
 func DisputeFinal(string) (bool)
+func EventOf(context.Context) (EventInfo)
 func FieldTypes() ([]string)
 func FormatMinor(int64, string) (string, bool)
 func HTTPClient(time.Duration) (*http.Client)
@@ -610,6 +621,7 @@ type AuthCompleteRequest
 type AuthProvider
 type AuthProviderStatus
 type AuthStartRequest
+type CallInfo
 type Class
 type Commerce
 type CommerceCounter
@@ -619,6 +631,7 @@ type CommerceQuery
 type CommerceTerm
 type CommerceVariation
 type Core
+type EventInfo
 type FieldChoice
 type FieldChoicesRequest
 type FieldChoicesResponse

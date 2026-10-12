@@ -170,6 +170,12 @@ message Schedule {
 message HookRequest {
   string hook = 1;
   bytes payload = 2; // JSON
+  // Who asked, and under what (the service desk, core docs/files/PLAN_PLUGIN_COMMUNICATION_2026-10-12.md). All
+  // empty from a Core that does not fill them; the Go SDK reads them with nilda.CallOf(ctx).
+  string request_id = 3;      // the id of the request that led to this call, as Core's own log lines carry it
+  string contract = 4;        // a service-desk call's contract, e.g. "shipping.carrier/v1"; empty for Core's own hooks
+  string idempotency_key = 5; // the caller's key for this operation: a call repeated with it must have the effect of one
+  string caller = 6;          // a service-desk call's asking plugin, by key; empty when Core itself asked
 }
 
 message HookResponse {
@@ -179,6 +185,14 @@ message HookResponse {
 message EventRequest {
   string type = 1;
   bytes data_json = 2;
+  // The CloudEvents 1.0 context attributes (owner decision D13, 2026-10-12): type and data above are its `type` and
+  // `data`; specversion is "1.0" and datacontenttype "application/json" for every event, so neither travels. Empty
+  // from a Core that does not fill them; the Go SDK reads them with nilda.EventOf(ctx).
+  string id = 3;         // unique per event; a redelivery of the same event keeps it, so a consumer can drop a repeat
+  string source = 4;     // who emitted it, set by Core and never by the emitter: "/core" or "/plugins/<key>"
+  string time = 5;       // when it happened, RFC 3339
+  string subject = 6;    // what it is about within the source, e.g. an order id; empty when the type says it all
+  string dataschema = 7; // the URI of the data's schema, when one is published
 }
 
 message EventResponse {}

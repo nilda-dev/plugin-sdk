@@ -175,6 +175,7 @@ func TestThePaymentNumbersInTheGuideAreCores(t *testing.T) {
 		return m[1]
 	}
 	plugin, host := flat("internal", "plugin", "payments.go"), flat("internal", "plugin", "host.go")
+	calls := flat("internal", "plugin", "calltable.go")
 	service, module := flat("internal", "payments", "service.go"), flat("internal", "payments", "module.go")
 	config := flat("pkg", "config", "config.go")
 	queries := flat("internal", "db", "queries", "payments.sql")
@@ -184,15 +185,18 @@ func TestThePaymentNumbersInTheGuideAreCores(t *testing.T) {
 	lifetime := number(service, "internal/payments/service.go", `const sessionLifetime = ([0-9]+) \* time\.Hour`)
 	sweep := number(module, "internal/payments/module.go", `\{Spec: "@every ([0-9]+)m", JobType: JobExpire\}`)
 
-	// Where each is applied: every hook call takes its budget from hookBudget, which gives the gateway's three
-	// hooks PaymentHookBudget only when it is the longer — and nothing else; a session's expiry starts at
+	// Where each is applied: every hook call takes its budget from hookBudget, which gives a hook its call-table
+	// row's budget only when it is the longer — and only the gateway's four hooks have PaymentHookBudget there; a session's expiry starts at
 	// sessionLifetime from its creation, counted on the DATABASE's clock (Core's whole-plan review, P-m1: the
 	// sweep that closes it reads that clock).
 	for _, c := range []struct{ src, file, want string }{
 		{host, "internal/plugin/host.go", "callCtx, cancel := context.WithTimeout(ctx, hookBudget(hook, h.cfg.CallTimeout))"},
-		{plugin, "internal/plugin/payments.go", "func hookBudget(hook string, ordinary time.Duration) time.Duration { " +
-			"switch hook { case HookPaymentDescribe, HookPaymentStart, HookPaymentRefund, HookPaymentSync: " +
-			"if PaymentHookBudget > ordinary { return PaymentHookBudget } } return ordinary }"},
+		{calls, "internal/plugin/calltable.go", "func hookBudget(hook string, ordinary time.Duration) time.Duration { " +
+			"if r, _ := ruleFor(hook); r.budget > ordinary { return r.budget } return ordinary }"},
+		{calls, "internal/plugin/calltable.go", "gatewayCall = hookRule{budget: PaymentHookBudget}"},
+		{calls, "internal/plugin/calltable.go", "HookPaymentDescribe: gatewayCall, HookPaymentStart: gatewayCall,"},
+		{calls, "internal/plugin/calltable.go", "HookPaymentRefund: {budget: PaymentHookBudget, errorIsAnswer: true}, " +
+			"HookPaymentSync: {budget: PaymentHookBudget, errorIsAnswer: true},"},
 		{service, "internal/payments/service.go", "Lifetime: sessionLifetime,"},
 		{queries, "internal/db/queries/payments.sql", "shipping_address, expires_at ) VALUES ( $1, $2, $3, $4, $5, $6, $7, " +
 			"'created', $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, now() + sqlc.arg('lifetime')::interval )"},
@@ -200,6 +204,11 @@ func TestThePaymentNumbersInTheGuideAreCores(t *testing.T) {
 		if !strings.Contains(c.src, c.want) {
 			t.Errorf("core's %s no longer has %q — re-read what PAYMENTS.md says about it", c.file, c.want)
 		}
+	}
+	// "and nothing else": those three places are the only rows that name the payment budget.
+	if n := strings.Count(calls, "PaymentHookBudget"); n != 3 {
+		t.Errorf("core's call table names PaymentHookBudget %d times, want the gateway row kind and the refund and sync rows — "+
+			"re-read which hooks PAYMENTS.md says get 15 seconds", n)
 	}
 	// "At most": start and describe run on the asking request's context, which a WithTimeout inside the call
 	// keeps (a child context never outlives its parent's deadline).

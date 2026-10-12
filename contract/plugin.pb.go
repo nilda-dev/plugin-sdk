@@ -455,11 +455,17 @@ func (x *Schedule) GetCron() string {
 }
 
 type HookRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Hook          string                 `protobuf:"bytes,1,opt,name=hook,proto3" json:"hook,omitempty"`
-	Payload       []byte                 `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"` // JSON
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Hook    string                 `protobuf:"bytes,1,opt,name=hook,proto3" json:"hook,omitempty"`
+	Payload []byte                 `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"` // JSON
+	// Who asked, and under what (the service desk, core docs/files/PLAN_PLUGIN_COMMUNICATION_2026-10-12.md). All
+	// empty from a Core that does not fill them; the Go SDK reads them with nilda.CallOf(ctx).
+	RequestId      string `protobuf:"bytes,3,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`                // the id of the request that led to this call, as Core's own log lines carry it
+	Contract       string `protobuf:"bytes,4,opt,name=contract,proto3" json:"contract,omitempty"`                                   // a service-desk call's contract, e.g. "shipping.carrier/v1"; empty for Core's own hooks
+	IdempotencyKey string `protobuf:"bytes,5,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"` // the caller's key for this operation: a call repeated with it must have the effect of one
+	Caller         string `protobuf:"bytes,6,opt,name=caller,proto3" json:"caller,omitempty"`                                       // a service-desk call's asking plugin, by key; empty when Core itself asked
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *HookRequest) Reset() {
@@ -504,6 +510,34 @@ func (x *HookRequest) GetPayload() []byte {
 		return x.Payload
 	}
 	return nil
+}
+
+func (x *HookRequest) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *HookRequest) GetContract() string {
+	if x != nil {
+		return x.Contract
+	}
+	return ""
+}
+
+func (x *HookRequest) GetIdempotencyKey() string {
+	if x != nil {
+		return x.IdempotencyKey
+	}
+	return ""
+}
+
+func (x *HookRequest) GetCaller() string {
+	if x != nil {
+		return x.Caller
+	}
+	return ""
 }
 
 type HookResponse struct {
@@ -551,9 +585,17 @@ func (x *HookResponse) GetPayload() []byte {
 }
 
 type EventRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Type          string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
-	DataJson      []byte                 `protobuf:"bytes,2,opt,name=data_json,json=dataJson,proto3" json:"data_json,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Type     string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	DataJson []byte                 `protobuf:"bytes,2,opt,name=data_json,json=dataJson,proto3" json:"data_json,omitempty"`
+	// The CloudEvents 1.0 context attributes (owner decision D13, 2026-10-12): type and data above are its `type` and
+	// `data`; specversion is "1.0" and datacontenttype "application/json" for every event, so neither travels. Empty
+	// from a Core that does not fill them; the Go SDK reads them with nilda.EventOf(ctx).
+	Id            string `protobuf:"bytes,3,opt,name=id,proto3" json:"id,omitempty"`                 // unique per event; a redelivery of the same event keeps it, so a consumer can drop a repeat
+	Source        string `protobuf:"bytes,4,opt,name=source,proto3" json:"source,omitempty"`         // who emitted it, set by Core and never by the emitter: "/core" or "/plugins/<key>"
+	Time          string `protobuf:"bytes,5,opt,name=time,proto3" json:"time,omitempty"`             // when it happened, RFC 3339
+	Subject       string `protobuf:"bytes,6,opt,name=subject,proto3" json:"subject,omitempty"`       // what it is about within the source, e.g. an order id; empty when the type says it all
+	Dataschema    string `protobuf:"bytes,7,opt,name=dataschema,proto3" json:"dataschema,omitempty"` // the URI of the data's schema, when one is published
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -600,6 +642,41 @@ func (x *EventRequest) GetDataJson() []byte {
 		return x.DataJson
 	}
 	return nil
+}
+
+func (x *EventRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *EventRequest) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *EventRequest) GetTime() string {
+	if x != nil {
+		return x.Time
+	}
+	return ""
+}
+
+func (x *EventRequest) GetSubject() string {
+	if x != nil {
+		return x.Subject
+	}
+	return ""
+}
+
+func (x *EventRequest) GetDataschema() string {
+	if x != nil {
+		return x.Dataschema
+	}
+	return ""
 }
 
 type EventResponse struct {
@@ -1448,15 +1525,27 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"\tread_only\x18\x06 \x01(\bR\breadOnly\"2\n" +
 	"\bSchedule\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
-	"\x04cron\x18\x02 \x01(\tR\x04cron\";\n" +
+	"\x04cron\x18\x02 \x01(\tR\x04cron\"\xb7\x01\n" +
 	"\vHookRequest\x12\x12\n" +
 	"\x04hook\x18\x01 \x01(\tR\x04hook\x12\x18\n" +
-	"\apayload\x18\x02 \x01(\fR\apayload\"(\n" +
+	"\apayload\x18\x02 \x01(\fR\apayload\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\x03 \x01(\tR\trequestId\x12\x1a\n" +
+	"\bcontract\x18\x04 \x01(\tR\bcontract\x12'\n" +
+	"\x0fidempotency_key\x18\x05 \x01(\tR\x0eidempotencyKey\x12\x16\n" +
+	"\x06caller\x18\x06 \x01(\tR\x06caller\"(\n" +
 	"\fHookResponse\x12\x18\n" +
-	"\apayload\x18\x01 \x01(\fR\apayload\"?\n" +
+	"\apayload\x18\x01 \x01(\fR\apayload\"\xb5\x01\n" +
 	"\fEventRequest\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x1b\n" +
-	"\tdata_json\x18\x02 \x01(\fR\bdataJson\"\x0f\n" +
+	"\tdata_json\x18\x02 \x01(\fR\bdataJson\x12\x0e\n" +
+	"\x02id\x18\x03 \x01(\tR\x02id\x12\x16\n" +
+	"\x06source\x18\x04 \x01(\tR\x06source\x12\x12\n" +
+	"\x04time\x18\x05 \x01(\tR\x04time\x12\x18\n" +
+	"\asubject\x18\x06 \x01(\tR\asubject\x12\x1e\n" +
+	"\n" +
+	"dataschema\x18\a \x01(\tR\n" +
+	"dataschema\"\x0f\n" +
 	"\rEventResponse\"\x0f\n" +
 	"\rHealthRequest\" \n" +
 	"\x0eHealthResponse\x12\x0e\n" +

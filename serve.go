@@ -246,6 +246,7 @@ func asAnswer(err error) error {
 
 func (s *pluginServer) HandleHook(ctx context.Context, req *contract.HookRequest) (resp *contract.HookResponse, err error) {
 	defer s.recoverCall("hook "+req.Hook, &err)
+	ctx = withCall(ctx, req)
 	// Abilities first, for the ones that brought a Run. An `ability:` hook whose name has NO runner falls
 	// through to the author's HandleHook on purpose — that is the documented way to handle an ability
 	// yourself, it is the only reason AbilityHook is exported, and it is what makes Ability.Run optional.
@@ -279,7 +280,7 @@ func (s *pluginServer) HandleHook(ctx context.Context, req *contract.HookRequest
 
 func (s *pluginServer) HandleEvent(ctx context.Context, req *contract.EventRequest) (resp *contract.EventResponse, err error) {
 	defer s.recoverCall("event "+req.Type, &err)
-	if err := s.handler.HandleEvent(ctx, req.Type, req.DataJson); err != nil {
+	if err := s.handler.HandleEvent(withEvent(ctx, req), req.Type, req.DataJson); err != nil {
 		return nil, err
 	}
 	return &contract.EventResponse{}, nil

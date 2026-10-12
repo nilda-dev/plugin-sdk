@@ -173,8 +173,9 @@ func TestAKeyHoldsAcrossARestartOnlyUnderTheSameScopes(t *testing.T) {
 }
 
 // TestTheGuideSaysAnAbilityIsNotToldWhoAsked holds the other half of C10 (Core's 2026-09-24 whole-plan review,
-// I-8): the call carries the hook's name and its input and nothing about the person — the wire's own shape, so a
-// field added to carry the person turns this red until the sentence is rewritten.
+// I-8): the call carries the hook's name, its input and CallOf's context — a request id, and for a service-desk
+// call the contract, the asking PLUGIN and an idempotency key — and nothing about the person. The wire's own shape:
+// a field added to carry the person turns this red until the sentence is rewritten.
 func TestTheGuideSaysAnAbilityIsNotToldWhoAsked(t *testing.T) {
 	var fields []string
 	rt := reflect.TypeOf(contract.HookRequest{})
@@ -183,7 +184,7 @@ func TestTheGuideSaysAnAbilityIsNotToldWhoAsked(t *testing.T) {
 			fields = append(fields, f.Name)
 		}
 	}
-	if strings.Join(fields, ",") != "Hook,Payload" {
+	if strings.Join(fields, ",") != "Hook,Payload,RequestId,Contract,IdempotencyKey,Caller" {
 		t.Fatalf("contract.HookRequest carries %v now, not only the hook and its input — re-read the guide's "+
 			"\"What you are NOT told is who that person was\"", fields)
 	}
@@ -202,7 +203,9 @@ func TestTheGuideSaysAnAbilityIsNotToldWhoAsked(t *testing.T) {
 		t.Error("core's host.go puts gRPC metadata on a call — re-read whether a plugin is told who asked")
 	}
 	if doc := strings.Join(strings.Fields(readText(t, "docs/PLUGIN_SDK.md")), " "); !strings.Contains(doc,
-		"What you are NOT told is who that person was: the call carries the hook's name and its input, and nothing about the person") {
+		"What you are NOT told is who that person was: the call carries the hook's name, its input and what `nilda.CallOf(ctx)` reads — "+
+			"the request's id, and for a call relayed by Core's service desk the contract, the asking plugin and an idempotency key — "+
+			"and nothing about the person") {
 		t.Error("the guide no longer says an ability is not told who asked, which contract.HookRequest makes true")
 	}
 }
@@ -743,32 +746,42 @@ func TestTheAdminPageRulesTheDocsNameAreCores(t *testing.T) {
 // S-6 (Core's 2026-09-24 whole-plan review): "an error you return reaches the owner as the reason the action
 // did not run" was false — Core passed the plugin's error on raw, the owner read "internal error", and each
 // refusal counted toward switching the plugin off. Held to Core's source both ways: the row action turns the
-// plugin's own error into its words (bounded by the same 300 the sentence names), and the failure count asks
-// refusalIsAnAnswer for the three calls a person makes.
+// plugin's own error into its words (bounded by the same 300 the sentence names), and the failure count asks the
+// call table (Core's calltable.go) whether the hook's handler answered — for the three calls a person makes.
 func TestARowActionsRefusalIsTheOwnersReasonAndNotAFailure(t *testing.T) {
 	read := func(name string) string {
 		return coreSource(t, "internal", "plugin", name)
 	}
-	list, host, fields := read("adminlist.go"), read("host.go"), read("fields.go")
+	list, host, fields, calls := read("adminlist.go"), read("host.go"), read("fields.go"), read("calltable.go")
 	for _, want := range []string{
 		"if said := pluginRefusal(err); said != \"\" {\n\t\t\t\treturn nil, apperr.New(apperr.CodeConflict, \"the plugin did not run this action: \"+said).\n" +
 			"\t\t\t\t\tWithDetails(map[string]string{\"reason\": ReasonActionRefused, \"said\": said})",
 		"return trimTo(strings.TrimSpace(st.GRPCStatus().Message()), maxValidationMsgLen)",
-		"if hook != AdminActionHook && hook != AdminReportHook && !strings.HasPrefix(hook, AbilityHookPrefix) {",
-		"return callCtx.Err() == nil && status.Code(err) == codes.Unknown",
 	} {
 		if !strings.Contains(list, want) {
 			t.Errorf("core's adminlist.go no longer has %q — re-read DispatchAdminAction's error sentence and ANY_LANGUAGE's failure count", want)
 		}
 	}
-	if !strings.Contains(host, "askAgainIsAnAnswer(callCtx, hook, err) || refusalIsAnAnswer(callCtx, hook, err)") {
+	for _, want := range []string{
+		"answersAPerson = hookRule{errorIsAnswer: true}",
+		"AdminActionHook: answersAPerson,",
+		"AdminReportHook: answersAPerson,",
+		"return answersAPerson, len(hook) > len(AbilityHookPrefix)",
+		"return r.errorIsAnswer && callCtx.Err() == nil && status.Code(err) == codes.Unknown",
+	} {
+		if !strings.Contains(calls, want) {
+			t.Errorf("core's calltable.go no longer has %q — re-read DispatchAdminAction's error sentence and ANY_LANGUAGE's failure count", want)
+		}
+	}
+	if !strings.Contains(host, `case hook != "" && handlerAnswered(callCtx, hook, err):`) {
 		t.Error("core's host.go no longer spares a person's refusal from the failure count — re-read ANY_LANGUAGE's sentence")
 	}
 	// The code Core reads as an answer, for the consumer's hooks as for a person's: Unknown and nothing else —
 	// which is why Serve sends every handler error as Unknown and a panic as Internal (serve.go's asAnswer and
 	// recoverCall, held by TestAHandlersErrorReachesCoreAsItsAnswer and TestAPanicInTheAuthorsCodeFailsTheCallNotTheProcess).
-	if !strings.Contains(read("payments.go"), "return callCtx.Err() == nil && status.Code(callErr) == codes.Unknown") {
-		t.Error("core's askAgainIsAnAnswer no longer reads Unknown as the consumer's answer — re-read serve.go's asAnswer and ANY_LANGUAGE's code")
+	if !strings.Contains(calls, "answersAgain = hookRule{errorIsAnswer: true}") ||
+		!strings.Contains(calls, "HookPaymentSessionUpdated: answersAgain,") {
+		t.Error("core's call table no longer reads Unknown as the consumer's answer — re-read serve.go's asAnswer and ANY_LANGUAGE's code")
 	}
 	if !regexp.MustCompile(`\bmaxValidationMsgLen\s*=\s*300\b`).MatchString(fields) {
 		t.Error("core's refusal bound is no longer 300 — re-read DispatchAdminAction's \"first 300 characters\"")
@@ -813,7 +826,7 @@ func TestTheAssistantSavesSettingsThroughTheSectionsOwnSave(t *testing.T) {
 		"if err := s.SaveAdminPage(ctx, man.Key, page.Key, in.Values); err != nil {",
 		// "a secret … is never read back or repeated": the preview's card, and the read tool's answer.
 		`row["secret"] = "will be replaced; the value is not shown"`,
-		`if f.Secret { row["secret"], row["set"] = true, f.Set } else { row["value"] = pg.Values[f.Key] }`,
+		`if f.Secret { row["secret"], row["set"] = true, f.Set if f.Unreadable { row["unreadable"], row["note"] = true, settings.UnreadableSecretNote } } else { row["value"] = pg.Values[f.Key] }`,
 		// "only after they approved the change": the tool stages a preview and needs a person's own sign-in.
 		"Preview: s.previewSettingsSet, Invoke: module.Typed(s.toolSettingsSet), Authorize: \"core_auth\",",
 	} {
