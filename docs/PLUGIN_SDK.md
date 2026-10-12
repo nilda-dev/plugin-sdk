@@ -1598,6 +1598,29 @@ Every field is empty from a Core that does not fill it, and Core's own hooks car
 Neither says who the PERSON was (see abilities, above). Log `RequestID` beside your own lines: one search in the
 owner's log then finds both halves of a failure.
 
+### Service contracts (`Contracts`, `ContractNamed`)
+
+What one kind of plugin promises another through Core — a payment gateway to the shop today; a carrier, a
+catalogue for a feed next — is a **contract**, shipped with this SDK as a file: `contracts/<name>/v<major>/contract.json`.
+Each `ServiceContract` lists its methods, and each `ContractMethod` says who answers it (`provider` or `consumer`),
+its time budget, whether an error from it is a failure or an answer (`retry_class`), what Core does when a provider
+fails (`fallback`: `skip`, `block` or `cached`), whether a repeat is safe (`idempotent`), how the site's assistant may
+use it (`agent`: a tool of class `read`, `write` or `destructive`, or `none` with the reason and the owner's other
+door), and the JSON Schema (2020-12) of its request and answer.
+
+```go
+pay, _ := nilda.ContractNamed("payments/v1")
+start, _ := pay.Method("start")
+if err := start.ValidateOutput(answer); err != nil {
+    nilda.Log().Warn("this answer would be refused", "error", err)
+}
+```
+
+Core checks every request and every answer against the same file (`Contracts()` is what it reads), so a plugin in
+any language is held to one shape. Within a major version a contract only grows: a schema never closes an object,
+so a field one side adds is not refused by the other. `payments/v1` describes the payment hooks above, unchanged on
+the wire; its methods are not tools, because the owner's doors onto payments are Core's own payment tools.
+
 ---
 
 ## 6. What Core guarantees, and what it does not

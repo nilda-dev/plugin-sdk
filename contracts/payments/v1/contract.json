@@ -1,0 +1,1595 @@
+{
+  "name": "payments/v1",
+  "description": "Taking money: a gateway plugin describes its payment methods, starts and refunds payments and reads a payment's state; the plugin that asked for the payment — the shop — is told what happened. Core holds every session's state (PAYMENTS.md).",
+  "methods": [
+    {
+      "name": "describe",
+      "hook": "payment.describe",
+      "answered_by": "provider",
+      "description": "The payment methods this gateway offers now, for checkout to show.",
+      "budget_ms": 15000,
+      "retry_class": "failure",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reaches payments through Core's own payment tools (payments_list, payment_detail, payment_decide, payment_methods, payment_method_set); this hook is Core-to-plugin plumbing beneath them",
+      "input": {
+        "type": "object"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "methods": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "currencies": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "refunds": {
+                  "type": "boolean"
+                },
+                "test": {
+                  "type": "boolean"
+                },
+                "test_hint": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "supports": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "key",
+                "label"
+              ]
+            }
+          }
+        },
+        "required": [
+          "methods"
+        ]
+      }
+    },
+    {
+      "name": "start",
+      "hook": "payment.start",
+      "answered_by": "provider",
+      "description": "Open a payment at the processor for a session Core created; the session id is the idempotency key at the processor.",
+      "budget_ms": 15000,
+      "retry_class": "failure",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reaches payments through Core's own payment tools (payments_list, payment_detail, payment_decide, payment_methods, payment_method_set); this hook is Core-to-plugin plumbing beneath them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "consumer": {
+                "type": "string"
+              },
+              "gateway": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "reference": {
+                "type": "string"
+              },
+              "amount_minor": {
+                "type": "integer"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "test": {
+                "type": "boolean"
+              },
+              "description": {
+                "type": "string"
+              },
+              "return_url": {
+                "type": "string"
+              },
+              "cancel_url": {
+                "type": "string"
+              },
+              "redirect_url": {
+                "type": "string"
+              },
+              "provider_ref": {
+                "type": "string"
+              },
+              "failure_code": {
+                "type": "string"
+              },
+              "failure_message": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "locale": {
+                "type": "string"
+              },
+              "supports": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "fulfilment": {
+                "type": "string"
+              },
+              "billing_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "shipping_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "refunded_minor": {
+                "type": "integer"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "consumer",
+              "gateway",
+              "method",
+              "reference",
+              "amount_minor",
+              "currency",
+              "status",
+              "return_url",
+              "cancel_url",
+              "refunded_minor",
+              "created_at",
+              "updated_at"
+            ]
+          }
+        },
+        "required": [
+          "session"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "redirect_url": {
+            "type": "string"
+          },
+          "provider_ref": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "failure_code": {
+            "type": "string"
+          },
+          "failure_message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    },
+    {
+      "name": "refund",
+      "hook": "payment.refund",
+      "answered_by": "provider",
+      "description": "Give money back for a refund Core recorded; the refund id is the idempotency key, and an error means its fate is unknown, so Core asks again.",
+      "budget_ms": 15000,
+      "retry_class": "answer",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reaches payments through Core's own payment tools (payments_list, payment_detail, payment_decide, payment_methods, payment_method_set); this hook is Core-to-plugin plumbing beneath them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "refund": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "session": {
+                "type": "string"
+              },
+              "amount_minor": {
+                "type": "integer"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "provider_ref": {
+                "type": "string"
+              },
+              "failure_code": {
+                "type": "string"
+              },
+              "failure_message": {
+                "type": "string"
+              },
+              "external": {
+                "type": "boolean"
+              },
+              "reversed_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "session",
+              "amount_minor",
+              "currency",
+              "status",
+              "created_at",
+              "updated_at"
+            ]
+          },
+          "session": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "consumer": {
+                "type": "string"
+              },
+              "gateway": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "reference": {
+                "type": "string"
+              },
+              "amount_minor": {
+                "type": "integer"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "test": {
+                "type": "boolean"
+              },
+              "description": {
+                "type": "string"
+              },
+              "return_url": {
+                "type": "string"
+              },
+              "cancel_url": {
+                "type": "string"
+              },
+              "redirect_url": {
+                "type": "string"
+              },
+              "provider_ref": {
+                "type": "string"
+              },
+              "failure_code": {
+                "type": "string"
+              },
+              "failure_message": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "locale": {
+                "type": "string"
+              },
+              "supports": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "fulfilment": {
+                "type": "string"
+              },
+              "billing_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "shipping_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "refunded_minor": {
+                "type": "integer"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "consumer",
+              "gateway",
+              "method",
+              "reference",
+              "amount_minor",
+              "currency",
+              "status",
+              "return_url",
+              "cancel_url",
+              "refunded_minor",
+              "created_at",
+              "updated_at"
+            ]
+          }
+        },
+        "required": [
+          "refund",
+          "session"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "provider_ref": {
+            "type": "string"
+          },
+          "failure_code": {
+            "type": "string"
+          },
+          "failure_message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    },
+    {
+      "name": "sync",
+      "hook": "payment.sync",
+      "answered_by": "provider",
+      "description": "Read a payment's state at the processor and report it, for a session whose news did not arrive.",
+      "budget_ms": 15000,
+      "retry_class": "answer",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reaches payments through Core's own payment tools (payments_list, payment_detail, payment_decide, payment_methods, payment_method_set); this hook is Core-to-plugin plumbing beneath them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "consumer": {
+                "type": "string"
+              },
+              "gateway": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "reference": {
+                "type": "string"
+              },
+              "amount_minor": {
+                "type": "integer"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "test": {
+                "type": "boolean"
+              },
+              "description": {
+                "type": "string"
+              },
+              "return_url": {
+                "type": "string"
+              },
+              "cancel_url": {
+                "type": "string"
+              },
+              "redirect_url": {
+                "type": "string"
+              },
+              "provider_ref": {
+                "type": "string"
+              },
+              "failure_code": {
+                "type": "string"
+              },
+              "failure_message": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "locale": {
+                "type": "string"
+              },
+              "supports": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "fulfilment": {
+                "type": "string"
+              },
+              "billing_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "shipping_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "refunded_minor": {
+                "type": "integer"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "consumer",
+              "gateway",
+              "method",
+              "reference",
+              "amount_minor",
+              "currency",
+              "status",
+              "return_url",
+              "cancel_url",
+              "refunded_minor",
+              "created_at",
+              "updated_at"
+            ]
+          }
+        },
+        "required": [
+          "session"
+        ]
+      },
+      "output": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "session.confirm",
+      "hook": "payment.session.confirm",
+      "answered_by": "consumer",
+      "description": "Ask the plugin that wanted the payment whether it still wants it, before Core resolves it.",
+      "retry_class": "answer",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reaches payments through Core's own payment tools (payments_list, payment_detail, payment_decide, payment_methods, payment_method_set); this hook is Core-to-plugin plumbing beneath them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "consumer": {
+                "type": "string"
+              },
+              "gateway": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "reference": {
+                "type": "string"
+              },
+              "amount_minor": {
+                "type": "integer"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "test": {
+                "type": "boolean"
+              },
+              "description": {
+                "type": "string"
+              },
+              "return_url": {
+                "type": "string"
+              },
+              "cancel_url": {
+                "type": "string"
+              },
+              "redirect_url": {
+                "type": "string"
+              },
+              "provider_ref": {
+                "type": "string"
+              },
+              "failure_code": {
+                "type": "string"
+              },
+              "failure_message": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "locale": {
+                "type": "string"
+              },
+              "supports": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "fulfilment": {
+                "type": "string"
+              },
+              "billing_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "shipping_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "refunded_minor": {
+                "type": "integer"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "consumer",
+              "gateway",
+              "method",
+              "reference",
+              "amount_minor",
+              "currency",
+              "status",
+              "return_url",
+              "cancel_url",
+              "refunded_minor",
+              "created_at",
+              "updated_at"
+            ]
+          }
+        },
+        "required": [
+          "session"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "proceed": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "proceed"
+        ]
+      }
+    },
+    {
+      "name": "session.updated",
+      "hook": "payment.session.updated",
+      "answered_by": "consumer",
+      "description": "Tell the plugin that wanted the payment its latest state; repeated until it returns nil.",
+      "retry_class": "answer",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reaches payments through Core's own payment tools (payments_list, payment_detail, payment_decide, payment_methods, payment_method_set); this hook is Core-to-plugin plumbing beneath them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "consumer": {
+                "type": "string"
+              },
+              "gateway": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "reference": {
+                "type": "string"
+              },
+              "amount_minor": {
+                "type": "integer"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "test": {
+                "type": "boolean"
+              },
+              "description": {
+                "type": "string"
+              },
+              "return_url": {
+                "type": "string"
+              },
+              "cancel_url": {
+                "type": "string"
+              },
+              "redirect_url": {
+                "type": "string"
+              },
+              "provider_ref": {
+                "type": "string"
+              },
+              "failure_code": {
+                "type": "string"
+              },
+              "failure_message": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "locale": {
+                "type": "string"
+              },
+              "supports": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "fulfilment": {
+                "type": "string"
+              },
+              "billing_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "shipping_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "refunded_minor": {
+                "type": "integer"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "consumer",
+              "gateway",
+              "method",
+              "reference",
+              "amount_minor",
+              "currency",
+              "status",
+              "return_url",
+              "cancel_url",
+              "refunded_minor",
+              "created_at",
+              "updated_at"
+            ]
+          }
+        },
+        "required": [
+          "session"
+        ]
+      },
+      "output": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "refund.updated",
+      "hook": "payment.refund.updated",
+      "answered_by": "consumer",
+      "description": "Tell the plugin that asked for a refund its latest state; repeated until it returns nil.",
+      "retry_class": "answer",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reaches payments through Core's own payment tools (payments_list, payment_detail, payment_decide, payment_methods, payment_method_set); this hook is Core-to-plugin plumbing beneath them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "refund": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "session": {
+                "type": "string"
+              },
+              "amount_minor": {
+                "type": "integer"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "provider_ref": {
+                "type": "string"
+              },
+              "failure_code": {
+                "type": "string"
+              },
+              "failure_message": {
+                "type": "string"
+              },
+              "external": {
+                "type": "boolean"
+              },
+              "reversed_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "session",
+              "amount_minor",
+              "currency",
+              "status",
+              "created_at",
+              "updated_at"
+            ]
+          },
+          "session": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "consumer": {
+                "type": "string"
+              },
+              "gateway": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "reference": {
+                "type": "string"
+              },
+              "amount_minor": {
+                "type": "integer"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "test": {
+                "type": "boolean"
+              },
+              "description": {
+                "type": "string"
+              },
+              "return_url": {
+                "type": "string"
+              },
+              "cancel_url": {
+                "type": "string"
+              },
+              "redirect_url": {
+                "type": "string"
+              },
+              "provider_ref": {
+                "type": "string"
+              },
+              "failure_code": {
+                "type": "string"
+              },
+              "failure_message": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "locale": {
+                "type": "string"
+              },
+              "supports": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "fulfilment": {
+                "type": "string"
+              },
+              "billing_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "shipping_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "refunded_minor": {
+                "type": "integer"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "consumer",
+              "gateway",
+              "method",
+              "reference",
+              "amount_minor",
+              "currency",
+              "status",
+              "return_url",
+              "cancel_url",
+              "refunded_minor",
+              "created_at",
+              "updated_at"
+            ]
+          }
+        },
+        "required": [
+          "refund",
+          "session"
+        ]
+      },
+      "output": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "dispute.updated",
+      "hook": "payment.dispute.updated",
+      "answered_by": "consumer",
+      "description": "Tell the plugin that took the payment about a dispute or chargeback on it; repeated until it returns nil.",
+      "retry_class": "answer",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reaches payments through Core's own payment tools (payments_list, payment_detail, payment_decide, payment_methods, payment_method_set); this hook is Core-to-plugin plumbing beneath them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "dispute": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "session": {
+                "type": "string"
+              },
+              "provider_ref": {
+                "type": "string"
+              },
+              "stage": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "amount_minor": {
+                "type": "integer"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "respond_by": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "evidence_submitted_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "funds_held": {
+                "type": "boolean"
+              },
+              "refundable": {
+                "type": "boolean"
+              },
+              "url": {
+                "type": "string"
+              },
+              "opened_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "closed_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "session",
+              "provider_ref",
+              "stage",
+              "status",
+              "amount_minor",
+              "currency",
+              "funds_held",
+              "refundable",
+              "created_at",
+              "updated_at"
+            ]
+          },
+          "session": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "consumer": {
+                "type": "string"
+              },
+              "gateway": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "reference": {
+                "type": "string"
+              },
+              "amount_minor": {
+                "type": "integer"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "test": {
+                "type": "boolean"
+              },
+              "description": {
+                "type": "string"
+              },
+              "return_url": {
+                "type": "string"
+              },
+              "cancel_url": {
+                "type": "string"
+              },
+              "redirect_url": {
+                "type": "string"
+              },
+              "provider_ref": {
+                "type": "string"
+              },
+              "failure_code": {
+                "type": "string"
+              },
+              "failure_message": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "locale": {
+                "type": "string"
+              },
+              "supports": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "fulfilment": {
+                "type": "string"
+              },
+              "billing_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "shipping_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "refunded_minor": {
+                "type": "integer"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "consumer",
+              "gateway",
+              "method",
+              "reference",
+              "amount_minor",
+              "currency",
+              "status",
+              "return_url",
+              "cancel_url",
+              "refunded_minor",
+              "created_at",
+              "updated_at"
+            ]
+          }
+        },
+        "required": [
+          "dispute",
+          "session"
+        ]
+      },
+      "output": {
+        "type": "object"
+      }
+    }
+  ]
+}

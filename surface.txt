@@ -212,6 +212,18 @@ field CommerceVariation.Key string json:key
 field CommerceVariation.Name string json:name
 field CommerceVariation.Options []string json:options
 field CommerceVariation.Selected string json:selected
+field ContractMethod.Agent string json:agent
+field ContractMethod.AgentReason string json:agent_reason
+field ContractMethod.AnsweredBy string json:answered_by
+field ContractMethod.BudgetMS int json:budget_ms
+field ContractMethod.Description string json:description
+field ContractMethod.Fallback string json:fallback
+field ContractMethod.Hook string json:hook
+field ContractMethod.Idempotent bool json:idempotent
+field ContractMethod.Input json.RawMessage json:input
+field ContractMethod.Name string json:name
+field ContractMethod.Output json.RawMessage json:output
+field ContractMethod.RetryClass string json:retry_class
 field Core.DatastoreDSN string
 field Core.Granted []string
 field Core.KVNamespace string
@@ -425,6 +437,9 @@ field SearchQuery.Statuses []string json:statuses
 field SearchQuery.Type string json:type
 field SearchResults.Hits []SearchHit json:hits
 field SearchResults.Total int64 json:total
+field ServiceContract.Description string json:description
+field ServiceContract.Methods []ContractMethod json:methods
+field ServiceContract.Name string json:name
 field SettingField.Choices []string json:choices
 field SettingField.Default any json:default
 field SettingField.Help string json:help
@@ -462,6 +477,8 @@ field WidgetRenderRequest.Type string json:type
 field WidgetRenderRequest.URL string json:url
 func AbilityHook(string) (string)
 func CallOf(context.Context) (CallInfo)
+func ContractNamed(string) (ServiceContract, bool)
+func Contracts() ([]ServiceContract, error)
 func CurrentUser(*http.Request) (Viewer, bool)
 func DispatchAdminAction(context.Context, string, []byte, func(context.Context, AdminAction) (AdminActionResult, error)) ([]byte, bool, error)
 func DispatchAdminReport(context.Context, string, []byte, func(context.Context, AdminReportRequest) (AdminReportResult, error)) ([]byte, bool, error)
@@ -600,6 +617,8 @@ method (*Payments) SetSecret(context.Context, string, string) (error)
 method (*Secrets) Delete(context.Context, string) (bool, error)
 method (*Secrets) Get(context.Context, string) (string, bool, error)
 method (*Secrets) Set(context.Context, string, string) (error)
+method (ContractMethod) ValidateInput([]byte) (error)
+method (ContractMethod) ValidateOutput([]byte) (error)
 method (PaymentAddress) Validate() (error)
 method (PaymentDisputeReport) Validate() (error)
 method (PaymentExternalRefund) Validate() (error)
@@ -607,6 +626,7 @@ method (PaymentRefundParams) Validate() (error)
 method (PaymentRejection) Validate() (error)
 method (PaymentResolution) Validate() (error)
 method (PaymentSessionParams) Validate() (error)
+method (ServiceContract) Method(string) (ContractMethod, bool)
 type API
 type APIError
 type Ability
@@ -630,6 +650,7 @@ type CommerceProduct
 type CommerceQuery
 type CommerceTerm
 type CommerceVariation
+type ContractMethod
 type Core
 type EventInfo
 type FieldChoice
@@ -683,6 +704,7 @@ type SearchProvider
 type SearchQuery
 type SearchResults
 type Secrets
+type ServiceContract
 type SettingField
 type Viewer
 type WidgetDef
