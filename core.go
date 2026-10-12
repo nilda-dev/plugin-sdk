@@ -104,6 +104,25 @@ func (c *Core) SendLocalizedEmail(ctx context.Context, to, subject, body, lang s
 	return err
 }
 
+// SendTransactionalEmail sends a message the recipient needs because of something they did — an order
+// confirmation, a payment receipt, a download link, a return — rather than marketing. Core sends it on its urgent
+// lane, with no unsubscribe footer, and to a recipient who unsubscribed from marketing too: a buyer who once left a
+// newsletter must still get the receipt for what they bought. Only a hard bounce or a spam complaint stops it.
+//
+// text is the plain-text part. html, when not empty, is the HTML part: Core keeps an allow-list of tags
+// (paragraphs, headings, lists, links, images, emphasis) and drops everything else, so you may show a picture but
+// never run anything. Leave html empty and the HTML part is text, escaped. lang works as in SendLocalizedEmail.
+//
+// Do not use it for a newsletter, a basket reminder or anything a recipient could reasonably not want: those are
+// SendLocalizedEmail, which carries the unsubscribe link the law asks for.
+//
+//	core.SendTransactionalEmail(ctx, order.CustomerEmail, subject, text, htmlPart, "de")
+func (c *Core) SendTransactionalEmail(ctx context.Context, to, subject, text, html, lang string) error {
+	_, err := c.host.SendEmail(ctx, &contract.SendEmailRequest{To: to, Subject: subject, Body: text, Html: html,
+		Lang: lang, Transactional: true})
+	return err
+}
+
 // ---- auth (requires `auth_provider`) ----
 
 // RevokeIdentity ends every session of the person linked to one identity of yours.

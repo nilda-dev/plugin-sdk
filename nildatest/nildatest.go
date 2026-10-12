@@ -50,6 +50,9 @@ type Email struct {
 	// Lang is what SendLocalizedEmail passed (SendEmail leaves it "") — see plugin-sdk's own doc comment
 	// on that method for what it is for.
 	Lang string
+	// HTML and Transactional are what SendTransactionalEmail passed (the other two leave them empty and false).
+	HTML          string
+	Transactional bool
 }
 
 // Event is one event a plugin emitted.
@@ -470,6 +473,7 @@ func (h *Host) SendEmail(_ context.Context, in *contract.SendEmailRequest, _ ...
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.emails = append(h.emails, Email{To: in.To, Subject: in.Subject, Body: in.Body, Lang: in.Lang})
+	h.emails = append(h.emails, Email{To: in.To, Subject: in.Subject, Body: in.Body, Lang: in.Lang, HTML: in.Html,
+		Transactional: in.Transactional})
 	return &contract.SendEmailResponse{}, nil
 }

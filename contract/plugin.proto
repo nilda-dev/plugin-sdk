@@ -263,6 +263,17 @@ message SendEmailRequest {
   // which way its text ran", already built for Core's own account mail and now reachable from a plugin
   // too). Empty means no hint: the message renders exactly as it always has.
   string lang = 4;
+  // html: an optional HTML version of the message, sent as its HTML part beside body (which stays the plain-text
+  // part). Core keeps only an allow-list of tags — paragraphs, headings, lists, links, images, emphasis — so a
+  // plugin can show a picture (an image the law asks for, a product) without being able to run anything. Empty:
+  // the HTML part is body, escaped, as before.
+  string html = 5;
+  // transactional: the recipient needs this message because of something they did — an order, a payment, a
+  // download, a return — and it is not marketing. Core sends it on the urgent lane, without an unsubscribe
+  // footer, and to a recipient who unsubscribed from marketing too (only a hard bounce or a complaint stops it).
+  // False (the default) is a marketing message, as every plugin message was before: it carries the unsubscribe
+  // link and is withheld from anyone who used it.
+  bool transactional = 6;
 }
 
 message SendEmailResponse {}

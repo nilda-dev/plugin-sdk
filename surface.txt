@@ -556,6 +556,7 @@ method (*Core) RevokeIdentity(context.Context, string, string, string) (int, err
 method (*Core) Route(string) (string)
 method (*Core) SendEmail(context.Context, string, string, string) (error)
 method (*Core) SendLocalizedEmail(context.Context, string, string, string, string) (error)
+method (*Core) SendTransactionalEmail(context.Context, string, string, string, string, string) (error)
 method (*Core) Setting(string) (string)
 method (*Core) SettingBool(string) (bool)
 method (*Core) SettingNumber(string) (float64)

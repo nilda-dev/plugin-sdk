@@ -6,9 +6,11 @@ field Delivery.Hook string
 field Delivery.Refund nilda.PaymentRefund
 field Delivery.Session nilda.PaymentSession
 field Email.Body string
+field Email.HTML string
 field Email.Lang string
 field Email.Subject string
 field Email.To string
+field Email.Transactional bool
 field Event.Data []byte
 field Event.Type string
 field Host.Fail error

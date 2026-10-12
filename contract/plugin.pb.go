@@ -837,7 +837,18 @@ type SendEmailRequest struct {
 	// carry (Core's own internal/email/direction.go — the fix for KNOWN_ISSUES E-5, "email had no idea
 	// which way its text ran", already built for Core's own account mail and now reachable from a plugin
 	// too). Empty means no hint: the message renders exactly as it always has.
-	Lang          string `protobuf:"bytes,4,opt,name=lang,proto3" json:"lang,omitempty"`
+	Lang string `protobuf:"bytes,4,opt,name=lang,proto3" json:"lang,omitempty"`
+	// html: an optional HTML version of the message, sent as its HTML part beside body (which stays the plain-text
+	// part). Core keeps only an allow-list of tags — paragraphs, headings, lists, links, images, emphasis — so a
+	// plugin can show a picture (an image the law asks for, a product) without being able to run anything. Empty:
+	// the HTML part is body, escaped, as before.
+	Html string `protobuf:"bytes,5,opt,name=html,proto3" json:"html,omitempty"`
+	// transactional: the recipient needs this message because of something they did — an order, a payment, a
+	// download, a return — and it is not marketing. Core sends it on the urgent lane, without an unsubscribe
+	// footer, and to a recipient who unsubscribed from marketing too (only a hard bounce or a complaint stops it).
+	// False (the default) is a marketing message, as every plugin message was before: it carries the unsubscribe
+	// link and is withheld from anyone who used it.
+	Transactional bool `protobuf:"varint,6,opt,name=transactional,proto3" json:"transactional,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -898,6 +909,20 @@ func (x *SendEmailRequest) GetLang() string {
 		return x.Lang
 	}
 	return ""
+}
+
+func (x *SendEmailRequest) GetHtml() string {
+	if x != nil {
+		return x.Html
+	}
+	return ""
+}
+
+func (x *SendEmailRequest) GetTransactional() bool {
+	if x != nil {
+		return x.Transactional
+	}
+	return false
 }
 
 type SendEmailResponse struct {
@@ -1441,12 +1466,14 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"\asubject\x18\x02 \x01(\tR\asubject\x12\x16\n" +
 	"\x06reason\x18\x03 \x01(\tR\x06reason\"?\n" +
 	"\x16RevokeIdentityResponse\x12%\n" +
-	"\x0esessions_ended\x18\x01 \x01(\x05R\rsessionsEnded\"d\n" +
+	"\x0esessions_ended\x18\x01 \x01(\x05R\rsessionsEnded\"\x9e\x01\n" +
 	"\x10SendEmailRequest\x12\x0e\n" +
 	"\x02to\x18\x01 \x01(\tR\x02to\x12\x18\n" +
 	"\asubject\x18\x02 \x01(\tR\asubject\x12\x12\n" +
 	"\x04body\x18\x03 \x01(\tR\x04body\x12\x12\n" +
-	"\x04lang\x18\x04 \x01(\tR\x04lang\"\x13\n" +
+	"\x04lang\x18\x04 \x01(\tR\x04lang\x12\x12\n" +
+	"\x04html\x18\x05 \x01(\tR\x04html\x12$\n" +
+	"\rtransactional\x18\x06 \x01(\bR\rtransactional\"\x13\n" +
 	"\x11SendEmailResponse\" \n" +
 	"\fKVGetRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\";\n" +

@@ -726,6 +726,16 @@ the same mail marked with that language and its direction (`lang`, `dir`) — ri
 Arabic, the way Core marks its own mail — where `SendEmail` sends it with no direction at all, which a mail
 client shows left to right. An empty language is `SendEmail`.
 
+**Receipts are not newsletters.** `SendEmail` and `SendLocalizedEmail` send MARKETING mail: it carries the site's
+unsubscribe link and is withheld from anybody who used it. A message the recipient needs because of something
+they did — an order confirmation, a payment receipt, a download link, a return — is
+`core.SendTransactionalEmail(ctx, to, subject, text, html, lang)`: the urgent lane, no unsubscribe footer, and
+delivered to a recipient who unsubscribed from marketing too (a buyer who left a newsletter still gets the receipt
+for what they bought; only a hard bounce or a complaint stops it). `html` is an optional HTML part beside the text:
+Core keeps paragraphs, headings, lists, links, images and emphasis and drops everything else, so you can show a
+picture — an image the law asks you to show, a product photo — but never run anything. Never send a newsletter or a
+reminder this way.
+
 ### Serving your own pages (`route`)
 
 ```go

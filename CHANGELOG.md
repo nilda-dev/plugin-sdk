@@ -4,6 +4,20 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## v0.12.0 — 2026-10-12 (receipts are not newsletters)
+
+Additions only (`surface.txt` grows by 1 entry, `nildatest/surface.txt` by 2; nothing removed). The contract grows by
+two fields of `SendEmailRequest` (`html` = 5, `transactional` = 6), so an older Core ignores them and sends as before.
+
+### Added
+
+- **`Core.SendTransactionalEmail(ctx, to, subject, text, html, lang)`** — a message the recipient needs because of
+  something they did (an order, a payment, a download, a return): Core's urgent lane, no unsubscribe footer, and
+  delivered to a recipient who unsubscribed from marketing too. Before it, every plugin mail was marketing mail, so a
+  buyer who had once unsubscribed got no order confirmation and no download link. `html` is an optional HTML part,
+  kept to an allow-list of tags (images and links included, nothing that runs). `docs/PLUGIN_SDK.md` "Sending mail".
+- **`nildatest.Email.HTML`** and **`nildatest.Email.Transactional`**, so a test can see which kind a plugin sent.
+
 ## v0.11.0 — 2026-10-11 (a place for a plugin's own secrets; what the plan allows a plugin; abilities in plugin.json)
 
 Additions only (`surface.txt` grows by 6 entries, `nildatest/surface.txt` by 8; nothing removed). Needs a Core built
