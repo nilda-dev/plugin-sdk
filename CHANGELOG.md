@@ -4,6 +4,19 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## Unreleased (v0.16.0) — where a visitor is, and the EU's VAT rates
+
+Additions only (`surface.txt` grows by 21 entries; nothing removed; no wire change).
+
+### Added
+
+- **`VisitorCountry(r)`** — the country Core placed a request to your resident server in (the `X-Nilda-Visitor-Country`
+  header Core asserts and a client cannot forge): ISO 3166-1 alpha-2, the evidence EU VAT law accepts for where a
+  buyer of a digital service is.
+- **`API().Reference().EUVATRates(ctx, day)`** — the EU member states' VAT rates on a day (`EUVATRateSet`,
+  `EUVATRate`, `Standard`, `Reduced`), Nilda Central's copy of the Commission's TEDB. Needs a Core that serves
+  `/reference/eu-vat-rates`.
+
 ## v0.15.0 — 2026-10-13 (shipping carriers)
 
 Additions only (`surface.txt` grows by 207 entries, `nildatest/surface.txt` by 15; nothing removed; no wire change). A

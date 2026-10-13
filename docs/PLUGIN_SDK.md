@@ -785,6 +785,20 @@ before setting its own, so a visitor cannot claim to be somebody by sending one.
 name — never a token or a session you could replay against Core. On a `webhook_paths` endpoint you get
 nothing, always: a machine's call carries no one's identity, which is what makes exempting it from CSRF safe.
 
+### Where a visitor is, and the EU's VAT rates (`VisitorCountry`, `Reference`)
+
+**The visitor's country.** `nilda.VisitorCountry(r)` reads the country Core placed a request in from its internet
+address — ISO 3166-1 alpha-2, the country and never the address, with any client-sent value stripped. It is one item of
+the evidence EU VAT law accepts for where a buyer of a digital service is (Regulation 282/2011 Art. 24f(b)); keep it
+with the sale.
+
+**The EU's VAT rates.** `core.API().Reference().EUVATRates(ctx, day)` returns an `EUVATRateSet`: every member state's
+rates applying on that day (Brussels time), each an `EUVATRate` in basis points, read by Nilda Central from the European
+Commission's Taxes in Europe Database and kept by Core through an outage. `set.Standard("FR")` is a member state's
+nationwide standard rate; `set.Reduced("AT", "FOODSTUFFS")` its reduced rates for a TEDB category. No capability is
+needed — it is public reference data — but the Commission's database is not the legal reference (the Official Journal
+is), so a shop shows the set's `Source` and `CheckedAt` where a rate decides a price.
+
 ### Your own section of the admin (`admin_page`)
 
 Declare it in `plugin.json`:

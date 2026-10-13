@@ -321,6 +321,19 @@ field DocumentsRequest.ProviderRef string json:provider_ref
 field DocumentsResult.Documents []DocumentRef json:documents
 field DocumentsResult.FailureCode string json:failure_code
 field DocumentsResult.FailureMessage string json:failure_message
+field EUVATRate.Category string json:category
+field EUVATRate.CategoryLabel string json:category_label
+field EUVATRate.Country string json:country
+field EUVATRate.Kind string json:kind
+field EUVATRate.RateBps *int json:rate_bps
+field EUVATRate.Scope string json:scope
+field EUVATRate.Since string json:since
+field EUVATRate.Type string json:type
+field EUVATRateSet.CheckedAt time.Time json:checked_at
+field EUVATRateSet.FetchedAt time.Time json:fetched_at
+field EUVATRateSet.Rates []EUVATRate json:rates
+field EUVATRateSet.SituationOn string json:situation_on
+field EUVATRateSet.Source string json:source
 field EventInfo.DataSchema string
 field EventInfo.ID string
 field EventInfo.Source string
@@ -699,6 +712,7 @@ func StartHTTP(http.Handler) (string, error)
 func Supports([]string, string) (bool)
 func SupportsOf(PaymentMethod) ([]string)
 func TestHintFor(map[string]string, string) (string)
+func VisitorCountry(*http.Request) (string, bool)
 imethod AssetProvider.FooterScripts(context.Context, RenderAssetsRequest) ([]ScriptAsset)
 imethod AuthProvider.Complete(context.Context, *Core, AuthCompleteRequest) (AuthAssertion, error)
 imethod AuthProvider.Describe(context.Context, *Core) ([]AuthProviderStatus)
@@ -744,6 +758,7 @@ method (*API) Patch(context.Context, string, any, any) (error)
 method (*API) Payments() (*Payments)
 method (*API) PlanLimit(context.Context, string) (int64, bool, error)
 method (*API) Post(context.Context, string, any, any) (error)
+method (*API) Reference() (*Reference)
 method (*API) Scopes() ([]string)
 method (*API) Secrets() (*Secrets)
 method (*API) Services() (*Services)
@@ -802,6 +817,7 @@ method (*Payments) Resolve(context.Context, string, PaymentResolution) (PaymentS
 method (*Payments) ResolveRefund(context.Context, string, string) (PaymentRefund, error)
 method (*Payments) ReverseRefund(context.Context, string, PaymentRejection) (PaymentRefund, error)
 method (*Payments) SetSecret(context.Context, string, string) (error)
+method (*Reference) EUVATRates(context.Context, time.Time) (EUVATRateSet, error)
 method (*Secrets) Delete(context.Context, string) (bool, error)
 method (*Secrets) Get(context.Context, string) (string, bool, error)
 method (*Secrets) Set(context.Context, string, string) (error)
@@ -818,6 +834,8 @@ method (Customs) Validate() (error)
 method (DocumentRef) Bytes() ([]byte, error)
 method (DocumentsRequest) Validate() (error)
 method (DocumentsResult) Validate() (error)
+method (EUVATRateSet) Reduced(string, string) ([]EUVATRate)
+method (EUVATRateSet) Standard(string) (int, bool)
 method (LabelRequest) Validate() (error)
 method (LabelResult) Validate() (error)
 method (Parcel) Validate() (error)
@@ -875,6 +893,8 @@ type CustomsItem
 type DocumentRef
 type DocumentsRequest
 type DocumentsResult
+type EUVATRate
+type EUVATRateSet
 type EventInfo
 type FieldChoice
 type FieldChoicesRequest
@@ -922,6 +942,7 @@ type Payments
 type PluginClient
 type RatesRequest
 type RatesResult
+type Reference
 type RenderAssetsRequest
 type RowAction
 type Schedule

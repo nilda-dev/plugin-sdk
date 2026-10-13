@@ -17,6 +17,7 @@ type Viewer struct {
 const (
 	currentUserHeader     = "X-Nilda-User"
 	currentUserNameHeader = "X-Nilda-User-Name"
+	visitorCountryHeader  = "X-Nilda-Visitor-Country"
 )
 
 // CurrentUser reports the Core user behind a request your resident HTTP server received — the `route`
@@ -37,4 +38,20 @@ func CurrentUser(r *http.Request) (Viewer, bool) {
 		return Viewer{}, false
 	}
 	return Viewer{UserID: id, DisplayName: r.Header.Get(currentUserNameHeader)}, true
+}
+
+// VisitorCountry is the country Core placed the visitor in from their internet address — ISO 3166-1 alpha-2 ("AT") —
+// for a request your resident HTTP server received. Core resolves it as it does for its own analytics (a country
+// database, the address trimmed to its /24 first) and sends the country, never the address; it strips any value a
+// client sent, as it does every X-Nilda-* header.
+//
+// It is EVIDENCE, not identity: one of the items EU VAT law accepts for where a buyer of a digital service is
+// (Implementing Regulation 282/2011 Art. 24f(b)) — keep it with the sale. ok is false when Core could not place the
+// address (a private network, an install without the country database).
+func VisitorCountry(r *http.Request) (string, bool) {
+	c := r.Header.Get(visitorCountryHeader)
+	if len(c) != 2 || c[0] < 'A' || c[0] > 'Z' || c[1] < 'A' || c[1] > 'Z' {
+		return "", false
+	}
+	return c, true
 }
