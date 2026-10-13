@@ -6,7 +6,7 @@ here.
 
 ## v0.15.0 — unreleased (shipping carriers)
 
-Additions only (`surface.txt` grows by 205 entries, `nildatest/surface.txt` by 15; nothing removed; no wire change). A
+Additions only (`surface.txt` grows by 207 entries, `nildatest/surface.txt` by 15; nothing removed; no wire change). A
 new contract file, `contracts/shipping.carrier/v1/contract.json`, which Core reads from the SDK it is built with: a
 Core built on an older SDK refuses a manifest naming it. `docs/SHIPPING.md` is the whole of it.
 
@@ -22,6 +22,8 @@ Core built on an older SDK refuses a manifest naming it. `docs/SHIPPING.md` is t
   `DocumentsResult` — each with `Validate`, and the closed sets of statuses and failure codes.
 - **The shop's calls**: `Services.ShippingRates`, `CreateShippingLabel` (the request's key travels as the idempotency
   key), `VoidShippingLabel`, `TrackShipment`, `ShippingDocuments`.
+- **`ContractToolName`** and **`ServiceContract.AssistantTools`** — the published name of the assistant's tool for a
+  contract method, written once for Core and its guards.
 - **`nildatest.NewStubCarrier`** — a carrier in memory; **`_examples/carrier`** — a whole carrier plugin to copy.
 
 ### Changed

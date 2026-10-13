@@ -45,6 +45,25 @@ func SplitServiceHook(hook string) (contract, method string, ok bool) {
 	return contract, method, contract != "" && method != ""
 }
 
+// ContractToolName is the name of the site assistant's tool for a relayed method its contract marks for it (agent:
+// read, write or destructive): the contract with its major and the method — "shipping.carrier.v1.rates". MCP tool
+// names have no "/", and a name with two dots or more can never be a plugin ability's "<plugin>.<ability>". The name
+// is published the day a contract ships, so it is the contract's, written here once for Core and its guards.
+func ContractToolName(contract, method string) string {
+	return strings.Replace(contract, "/", ".", 1) + "." + method
+}
+
+// AssistantTools are the tool names a contract gives the site's assistant: one per relayed method not marked "none".
+func (c ServiceContract) AssistantTools() []string {
+	var out []string
+	for _, m := range c.Methods {
+		if m.Hook == "" && m.Agent != "none" {
+			out = append(out, ContractToolName(c.Name, m.Name))
+		}
+	}
+	return out
+}
+
 // ---- the consumer's side ---------------------------------------------------------------------------------
 
 // Services is the desk's client, from API.Services. Every call needs the contract in the manifest's `requires` or

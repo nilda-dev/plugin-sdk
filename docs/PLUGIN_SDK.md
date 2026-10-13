@@ -1657,7 +1657,9 @@ is the desk in memory, and `nilda.RegisterContractForTest` stands up a contract 
 The names: a provider returns `ServiceMethod`s, most easily with `nilda.Serves(contract, method, fn)` for typed input
 and output; an author routing by hand uses `DispatchServiceHook`, `ServiceHook` and `SplitServiceHook` (the hook is
 `svc:<contract>.<method>`). A consumer's `Call` returns a `ServiceResult` — its `ServiceAnswer`s (`Decode` reads one)
-and its `ServiceMiss`es. `ParseContract` reads and checks a contract file this SDK does not ship.
+and its `ServiceMiss`es. `ParseContract` reads and checks a contract file this SDK does not ship. A method a contract marks for
+the assistant is the tool `ContractToolName(contract, method)` — `shipping.carrier.v1.rates`; a contract's
+`AssistantTools` lists them.
 
 ### Shipping carriers (`shipping.carrier/v1`)
 

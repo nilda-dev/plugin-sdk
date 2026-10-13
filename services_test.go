@@ -145,3 +145,24 @@ func TestCallRefusesAnAnswerTheSchemaRejects(t *testing.T) {
 		t.Fatalf("a hooked method went to the desk: %v", err)
 	}
 }
+
+func TestAContractToolNameCanNeverBeAPluginsAbility(t *testing.T) {
+	for _, c := range []struct{ contract, method, want string }{
+		{"shipping.carrier/v1", "rates", "shipping.carrier.v1.rates"},
+		{"payments/v1", "describe", "payments.v1.describe"},
+		{"shipping.carrier/v1", "label.create", "shipping.carrier.v1.label.create"},
+	} {
+		got := ContractToolName(c.contract, c.method)
+		if got != c.want || strings.Count(got, ".") < 2 || strings.Contains(got, "/") {
+			t.Errorf("ContractToolName(%s, %s) = %s", c.contract, c.method, got)
+		}
+	}
+	ship, _ := ContractNamed(ContractShippingCarrier)
+	if got := strings.Join(ship.AssistantTools(), ","); got != "shipping.carrier.v1.describe,shipping.carrier.v1.rates,shipping.carrier.v1.track" {
+		t.Fatalf("shipping's assistant tools = %s", got)
+	}
+	pay, _ := ContractNamed("payments/v1")
+	if len(pay.AssistantTools()) != 0 {
+		t.Fatalf("payments rides Core's hooks and gives the assistant no tool: %v", pay.AssistantTools())
+	}
+}
