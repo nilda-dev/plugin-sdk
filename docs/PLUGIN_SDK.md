@@ -1659,6 +1659,22 @@ and output; an author routing by hand uses `DispatchServiceHook`, `ServiceHook` 
 `svc:<contract>.<method>`). A consumer's `Call` returns a `ServiceResult` — its `ServiceAnswer`s (`Decode` reads one)
 and its `ServiceMiss`es. `ParseContract` reads and checks a contract file this SDK does not ship.
 
+### Shipping carriers (`shipping.carrier/v1`)
+
+The first contract on the desk: a carrier plugin — the merchant's own Sendcloud, Shippo or carrier account — and the
+shop. `docs/SHIPPING.md` is the whole of it; `_examples/carrier` is a working one to copy.
+
+- **A carrier** implements `Carrier` (`DescribeCarrier`, `Rates`, `CreateLabel`, `VoidLabel`) and, optionally,
+  `CarrierTracker` and `CarrierDocuments`, and returns `CarrierMethods(c)` from `ServiceMethods`. The shapes:
+  `CarrierDescription` of `CarrierService`s; `RatesRequest` (an origin and destination `ShipAddress`, `Parcel`s,
+  optional `Customs` of `CustomsItem`s) answered by `RatesResult` of `CarrierRate`s; `LabelRequest` answered by
+  `LabelResult` with `DocumentRef`s (`DocumentData` makes one from bytes); `VoidRequest` / `VoidResult`;
+  `TrackRequest` / `TrackResult` of `TrackEvent`s; `DocumentsRequest` / `DocumentsResult`. Each has `Validate`.
+- **The shop** calls `Services.ShippingRates` (every carrier's `CarrierRatesAnswer`, the ones that missed named),
+  `CreateShippingLabel`, `VoidShippingLabel`, `TrackShipment` and `ShippingDocuments`.
+- **A carrier's "no" is a result**: a status and a failure code (`CarrierNoService`, `CarrierUnavailable`, …), never an
+  error; a `Rates` past its 4 seconds answers `unavailable` by itself.
+
 ---
 
 ## 6. What Core guarantees, and what it does not

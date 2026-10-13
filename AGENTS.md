@@ -72,8 +72,8 @@ GOWORK=off go build ./...              # the module builds alone, as a consumer 
 test -z "$(gofmt -l .)"                # gofmt-clean
 go vet ./...
 go test -race ./...
-go vet ./_examples/gateway ./_examples/shop       # NOT in CI. ./... never reaches _examples: the Go tool
-go test -count=1 ./_examples/gateway ./_examples/shop   # skips an underscore directory
+go vet ./_examples/gateway ./_examples/shop ./_examples/carrier   # NOT in CI. ./... never reaches _examples: the Go tool
+go test -count=1 ./_examples/gateway ./_examples/shop ./_examples/carrier   # skips an underscore directory
 ```
 
 If you changed `contract/plugin.proto`, regenerate `contract/*.pb.go` with `protoc` exactly as the

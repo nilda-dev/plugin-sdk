@@ -264,7 +264,7 @@ func (s *pluginServer) HandleHook(ctx context.Context, req *contract.HookRequest
 	}
 	// A service-desk call goes to a ServiceProvider's method, checked against the contract both ways (services.go).
 	// One for a method it does not answer falls through to HandleHook, for an author who routes them by hand.
-	if sp, is := s.handler.(ServiceProvider); is {
+	if sp := serviceProviderOf(s.handler); sp != nil {
 		if out, handled, err := DispatchServiceHook(ctx, sp, req.Hook, req.Payload); handled {
 			if err != nil {
 				return nil, asAnswer(err)

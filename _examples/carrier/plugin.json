@@ -1,0 +1,20 @@
+{
+  "key": "tablepost",
+  "name": "Table Post",
+  "version": "1.0.0",
+  "sdk_version": "0.15.0",
+  "capabilities": ["service_provider", "admin_page"],
+  "provides": ["shipping.carrier/v1"],
+  "admin_pages": [{
+    "key": "settings",
+    "label": "Settings",
+    "kind": "settings",
+    "help": "Table Post prices parcels from a table and buys no real labels. A real carrier puts its API key here.",
+    "fields": [
+      { "key": "api_key", "label": "API key", "type": "text", "secret": true,
+        "help": "A real carrier's API key, from the merchant's own account with it." },
+      { "key": "live", "label": "Live labels", "type": "boolean",
+        "help": "Off: test mode, nothing is billed and tracking numbers are samples." }
+    ]
+  }]
+}

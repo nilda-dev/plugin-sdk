@@ -1,0 +1,815 @@
+{
+  "name": "shipping.carrier/v1",
+  "description": "Shipping a parcel: a carrier plugin — an aggregator such as Sendcloud or Shippo, or one carrier's own API, on the merchant's own account — describes its services, quotes rates, buys and voids labels, tracks parcels and fetches a label's documents again. The shop keeps every record (SHIPPING.md).",
+  "methods": [
+    {
+      "name": "describe",
+      "answered_by": "provider",
+      "description": "The carrier's services: where each delivers, what it can do, and whether the plugin holds test credentials.",
+      "retry_class": "failure",
+      "fallback": "skip",
+      "idempotent": true,
+      "agent": "read",
+      "input": {
+        "type": "object"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "services": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "countries": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "currencies": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "supports": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "requires_phone": {
+                  "type": "boolean"
+                },
+                "test": {
+                  "type": "boolean"
+                },
+                "test_hint": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "key",
+                "label"
+              ]
+            }
+          }
+        },
+        "required": [
+          "name",
+          "services"
+        ]
+      }
+    },
+    {
+      "name": "rates",
+      "answered_by": "provider",
+      "description": "What sending these parcels from the origin to the destination costs with each service, and how long it takes.",
+      "retry_class": "failure",
+      "fallback": "skip",
+      "idempotent": true,
+      "agent": "read",
+      "input": {
+        "type": "object",
+        "properties": {
+          "quote": {
+            "type": "string"
+          },
+          "services": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "origin": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "company": {
+                "type": "string"
+              },
+              "line1": {
+                "type": "string"
+              },
+              "line2": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "region": {
+                "type": "string"
+              },
+              "postal_code": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "country"
+            ]
+          },
+          "destination": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "company": {
+                "type": "string"
+              },
+              "line1": {
+                "type": "string"
+              },
+              "line2": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "region": {
+                "type": "string"
+              },
+              "postal_code": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "country"
+            ]
+          },
+          "parcels": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "weight_grams": {
+                  "type": "integer"
+                },
+                "length_mm": {
+                  "type": "integer"
+                },
+                "width_mm": {
+                  "type": "integer"
+                },
+                "height_mm": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "weight_grams"
+              ]
+            }
+          },
+          "currency": {
+            "type": "string"
+          },
+          "declared_value_minor": {
+            "type": "integer"
+          },
+          "customs": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "currency": {
+                "type": "string"
+              },
+              "contents_type": {
+                "type": "string"
+              },
+              "incoterm": {
+                "type": "string"
+              },
+              "items": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "description": {
+                      "type": "string"
+                    },
+                    "hs_code": {
+                      "type": "string"
+                    },
+                    "origin_country": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "integer"
+                    },
+                    "unit_value_minor": {
+                      "type": "integer"
+                    },
+                    "weight_grams": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "description",
+                    "quantity",
+                    "unit_value_minor"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "currency",
+              "items"
+            ]
+          },
+          "locale": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "origin",
+          "destination",
+          "parcels",
+          "currency"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "rates": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "service": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "amount_minor": {
+                  "type": "integer"
+                },
+                "currency": {
+                  "type": "string"
+                },
+                "days_min": {
+                  "type": "integer"
+                },
+                "days_max": {
+                  "type": "integer"
+                },
+                "delivery_by": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "provider_ref": {
+                  "type": "string"
+                },
+                "expires_at": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "pickup_required": {
+                  "type": "boolean"
+                },
+                "warnings": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "service",
+                "title",
+                "amount_minor",
+                "currency"
+              ]
+            }
+          },
+          "failure_code": {
+            "type": "string"
+          },
+          "failure_message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    },
+    {
+      "name": "label.create",
+      "answered_by": "provider",
+      "description": "Buy a shipping label for one service on the merchant's carrier account; the request's key makes a repeat buy one label.",
+      "budget_ms": 15000,
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the shop keeps every label on its order, so its own abilities buy_shipping_label and void_label are the doors; a label bought straight from the carrier would belong to no order",
+      "input": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "rate_ref": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "company": {
+                "type": "string"
+              },
+              "line1": {
+                "type": "string"
+              },
+              "line2": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "region": {
+                "type": "string"
+              },
+              "postal_code": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "country"
+            ]
+          },
+          "destination": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "company": {
+                "type": "string"
+              },
+              "line1": {
+                "type": "string"
+              },
+              "line2": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "region": {
+                "type": "string"
+              },
+              "postal_code": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "country"
+            ]
+          },
+          "parcels": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "weight_grams": {
+                  "type": "integer"
+                },
+                "length_mm": {
+                  "type": "integer"
+                },
+                "width_mm": {
+                  "type": "integer"
+                },
+                "height_mm": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "weight_grams"
+              ]
+            }
+          },
+          "customs": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "currency": {
+                "type": "string"
+              },
+              "contents_type": {
+                "type": "string"
+              },
+              "incoterm": {
+                "type": "string"
+              },
+              "items": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "description": {
+                      "type": "string"
+                    },
+                    "hs_code": {
+                      "type": "string"
+                    },
+                    "origin_country": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "integer"
+                    },
+                    "unit_value_minor": {
+                      "type": "integer"
+                    },
+                    "weight_grams": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "description",
+                    "quantity",
+                    "unit_value_minor"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "currency",
+              "items"
+            ]
+          },
+          "reference": {
+            "type": "string"
+          },
+          "return": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "test": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "service",
+          "origin",
+          "destination",
+          "parcels"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "provider_ref": {
+            "type": "string"
+          },
+          "tracking_number": {
+            "type": "string"
+          },
+          "tracking_url": {
+            "type": "string"
+          },
+          "carrier_name": {
+            "type": "string"
+          },
+          "service": {
+            "type": "string"
+          },
+          "cost_minor": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "documents": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "format": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                },
+                "data": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "format"
+              ]
+            }
+          },
+          "delivery_by": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "failure_code": {
+            "type": "string"
+          },
+          "failure_message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    },
+    {
+      "name": "label.void",
+      "answered_by": "provider",
+      "description": "Cancel a label that has not shipped, so the carrier does not charge for it.",
+      "budget_ms": 15000,
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the shop keeps every label on its order, so its own abilities buy_shipping_label and void_label are the doors; a label bought straight from the carrier would belong to no order",
+      "input": {
+        "type": "object",
+        "properties": {
+          "provider_ref": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider_ref"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "failure_code": {
+            "type": "string"
+          },
+          "failure_message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    },
+    {
+      "name": "track",
+      "answered_by": "provider",
+      "description": "Where a parcel is now, and every scan the carrier reported.",
+      "budget_ms": 15000,
+      "retry_class": "failure",
+      "fallback": "skip",
+      "idempotent": true,
+      "agent": "read",
+      "input": {
+        "type": "object",
+        "properties": {
+          "provider_ref": {
+            "type": "string"
+          },
+          "tracking_number": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tracking_number"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "events": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "type": "string"
+                },
+                "detail": {
+                  "type": "string"
+                },
+                "location": {
+                  "type": "string"
+                },
+                "at": {
+                  "type": "string"
+                },
+                "dedupe": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "status",
+                "at"
+              ]
+            }
+          },
+          "failure_code": {
+            "type": "string"
+          },
+          "failure_message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "documents",
+      "answered_by": "provider",
+      "description": "A label's documents — the label, a customs invoice — fetched again from the carrier.",
+      "budget_ms": 15000,
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "a label's documents are files for the merchant's printer; the shop's order screen and its buy_shipping_label ability hand them over",
+      "input": {
+        "type": "object",
+        "properties": {
+          "provider_ref": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider_ref"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "documents": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "format": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                },
+                "data": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "kind",
+                "format"
+              ]
+            }
+          },
+          "failure_code": {
+            "type": "string"
+          },
+          "failure_message": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -3,6 +3,30 @@ const AdminPageList
 const AdminPageReport
 const AdminPageSettings
 const AdminReportHook
+const CarrierCredentialsRefused
+const CarrierCustomsMissing
+const CarrierDeclined
+const CarrierDescribe
+const CarrierDocumentsGet
+const CarrierInvalidAddress
+const CarrierInvalidParcel
+const CarrierLabelCreate
+const CarrierLabelVoid
+const CarrierNoService
+const CarrierNotVoidable
+const CarrierRates
+const CarrierRatesBudget
+const CarrierSupportCustoms
+const CarrierSupportInsurance
+const CarrierSupportLabels
+const CarrierSupportRates
+const CarrierSupportReturns
+const CarrierSupportSignature
+const CarrierSupportTrack
+const CarrierSupportVoid
+const CarrierTrack
+const CarrierUnavailable
+const CarrierUnsupported
 const ClassAccess
 const ClassAdditive
 const ClassAnalyze
@@ -12,6 +36,7 @@ const ClassPublish
 const ClassRead
 const ClassStructural
 const ClassWrite
+const ContractShippingCarrier
 const DisputeChargeback
 const DisputeClosed
 const DisputeInquiry
@@ -77,6 +102,9 @@ const HookSearchRemove
 const HookSearchTruncate
 const HookWidgetDescribe
 const HookWidgetRender
+const LabelPending
+const LabelPurchased
+const LabelRejected
 const MaxAssetsPerPlugin
 const MaxDisputesPerSession
 const MaxWidgetHTMLBytes
@@ -96,6 +124,10 @@ const PaymentRejected
 const PaymentResolved
 const PluginSetName
 const ProtocolVersion
+const RatesInvalid
+const RatesNoService
+const RatesOK
+const RatesUnavailable
 const RefundPending
 const RefundRejected
 const RefundRequested
@@ -116,6 +148,19 @@ const SupportDisputes
 const SupportPartialRefund
 const SupportRefund
 const SupportSync
+const TrackAttemptedDelivery
+const TrackAvailableForPickup
+const TrackCancelled
+const TrackDelivered
+const TrackFailure
+const TrackInTransit
+const TrackLabelPrinted
+const TrackOutForDelivery
+const TrackPreTransit
+const TrackReturnedToSender
+const VoidPending
+const VoidRejected
+const VoidVoided
 field APIError.Body string
 field APIError.Code string
 field APIError.Method string
@@ -176,6 +221,31 @@ field CallInfo.Caller string
 field CallInfo.Contract string
 field CallInfo.IdempotencyKey string
 field CallInfo.RequestID string
+field CarrierDescription.Name string json:name
+field CarrierDescription.Services []CarrierService json:services
+field CarrierRate.AmountMinor int64 json:amount_minor
+field CarrierRate.Currency string json:currency
+field CarrierRate.DaysMax int json:days_max
+field CarrierRate.DaysMin int json:days_min
+field CarrierRate.DeliveryBy *time.Time json:delivery_by
+field CarrierRate.ExpiresAt *time.Time json:expires_at
+field CarrierRate.PickupRequired bool json:pickup_required
+field CarrierRate.ProviderRef string json:provider_ref
+field CarrierRate.Service string json:service
+field CarrierRate.Title string json:title
+field CarrierRate.Warnings []string json:warnings
+field CarrierRatesAnswer.Cached bool
+field CarrierRatesAnswer.Provider string
+field CarrierRatesAnswer.Result RatesResult
+field CarrierService.Countries []string json:countries
+field CarrierService.Currencies []string json:currencies
+field CarrierService.Description string json:description
+field CarrierService.Key string json:key
+field CarrierService.Label string json:label
+field CarrierService.RequiresPhone bool json:requires_phone
+field CarrierService.Supports []string json:supports
+field CarrierService.Test bool json:test
+field CarrierService.TestHint map[string]string json:test_hint
 field CommerceEndpoints.Account string json:account
 field CommerceEndpoints.AddToCart string json:add_to_cart
 field CommerceEndpoints.Cart string json:cart
@@ -233,6 +303,24 @@ field Core.PluginKey string
 field Core.PreviousVersion string
 field Core.RoutePrefix string
 field Core.SiteURL string
+field Customs.ContentsType string json:contents_type
+field Customs.Currency string json:currency
+field Customs.Incoterm string json:incoterm
+field Customs.Items []CustomsItem json:items
+field CustomsItem.Description string json:description
+field CustomsItem.HSCode string json:hs_code
+field CustomsItem.OriginCountry string json:origin_country
+field CustomsItem.Quantity int64 json:quantity
+field CustomsItem.UnitValueMinor int64 json:unit_value_minor
+field CustomsItem.WeightGrams int64 json:weight_grams
+field DocumentRef.Data string json:data
+field DocumentRef.Format string json:format
+field DocumentRef.Kind string json:kind
+field DocumentRef.URL string json:url
+field DocumentsRequest.ProviderRef string json:provider_ref
+field DocumentsResult.Documents []DocumentRef json:documents
+field DocumentsResult.FailureCode string json:failure_code
+field DocumentsResult.FailureMessage string json:failure_message
 field EventInfo.DataSchema string
 field EventInfo.ID string
 field EventInfo.Source string
@@ -257,9 +345,36 @@ field InitResult.Events []string
 field InitResult.Hooks []string
 field InitResult.RouteAddr string
 field InitResult.Schedules []Schedule
+field LabelRequest.Customs *Customs json:customs
+field LabelRequest.Destination ShipAddress json:destination
+field LabelRequest.Key string json:key
+field LabelRequest.Options map[string]string json:options
+field LabelRequest.Origin ShipAddress json:origin
+field LabelRequest.Parcels []Parcel json:parcels
+field LabelRequest.RateRef string json:rate_ref
+field LabelRequest.Reference string json:reference
+field LabelRequest.Return bool json:return
+field LabelRequest.Service string json:service
+field LabelRequest.Test bool json:test
+field LabelResult.CarrierName string json:carrier_name
+field LabelResult.CostMinor int64 json:cost_minor
+field LabelResult.Currency string json:currency
+field LabelResult.DeliveryBy *time.Time json:delivery_by
+field LabelResult.Documents []DocumentRef json:documents
+field LabelResult.FailureCode string json:failure_code
+field LabelResult.FailureMessage string json:failure_message
+field LabelResult.ProviderRef string json:provider_ref
+field LabelResult.Service string json:service
+field LabelResult.Status string json:status
+field LabelResult.TrackingNumber string json:tracking_number
+field LabelResult.TrackingURL string json:tracking_url
 field ListColumn.Key string json:key
 field ListColumn.Label string json:label
 field ListColumn.Type string json:type
+field Parcel.HeightMM int64 json:height_mm
+field Parcel.LengthMM int64 json:length_mm
+field Parcel.WeightGrams int64 json:weight_grams
+field Parcel.WidthMM int64 json:width_mm
 field PaymentAddress.City string json:city
 field PaymentAddress.Country string json:country
 field PaymentAddress.Line1 string json:line1
@@ -401,6 +516,19 @@ field PaymentStartResult.Status string json:status
 field PaymentSyncRequest.Session PaymentSession json:session
 field PluginClient.Broker *plugin.GRPCBroker
 field PluginClient.Plugin contract.PluginServiceClient
+field RatesRequest.Currency string json:currency
+field RatesRequest.Customs *Customs json:customs
+field RatesRequest.DeclaredValueMinor int64 json:declared_value_minor
+field RatesRequest.Destination ShipAddress json:destination
+field RatesRequest.Locale string json:locale
+field RatesRequest.Origin ShipAddress json:origin
+field RatesRequest.Parcels []Parcel json:parcels
+field RatesRequest.Quote string json:quote
+field RatesRequest.Services []string json:services
+field RatesResult.FailureCode string json:failure_code
+field RatesResult.FailureMessage string json:failure_message
+field RatesResult.Rates []CarrierRate json:rates
+field RatesResult.Status string json:status
 field RenderAssetsRequest.Locale string json:locale
 field RenderAssetsRequest.PageKind string json:page_kind
 field RowAction.Confirm string json:confirm
@@ -466,8 +594,34 @@ field SettingField.Placeholder string json:placeholder
 field SettingField.Required bool json:required
 field SettingField.Secret bool json:secret
 field SettingField.Type string json:type
+field ShipAddress.City string json:city
+field ShipAddress.Company string json:company
+field ShipAddress.Country string json:country
+field ShipAddress.Email string json:email
+field ShipAddress.Line1 string json:line1
+field ShipAddress.Line2 string json:line2
+field ShipAddress.Name string json:name
+field ShipAddress.Phone string json:phone
+field ShipAddress.PostalCode string json:postal_code
+field ShipAddress.Region string json:region
+field TrackEvent.At time.Time json:at
+field TrackEvent.Dedupe string json:dedupe
+field TrackEvent.Detail string json:detail
+field TrackEvent.Location string json:location
+field TrackEvent.Status string json:status
+field TrackRequest.ProviderRef string json:provider_ref
+field TrackRequest.TrackingNumber string json:tracking_number
+field TrackResult.Events []TrackEvent json:events
+field TrackResult.FailureCode string json:failure_code
+field TrackResult.FailureMessage string json:failure_message
+field TrackResult.Status string json:status
 field Viewer.DisplayName string
 field Viewer.UserID string
+field VoidRequest.Key string json:key
+field VoidRequest.ProviderRef string json:provider_ref
+field VoidResult.FailureCode string json:failure_code
+field VoidResult.FailureMessage string json:failure_message
+field VoidResult.Status string json:status
 field WidgetDef.Category string json:category
 field WidgetDef.Fields []WidgetField json:fields
 field WidgetDef.Label string json:label
@@ -494,6 +648,7 @@ field WidgetRenderRequest.Type string json:type
 field WidgetRenderRequest.URL string json:url
 func AbilityHook(string) (string)
 func CallOf(context.Context) (CallInfo)
+func CarrierMethods(Carrier) ([]ServiceMethod)
 func ContractNamed(string) (ServiceContract, bool)
 func Contracts() ([]ServiceContract, error)
 func CurrentUser(*http.Request) (Viewer, bool)
@@ -508,6 +663,7 @@ func DispatchSearchHook(context.Context, *Core, SearchProvider, string, []byte) 
 func DispatchServiceHook(context.Context, ServiceProvider, string, []byte) ([]byte, bool, error)
 func DisputeCanMove(string, string) (bool)
 func DisputeFinal(string) (bool)
+func DocumentData(string, string, []byte) (DocumentRef)
 func EventOf(context.Context) (EventInfo)
 func FieldTypes() ([]string)
 func FormatMinor(int64, string) (string, bool)
@@ -546,6 +702,12 @@ imethod AssetProvider.FooterScripts(context.Context, RenderAssetsRequest) ([]Scr
 imethod AuthProvider.Complete(context.Context, *Core, AuthCompleteRequest) (AuthAssertion, error)
 imethod AuthProvider.Describe(context.Context, *Core) ([]AuthProviderStatus)
 imethod AuthProvider.Start(context.Context, *Core, AuthStartRequest) (string, error)
+imethod Carrier.CreateLabel(context.Context, LabelRequest) (LabelResult, error)
+imethod Carrier.DescribeCarrier(context.Context) (CarrierDescription, error)
+imethod Carrier.Rates(context.Context, RatesRequest) (RatesResult, error)
+imethod Carrier.VoidLabel(context.Context, VoidRequest) (VoidResult, error)
+imethod CarrierDocuments.Documents(context.Context, DocumentsRequest) (DocumentsResult, error)
+imethod CarrierTracker.Track(context.Context, TrackRequest) (TrackResult, error)
 imethod Commerce.Endpoints(context.Context) (CommerceEndpoints)
 imethod Commerce.Product(context.Context, string) (CommerceProduct, bool)
 imethod Commerce.Products(context.Context, CommerceQuery) ([]CommerceProduct, error)
@@ -643,8 +805,21 @@ method (*Secrets) Delete(context.Context, string) (bool, error)
 method (*Secrets) Get(context.Context, string) (string, bool, error)
 method (*Secrets) Set(context.Context, string, string) (error)
 method (*Services) Call(context.Context, string, string, any, ServiceCallOptions) (ServiceResult, error)
+method (*Services) CreateShippingLabel(context.Context, string, LabelRequest) (LabelResult, error)
+method (*Services) ShippingDocuments(context.Context, string, DocumentsRequest) (DocumentsResult, error)
+method (*Services) ShippingRates(context.Context, RatesRequest, ServiceCallOptions) ([]CarrierRatesAnswer, []ServiceMiss, error)
+method (*Services) TrackShipment(context.Context, string, TrackRequest) (TrackResult, error)
+method (*Services) VoidShippingLabel(context.Context, string, VoidRequest) (VoidResult, error)
+method (CarrierDescription) Validate() (error)
 method (ContractMethod) ValidateInput([]byte) (error)
 method (ContractMethod) ValidateOutput([]byte) (error)
+method (Customs) Validate() (error)
+method (DocumentRef) Bytes() ([]byte, error)
+method (DocumentsRequest) Validate() (error)
+method (DocumentsResult) Validate() (error)
+method (LabelRequest) Validate() (error)
+method (LabelResult) Validate() (error)
+method (Parcel) Validate() (error)
 method (PaymentAddress) Validate() (error)
 method (PaymentDisputeReport) Validate() (error)
 method (PaymentExternalRefund) Validate() (error)
@@ -652,8 +827,15 @@ method (PaymentRefundParams) Validate() (error)
 method (PaymentRejection) Validate() (error)
 method (PaymentResolution) Validate() (error)
 method (PaymentSessionParams) Validate() (error)
+method (RatesRequest) Validate() (error)
+method (RatesResult) Validate() (error)
 method (ServiceAnswer) Decode(any) (error)
 method (ServiceContract) Method(string) (ContractMethod, bool)
+method (ShipAddress) Validate() (error)
+method (TrackRequest) Validate() (error)
+method (TrackResult) Validate() (error)
+method (VoidRequest) Validate() (error)
+method (VoidResult) Validate() (error)
 type API
 type APIError
 type Ability
@@ -669,6 +851,13 @@ type AuthProvider
 type AuthProviderStatus
 type AuthStartRequest
 type CallInfo
+type Carrier
+type CarrierDescription
+type CarrierDocuments
+type CarrierRate
+type CarrierRatesAnswer
+type CarrierService
+type CarrierTracker
 type Class
 type Commerce
 type CommerceCounter
@@ -679,6 +868,11 @@ type CommerceTerm
 type CommerceVariation
 type ContractMethod
 type Core
+type Customs
+type CustomsItem
+type DocumentRef
+type DocumentsRequest
+type DocumentsResult
 type EventInfo
 type FieldChoice
 type FieldChoicesRequest
@@ -689,8 +883,11 @@ type FieldValidateResponse
 type GRPCPlugin
 type Handler
 type InitResult
+type LabelRequest
+type LabelResult
 type ListColumn
 type OIDCClient
+type Parcel
 type PaymentAddress
 type PaymentConfirmRequest
 type PaymentConfirmResult
@@ -721,6 +918,8 @@ type PaymentSyncRequest
 type PaymentSyncer
 type Payments
 type PluginClient
+type RatesRequest
+type RatesResult
 type RenderAssetsRequest
 type RowAction
 type Schedule
@@ -740,7 +939,13 @@ type ServiceProvider
 type ServiceResult
 type Services
 type SettingField
+type ShipAddress
+type TrackEvent
+type TrackRequest
+type TrackResult
 type Viewer
+type VoidRequest
+type VoidResult
 type WidgetDef
 type WidgetField
 type WidgetProvider

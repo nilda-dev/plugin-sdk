@@ -61,7 +61,7 @@ part of the Go API — see below.
 
 **Covered by the promise from v1.0.** Everything in `surface.txt`, except what the next paragraph names.
 That file is generated from the AST and checked on every run: exported funcs, types, consts, vars, and the
-exported methods and fields of exported types — 749 entries today. Adding to it is a normal change and
+exported methods and fields of exported types — 954 entries today. Adding to it is a normal change and
 stays cheap. Removing from it after v1.0 is a breaking change for somebody, and the guard says so in those
 words.
 
@@ -78,7 +78,7 @@ words.
 - **`RegisterContractForTest`** — plumbing for a test of a contract this module does not ship yet. Core never reads
   it.
 
-**`nildatest` has a ledger of its own**, `nildatest/surface.txt` (92 entries), checked on every run the same
+**`nildatest` has a ledger of its own**, `nildatest/surface.txt` (107 entries), checked on every run the same
 way. The promise covers it on the same terms as the SDK's, with the same exception: seven of its `*Host`
 methods — `KVGet`, `KVSet`, `KVDel`, `KVIncr`, `EmitEvent`, `SendEmail`, `RevokeIdentity` — name `contract.*`
 and `grpc.*` types, because a `*Host` IS the fake `HostService` client `NewCoreForTest` is handed. Those
@@ -141,7 +141,7 @@ finds none in CI.
 `docs/` — **`PLUGIN_SDK.md`** (the contract, the developer surface, capabilities, the manifest,
 what Core guarantees and what it does not) · `PAYMENTS.md` (the payment contract: a gateway plugin,
 and whatever takes the money) · `SERVICES.md` (the service desk: one plugin asking another through Core, in a
-contract shipped here as data) · `EVENTS.md` (events: kept until delivered, CloudEvents) · `ANY_LANGUAGE.md` (the raw protocol, for a plugin
+contract shipped here as data) · `SHIPPING.md` (shipping carriers: the first contract on the desk) · `EVENTS.md` (events: kept until delivered, CloudEvents) · `ANY_LANGUAGE.md` (the raw protocol, for a plugin
 written in something other than Go) · `CAPABILITY_PLAN.md` (which capabilities exist, which are
 deliberately missing, and why) · `PLUGINS.md` (plugin catalog).
 

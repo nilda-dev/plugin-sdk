@@ -9,7 +9,9 @@ First plugins: `plugin-sendcloud` (Europe) then `plugin-shippo` (US); direct car
 on Core's service desk — `service_provider` / `service_consumer`, `provides` / `uses` (`SERVICES.md`); Core's
 units PC5–PC8 replaced report 03's shipping-only relay (U3). The rest of the design below still stands.
 
-Nothing of the carrier itself is built yet. The full design is in the commerce repo:
+**The contract is built (SH1, 2026-10-13):** `contracts/shipping.carrier/v1/`, `shipping.go`, `nildatest.StubCarrier`,
+`_examples/carrier`, `SHIPPING.md` — plugin-sdk v0.15.0. The mock carrier plugin, the shop's side and the vendor
+plugins come next. The full design is in the commerce repo:
 - `commerce/docs/plans-2026-10-12/03-carrier-contract-design.md` — proposed contract (`shipping.go` in this repo, two
   capabilities `shipping_carrier` and `shipping_request`, Core is a stateless relay, commerce keeps all records), hooks
   `describe`, `rates`, `label.create`, `label.void`, optional `track`, `pickup_points`, `documents`; a carrier's

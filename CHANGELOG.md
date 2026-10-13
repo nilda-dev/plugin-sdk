@@ -4,7 +4,31 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
-## v0.14.0 — unreleased (one plugin asking another through Core)
+## v0.15.0 — unreleased (shipping carriers)
+
+Additions only (`surface.txt` grows by 205 entries, `nildatest/surface.txt` by 15; nothing removed; no wire change). A
+new contract file, `contracts/shipping.carrier/v1/contract.json`, which Core reads from the SDK it is built with: a
+Core built on an older SDK refuses a manifest naming it. `docs/SHIPPING.md` is the whole of it.
+
+### Added
+
+- **The carrier contract**: `Carrier` (`DescribeCarrier`, `Rates`, `CreateLabel`, `VoidLabel`) and the optional
+  `CarrierTracker` and `CarrierDocuments`; `CarrierMethods` answers them, checking every request before the carrier
+  sees it and every answer before it leaves; a `Rates` past `CarrierRatesBudget` (4 s) answers "unavailable". Serve
+  answers a plugin that implements `Carrier` even when it wrote no `ServiceMethods`.
+- **The shapes** — `CarrierDescription`, `CarrierService`, `RatesRequest`, `RatesResult`, `CarrierRate`,
+  `ShipAddress`, `Parcel`, `Customs`, `CustomsItem`, `LabelRequest`, `LabelResult`, `DocumentRef` (`DocumentData`,
+  `Bytes`), `VoidRequest`, `VoidResult`, `TrackRequest`, `TrackResult`, `TrackEvent`, `DocumentsRequest`,
+  `DocumentsResult` — each with `Validate`, and the closed sets of statuses and failure codes.
+- **The shop's calls**: `Services.ShippingRates`, `CreateShippingLabel` (the request's key travels as the idempotency
+  key), `VoidShippingLabel`, `TrackShipment`, `ShippingDocuments`.
+- **`nildatest.NewStubCarrier`** — a carrier in memory; **`_examples/carrier`** — a whole carrier plugin to copy.
+
+### Changed
+
+- A contract type may not carry a `[]byte`: its schema would refuse the base64 JSON sends (a guard holds it).
+
+## v0.14.0 — 2026-10-13 (one plugin asking another through Core)
 
 Additions only (`surface.txt` grows by 34 entries, `nildatest/surface.txt` by 15; nothing removed; no wire change —
 a relayed call is an ordinary hook named `svc:<contract>.<method>`, carrying the fields v0.13.0 added). Needs a Core

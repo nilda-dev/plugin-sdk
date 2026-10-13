@@ -85,8 +85,50 @@ var paymentsV1 = contractDef{
 const paymentsAgentReason = "the owner reaches payments through Core's own payment tools (payments_list, payment_detail, " +
 	"payment_decide, payment_methods, payment_method_set); this hook is Core-to-plugin plumbing beneath them"
 
+// shippingCarrierV1 is a carrier plugin's contract with the shop (SHIPPING.md): relayed by Core's service desk, every
+// carrier asked at once. A carrier's "no" is a result, so every method's errors are failures and none is an answer.
+var shippingCarrierV1 = contractDef{
+	name: ContractShippingCarrier,
+	description: "Shipping a parcel: a carrier plugin — an aggregator such as Sendcloud or Shippo, or one carrier's own " +
+		"API, on the merchant's own account — describes its services, quotes rates, buys and voids labels, tracks " +
+		"parcels and fetches a label's documents again. The shop keeps every record (SHIPPING.md).",
+	methods: []methodDef{
+		{ContractMethod{Name: CarrierDescribe, AnsweredBy: "provider", RetryClass: "failure", Fallback: "skip",
+			Idempotent: true, Agent: "read",
+			Description: "The carrier's services: where each delivers, what it can do, and whether the plugin holds test credentials."},
+			ordinary{}, CarrierDescription{}},
+		{ContractMethod{Name: CarrierRates, AnsweredBy: "provider", RetryClass: "failure", Fallback: "skip",
+			Idempotent: true, Agent: "read",
+			Description: "What sending these parcels from the origin to the destination costs with each service, and how long it takes."},
+			RatesRequest{}, RatesResult{}},
+		{ContractMethod{Name: CarrierLabelCreate, AnsweredBy: "provider", BudgetMS: 15000, RetryClass: "failure",
+			Fallback: "block", Idempotent: true, Agent: "none", AgentReason: shopKeepsTheRecord,
+			Description: "Buy a shipping label for one service on the merchant's carrier account; the request's key makes a repeat buy one label."},
+			LabelRequest{}, LabelResult{}},
+		{ContractMethod{Name: CarrierLabelVoid, AnsweredBy: "provider", BudgetMS: 15000, RetryClass: "failure",
+			Fallback: "block", Idempotent: true, Agent: "none", AgentReason: shopKeepsTheRecord,
+			Description: "Cancel a label that has not shipped, so the carrier does not charge for it."},
+			VoidRequest{}, VoidResult{}},
+		{ContractMethod{Name: CarrierTrack, AnsweredBy: "provider", BudgetMS: 15000, RetryClass: "failure",
+			Fallback: "skip", Idempotent: true, Agent: "read",
+			Description: "Where a parcel is now, and every scan the carrier reported."},
+			TrackRequest{}, TrackResult{}},
+		{ContractMethod{Name: CarrierDocumentsGet, AnsweredBy: "provider", BudgetMS: 15000, RetryClass: "failure",
+			Fallback: "block", Idempotent: true, Agent: "none",
+			AgentReason: "a label's documents are files for the merchant's printer; the shop's order screen and its " +
+				"buy_shipping_label ability hand them over",
+			Description: "A label's documents — the label, a customs invoice — fetched again from the carrier."},
+			DocumentsRequest{}, DocumentsResult{}},
+	},
+}
+
+// shopKeepsTheRecord is why a label is bought and voided only through the shop: a label the assistant bought straight
+// from the carrier would be one no order knows about, billed to the merchant and shipped by nobody.
+const shopKeepsTheRecord = "the shop keeps every label on its order, so its own abilities buy_shipping_label and " +
+	"void_label are the doors; a label bought straight from the carrier would belong to no order"
+
 // contractDefs is every contract this module defines.
-var contractDefs = []contractDef{paymentsV1}
+var contractDefs = []contractDef{paymentsV1, shippingCarrierV1}
 
 // render builds a contract file from its definition.
 func (d contractDef) render(t *testing.T) []byte {
@@ -337,5 +379,43 @@ func TestAContractWithAMethodWithoutAnAgentClassIsRefused(t *testing.T) {
 	if _, err := loadContracts(fstest.MapFS{"contracts/demo/v2/contract.json": {Data: []byte(`{"name":"demo/v1",` +
 		`"description":"d","methods":[` + ok + `]}`)}}); err == nil || !strings.Contains(err.Error(), "its directory says") {
 		t.Errorf("a file whose name and directory disagree: %v", err)
+	}
+}
+
+// A []byte in a contract type is a schema that refuses its own JSON: inference writes "an array of integers 0–255",
+// and encoding/json sends a base64 string. The first carrier label carried its PDF that way and every answer was
+// dropped as invalid (DocumentRef.Data is a base64 string for this reason).
+func TestNoContractTypeCarriesBytes(t *testing.T) {
+	var walk func(path string, typ reflect.Type, seen map[reflect.Type]bool)
+	walk = func(path string, typ reflect.Type, seen map[reflect.Type]bool) {
+		for typ.Kind() == reflect.Pointer {
+			typ = typ.Elem()
+		}
+		switch typ.Kind() {
+		case reflect.Slice, reflect.Array:
+			if typ.Elem().Kind() == reflect.Uint8 && typ != reflect.TypeOf(json.RawMessage{}) {
+				t.Errorf("%s is %s: its schema would refuse the base64 JSON sends — carry it as a base64 string", path, typ)
+				return
+			}
+			walk(path+"[]", typ.Elem(), seen)
+		case reflect.Map:
+			walk(path+"{}", typ.Elem(), seen)
+		case reflect.Struct:
+			if seen[typ] {
+				return
+			}
+			seen[typ] = true
+			for i := 0; i < typ.NumField(); i++ {
+				if f := typ.Field(i); f.IsExported() {
+					walk(path+"."+f.Name, f.Type, seen)
+				}
+			}
+		}
+	}
+	for _, d := range contractDefs {
+		for _, m := range d.methods {
+			walk(d.name+" "+m.row.Name+" input", reflect.TypeOf(m.in), map[reflect.Type]bool{})
+			walk(d.name+" "+m.row.Name+" output", reflect.TypeOf(m.out), map[reflect.Type]bool{})
+		}
 	}
 }
