@@ -4,7 +4,7 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
-## Unreleased (v0.16.0) — where a visitor is, and the EU's VAT rates
+## v0.16.0 — 2026-10-13 (where a visitor is, the EU's VAT rates and the seller)
 
 Additions only (`surface.txt` grows by 35 entries; nothing removed; no wire change).
 
