@@ -101,16 +101,20 @@ func TestTheCallLimitsTheDocsNameAreCores(t *testing.T) {
 			t.Errorf("%s no longer says %q, which core's calllimits.go and hostservice.go make true", doc, want)
 		}
 	}
-	// Emit's two promises about delivery, each held both ways: Core runs the fan-out on a goroutine of its
-	// own, detached from the emitter's call — which is what makes "returns before the subscribers have run"
-	// true, and also what makes two emits' order unreliable — and core.go and the guide say both.
-	if !strings.Contains(read("hostservice.go"), "go (*dispatcher).EmitFromPlugin(context.WithoutCancel(ctx)") {
-		t.Error("core no longer delivers an emitted event detached from the emitter's call — re-read Emit's doc")
+	// Emit's promises about delivery, each held both ways: Core STORES the event for its subscribers inside the
+	// emitter's call and delivers it later, retried (D10) — which is what makes "returns once Core has stored it,
+	// before any subscriber has run" true, and also what makes two emits' order unreliable — and core.go and the
+	// guide say both.
+	if !strings.Contains(read("hostservice.go"), "if err := (*dispatcher).EmitFromPlugin(ctx, fromKey, eventType, data); err != nil {") ||
+		!strings.Contains(read("events.go"), "return d.publish(ctx, ce, fromKey)") {
+		t.Error("core no longer stores an emitted event inside the emitter's call — re-read Emit's doc")
 	}
 	guide := flat(readText(t, "docs/PLUGIN_SDK.md"))
 	for doc, wants := range map[string][]string{
-		"core.go (Emit)": {"Emit returns before the subscribers have run", "events are not ordered: Core delivers each emit on its own goroutine"},
-		"PLUGIN_SDK.md":  {"`Emit` returns before any subscriber has run, and Core delivers each emit on its own goroutine"},
+		"core.go (Emit)": {"Emit returns once Core has STORED the event for every subscriber, before any of them has run",
+			"retrying one that cannot take it for about three days, with the same id every time", "events are not ordered: a retried event can arrive after one emitted later"},
+		"PLUGIN_SDK.md": {"`Emit` returns once Core has stored the event for every subscriber, before any has run",
+			"tries again for about three days", "A retried event can arrive after one emitted later"},
 	} {
 		text := core
 		if doc == "PLUGIN_SDK.md" {

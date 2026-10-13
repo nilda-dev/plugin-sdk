@@ -210,10 +210,12 @@ func (c *Core) KVIncr(ctx context.Context, key string) (int64, error) {
 //
 // At most 20 a second per plugin (bursts of 100) — each is a fan-out to every subscriber. Past that the call
 // answers codes.ResourceExhausted at once, with a google.rpc.RetryInfo detail saying when there is room
-// again. Emit returns before the subscribers have run: delivery happens on
-// Core's side, on its own budget, so an Emit inside one of your hooks does not spend that hook's time. And
-// events are not ordered: Core delivers each emit on its own goroutine, so two you emit a moment apart can
-// reach a subscriber the other way round.
+// again. Emit returns once Core has STORED the event for every subscriber, before any of them has run, so an
+// Emit inside one of your hooks does not spend that hook's time; an error means it was not stored (its data is
+// not JSON, or Core could not write it). Core then delivers it to each subscriber on its own, retrying one that
+// cannot take it for about three days, with the same id every time (EventOf). And events are not ordered: a
+// retried event can arrive after one emitted later, so two you emit a moment apart can reach a subscriber the
+// other way round.
 func (c *Core) Emit(ctx context.Context, eventType string, data any) error {
 	raw, err := json.Marshal(data)
 	if err != nil {

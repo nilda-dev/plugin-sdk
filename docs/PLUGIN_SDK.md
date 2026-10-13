@@ -153,8 +153,8 @@ its token, so they survive a restart — under the same scopes: a repeat made wi
 changed what your plugin may do) is a different request, refused 422, never handed the first answer.
 
 `WithMaxRetries` tunes the patience — a hook runs inside Core's budgets, so less is sometimes right. Each
-call Core makes to you has `PLUGIN_CALL_TIMEOUT` (5 seconds by default); every subscriber of one hook or
-event shares ten seconds; and everything one public page asks of plugins — its widgets and its footer
+call Core makes to you has `PLUGIN_CALL_TIMEOUT` (5 seconds by default); every subscriber of one hook
+shares ten seconds (an event is delivered to each subscriber on its own, a call each attempt); and everything one public page asks of plugins — its widgets and its footer
 scripts together — shares 1.5 seconds, past which the page renders without the rest. Two calls get more:
 `Init` has `PLUGIN_INIT_TIMEOUT` (30 seconds by default), because a one-time data step runs there, and a
 payment gateway's four hooks (describe, start, refund, sync) have at most 15 seconds or `PLUGIN_CALL_TIMEOUT`, whichever is longer — less
@@ -409,10 +409,16 @@ plugin listening for an order event has nothing but the name to tell it who sent
 could use would let one plugin announce an order nobody paid. `nildatest` refuses the same names — all but
 Core's own, which it cannot know — so a wrong one fails your tests first.
 
-**Events are not ordered.** `Emit` returns before any subscriber has run, and Core delivers each emit on
-its own goroutine, so two events you emit a moment apart can reach a subscriber the other way round.
-Carry what a subscriber needs to decide in the event itself — a status, a version — rather than relying on
-which arrived last.
+**An event is kept until it is delivered.** `Emit` returns once Core has stored the event for every
+subscriber, before any has run. Core delivers it to each one separately and, when one cannot take it — it is
+restarting, it timed out, its `HandleEvent` returned an error — tries again for about three days, then tells
+the site's admins, whose assistant can send it again once the plugin works. So **return an error from
+`HandleEvent` only to mean "not now"**, and return nil for an event you have handled or choose to ignore.
+Every attempt carries the same id (`nilda.EventOf(ctx).ID`): an id you have seen is a repeat to drop.
+
+**Events are not ordered.** A retried event can arrive after one emitted later, so two events emitted a
+moment apart can reach a subscriber the other way round. Carry what a subscriber needs to decide in the event
+itself — a status, a version — rather than relying on which arrived last.
 
 ### 4.1 Putting something on a public page
 

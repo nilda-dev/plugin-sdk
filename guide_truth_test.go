@@ -33,9 +33,9 @@ func TestTheGuidesNumbersAndNamesAreCores(t *testing.T) {
 	budget := core("internal", "plugin", "pagebudget", "pagebudget.go")
 	has(budget, "internal/plugin/pagebudget/pagebudget.go", "const PublicPage = 1500 * time.Millisecond")
 	has(budget, "internal/plugin/pagebudget/pagebudget.go", "const ExtensionPoint = 10 * time.Second")
-	// "Every subscriber of one hook or event shares ten seconds" is true only while the fan-outs spend
-	// ExtensionPoint: the budget is dispatchBudget, it is set from ExtensionPoint, and each fan-out — a
-	// filter and an action in hooks.go, a Core event and a plugin's event in events.go — opens it.
+	// "Every subscriber of one hook shares ten seconds" is true only while the hook fan-outs spend ExtensionPoint:
+	// the budget is dispatchBudget, it is set from ExtensionPoint, and each fan-out — a filter and an action in
+	// hooks.go — opens it. An event has none: it is stored and delivered to each subscriber on its own (D10).
 	hooks := core("internal", "plugin", "hooks.go")
 	has(hooks, "internal/plugin/hooks.go", "var dispatchBudget = pagebudget.ExtensionPoint")
 	// Each fan-out by its own function, so a third one that is true to the guide passes and one moved elsewhere
@@ -44,8 +44,6 @@ func TestTheGuidesNumbersAndNamesAreCores(t *testing.T) {
 	for _, fn := range []struct{ file, src, decl string }{
 		{"hooks.go", hooks, "func (d *Dispatcher) Filter(ctx context.Context, hook string, payload []byte) []byte {"},
 		{"hooks.go", hooks, "func (d *Dispatcher) Action(ctx context.Context, hook string, payload []byte) {"},
-		{"events.go", events, "func (d *Dispatcher) OnEvent(ctx context.Context, eventType string, data map[string]any) {"},
-		{"events.go", events, "func (d *Dispatcher) EmitFromPlugin(ctx context.Context, fromKey, eventType string, dataJSON []byte) {"},
 	} {
 		start := strings.Index(fn.src, fn.decl)
 		if start < 0 {
@@ -58,7 +56,20 @@ func TestTheGuidesNumbersAndNamesAreCores(t *testing.T) {
 		}
 		if !strings.Contains(body, "context.WithTimeout(ctx, dispatchBudget)") {
 			t.Errorf("core's %s no longer opens dispatchBudget — re-read the guide's ten seconds for every subscriber "+
-				"of one hook or event", fn.decl)
+				"of one hook", fn.decl)
+		}
+	}
+	// And an event's two entry points store it rather than call anybody (eventdelivery.go's publish).
+	for _, decl := range []string{
+		"func (d *Dispatcher) OnEvent(ctx context.Context, eventType string, data map[string]any) {",
+		"func (d *Dispatcher) EmitFromPlugin(ctx context.Context, fromKey, eventType string, dataJSON []byte) error {",
+	} {
+		body := from(t, events, decl, "core's internal/plugin/events.go")
+		if end := strings.Index(body, "\n}\n"); end >= 0 {
+			body = body[:end]
+		}
+		if !strings.Contains(body, "d.publish(ctx, ce,") {
+			t.Errorf("core's %s no longer stores the event for its subscribers — re-read the guide's \"An event is kept until it is delivered\"", decl)
 		}
 	}
 	// And the two calls the guide says get more than PLUGIN_CALL_TIMEOUT — each wired from the operator's
@@ -74,9 +85,9 @@ func TestTheGuidesNumbersAndNamesAreCores(t *testing.T) {
 		t.Fatal("core's internal/plugin/payments.go no longer declares PaymentHookBudget in seconds — repoint this guard")
 	}
 	says(guide, "PLUGIN_SDK.md", "a payment gateway's four hooks (describe, start, refund, sync) have at most "+gateway[1]+" seconds or `PLUGIN_CALL_TIMEOUT`, whichever is longer — less when the request that asked has less left")
-	says(guide, "PLUGIN_SDK.md", "`PLUGIN_CALL_TIMEOUT` (5 seconds by default); every subscriber of one hook or event shares ten seconds")
+	says(guide, "PLUGIN_SDK.md", "`PLUGIN_CALL_TIMEOUT` (5 seconds by default); every subscriber of one hook shares ten seconds (an event is delivered to each subscriber on its own, a call each attempt)")
 	says(guide, "PLUGIN_SDK.md", "shares 1.5 seconds")
-	says(plugins, "PLUGINS.md", "5 s a call (PLUGIN_CALL_TIMEOUT), 10 s for every subscriber of one hook or event together, 1.5 s for everything one public page asks of plugins")
+	says(plugins, "PLUGINS.md", "5 s a call (PLUGIN_CALL_TIMEOUT), 10 s for every subscriber of one hook together, 1.5 s for everything one public page asks of plugins")
 
 	// The batch cap.
 	has(core("pkg", "config", "config.go"), "pkg/config/config.go", `parseInt32("API_BATCH_MAX", 50)`)

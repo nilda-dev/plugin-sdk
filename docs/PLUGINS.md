@@ -66,7 +66,7 @@ Key performance rule: Core never waits on a plugin without a limit. Events
 fire after Core has done its own work. The hooks a page is rendered through
 (widgets, footer scripts, the shop's products) run while it renders, inside
 budgets: 5 s a call (PLUGIN_CALL_TIMEOUT), 10 s for every subscriber of one
-hook or event together, 1.5 s for everything one public page asks of plugins.
+hook together, 1.5 s for everything one public page asks of plugins.
 Past a budget the page renders without that plugin, and a crashing or slow
 plugin draws nothing where it would have — it cannot take the site down.
 ```

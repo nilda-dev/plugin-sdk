@@ -190,7 +190,10 @@ repeated with it must have the effect of one). None of them is the person.
 
 ### `HandleEvent(EventRequest) → EventResponse`
 
-Fire-and-forget notification. Nothing waits for your answer.
+Nothing waits for your answer, but it counts: Nilda stores each event before delivering it and, when you
+answer with an error or not at all, tries again for about three days, with the same `id` each time — then
+tells the site's admins. So answer with an error only to mean "not now", and answer at once for an event you
+ignore.
 
 `type` and `data_json` are a CloudEvents 1.0 event's `type` and `data`; its other context attributes travel
 beside them, empty when Nilda does not fill them: `id` (unique per event and kept by a redelivery — an id you
