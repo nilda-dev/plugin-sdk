@@ -90,6 +90,9 @@ func TestEveryExportedProviderInterfaceIsInTheTable(t *testing.T) {
 		// Handler plus PaymentGateway, named so ServePaymentGateway's parameter is checked by the compiler;
 		// a plugin implementing it implements PaymentGateway, whose row subscribes it.
 		"PaymentGatewayPlugin": "Handler and PaymentGateway together; PaymentGateway's row subscribes it",
+		// Core subscribes a provider from its MANIFEST's `provides`, never from InitResult (Core's host.go
+		// providedHooks), so there are no hooks for Serve to add: a svc: name a process lists itself is not kept.
+		"ServiceProvider": "Core subscribes it from the manifest's provides, not from InitResult — SERVICES.md",
 	}
 	wired := map[string]bool{}
 	for _, p := range providerHooks {

@@ -48,8 +48,9 @@ type ContractMethod struct {
 	// Hook is the hook name the method already travels as, for a contract that describes hooks Core sends itself
 	// (payments). Empty for a method Core's service desk relays, which travels as "svc:<contract>.<method>".
 	Hook string `json:"hook,omitempty"`
-	// AnsweredBy is who answers it: "provider" (the plugin that provides the contract) or "consumer" (the plugin
-	// that requires it, told something by Core).
+	// AnsweredBy is who answers it: "provider" (the plugin that provides the contract) or, for a method riding one of
+	// Core's own hooks, "consumer" (the plugin that requires it, told something by Core). A relayed method is always
+	// the provider's.
 	AnsweredBy string `json:"answered_by"`
 	// Description says what the method does.
 	Description string `json:"description"`
@@ -103,8 +104,15 @@ func Contracts() ([]ServiceContract, error) {
 	return contractsAll, contractsErr
 }
 
-// ContractNamed returns one contract by its name, e.g. "payments/v1".
+// ContractNamed returns one contract by its name, e.g. "payments/v1" — one of this SDK's files, or one a test
+// registered (RegisterContractForTest).
 func ContractNamed(name string) (ServiceContract, bool) {
+	testContractsMu.RLock()
+	c, ok := testContracts[name]
+	testContractsMu.RUnlock()
+	if ok {
+		return c, true
+	}
 	all, err := Contracts()
 	if err != nil {
 		return ServiceContract{}, false
@@ -115,6 +123,26 @@ func ContractNamed(name string) (ServiceContract, bool) {
 		}
 	}
 	return ServiceContract{}, false
+}
+
+var (
+	testContractsMu sync.RWMutex
+	testContracts   = map[string]ServiceContract{}
+)
+
+// RegisterContractForTest makes a contract no released SDK carries — one being written, from ParseContract — known
+// to this process's ContractNamed, Services.Call and DispatchServiceHook until remove is called. For tests: Core
+// reads only the files of the SDK it is built with and refuses a manifest naming any other contract, so a contract
+// registered here reaches nothing on a real site. Like NewCoreForTest, it is plumbing and not part of the v1 promise.
+func RegisterContractForTest(c ServiceContract) (remove func()) {
+	testContractsMu.Lock()
+	testContracts[c.Name] = c
+	testContractsMu.Unlock()
+	return func() {
+		testContractsMu.Lock()
+		delete(testContracts, c.Name)
+		testContractsMu.Unlock()
+	}
 }
 
 // Method returns one of the contract's methods by name.
@@ -162,7 +190,7 @@ func loadContracts(fsys fs.FS) ([]ServiceContract, error) {
 		if err != nil {
 			return err
 		}
-		c, err := parseContract(raw)
+		c, err := ParseContract(raw)
 		if err != nil {
 			return fmt.Errorf("nilda: %s: %w", p, err)
 		}
@@ -179,8 +207,10 @@ func loadContracts(fsys fs.FS) ([]ServiceContract, error) {
 	return out, nil
 }
 
-// parseContract reads one contract file and checks every rule a contract must keep.
-func parseContract(raw []byte) (ServiceContract, error) {
+// ParseContract reads one contract file and checks every rule a contract must keep, compiling its schemas — what
+// Contracts does for each file this SDK carries, for a file it does not: a contract being written, or one a test
+// needs before any released SDK defines it.
+func ParseContract(raw []byte) (ServiceContract, error) {
 	var c ServiceContract
 	dec := json.NewDecoder(strings.NewReader(string(raw)))
 	dec.DisallowUnknownFields()
@@ -222,6 +252,8 @@ func checkMethod(m *ContractMethod) error {
 		return fmt.Errorf("budget_ms %d is not between 0 (the ordinary budget) and %d", m.BudgetMS, maxContractBudgetMS)
 	case !retryClasses[m.RetryClass]:
 		return fmt.Errorf("retry_class %q is not failure or answer", m.RetryClass)
+	case m.Hook == "" && m.AnsweredBy != "provider":
+		return fmt.Errorf("a relayed method is answered by the provider — Core's service desk asks providers on a consumer's behalf, and tells a consumer something only through an event")
 	case m.Hook == "" && !fallbacks[m.Fallback]:
 		return fmt.Errorf("a relayed method needs fallback skip, block or cached; it has %q", m.Fallback)
 	case m.Hook != "" && m.Fallback != "":

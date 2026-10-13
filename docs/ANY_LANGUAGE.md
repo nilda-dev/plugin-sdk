@@ -180,6 +180,11 @@ there, so here they are:
 - `schedule:<name>` sends `{"schedule": "<name>"}`. Your answer is not read.
 - `ability:<name>` sends the caller's input as it came — the object your ability's `input_schema` describes —
   and your answer is whatever JSON the ability returns, handed back to the assistant that asked.
+- `svc:<contract>.<method>` (`svc:shipping.carrier/v1.rates`) is another plugin asking you, through Nilda's service
+  desk, a method of a contract your manifest `provides` (SERVICES.md). The request and your answer are the method's
+  `input` and `output` JSON Schemas in `contracts/<name>/v<major>/contract.json` of this module — read the file, it
+  is the contract; Nilda checks both and drops an answer that does not match. Your plugin calls a contract it
+  `requires` or `uses` with `POST <api_base_url>/services/<name>/v<major>/<method>` and a body `{"input": {...}}`.
 
 Nilda applies a **5-second timeout** by default — a slow answer fails the call, not the site.
 
@@ -213,7 +218,8 @@ that is not a bug you should work around.
 - **A ceiling per call**: `PLUGIN_CALL_TIMEOUT`, 5 seconds by default, for a hook and for an event. Two
   calls get more: `Init` has `PLUGIN_INIT_TIMEOUT` (30 seconds by default), because a one-time data step
   runs there, and a payment gateway's four hooks (describe, start, refund, sync) have at most 15 seconds or `PLUGIN_CALL_TIMEOUT`,
-  whichever is longer — less when the request that asked has less left (PAYMENTS.md).
+  whichever is longer — less when the request that asked has less left (PAYMENTS.md). A relayed contract method has its contract's
+  `budget_ms`, the same way.
 - **A circuit breaker.** If at least half your calls fail within a two-minute window — once there are at
   least five calls in it, so a quiet site cannot trip you on one bad answer — Nilda stops calling you for
   30 seconds: each call is refused on Nilda's side without reaching you. After that it lets calls through
@@ -227,6 +233,9 @@ that is not a bug you should work around.
   becomes in most gRPC servers, and the only one Nilda reads as your answer: `INVALID_ARGUMENT`,
   `FAILED_PRECONDITION`, `INTERNAL` and every other code count as a failed call, however deliberate the
   refusal. The Go SDK sends every error a handler returns as `UNKNOWN`, and a panic as `INTERNAL`.
+- **A circuit per contract for the service desk.** A relayed method's failures feed a circuit of their own, one per
+  contract you provide — the same tuning — and never the plugin's count above: a provider that keeps failing one
+  contract is left alone for that contract while everything else still reaches it.
 - **A concurrency bound of 16.** Nilda will never have more than 16 hook and event calls open to your
   process at once, and it refuses the 17th on its own side rather than queueing it. So you can size your
   worker pool to 16 and stop there — and if you are a language with a single-threaded runtime, know that

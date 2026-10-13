@@ -193,7 +193,8 @@ func TestTheGuideSaysAnAbilityIsNotToldWhoAsked(t *testing.T) {
 	hostGo := coreSource(t, "internal", "plugin", "host.go")
 	for _, want := range []string{
 		"return h.Call(ctx, key, AbilityHookPrefix+name, args)",
-		"handle.Plugin.HandleHook(callCtx, &contract.HookRequest{Hook: hook, Payload: payload})",
+		// The request id rides it too (PC6): the REQUEST that led here, never the person.
+		"handle.Plugin.HandleHook(callCtx, &contract.HookRequest{Hook: hook, Payload: payload,\n\t\tRequestId: logger.RequestIDFromContext(ctx)})",
 	} {
 		if !strings.Contains(hostGo, want) {
 			t.Errorf("core's host.go no longer has %q — re-read the guide's \"What you are NOT told is who that person was\"", want)

@@ -379,6 +379,8 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `commerce` | be the site's shop: supply the products, prices and cart the storefront widgets draw — see §5 |
 | `payment_gateway` | be one payment processor for the site — Stripe, PayPal, a bank — see "Taking payments" (Core from the release built on SDK v0.10.0) |
 | `payment_session` | take payments through the site's gateways: an order, a deposit, a donation — see "Taking payments" (the same release) |
+| `service_provider` | answer other plugins through Core's service desk, in the contracts the manifest `provides` — see "Answering and asking other plugins" (Core from the release built on SDK v0.14.0) |
+| `service_consumer` | ask other plugins through Core's service desk, in the contracts the manifest `requires` or `uses` (the same release) |
 
 That is the whole list. Every entry is dispatched by Core and has a surface in this SDK; there is nothing
 to declare that does nothing. `admin.pages` and `payments` used to appear here and were removed in v0.3.0
@@ -1608,7 +1610,8 @@ owner's log then finds both halves of a failure.
 
 What one kind of plugin promises another through Core — a payment gateway to the shop today; a carrier, a
 catalogue for a feed next — is a **contract**, shipped with this SDK as a file: `contracts/<name>/v<major>/contract.json`.
-Each `ServiceContract` lists its methods, and each `ContractMethod` says who answers it (`provider` or `consumer`),
+Each `ServiceContract` lists its methods, and each `ContractMethod` says who answers it (`provider`, or for a
+method riding one of Core's hooks also `consumer`),
 its time budget, whether an error from it is a failure or an answer (`retry_class`), what Core does when a provider
 fails (`fallback`: `skip`, `block` or `cached`), whether a repeat is safe (`idempotent`), how the site's assistant may
 use it (`agent`: a tool of class `read`, `write` or `destructive`, or `none` with the reason and the owner's other
@@ -1626,6 +1629,35 @@ Core checks every request and every answer against the same file (`Contracts()` 
 any language is held to one shape. Within a major version a contract only grows: a schema never closes an object,
 so a field one side adds is not refused by the other. `payments/v1` describes the payment hooks above, unchanged on
 the wire; its methods are not tools, because the owner's doors onto payments are Core's own payment tools.
+
+### Answering and asking other plugins (`provides`, `requires`, `uses`)
+
+A method with no hook of Core's own is **relayed**: one plugin asks, Core checks, every plugin that provides the
+contract answers, Core checks again. The two never call each other. `docs/SERVICES.md` is the whole story; in short:
+
+```json
+{ "capabilities": ["service_provider"], "provides": ["shipping.carrier/v1"] }
+{ "capabilities": ["service_consumer"], "uses": ["shipping.carrier/v1"] }
+```
+
+- **`provides`** (with `service_provider`): implement `nilda.ServiceProvider` — `Serve` hands each call to your
+  method already checked against the contract, and checks your answer before it leaves. Core subscribes you from the
+  manifest; list no hook.
+- **`requires`** (with `service_consumer`): your plugin cannot work without it. Core will not switch you on until an
+  active plugin provides it, and will not switch off the last provider while you are on.
+- **`uses`** (with `service_consumer`): you call it when a provider is there; until then the method's `fallback`
+  answers. Installing never waits for either.
+
+A consumer calls with `core.API().Services().Call(ctx, contract, method, input, nilda.ServiceCallOptions{})` and gets
+every provider's answer, with the ones that missed named — a provider that timed out is a result, not an error.
+Your token carries `use:<contract>` for each contract you require or use, and Core refuses any other with a 403.
+An update that adds a contract waits for the owner's yes, like a new capability. In tests, `nildatest.NewServices()`
+is the desk in memory, and `nilda.RegisterContractForTest` stands up a contract this SDK does not carry yet.
+
+The names: a provider returns `ServiceMethod`s, most easily with `nilda.Serves(contract, method, fn)` for typed input
+and output; an author routing by hand uses `DispatchServiceHook`, `ServiceHook` and `SplitServiceHook` (the hook is
+`svc:<contract>.<method>`). A consumer's `Call` returns a `ServiceResult` — its `ServiceAnswer`s (`Decode` reads one)
+and its `ServiceMiss`es. `ParseContract` reads and checks a contract file this SDK does not ship.
 
 ---
 

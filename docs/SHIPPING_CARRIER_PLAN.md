@@ -4,7 +4,12 @@ Owner decision 2026-10-12: carriers are separate plugins behind a contract defin
 (`PAYMENTS.md`). Merchants connect their OWN carrier or aggregator account; Nilda takes no fee and does not resell.
 First plugins: `plugin-sendcloud` (Europe) then `plugin-shippo` (US); direct carriers (DHL Express and others) later.
 
-Nothing is built yet. The full design is in the commerce repo:
+**Superseded in one part (2026-10-13):** the carrier contract does not get capabilities and hooks of its own
+(`shipping_carrier`, `shipping_request`, `shipping.go`). It is a contract FILE, `contracts/shipping.carrier/v1/`,
+on Core's service desk — `service_provider` / `service_consumer`, `provides` / `uses` (`SERVICES.md`); Core's
+units PC5–PC8 replaced report 03's shipping-only relay (U3). The rest of the design below still stands.
+
+Nothing of the carrier itself is built yet. The full design is in the commerce repo:
 - `commerce/docs/plans-2026-10-12/03-carrier-contract-design.md` — proposed contract (`shipping.go` in this repo, two
   capabilities `shipping_carrier` and `shipping_request`, Core is a stateless relay, commerce keeps all records), hooks
   `describe`, `rates`, `label.create`, `label.void`, optional `track`, `pickup_points`, `documents`; a carrier's

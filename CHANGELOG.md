@@ -4,6 +4,55 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## v0.14.0 — unreleased (one plugin asking another through Core)
+
+Additions only (`surface.txt` grows by 34 entries, `nildatest/surface.txt` by 15; nothing removed; no wire change —
+a relayed call is an ordinary hook named `svc:<contract>.<method>`, carrying the fields v0.13.0 added). Needs a Core
+built on this release: an older Core refuses `service_provider` and `service_consumer` at install, and answers the
+route 404. `docs/SERVICES.md` is the whole story; `docs/EVENTS.md` writes down what v0.13.0's stored events promise.
+
+### Added
+
+- **`API.Services().Call(ctx, contract, method, input, ServiceCallOptions)`** — a consumer asks every active provider
+  of a contract (or one, `Provider`) through Core's service desk, and gets a `ServiceResult`: each provider's
+  `ServiceAnswer`, and a `ServiceMiss` with the reason for each that did not answer — a deadline is a result, not an
+  error. The request is checked against the contract before it leaves and each answer after. `IdempotencyKey` makes a
+  repeated call one call.
+- **`ServiceProvider`** (`ServiceMethods() []ServiceMethod`) and **`Serves`** for typed methods — `Serve` routes each
+  call to the method, checking the request first and the answer after. **`DispatchServiceHook`**, **`ServiceHook`**,
+  **`SplitServiceHook`** and **`ServiceHookPrefix`** for an author routing by hand.
+- **`ParseContract`** reads and checks a contract file; **`RegisterContractForTest`** makes one known to the process
+  for a test (Core never sees it; not covered by the v1 promise).
+- **`nildatest.NewServices()`** — the desk in memory: `Provider`, `StubService`, `Core` for a consumer, `Ask` for a
+  provider's test, `Calls`.
+
+### Changed
+
+- A contract method Core relays (one with no `hook`) must be `answered_by: provider` — the desk asks providers on a
+  consumer's behalf; `ParseContract` refuses anything else. No released contract had one.
+
+## v0.13.0 — 2026-10-13 (who asked; events kept until delivered; contracts as data)
+
+Additions only (`surface.txt` grows by 35 entries; nothing removed). The contract grows by `HookRequest` fields 3–6
+(`request_id`, `contract`, `idempotency_key`, `caller`) and `EventRequest` fields 3–7 (`id`, `source`, `time`,
+`subject`, `dataschema`), so an older Core leaves them empty.
+
+### Added
+
+- **`CallOf(ctx) CallInfo`** inside a hook: the request that led to the call, and for a call relayed from another
+  plugin the contract, the asking plugin and its idempotency key. **`EventOf(ctx) EventInfo`** inside `HandleEvent`:
+  the event's CloudEvents 1.0 context — `ID` (kept by a redelivery), `Source` (set by Core), `Time`, `Subject`,
+  `DataSchema`.
+- **Service contracts as data**: `contracts/<name>/v<major>/contract.json`, read with **`Contracts`** and
+  **`ContractNamed`**; each **`ContractMethod`** says who answers it, its budget, retry class, fallback, idempotency,
+  the assistant's class and the JSON Schema (2020-12) of its request and answer, checked with **`ValidateInput`** /
+  **`ValidateOutput`**. The first file, `payments/v1`, describes the payment hooks unchanged.
+
+### Changed (Core, from the release built on it)
+
+- An event a plugin subscribes to is stored before it is delivered and retried for about three days; `Emit` returns
+  once Core has stored it.
+
 ## v0.12.0 — 2026-10-12 (receipts are not newsletters)
 
 Additions only (`surface.txt` grows by 1 entry, `nildatest/surface.txt` by 2; nothing removed). The contract grows by

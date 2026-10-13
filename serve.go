@@ -262,6 +262,16 @@ func (s *pluginServer) HandleHook(ctx context.Context, req *contract.HookRequest
 		}
 		return &contract.HookResponse{Payload: out}, nil
 	}
+	// A service-desk call goes to a ServiceProvider's method, checked against the contract both ways (services.go).
+	// One for a method it does not answer falls through to HandleHook, for an author who routes them by hand.
+	if sp, is := s.handler.(ServiceProvider); is {
+		if out, handled, err := DispatchServiceHook(ctx, sp, req.Hook, req.Payload); handled {
+			if err != nil {
+				return nil, asAnswer(err)
+			}
+			return &contract.HookResponse{Payload: out}, nil
+		}
+	}
 	// The optional interfaces get first refusal, so a WidgetProvider never sees a hook name or a byte
 	// slice. Falls through when the handler implements neither, which is every plugin that does not
 	// contribute markup.

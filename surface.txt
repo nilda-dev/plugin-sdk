@@ -100,6 +100,7 @@ const RefundPending
 const RefundRejected
 const RefundRequested
 const RefundResolved
+const ServiceHookPrefix
 const SettingBoolean
 const SettingColor
 const SettingEmail
@@ -437,9 +438,25 @@ field SearchQuery.Statuses []string json:statuses
 field SearchQuery.Type string json:type
 field SearchResults.Hits []SearchHit json:hits
 field SearchResults.Total int64 json:total
+field ServiceAnswer.Cached bool json:cached
+field ServiceAnswer.Output json.RawMessage json:output
+field ServiceAnswer.Provider string json:provider
+field ServiceCallOptions.IdempotencyKey string
+field ServiceCallOptions.Provider string
 field ServiceContract.Description string json:description
 field ServiceContract.Methods []ContractMethod json:methods
 field ServiceContract.Name string json:name
+field ServiceMethod.Contract string
+field ServiceMethod.Handle func(ctx context.Context, input json.RawMessage) (any, error)
+field ServiceMethod.Method string
+field ServiceMiss.Provider string json:provider
+field ServiceMiss.Reason string json:reason
+field ServiceResult.Answers []ServiceAnswer json:answers
+field ServiceResult.Contract string json:contract
+field ServiceResult.Fallback string json:fallback
+field ServiceResult.Method string json:method
+field ServiceResult.Missed []ServiceMiss json:missed
+field ServiceResult.RequestID string json:request_id
 field SettingField.Choices []string json:choices
 field SettingField.Default any json:default
 field SettingField.Help string json:help
@@ -488,6 +505,7 @@ func DispatchFieldHook(context.Context, *Core, FieldProvider, string, []byte) ([
 func DispatchPaymentConsumerHook(context.Context, *Core, PaymentConsumer, string, []byte) ([]byte, bool, error)
 func DispatchPaymentGatewayHook(context.Context, *Core, PaymentGateway, string, []byte) ([]byte, bool, error)
 func DispatchSearchHook(context.Context, *Core, SearchProvider, string, []byte) ([]byte, bool, error)
+func DispatchServiceHook(context.Context, ServiceProvider, string, []byte) ([]byte, bool, error)
 func DisputeCanMove(string, string) (bool)
 func DisputeFinal(string) (bool)
 func EventOf(context.Context) (EventInfo)
@@ -501,10 +519,12 @@ func NewCoreForTest(string, []string, contract.HostServiceClient, string, string
 func NewOIDCClient(string, string, string, ...string) (*OIDCClient)
 func NewTransport(http.RoundTripper) (http.RoundTripper)
 func ObjectSchema(map[string]any, ...string) (json.RawMessage)
+func ParseContract([]byte) (ServiceContract, error)
 func ParseMinor(string, string) (int64, error)
 func PaymentCanMove(string, string) (bool)
 func ProtocolForSDK(string) (int, bool)
 func RefundCanMove(string, string) (bool)
+func RegisterContractForTest(ServiceContract) (func())
 func ScheduleHook(string) (string)
 func Serve(Handler)
 func ServeAuthProvider(AuthProvider)
@@ -512,9 +532,12 @@ func ServeCommerce(Commerce)
 func ServeField(FieldProvider)
 func ServePaymentGateway(PaymentGatewayPlugin)
 func ServeSearchProvider(SearchProvider)
+func Serves(string, string, func(ctx context.Context, in In) (Out, error)) (ServiceMethod)
+func ServiceHook(string, string) (string)
 func SetSettingsForTest(*Core, map[string]any)
 func SettingFieldTypes() ([]string)
 func ShowPricesIncludingTax(context.Context) (bool)
+func SplitServiceHook(string) (string, string, bool)
 func StartHTTP(http.Handler) (string, error)
 func Supports([]string, string) (bool)
 func SupportsOf(PaymentMethod) ([]string)
@@ -546,6 +569,7 @@ imethod SearchProvider.Index(context.Context, []SearchDoc) (error)
 imethod SearchProvider.Query(context.Context, SearchQuery) (SearchResults, error)
 imethod SearchProvider.Remove(context.Context, []string) (error)
 imethod SearchProvider.Truncate(context.Context) (error)
+imethod ServiceProvider.ServiceMethods() ([]ServiceMethod)
 imethod WidgetProvider.RenderWidget(context.Context, WidgetRenderRequest) (string, error)
 imethod WidgetProvider.Widgets() ([]WidgetDef)
 method (*API) Delete(context.Context, string) (error)
@@ -559,6 +583,7 @@ method (*API) PlanLimit(context.Context, string) (int64, bool, error)
 method (*API) Post(context.Context, string, any, any) (error)
 method (*API) Scopes() ([]string)
 method (*API) Secrets() (*Secrets)
+method (*API) Services() (*Services)
 method (*API) UploadMedia(context.Context, string, io.Reader, string, any) (error)
 method (*API) WithIdempotencyKey(string) (*API)
 method (*API) WithMaxRetries(int) (*API)
@@ -617,6 +642,7 @@ method (*Payments) SetSecret(context.Context, string, string) (error)
 method (*Secrets) Delete(context.Context, string) (bool, error)
 method (*Secrets) Get(context.Context, string) (string, bool, error)
 method (*Secrets) Set(context.Context, string, string) (error)
+method (*Services) Call(context.Context, string, string, any, ServiceCallOptions) (ServiceResult, error)
 method (ContractMethod) ValidateInput([]byte) (error)
 method (ContractMethod) ValidateOutput([]byte) (error)
 method (PaymentAddress) Validate() (error)
@@ -626,6 +652,7 @@ method (PaymentRefundParams) Validate() (error)
 method (PaymentRejection) Validate() (error)
 method (PaymentResolution) Validate() (error)
 method (PaymentSessionParams) Validate() (error)
+method (ServiceAnswer) Decode(any) (error)
 method (ServiceContract) Method(string) (ContractMethod, bool)
 type API
 type APIError
@@ -704,7 +731,14 @@ type SearchProvider
 type SearchQuery
 type SearchResults
 type Secrets
+type ServiceAnswer
+type ServiceCallOptions
 type ServiceContract
+type ServiceMethod
+type ServiceMiss
+type ServiceProvider
+type ServiceResult
+type Services
 type SettingField
 type Viewer
 type WidgetDef
