@@ -579,6 +579,18 @@ field SearchQuery.Statuses []string json:statuses
 field SearchQuery.Type string json:type
 field SearchResults.Hits []SearchHit json:hits
 field SearchResults.Total int64 json:total
+field Seller.Country string json:country
+field Seller.Email string json:email
+field Seller.LegalForm string json:legal_form
+field Seller.Locality string json:locality
+field Seller.Name string json:name
+field Seller.Phone string json:phone
+field Seller.Postcode string json:postal_code
+field Seller.Region string json:region
+field Seller.RegisterCourt string json:register_court
+field Seller.RegisterNo string json:register_number
+field Seller.Street string json:street
+field Seller.VATID string json:vat_id
 field ServiceAnswer.Cached bool json:cached
 field ServiceAnswer.Output json.RawMessage json:output
 field ServiceAnswer.Provider string json:provider
@@ -818,6 +830,7 @@ method (*Payments) ResolveRefund(context.Context, string, string) (PaymentRefund
 method (*Payments) ReverseRefund(context.Context, string, PaymentRejection) (PaymentRefund, error)
 method (*Payments) SetSecret(context.Context, string, string) (error)
 method (*Reference) EUVATRates(context.Context, time.Time) (EUVATRateSet, error)
+method (*Reference) Seller(context.Context) (Seller, error)
 method (*Secrets) Delete(context.Context, string) (bool, error)
 method (*Secrets) Get(context.Context, string) (string, bool, error)
 method (*Secrets) Set(context.Context, string, string) (error)
@@ -953,6 +966,7 @@ type SearchProvider
 type SearchQuery
 type SearchResults
 type Secrets
+type Seller
 type ServiceAnswer
 type ServiceCallOptions
 type ServiceContract

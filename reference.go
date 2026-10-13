@@ -7,7 +7,9 @@ import (
 	"time"
 )
 
-// Reference is public reference data Core holds for every plugin: no capability is needed to read it, only Core's API.
+// Reference is reference data Core holds for every plugin: no capability is needed to read it, only Core's API.
+//
+// Seller is who sells on this site, as its imprint says — what an invoice names as the supplier.
 //
 // The EU's VAT rates (EUVATRates) are Nilda Central's copy of the European Commission's Taxes in Europe Database,
 // refreshed hourly and held a day ahead, which Core keeps a day and keeps through an outage. The Commission says TEDB
@@ -85,6 +87,38 @@ func (r *Reference) EUVATRates(ctx context.Context, day time.Time) (EUVATRateSet
 	q := url.Values{"date": {day.In(brussels).Format(time.DateOnly)}}
 	if err := r.api.Get(ctx, "/reference/eu-vat-rates", q, &out); err != nil {
 		return EUVATRateSet{}, err
+	}
+	return out.Data, nil
+}
+
+// Seller is who sells on this site, from its imprint (the owner's Legal settings) — the supplier an invoice names
+// (Directive 2006/112/EC Art. 226(5)). Read it at the moment an invoice is made, never keep a copy: the imprint is the
+// one place the site keeps it, so an invoice and the published imprint cannot disagree. A field the owner left empty is
+// "".
+type Seller struct {
+	Name          string `json:"name"`
+	LegalForm     string `json:"legal_form,omitempty"`
+	RegisterNo    string `json:"register_number,omitempty"`
+	RegisterCourt string `json:"register_court,omitempty"`
+	// VATID is the seller's VAT identification number as the owner entered it ("ATU12345678"); "" when it has none.
+	VATID    string `json:"vat_id,omitempty"`
+	Email    string `json:"email,omitempty"`
+	Phone    string `json:"phone,omitempty"`
+	Street   string `json:"street,omitempty"`
+	Locality string `json:"locality,omitempty"`
+	Region   string `json:"region,omitempty"`
+	Postcode string `json:"postal_code,omitempty"`
+	// Country is ISO 3166-1 alpha-2.
+	Country string `json:"country,omitempty"`
+}
+
+// Seller reads who sells on this site.
+func (r *Reference) Seller(ctx context.Context) (Seller, error) {
+	var out struct {
+		Data Seller `json:"data"`
+	}
+	if err := r.api.Get(ctx, "/reference/seller", nil, &out); err != nil {
+		return Seller{}, err
 	}
 	return out.Data, nil
 }

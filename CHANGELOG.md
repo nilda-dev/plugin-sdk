@@ -6,7 +6,7 @@ here.
 
 ## Unreleased (v0.16.0) — where a visitor is, and the EU's VAT rates
 
-Additions only (`surface.txt` grows by 21 entries; nothing removed; no wire change).
+Additions only (`surface.txt` grows by 35 entries; nothing removed; no wire change).
 
 ### Added
 
@@ -16,6 +16,8 @@ Additions only (`surface.txt` grows by 21 entries; nothing removed; no wire chan
 - **`API().Reference().EUVATRates(ctx, day)`** — the EU member states' VAT rates on a day (`EUVATRateSet`,
   `EUVATRate`, `Standard`, `Reduced`), Nilda Central's copy of the Commission's TEDB. Needs a Core that serves
   `/reference/eu-vat-rates`.
+- **`API().Reference().Seller(ctx)`** — who sells on the site, from its imprint (`Seller`: name, legal form, register,
+  VAT ID, contact, address) — the supplier an invoice names. Needs a Core that serves `/reference/seller`.
 
 ## v0.15.0 — 2026-10-13 (shipping carriers)
 

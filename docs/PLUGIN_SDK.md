@@ -785,7 +785,7 @@ before setting its own, so a visitor cannot claim to be somebody by sending one.
 name — never a token or a session you could replay against Core. On a `webhook_paths` endpoint you get
 nothing, always: a machine's call carries no one's identity, which is what makes exempting it from CSRF safe.
 
-### Where a visitor is, and the EU's VAT rates (`VisitorCountry`, `Reference`)
+### Where a visitor is, the EU's VAT rates and the seller (`VisitorCountry`, `Reference`)
 
 **The visitor's country.** `nilda.VisitorCountry(r)` reads the country Core placed a request in from its internet
 address — ISO 3166-1 alpha-2, the country and never the address, with any client-sent value stripped. It is one item of
@@ -798,6 +798,11 @@ Commission's Taxes in Europe Database and kept by Core through an outage. `set.S
 nationwide standard rate; `set.Reduced("AT", "FOODSTUFFS")` its reduced rates for a TEDB category. No capability is
 needed — it is public reference data — but the Commission's database is not the legal reference (the Official Journal
 is), so a shop shows the set's `Source` and `CheckedAt` where a rate decides a price.
+
+**The seller.** `core.API().Reference().Seller(ctx)` returns a `Seller`: who sells on the site — name, legal form,
+register, VAT ID, contact and address — read from its imprint, the supplier an invoice must name (Directive 2006/112/EC
+Art. 226(5)). Read it when the invoice is made and do not keep a copy, so an invoice and the published imprint never
+disagree; a field the owner left empty is "", and a shop says what is missing rather than invoicing without it.
 
 ### Your own section of the admin (`admin_page`)
 

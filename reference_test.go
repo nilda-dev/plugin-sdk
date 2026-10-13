@@ -62,3 +62,19 @@ func TestVisitorCountryIsTwoCapitalLettersOrNothing(t *testing.T) {
 		}
 	}
 }
+
+func TestTheSellerIsReadFromTheImprint(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/reference/seller" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":{"name":"Kari Shop e.U.","vat_id":"ATU12345678","street":"Ring 1","postal_code":"1010","locality":"Wien","country":"AT"}}`))
+	}))
+	defer srv.Close()
+	core := NewCoreForTest("shop", nil, nil, srv.URL, "t", nil)
+	s, err := core.API().Reference().Seller(context.Background())
+	if err != nil || s.Name != "Kari Shop e.U." || s.VATID != "ATU12345678" || s.Postcode != "1010" || s.Country != "AT" {
+		t.Fatalf("%+v %v", s, err)
+	}
+}
