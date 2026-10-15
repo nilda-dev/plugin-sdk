@@ -85,6 +85,10 @@ type VisitorCall struct {
 	// IP and UserAgent are the caller's, for your anti-abuse checks — never to vary the answer by who asked.
 	IP        string `json:"ip,omitempty"`
 	UserAgent string `json:"user_agent,omitempty"`
+	// Agent is the AI agent behind the call when it proved who it is (Web Bot Auth) — its operator and what the site's
+	// owner lets it do (AgentOf's twin; from the release built on v0.20.0). nil for an anonymous one. A tool that
+	// completes an order acts only for an AgentBuy agent.
+	Agent *Agent `json:"agent,omitempty"`
 }
 
 // VisitorToolHook is the hook name Core dispatches a visitor tool under. Only needed if you handle a tool in

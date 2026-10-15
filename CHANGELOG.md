@@ -4,6 +4,25 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## v0.20.0 — unreleased (an AI agent that proves who it is, and pays for its buyer)
+
+Additions only (`surface.txt` grows by 21 entries, `nildatest/surface.txt` by 3; nothing removed). On the wire:
+`VisitorCall.agent`, and `credential` on the payment session request and the start request, `credential_types` on a
+payment method — each optional, so an older Core or gateway ignores them. `credential` and `credential_types` were
+reserved names until now (docs/PAYMENTS.md §8).
+
+### Added
+
+- **Identified agents (Web Bot Auth)**: `Agent` (`Operator`, `Tier`), `AgentTier` (`AgentBrowse`, `AgentBuy`),
+  `AgentOf(r)` on your resident server, and `VisitorCall.Agent` in a visitor tool. Core checks the signature; an agent
+  the owner blocked never reaches you.
+- **A delegated payment credential**: `PaymentCredential` (`Type`, `Token`, `Validate`; `String` never shows the
+  token), `CredentialStripeSPT`, `PaymentMethod.CredentialTypes`, `PaymentOption.CredentialTypes`,
+  `PaymentSessionParams.Credential`, `PaymentStartRequest.Credential`, and `CredentialPayer` — the gateway's half,
+  charging the token on the spot. Core hands it over once and keeps nothing of it.
+- **nildatest**: the payments kit carries the credential to the gateway and refuses it on a method that does not take
+  its type; `StubGateway` charges one (`CredentialStart`, `Charged`).
+
 ## v0.19.0 — 2026-10-15 (prices as a buyer pays them, in the catalogue)
 
 Additions only (`surface.txt` grows by 2 entries; nothing removed; no wire change). The `shop.catalog/v1` contract file

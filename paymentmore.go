@@ -47,8 +47,46 @@ const (
 
 // The tokens and names reserved for what the contract will carry and does not yet (architecture §1.2, §1.3).
 // Nothing may use them for anything else: TestReservedPaymentNamesAreUnused fails on an exported field or a json
-// tag named after them.
-var reservedPaymentNames = []string{"credential", "credential_types", "capture", "partial_capture", "void"}
+// tag named after them. `credential` and `credential_types` were reserved here until v0.20.0 built them
+// (PaymentCredential, below).
+var reservedPaymentNames = []string{"capture", "partial_capture", "void"}
+
+// A DELEGATED PAYMENT CREDENTIAL (v0.20.0; commerce unit 9.7, level 2): an AI agent pays for the buyer it acts for
+// with a token the buyer's wallet granted it — limited to this seller, an amount and a time. The consumer sends it
+// with the session (PaymentSessionParams.Credential), Core hands it to the gateway ONCE, in the start request, and
+// keeps nothing of it: it is never stored, logged or echoed. A gateway names the credential types a method accepts
+// (PaymentMethod.CredentialTypes) and charges on the spot, answering resolved, pending or rejected — there is no
+// page for a payer to be sent to.
+
+// CredentialStripeSPT is a Stripe Shared Payment Token ("spt_…"): a PaymentIntent confirmed with
+// payment_method_data[shared_payment_granted_token] (docs.stripe.com/agentic-commerce/concepts/shared-payment-tokens).
+const CredentialStripeSPT = "stripe.shared_payment_token"
+
+// maxCredentialToken bounds a credential's token.
+const maxCredentialToken = 512
+
+// PaymentCredential is a delegated payment token and its type.
+type PaymentCredential struct {
+	Type  string `json:"type"`
+	Token string `json:"token"`
+}
+
+// String never shows the token, so a credential printed by mistake is not a credential leaked.
+func (c PaymentCredential) String() string { return c.Type + ":[redacted]" }
+
+// GoString likewise, for %#v.
+func (c PaymentCredential) GoString() string { return c.String() }
+
+// Validate refuses a credential with no type or no token, or past its bounds.
+func (c PaymentCredential) Validate() error {
+	if strings.TrimSpace(c.Type) == "" || len(c.Type) > 64 || strings.ContainsAny(c.Type, " \t\n,") {
+		return fmt.Errorf("nilda: a payment credential names its type, e.g. %q", CredentialStripeSPT)
+	}
+	if strings.TrimSpace(c.Token) == "" || len(c.Token) > maxCredentialToken {
+		return fmt.Errorf("nilda: a payment credential carries a token of 1 to %d characters", maxCredentialToken)
+	}
+	return nil
+}
 
 // SupportsOf is what a method can do: its Supports, or — for a gateway that lists nothing — what its Refunds bool
 // says, so every gateway written before the list existed keeps working unchanged.

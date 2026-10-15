@@ -3,6 +3,8 @@ const AdminPageList
 const AdminPageReport
 const AdminPageSettings
 const AdminReportHook
+const AgentBrowse
+const AgentBuy
 const AvailabilityBackorder
 const AvailabilityInStock
 const AvailabilityOutOfStock
@@ -45,6 +47,7 @@ const ClassStructural
 const ClassWrite
 const ContractShippingCarrier
 const ContractShopCatalog
+const CredentialStripeSPT
 const DisputeChargeback
 const DisputeClosed
 const DisputeInquiry
@@ -205,6 +208,8 @@ field AdminReportRequest.Params map[string]string json:params
 field AdminReportResult.Columns []ListColumn json:columns
 field AdminReportResult.Rows []map[string]any json:rows
 field AdminReportResult.Summary map[string]any json:summary
+field Agent.Operator string json:operator
+field Agent.Tier AgentTier json:tier
 field AuthAssertion.AvatarURL string json:avatar_url
 field AuthAssertion.Email string json:email
 field AuthAssertion.EmailVerified bool json:email_verified
@@ -452,6 +457,8 @@ field PaymentAddress.Region string json:region
 field PaymentConfirmRequest.Session PaymentSession json:session
 field PaymentConfirmResult.Proceed bool json:proceed
 field PaymentConfirmResult.Reason string json:reason
+field PaymentCredential.Token string json:token
+field PaymentCredential.Type string json:type
 field PaymentDescribeResponse.Methods []PaymentMethod json:methods
 field PaymentDispute.AmountMinor int64 json:amount_minor
 field PaymentDispute.ClosedAt *time.Time json:closed_at
@@ -488,6 +495,7 @@ field PaymentExternalRefund.AmountMinor int64 json:amount_minor
 field PaymentExternalRefund.Currency string json:currency
 field PaymentExternalRefund.ProviderRef string json:provider_ref
 field PaymentExternalRefund.Reason string json:reason
+field PaymentMethod.CredentialTypes []string json:credential_types
 field PaymentMethod.Currencies []string json:currencies
 field PaymentMethod.Description string json:description
 field PaymentMethod.Key string json:key
@@ -496,6 +504,7 @@ field PaymentMethod.Refunds bool json:refunds
 field PaymentMethod.Supports []string json:supports
 field PaymentMethod.Test bool json:test
 field PaymentMethod.TestHint map[string]string json:test_hint
+field PaymentOption.CredentialTypes []string json:credential_types
 field PaymentOption.Description string json:description
 field PaymentOption.Gateway string json:gateway
 field PaymentOption.Label string json:label
@@ -562,6 +571,7 @@ field PaymentSession.UpdatedAt time.Time json:updated_at
 field PaymentSessionParams.AmountMinor int64 json:amount_minor
 field PaymentSessionParams.BillingAddress *PaymentAddress json:billing_address
 field PaymentSessionParams.CancelURL string json:cancel_url
+field PaymentSessionParams.Credential *PaymentCredential json:credential
 field PaymentSessionParams.Currency string json:currency
 field PaymentSessionParams.Description string json:description
 field PaymentSessionParams.Email string json:email
@@ -573,6 +583,7 @@ field PaymentSessionParams.Reference string json:reference
 field PaymentSessionParams.ReturnURL string json:return_url
 field PaymentSessionParams.ShippingAddress *PaymentAddress json:shipping_address
 field PaymentSessionUpdate.Session PaymentSession json:session
+field PaymentStartRequest.Credential *PaymentCredential json:credential
 field PaymentStartRequest.Session PaymentSession json:session
 field PaymentStartResult.ExpiresAt *time.Time json:expires_at
 field PaymentStartResult.FailureCode string json:failure_code
@@ -696,6 +707,7 @@ field TrackResult.FailureMessage string json:failure_message
 field TrackResult.Status string json:status
 field Viewer.DisplayName string
 field Viewer.UserID string
+field VisitorCall.Agent *Agent json:agent
 field VisitorCall.Args json.RawMessage json:args
 field VisitorCall.IP string json:ip
 field VisitorCall.Path string json:path
@@ -736,6 +748,7 @@ field WidgetRenderRequest.Title string json:title
 field WidgetRenderRequest.Type string json:type
 field WidgetRenderRequest.URL string json:url
 func AbilityHook(string) (string)
+func AgentOf(*http.Request) (Agent, bool)
 func CallOf(context.Context) (CallInfo)
 func CarrierMethods(Carrier) ([]ServiceMethod)
 func CatalogMethods(CatalogProvider) ([]ServiceMethod)
@@ -808,6 +821,7 @@ imethod Commerce.Endpoints(context.Context) (CommerceEndpoints)
 imethod Commerce.Product(context.Context, string) (CommerceProduct, bool)
 imethod Commerce.Products(context.Context, CommerceQuery) ([]CommerceProduct, error)
 imethod CommerceCounter.CountProducts(context.Context, CommerceQuery) (int, bool)
+imethod CredentialPayer.StartPaymentWithCredential(context.Context, PaymentSession, PaymentCredential) (PaymentStartResult, error)
 imethod FieldProvider.Choices(context.Context, *Core, FieldChoicesRequest) ([]FieldChoice, error)
 imethod FieldProvider.Validate(context.Context, *Core, FieldValidateRequest) (string)
 imethod Handler.HandleEvent(context.Context, string, []byte) (error)
@@ -932,6 +946,9 @@ method (LabelRequest) Validate() (error)
 method (LabelResult) Validate() (error)
 method (Parcel) Validate() (error)
 method (PaymentAddress) Validate() (error)
+method (PaymentCredential) GoString() (string)
+method (PaymentCredential) String() (string)
+method (PaymentCredential) Validate() (error)
 method (PaymentDisputeReport) Validate() (error)
 method (PaymentExternalRefund) Validate() (error)
 method (PaymentRefundParams) Validate() (error)
@@ -957,6 +974,8 @@ type AdminActionResult
 type AdminPage
 type AdminReportRequest
 type AdminReportResult
+type Agent
+type AgentTier
 type AssetProvider
 type AuthAssertion
 type AuthCompleteRequest
@@ -989,6 +1008,7 @@ type CommerceTerm
 type CommerceVariation
 type ContractMethod
 type Core
+type CredentialPayer
 type Customs
 type CustomsItem
 type DocumentRef
@@ -1015,6 +1035,7 @@ type PaymentAddress
 type PaymentConfirmRequest
 type PaymentConfirmResult
 type PaymentConsumer
+type PaymentCredential
 type PaymentDescribeResponse
 type PaymentDispute
 type PaymentDisputeConsumer

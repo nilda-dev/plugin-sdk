@@ -64,6 +64,15 @@
                   "items": {
                     "type": "string"
                   }
+                },
+                "credential_types": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
                 }
               },
               "required": [
@@ -248,6 +257,24 @@
               "refunded_minor",
               "created_at",
               "updated_at"
+            ]
+          },
+          "credential": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "token": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "token"
             ]
           }
         },

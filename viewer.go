@@ -55,3 +55,39 @@ func VisitorCountry(r *http.Request) (string, bool) {
 	}
 	return c, true
 }
+
+// AGENTS THAT PROVE WHO THEY ARE (Web Bot Auth). An AI agent — ChatGPT's agent, Google's — can sign its requests
+// with a key its operator publishes; Core checks the signature and tells your resident server who it is and what the
+// site's owner lets it do (from the release built on plugin-sdk v0.20.0). An unsigned request, or a signature that
+// does not check, is an ordinary visitor: ok false. Core strips any value a client sent, as it does every X-Nilda-*
+// header, so this cannot be claimed.
+
+// AgentTier is what the site's owner lets an identified agent do.
+type AgentTier string
+
+const (
+	// AgentBrowse: read, build a basket, get a quote — what any visitor may. The default.
+	AgentBrowse AgentTier = "browse"
+	// AgentBuy: also pay for an order with a payment token it carries; the buyer it acts for still pays.
+	AgentBuy AgentTier = "buy"
+)
+
+// Agent is an identified AI agent: the host of its operator ("chatgpt.com") and its tier.
+type Agent struct {
+	Operator string    `json:"operator"`
+	Tier     AgentTier `json:"tier"`
+}
+
+const (
+	agentHeader     = "X-Nilda-Agent"
+	agentTierHeader = "X-Nilda-Agent-Tier"
+)
+
+// AgentOf is the identified agent behind a request your resident server received.
+func AgentOf(r *http.Request) (Agent, bool) {
+	op := r.Header.Get(agentHeader)
+	if op == "" {
+		return Agent{}, false
+	}
+	return Agent{Operator: op, Tier: AgentTier(r.Header.Get(agentTierHeader))}, true
+}

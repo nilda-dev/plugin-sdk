@@ -178,6 +178,9 @@ type PaymentMethod struct {
 	// Supports is what this method can do (SupportRefund, SupportPartialRefund, SupportDisputes, SupportSync).
 	// Empty means what Refunds says: SupportsOf. Core copies it onto every session paid this way.
 	Supports []string `json:"supports,omitempty"`
+	// CredentialTypes are the delegated payment credentials this method charges on the spot (CredentialStripeSPT):
+	// an AI agent paying for its buyer. Empty: none — the payer always goes to the processor's page.
+	CredentialTypes []string `json:"credential_types,omitempty"`
 }
 
 // PaymentOption is one method a payer can choose, as a CONSUMER sees it (Payments.Methods): the gateway's
@@ -193,6 +196,8 @@ type PaymentOption struct {
 	TestHint map[string]string `json:"test_hint,omitempty"`
 	// Supports is the method's capabilities, as SupportsOf reads them.
 	Supports []string `json:"supports,omitempty"`
+	// CredentialTypes are the delegated credentials the method accepts (PaymentMethod.CredentialTypes).
+	CredentialTypes []string `json:"credential_types,omitempty"`
 }
 
 // PaymentSession is one payment, as Core holds it. Core fills every field; the gateway and the consumer read.
@@ -290,6 +295,10 @@ type PaymentSessionParams struct {
 	Fulfilment      string          `json:"fulfilment,omitempty"`
 	BillingAddress  *PaymentAddress `json:"billing_address,omitempty"`
 	ShippingAddress *PaymentAddress `json:"shipping_address,omitempty"`
+	// Credential is a delegated payment token an AI agent carries for its buyer (v0.20.0): the method must list its
+	// type in CredentialTypes, and the gateway charges it on the spot. Core hands it to the gateway once and keeps
+	// nothing of it. Send it only for an agent the site's owner lets buy (AgentBuy).
+	Credential *PaymentCredential `json:"credential,omitempty"`
 }
 
 // Validate refuses what Core refuses without asking anything: a missing gateway, method or reference, an
@@ -326,6 +335,11 @@ func (p PaymentSessionParams) Validate() error {
 	}
 	if err := validFulfilment(p.Fulfilment); err != nil {
 		return err
+	}
+	if p.Credential != nil {
+		if err := p.Credential.Validate(); err != nil {
+			return err
+		}
 	}
 	for _, a := range []*PaymentAddress{p.BillingAddress, p.ShippingAddress} {
 		if a != nil {
@@ -411,6 +425,10 @@ type PaymentDescribeResponse struct {
 // StartPayment cannot open two checkouts for one session.
 type PaymentStartRequest struct {
 	Session PaymentSession `json:"session"`
+	// Credential is the delegated payment token the consumer sent with the session (PaymentSessionParams.Credential),
+	// of a type the method lists: charge it now and answer resolved, pending or rejected. It is here ONCE — Core keeps
+	// nothing of it — so never store, log or echo it.
+	Credential *PaymentCredential `json:"credential,omitempty"`
 }
 
 // PaymentStartResult is a gateway's answer to HookPaymentStart.
@@ -477,6 +495,15 @@ type PaymentGateway interface {
 	RefundPayment(ctx context.Context, r PaymentRefund, s PaymentSession) (PaymentRefundResult, error)
 }
 
+// CredentialPayer is a gateway that charges a DELEGATED payment credential on the spot (v0.20.0): an AI agent paying
+// for its buyer with a token the buyer's wallet granted it (CredentialStripeSPT). List the types on the method
+// (PaymentMethod.CredentialTypes); Core hands the credential over once, here. Answer resolved when the processor took
+// the money, pending when it is still deciding, rejected (declined, expired, invalid_request) when it will not — there
+// is no page to redirect to. Never store, log or echo the token.
+type CredentialPayer interface {
+	StartPaymentWithCredential(ctx context.Context, s PaymentSession, c PaymentCredential) (PaymentStartResult, error)
+}
+
 // PaymentGatewayPlugin is a whole gateway plugin: a Handler — whose Init keeps the *Core, reads the
 // processor's keys and starts the route its webhook arrives on — that is also a PaymentGateway.
 type PaymentGatewayPlugin interface {
@@ -533,7 +560,21 @@ func DispatchPaymentGatewayHook(ctx context.Context, _ *Core, g PaymentGateway, 
 		if err := validSession(in.Session); err != nil {
 			return nil, true, err
 		}
-		res, err := g.StartPayment(ctx, in.Session)
+		var res PaymentStartResult
+		var err error
+		if in.Credential != nil {
+			// A delegated credential goes to a gateway that charges one (CredentialPayer); any other answers the
+			// session rejected, as a method that does not take it would be refused by Core before it got here.
+			cp, ok := g.(CredentialPayer)
+			if !ok {
+				res = PaymentStartResult{Status: PaymentRejected, FailureCode: PaymentFailInvalidRequest,
+					FailureMessage: "this gateway does not charge a delegated payment credential"}
+			} else if err = in.Credential.Validate(); err == nil {
+				res, err = cp.StartPaymentWithCredential(ctx, in.Session, *in.Credential)
+			}
+		} else {
+			res, err = g.StartPayment(ctx, in.Session)
+		}
 		if err != nil {
 			return nil, true, err
 		}

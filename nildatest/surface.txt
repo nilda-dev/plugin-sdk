@@ -29,6 +29,8 @@ field StubCarrier.Events []nilda.TrackEvent
 field StubCarrier.Latency time.Duration
 field StubCarrier.Name string
 field StubCarrier.Quotes []nilda.CarrierRate
+field StubGateway.Charged []nilda.PaymentCredential
+field StubGateway.CredentialStart nilda.PaymentStartResult
 field StubGateway.Methods []nilda.PaymentMethod
 field StubGateway.Refund nilda.PaymentRefundResult
 field StubGateway.Start nilda.PaymentStartResult
@@ -92,6 +94,7 @@ method (*StubCarrier) VoidLabel(context.Context, nilda.VoidRequest) (nilda.VoidR
 method (*StubGateway) DescribePayments(context.Context) ([]nilda.PaymentMethod, error)
 method (*StubGateway) RefundPayment(context.Context, nilda.PaymentRefund, nilda.PaymentSession) (nilda.PaymentRefundResult, error)
 method (*StubGateway) StartPayment(context.Context, nilda.PaymentSession) (nilda.PaymentStartResult, error)
+method (*StubGateway) StartPaymentWithCredential(context.Context, nilda.PaymentSession, nilda.PaymentCredential) (nilda.PaymentStartResult, error)
 type Delivery
 type Email
 type Event

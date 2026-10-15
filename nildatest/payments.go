@@ -551,7 +551,8 @@ func (p *Payments) methods(ctx context.Context, currency string) ([]nilda.Paymen
 		for _, m := range methods {
 			if takes(m, code) {
 				opts = append(opts, nilda.PaymentOption{Gateway: key, Method: m.Key, Label: m.Label,
-					Description: m.Description, Refunds: m.Refunds, Test: m.Test, Supports: nilda.SupportsOf(m)})
+					Description: m.Description, Refunds: m.Refunds, Test: m.Test, Supports: nilda.SupportsOf(m),
+					CredentialTypes: m.CredentialTypes})
 			}
 		}
 	}
@@ -617,6 +618,11 @@ func (p *Payments) createSession(ctx context.Context, consumer string, params ni
 	if err != nil {
 		return nilda.PaymentSession{}, err
 	}
+	// A delegated credential only on a method that takes its type, as Core refuses (v0.20.0).
+	if params.Credential != nil && !slices.Contains(m.CredentialTypes, params.Credential.Type) {
+		return nilda.PaymentSession{}, invalid("%q of %q does not take a %s credential", params.Method, params.Gateway,
+			params.Credential.Type)
+	}
 	now := time.Now().UTC()
 	expires := now.Add(sessionLifetime)
 	s := &nilda.PaymentSession{
@@ -637,7 +643,7 @@ func (p *Payments) createSession(ctx context.Context, consumer string, params ni
 	snapshot := *s
 	p.mu.Unlock()
 
-	res, err := p.start(ctx, snapshot)
+	res, err := p.start(ctx, snapshot, params.Credential)
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if s.Status != nilda.PaymentCreated {
@@ -669,12 +675,13 @@ func (p *Payments) createSession(ctx context.Context, consumer string, params ni
 	return *s, nil
 }
 
-func (p *Payments) start(ctx context.Context, s nilda.PaymentSession) (nilda.PaymentStartResult, error) {
+func (p *Payments) start(ctx context.Context, s nilda.PaymentSession, cred *nilda.PaymentCredential) (nilda.PaymentStartResult, error) {
 	g, ok := p.installedGateway(s.Gateway)
 	if !ok {
 		return nilda.PaymentStartResult{}, fmt.Errorf("gateway %q is not installed", s.Gateway)
 	}
-	payload, _ := json.Marshal(nilda.PaymentStartRequest{Session: s})
+	// The credential rides the start request once and is kept nowhere — as Core does.
+	payload, _ := json.Marshal(nilda.PaymentStartRequest{Session: s, Credential: cred})
 	ctx, cancel := context.WithTimeout(ctx, gatewayHookBudget)
 	defer cancel()
 	out, _, err := nilda.DispatchPaymentGatewayHook(ctx, nil, g, nilda.HookPaymentStart, payload)
@@ -1292,6 +1299,10 @@ type StubGateway struct {
 	Methods []nilda.PaymentMethod
 	// Start answers every payment.start. The zero value sends the payer to https://pay.test/<session id>.
 	Start nilda.PaymentStartResult
+	// CredentialStart answers a payment.start carrying a delegated credential (CredentialPayer). The zero value
+	// says resolved: the processor took the money. Charged records the credentials it was handed, in order.
+	CredentialStart nilda.PaymentStartResult
+	Charged         []nilda.PaymentCredential
 	// Refund answers every payment.refund. The zero value says pending.
 	Refund nilda.PaymentRefundResult
 }
@@ -1302,6 +1313,15 @@ func (g *StubGateway) DescribePayments(context.Context) ([]nilda.PaymentMethod, 
 		return []nilda.PaymentMethod{{Key: "card", Label: "Card", Refunds: true, Test: true}}, nil
 	}
 	return g.Methods, nil
+}
+
+// StartPaymentWithCredential answers with CredentialStart and records the credential.
+func (g *StubGateway) StartPaymentWithCredential(_ context.Context, s nilda.PaymentSession, c nilda.PaymentCredential) (nilda.PaymentStartResult, error) {
+	g.Charged = append(g.Charged, c)
+	if g.CredentialStart.Status == "" {
+		return nilda.PaymentStartResult{Status: nilda.PaymentResolved, ProviderRef: "stub_" + s.ID}, nil
+	}
+	return g.CredentialStart, nil
 }
 
 // StartPayment answers with Start.

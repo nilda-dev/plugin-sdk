@@ -1285,6 +1285,20 @@ There is no payload — Nilda answers by dropping every page that drew any of yo
 the plugin that is the shop — any other plugin's call is refused — because a purge any plugin could trigger
 is a cache stampede one bad plugin away.
 
+### An AI agent that proved who it is (`AgentOf`, `VisitorCall.Agent`)
+
+An AI agent can sign its requests with a key its operator publishes (Web Bot Auth — ChatGPT's agent and Google's do).
+Core checks the signature and tells you who it is and what the site's owner lets it do: `nilda.AgentOf(r)` on your
+resident server, and `call.Agent` in a visitor tool — an `Agent` with its `Operator` ("chatgpt.com") and its
+`AgentTier`: `nilda.AgentBrowse` (read, build a basket, get a quote — the default) or `nilda.AgentBuy` (the owner lets
+it pay for its buyer). An agent the owner blocked never reaches you; an unsigned request, or a signature that does not
+check, is an ordinary visitor (`ok` false, `Agent` nil). Core strips any value a client sends. From the Core release
+built on v0.20.0.
+
+Only an `AgentBuy` agent may complete an order with a delegated payment token — a `nilda.PaymentCredential` (see
+"Taking payments" and `docs/PAYMENTS.md` §5). A gateway that charges one implements `nilda.CredentialPayer` and lists
+the type on its method's `CredentialTypes`.
+
 ### Taking payments (`payment_gateway`, `payment_session`)
 
 **[PAYMENTS.md](PAYMENTS.md) is the whole contract** — read it before writing either side. In one paragraph:

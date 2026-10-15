@@ -486,6 +486,16 @@ owed := pay.Deliver(ctx)   // 0 once the shop has heard; pay.Deliveries() shows 
 `Deliver` is also what asks a gateway about a refund: `CreateRefund` answers `requested` there as in Core, and
 the next `Deliver` sends `payment.refund` and then tells the consumer how it ended.
 
+### An agent paying for its buyer (v0.20.0)
+
+An AI agent may carry a DELEGATED payment credential its buyer's wallet granted it — a Stripe Shared Payment Token
+(`spt_…`), limited to this seller, an amount and a time. A consumer that lets an `AgentBuy` agent complete an order
+sends it as `PaymentSessionParams.Credential` — `nilda.PaymentCredential{Type: nilda.CredentialStripeSPT, Token: …}` —
+on a method whose `CredentialTypes` lists that type. Core hands it to the gateway ONCE, in the start request
+(`PaymentStartRequest.Credential`), and keeps nothing of it: not in the session, not in the audit trail, not in a log.
+The gateway charges it on the spot and answers `resolved`, `pending` or `rejected` — there is no page to send anyone
+to. The same idempotency key gives the same session, never a second charge. A credential's `String` shows only its type.
+
 ## 6. The wire — for a plugin not written in Go
 
 Hooks arrive over the plugin protocol (docs/ANY_LANGUAGE.md) with these JSON payloads:
@@ -573,9 +583,9 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
   description and — when it knows them — the payer's addresses. A gateway that needs more asks the payer on the
   processor's page.
 - **No answering a dispute.** Disputes are REPORTED (v0.10.4); the owner answers one at the processor.
-- **No saved cards, no subscriptions, no capture/void.** The names are reserved so the door stays additive:
-  `credential` and `credential_types` (a delegated payment token for agentic checkout, UCP/ACP — never stored,
-  logged or echoed when it is built), and the `supports` tokens `capture`, `partial_capture` and `void`. A guard on
-  each side fails if anything takes one of these names before the feature is built.
+- **No saved cards, no subscriptions, no capture/void.** The names are reserved so the door stays additive: the
+  `supports` tokens `capture`, `partial_capture` and `void`. A guard on each side fails if anything takes one of these
+  names before the feature is built. (`credential` and `credential_types` were reserved the same way until v0.20.0
+  built them: "An agent paying for its buyer", §5.)
 - **No money arithmetic in Core** beyond comparing amounts and summing refunds. Prices, tax and rounding stay
   the consumer's.

@@ -41,10 +41,10 @@ func TestReservedPaymentNamesAreUnused(t *testing.T) {
 
 func TestTheReservedNameGuardFailsOnPurpose(t *testing.T) {
 	type sneaky struct {
-		Credential string `json:"credential"`
+		Capture string `json:"capture"`
 	}
 	type sneakyTag struct {
-		Token string `json:"credential_types"`
+		Token string `json:"partial_capture"`
 	}
 	if len(checkReservedNames(sneaky{})) == 0 || len(checkReservedNames(sneakyTag{})) == 0 {
 		t.Fatal("the guard let a reserved name through")
