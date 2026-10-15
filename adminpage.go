@@ -156,6 +156,141 @@ type AdminPage struct {
 	// screen, with nobody able to tell. So Core shows the row and you change it: pressing an action calls
 	// your `admin.action` hook with the row's primary key, and what happens next is yours.
 	Actions []RowAction `json:"actions,omitempty"`
+
+	// --- kind: "report" ---
+
+	// Metrics are a report page's headline numbers, TYPED: each names a key of your AdminReportResult.Summary
+	// and says how to show it. Summary alone is a map of whatever you put in it, so a screen can only print it
+	// as text — a total in cents reads "12900". Declared here, the panel and the Nilda app show money as money.
+	Metrics []ReportMetric `json:"metrics,omitempty"`
+
+	// --- any kind ---
+
+	// Mobile says how this page appears in the Nilda app on the owner's phone. Optional: every page of every
+	// installed plugin appears there without it, drawn generically from what is declared above.
+	Mobile *PageMobile `json:"mobile,omitempty"`
+}
+
+// THE NILDA APP. The owner's phone shows every installed plugin by itself — a plugin needs no app code and
+// waits for no app release (mobile/docs/BUILD_PLAN_V1.md, Unit A). Core resolves what you declare into the
+// app's own blocks, so the hints below only make that drawing better: a money column shown as money, a row
+// laid out as a title and a line under it, a status shown as a coloured badge. Words that may grow with
+// Nilda — a column type, a metric format, a badge tone, an icon — are never refused at install: one this
+// Nilda does not know is drawn as plain text or the generic icon, so a plugin built for a newer Nilda still
+// installs on an older one, and `nilda plugin check` names the unknown word to you.
+
+// Column types a list page or a report may declare. A type Core does not know is drawn as text.
+const (
+	ColumnText     = "text"
+	ColumnNumber   = "number"
+	ColumnDate     = "date"
+	ColumnDatetime = "datetime"
+	ColumnBoolean  = "boolean"
+	// ColumnMoney is an integer in the currency's MINOR units — 1290 is €12.90, 500 is ¥500. Name the currency
+	// on the column (ListColumn.Currency or ListColumn.CurrencyColumn).
+	ColumnMoney = "money"
+	// ColumnBadge is a short status the screen draws as a coloured badge; ListColumn.Badges gives each value
+	// its tone.
+	ColumnBadge = "badge"
+)
+
+// ColumnTypes returns every column type Core draws, sorted.
+func ColumnTypes() []string {
+	out := []string{ColumnText, ColumnNumber, ColumnDate, ColumnDatetime, ColumnBoolean, ColumnMoney, ColumnBadge}
+	sort.Strings(out)
+	return out
+}
+
+// Badge tones. A tone is a meaning, not a colour — the app picks the colour for light and dark — and a value
+// a badge column holds with no tone declared is drawn grey.
+const (
+	BadgeGreen = "green" // done, paid, active
+	BadgeGold  = "gold"  // waiting on the owner: to pack, to answer
+	BadgeBlue  = "blue"  // under way: shipped, in progress
+	BadgeWarn  = "warn"  // needs attention: failed, disputed
+	BadgeGrey  = "grey"  // over: refunded, cancelled, archived
+)
+
+// BadgeTones returns every badge tone, sorted.
+func BadgeTones() []string {
+	out := []string{BadgeGreen, BadgeGold, BadgeBlue, BadgeWarn, BadgeGrey}
+	sort.Strings(out)
+	return out
+}
+
+// Metric formats. A format Core does not know is drawn as text.
+const (
+	MetricNumber  = "number" // the default
+	MetricMoney   = "money"  // an integer in minor units, like ColumnMoney; name the currency
+	MetricPercent = "percent"
+	MetricText    = "text"
+)
+
+// MetricFormats returns every metric format, sorted.
+func MetricFormats() []string {
+	out := []string{MetricNumber, MetricMoney, MetricPercent, MetricText}
+	sort.Strings(out)
+	return out
+}
+
+// ReportMetric is one headline number of a report page.
+type ReportMetric struct {
+	// Key is a key of your AdminReportResult.Summary.
+	Key   string `json:"key"`
+	Label string `json:"label"`
+	// Format is one of the Metric* constants; empty is MetricNumber.
+	Format string `json:"format,omitempty"`
+	// A MetricMoney names its currency once (Currency: "EUR") or names the Summary key that holds its ISO 4217
+	// code (CurrencyKey). Exactly one.
+	Currency    string `json:"currency,omitempty"`
+	CurrencyKey string `json:"currency_key,omitempty"`
+}
+
+// PageMobile is how one page appears in the Nilda app.
+type PageMobile struct {
+	// Hide keeps the page off the phone — a page that only makes sense beside a large screen. Prefer leaving
+	// it shown: a page the app cannot draw already becomes a card saying "do this on a computer".
+	Hide bool `json:"hide,omitempty"`
+	// Row lays out each row of a list page as the phone shows it. Without it the app shows the first columns.
+	Row *MobileRow `json:"row,omitempty"`
+	// Pin lets the owner pin a row of this list page to a message in the site's chat ("Ask in Chat about this
+	// order"); the assistant then reads that row, as the owner may see it. Needs a table with a primary key.
+	Pin bool `json:"pin,omitempty"`
+}
+
+// MobileRow names, by column key, what a list row shows on the phone. Every name is one of the page's
+// declared columns.
+type MobileRow struct {
+	Title string `json:"title"`
+	// Subtitle are at most two columns, shown under the title joined by " · ".
+	Subtitle []string `json:"subtitle,omitempty"`
+	// Trailing is shown at the row's end — usually a money column.
+	Trailing string `json:"trailing,omitempty"`
+	// Badge is a column of type ColumnBadge, shown under Trailing.
+	Badge string `json:"badge,omitempty"`
+}
+
+// PluginMobile is the plugin-level `mobile` block of plugin.json.
+type PluginMobile struct {
+	// Icon is one of MobileIcons(): the app ships the icons, so a plugin names one rather than sending a picture.
+	Icon string `json:"icon,omitempty"`
+	// Headline are at most three numbers the app shows on the plugin's row and on top of its screen — "14
+	// orders today" — each a metric of one of your report pages.
+	Headline []HeadlineMetric `json:"headline,omitempty"`
+}
+
+// HeadlineMetric points at one declared ReportMetric.
+type HeadlineMetric struct {
+	Page   string `json:"page"`   // a report page's key
+	Metric string `json:"metric"` // one of that page's Metrics keys
+}
+
+// MobileIcons returns the icons the Nilda app ships for a plugin, sorted.
+func MobileIcons() []string {
+	out := []string{"bell", "box", "calendar", "card", "chart", "chat", "file", "form", "gift", "globe", "image",
+		"lock", "mail", "music", "people", "puzzle", "shop", "star", "tag", "ticket", "truck", "video"}
+	sort.Strings(out)
+	return out
 }
 
 // AdminPageKind values.
@@ -170,11 +305,17 @@ const (
 )
 
 // ListColumn is one column of a list page. Key names a column of the page's table; Type is how to RENDER it
-// (text, number, datetime, boolean) and never changes what is fetched.
+// (one of the Column* constants; empty is text) and never changes what is fetched.
 type ListColumn struct {
 	Key   string `json:"key"`
 	Label string `json:"label"`
 	Type  string `json:"type,omitempty"`
+	// A ColumnMoney names its currency once (Currency: "EUR") or names the column holding each row's ISO 4217
+	// code (CurrencyColumn: "currency"; on a list page, a column of the page's table). Exactly one.
+	Currency       string `json:"currency,omitempty"`
+	CurrencyColumn string `json:"currency_column,omitempty"`
+	// Badges belong to a ColumnBadge: each value the column may hold → its tone (Badge* constants).
+	Badges map[string]string `json:"badges,omitempty"`
 }
 
 // RowAction is one button on a row of a list page.
@@ -184,7 +325,8 @@ type ListColumn struct {
 type RowAction struct {
 	Key   string `json:"key"`
 	Label string `json:"label"`
-	// Confirm is the question asked first. Set it for anything the owner cannot undo.
+	// Confirm is the question asked first. Set it for anything the owner cannot undo. At most 300 characters:
+	// Core asks it in its own sheet, which names your plugin and quotes you.
 	Confirm string `json:"confirm,omitempty"`
 }
 

@@ -9,6 +9,11 @@ const AgentBuy
 const AvailabilityBackorder
 const AvailabilityInStock
 const AvailabilityOutOfStock
+const BadgeBlue
+const BadgeGold
+const BadgeGreen
+const BadgeGrey
+const BadgeWarn
 const CarrierCredentialsRefused
 const CarrierCustomsMissing
 const CarrierDeclined
@@ -63,6 +68,13 @@ const ClassPublish
 const ClassRead
 const ClassStructural
 const ClassWrite
+const ColumnBadge
+const ColumnBoolean
+const ColumnDate
+const ColumnDatetime
+const ColumnMoney
+const ColumnNumber
+const ColumnText
 const ContractShippingCarrier
 const ContractShopCatalog
 const ContractShopCheckout
@@ -140,6 +152,10 @@ const MaxAssetsPerPlugin
 const MaxDisputesPerSession
 const MaxWidgetHTMLBytes
 const MaxWidgetsPerPlugin
+const MetricMoney
+const MetricNumber
+const MetricPercent
+const MetricText
 const PaymentCreated
 const PaymentExpired
 const PaymentFailAmountMismatch
@@ -224,6 +240,8 @@ field AdminPage.Icon string json:icon
 field AdminPage.Key string json:key
 field AdminPage.Kind string json:kind
 field AdminPage.Label string json:label
+field AdminPage.Metrics []ReportMetric json:metrics
+field AdminPage.Mobile *PageMobile json:mobile
 field AdminPage.Order string json:order
 field AdminPage.OrderBy string json:order_by
 field AdminPage.Search []string json:search
@@ -547,6 +565,8 @@ field FieldValidateRequest.Value any json:value
 field FieldValidateResponse.Message string json:message
 field FieldValidateResponse.OK bool json:ok
 field GRPCPlugin.Impl contract.PluginServiceServer
+field HeadlineMetric.Metric string json:metric
+field HeadlineMetric.Page string json:page
 field InitResult.Abilities []Ability
 field InitResult.Events []string
 field InitResult.Hooks []string
@@ -576,9 +596,19 @@ field LabelResult.Service string json:service
 field LabelResult.Status string json:status
 field LabelResult.TrackingNumber string json:tracking_number
 field LabelResult.TrackingURL string json:tracking_url
+field ListColumn.Badges map[string]string json:badges
+field ListColumn.Currency string json:currency
+field ListColumn.CurrencyColumn string json:currency_column
 field ListColumn.Key string json:key
 field ListColumn.Label string json:label
 field ListColumn.Type string json:type
+field MobileRow.Badge string json:badge
+field MobileRow.Subtitle []string json:subtitle
+field MobileRow.Title string json:title
+field MobileRow.Trailing string json:trailing
+field PageMobile.Hide bool json:hide
+field PageMobile.Pin bool json:pin
+field PageMobile.Row *MobileRow json:row
 field Parcel.HeightMM int64 json:height_mm
 field Parcel.LengthMM int64 json:length_mm
 field Parcel.WeightGrams int64 json:weight_grams
@@ -730,6 +760,8 @@ field PaymentStartResult.Status string json:status
 field PaymentSyncRequest.Session PaymentSession json:session
 field PluginClient.Broker *plugin.GRPCBroker
 field PluginClient.Plugin contract.PluginServiceClient
+field PluginMobile.Headline []HeadlineMetric json:headline
+field PluginMobile.Icon string json:icon
 field RatesRequest.Currency string json:currency
 field RatesRequest.Customs *Customs json:customs
 field RatesRequest.DeclaredValueMinor int64 json:declared_value_minor
@@ -745,6 +777,11 @@ field RatesResult.Rates []CarrierRate json:rates
 field RatesResult.Status string json:status
 field RenderAssetsRequest.Locale string json:locale
 field RenderAssetsRequest.PageKind string json:page_kind
+field ReportMetric.Currency string json:currency
+field ReportMetric.CurrencyKey string json:currency_key
+field ReportMetric.Format string json:format
+field ReportMetric.Key string json:key
+field ReportMetric.Label string json:label
 field RowAction.Confirm string json:confirm
 field RowAction.Key string json:key
 field RowAction.Label string json:label
@@ -897,10 +934,12 @@ field WidgetRenderRequest.Type string json:type
 field WidgetRenderRequest.URL string json:url
 func AbilityHook(string) (string)
 func AgentOf(*http.Request) (Agent, bool)
+func BadgeTones() ([]string)
 func CallOf(context.Context) (CallInfo)
 func CarrierMethods(Carrier) ([]ServiceMethod)
 func CatalogMethods(CatalogProvider) ([]ServiceMethod)
 func CheckoutMethods(CheckoutProvider) ([]ServiceMethod)
+func ColumnTypes() ([]string)
 func ContractNamed(string) (ServiceContract, bool)
 func ContractToolName(string, string) (string)
 func Contracts() ([]ServiceContract, error)
@@ -923,7 +962,9 @@ func FormatMinor(int64, string) (string, bool)
 func HTTPClient(time.Duration) (*http.Client)
 func HostPluginMap() (map[int]plugin.PluginSet)
 func Log() (*slog.Logger)
+func MetricFormats() ([]string)
 func MinorUnits(string) (int, bool)
+func MobileIcons() ([]string)
 func NewCoreForTest(string, []string, contract.HostServiceClient, string, string, []string) (*Core)
 func NewOIDCClient(string, string, string, ...string) (*OIDCClient)
 func NewTransport(http.RoundTripper) (http.RoundTripper)
@@ -1225,11 +1266,14 @@ type FieldValidateRequest
 type FieldValidateResponse
 type GRPCPlugin
 type Handler
+type HeadlineMetric
 type InitResult
 type LabelRequest
 type LabelResult
 type ListColumn
+type MobileRow
 type OIDCClient
+type PageMobile
 type Parcel
 type PaymentAddress
 type PaymentConfirmRequest
@@ -1262,10 +1306,12 @@ type PaymentSyncRequest
 type PaymentSyncer
 type Payments
 type PluginClient
+type PluginMobile
 type RatesRequest
 type RatesResult
 type Reference
 type RenderAssetsRequest
+type ReportMetric
 type RowAction
 type Schedule
 type ScriptAsset

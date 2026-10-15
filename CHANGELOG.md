@@ -4,6 +4,15 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## Unreleased (v0.24.0) — your plugin in the Nilda app
+
+Additions only (`surface.txt` grows by 46 entries; nothing removed). In `plugin.json`: a plugin-level `description` and
+`mobile` (`icon`, `headline`), a page's `mobile` (`hide`, `row`, `pin`), a report page's `metrics`, and on a column the
+types `money` (with `currency` or `currency_column`) and `badge` (with `badges`). In Go: `ReportMetric`, `PageMobile`,
+`MobileRow`, `PluginMobile`, `HeadlineMetric`, the `Column*`, `Badge*` and `Metric*` words with `ColumnTypes`,
+`BadgeTones`, `MetricFormats` and `MobileIcons`. A row action's `confirm` is now at most 300 characters. Every installed
+plugin already appears in the owner's app without any of it; see PLUGIN_SDK.md, "In the Nilda app".
+
 ## v0.23.0 — 2026-10-15 (one list decides which agent may pay; what a buyer and a shopper are told and kept)
 
 Additions only (`surface.txt` grows by 35 entries, `nildatest/surface.txt` by 1; nothing removed). On the wire: Core's

@@ -1031,7 +1031,63 @@ The shapes a manifest declares here are Go types too — `nilda.AdminPage`, `nil
   (`core.Setting("api_key")`), so the second page would silently hand you the first page's value.
 - More than 12 pages, 48 fields on a settings page, 20 filters on a report page, 20 columns or 20 search
   columns on a list page, 8 row actions, or 100 choices on a field; or a name or label longer than 120
-  characters — and so is a placeholder, a choice or a page's icon — or help longer than 500 characters.
+  characters — and so is a placeholder, a choice or a page's icon — or help longer than 500 characters,
+  or a row action's `confirm` longer than 300.
+
+#### In the Nilda app
+
+The site owner's phone app shows every installed plugin by itself, with no code of yours and no app release:
+Core turns your pages into the app's own screens. Without a word from you, a settings page becomes a form,
+a list page a list, a report its numbers and rows, and a plugin with no page a card with its name. A few
+optional hints make that drawing right:
+
+```json
+{
+  "description": "Sell from your site.",
+  "mobile": { "icon": "shop", "headline": [{ "page": "sales", "metric": "revenue" }] },
+  "admin_pages": [{
+    "key": "orders", "label": "Orders", "kind": "list", "table": "orders",
+    "columns": [
+      { "key": "reference",   "label": "Order" },
+      { "key": "customer",    "label": "Customer" },
+      { "key": "total_minor", "label": "Total",  "type": "money", "currency_column": "currency" },
+      { "key": "status",      "label": "Status", "type": "badge",
+        "badges": { "paid": "green", "to_pack": "gold", "shipped": "blue", "refunded": "grey" } }
+    ],
+    "mobile": { "row": { "title": "reference", "subtitle": ["customer"], "trailing": "total_minor", "badge": "status" },
+                "pin": true }
+  }, {
+    "key": "sales", "label": "Sales", "kind": "report",
+    "metrics": [{ "key": "revenue", "label": "Revenue", "format": "money", "currency": "EUR" },
+                { "key": "orders",  "label": "Orders" }]
+  }]
+}
+```
+
+- `money` is an integer in the currency's minor units (`1290` is €12.90), with the currency named once
+  (`currency`) or taken from a column of the row (`currency_column`) — exactly one. Without it a total reads
+  "1290" on every screen.
+- `badge` draws a short status as a coloured badge; `badges` gives each value a tone: `green` (done),
+  `gold` (waiting on the owner), `blue` (under way), `warn` (needs attention), `grey` (over). A value with no
+  tone is grey.
+- `metrics` type a report's `Summary` keys, with the formats `number` (the default), `money`, `percent` and
+  `text`; `headline` shows at most 3 of them on your plugin's row and at the top of its screen.
+- `row` lays a list row out as a title, at most two columns under it, a trailing value and a badge — each one
+  of the page's columns. `pin` lets the owner pin a row to a message in the site's chat ("Ask in Chat about
+  this order"); the assistant then reads that row as the owner may see it.
+- `hide` keeps a page off the phone. Prefer leaving it: a page the app cannot draw already becomes a card
+  saying it is done on a computer.
+- `description` is one sentence, at most 300 characters; `icon` is one of `nilda.MobileIcons()`.
+
+In Go these are `nilda.PluginMobile` (with `nilda.HeadlineMetric`), a page's `nilda.PageMobile` (with
+`nilda.MobileRow`) and `nilda.ReportMetric`; the words are `nilda.ColumnTypes()`, `nilda.BadgeTones()` and
+`nilda.MetricFormats()`.
+
+Words that may grow with Nilda — a column type, a metric format, a badge tone, an icon — are never refused at
+install: one this Nilda does not know is drawn as text, grey or the generic icon, so your plugin still installs
+on an older Nilda. What is refused is a hint that can be drawn on no Nilda: money with no currency, a row naming
+a column the page does not show, a pin on a table with no primary key, a headline pointing at a metric no
+report declares, metrics on a page that is not a report.
 
 ### Contributing a field type (`field`)
 
