@@ -63,6 +63,12 @@
                 },
                 "currency": {
                   "type": "string"
+                },
+                "quote_id": {
+                  "type": "string"
+                },
+                "max_qty": {
+                  "type": "integer"
                 }
               },
               "required": [

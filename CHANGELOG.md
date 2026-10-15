@@ -31,7 +31,9 @@ that returns a nil list now answers an empty one, for `shop.orders/v1` and `shop
 **Business buyers** (commerce unit 10, the B2B starter; `docs/BUYERS.md`): `shop.buyers/v1`, which a B2B plugin
 provides — `buyer.terms`, `quote.request` and `quote.open` (`BuyerTermsRequest`, `BuyerTerms`, `BuyerPrice`,
 `BuyerMinimum`, `QuoteLine`, `QuoteRequestInput`, `QuoteRequestResult`, `QuoteOpenRequest`, `QuoteOpenResult`, `Quote`,
-`BuyersProvider`, `BuyersMethods`, `Services.BuyerTerms`, `Services.RequestQuote`, `Services.OpenQuote`).
+`BuyersProvider`, `BuyersMethods`, `Services.BuyerTerms`, `Services.RequestQuote`, `Services.OpenQuote`). A quote's price names its quote and quantity (`BuyerPrice.QuoteID`, `MaxQty`), and an order line the
+quote it was bought at (`ShopOrderLine.QuoteID`). `Services.ConfirmOffers` returns an error when an offers plugin that
+is there did not answer, never "the offer ended".
 
 ## v0.23.0 — 2026-10-15 (one list decides which agent may pay; what a buyer and a shopper are told and kept)
 

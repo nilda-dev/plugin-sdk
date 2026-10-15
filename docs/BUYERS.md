@@ -16,8 +16,9 @@ own pricing, so tax, invoices and refunds treat a group price as any other disco
 No plugin keeping buyers is an ordinary shopper: `Services.BuyerTerms` answers `member: false` without an error. A
 plugin that is there and did not answer IS an error — a member's basket priced as a stranger's would be the wrong
 price. Prices are a member's for their own basket and checkout; a product page is drawn once for everyone and shows
-the public price. A quote's prices reach the basket through `buyer.terms` too (a quote the buyer accepted is their price
-for its items until it expires). Neither method is a tool of the site's assistant: the owner manages groups, prices
+the public price. A quote's prices reach the basket through `buyer.terms` too, each naming its quote and quantity
+(`BuyerPrice.QuoteID`, `MaxQty`): the shop applies one only on the basket lines the quote filled, for at most its
+quantity, in one order, and records it on the order line (`ShopOrderLine.QuoteID`). Neither method is a tool of the site's assistant: the owner manages groups, prices
 and quotes through the B2B plugin's own abilities.
 
 ```go

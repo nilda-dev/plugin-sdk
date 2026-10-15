@@ -207,9 +207,9 @@ func (o offersKeeper) ConfirmOffers(context.Context, nilda.OffersConfirmRequest)
 
 func (o offersKeeper) ServiceMethods() []nilda.ServiceMethod { return nilda.OffersMethods(o) }
 
-// AN OFFERS PLUGIN THAT FAILS IS LEFT OUT, AND ITS OFFERS DO NOT STAND: the page shows the other plugin's offers, and
-// the basket is priced without the silent one's discount.
-func TestAnOffersPluginThatFailsIsLeftOutAndItsOffersDoNotStand(t *testing.T) {
+// AN OFFERS PLUGIN THAT FAILS IS LEFT OUT OF A PAGE, AND IS AN ERROR TO A PRICING: the page shows the other plugin's
+// offers; the basket is not priced until the silent one answers.
+func TestAnOffersPluginThatFailsIsLeftOutOfAPageAndAnErrorToAPricing(t *testing.T) {
 	ctx := context.Background()
 	desk := NewServices()
 	desk.Provider("offers", offersKeeper{id: "a"})
@@ -221,10 +221,10 @@ func TestAnOffersPluginThatFailsIsLeftOutAndItsOffersDoNotStand(t *testing.T) {
 	if err != nil || len(offers) != 1 || offers[0].ID != "a" {
 		t.Fatalf("offers: %+v %v", offers, err)
 	}
-	stand, err := core.API().Services().ConfirmOffers(ctx, nilda.OffersConfirmRequest{Currency: "EUR",
-		Lines: append(basket, nilda.OfferLine{SKU: "cap", Qty: 1, UnitPriceMinor: 500, OfferID: "b"})})
-	if err != nil || len(stand) != 1 || stand["b"].ID != "" || stand["a"].ID != "a" {
-		t.Errorf("confirmed: %+v %v", stand, err)
+	// A plugin that did not answer is an error to the shop, never "its offer ended" (the 2026-10-15 review, plan 14).
+	if _, err := core.API().Services().ConfirmOffers(ctx, nilda.OffersConfirmRequest{Currency: "EUR",
+		Lines: append(basket, nilda.OfferLine{SKU: "cap", Qty: 1, UnitPriceMinor: 500, OfferID: "b"})}); err == nil || !strings.Contains(err.Error(), "bumps") {
+		t.Errorf("a silent plugin's offers: %v — want an error naming it", err)
 	}
 }
 

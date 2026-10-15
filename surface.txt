@@ -302,7 +302,9 @@ field AuthStartRequest.State string json:state
 field BuyerMinimum.Qty int64 json:qty
 field BuyerMinimum.SKU string json:sku
 field BuyerPrice.Currency string json:currency
+field BuyerPrice.MaxQty int64 json:max_qty
 field BuyerPrice.PriceMinor int64 json:price_minor
+field BuyerPrice.QuoteID string json:quote_id
 field BuyerPrice.SKU string json:sku
 field BuyerTerms.Group string json:group
 field BuyerTerms.GroupName string json:group_name
@@ -974,6 +976,7 @@ field ShopOrderLine.OfferID string json:offer_id
 field ShopOrderLine.ProductSKU string json:product_sku
 field ShopOrderLine.Quantity int64 json:quantity
 field ShopOrderLine.QuantityRefunded int64 json:quantity_refunded
+field ShopOrderLine.QuoteID string json:quote_id
 field ShopOrderLine.SKU string json:sku
 field ShopOrderLine.Title string json:title
 field ShopOrderLine.UnitPriceMinor int64 json:unit_price_minor

@@ -89,6 +89,9 @@
                     },
                     "offer_id": {
                       "type": "string"
+                    },
+                    "quote_id": {
+                      "type": "string"
                     }
                   },
                   "required": [

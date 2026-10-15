@@ -117,6 +117,9 @@ type ShopOrderLine struct {
 	// OfferID is the offer (shop.offers/v1) the line was bought through, "" for one the buyer added themselves — what
 	// an offers plugin counts its sales by.
 	OfferID string `json:"offer_id,omitempty"`
+	// QuoteID is the quote (shop.buyers/v1) whose price the line was bought at, "" for none — what a B2B plugin marks a
+	// quote ordered by.
+	QuoteID string `json:"quote_id,omitempty"`
 }
 
 // ---- the shop's side ---------------------------------------------------------------------------------------

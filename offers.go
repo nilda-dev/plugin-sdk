@@ -217,9 +217,9 @@ func (s *Services) Offers(ctx context.Context, req OffersRequest) ([]Offer, erro
 	return out, nil
 }
 
-// ConfirmOffers is the offers on the basket's lines that still stand, by offer id. An offer whose plugin did not
-// answer does not stand — the basket is priced without its discount, and the checkout says so before anything is
-// paid.
+// ConfirmOffers is the offers on the basket's lines that still stand, by offer id. A plugin that is there and did not
+// answer is an error, never "the offer ended": the shop waits and asks again rather than take a shopper's discount away
+// for one slow answer (the 2026-10-15 review, plan 14).
 func (s *Services) ConfirmOffers(ctx context.Context, req OffersConfirmRequest) (map[string]Offer, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
@@ -227,6 +227,10 @@ func (s *Services) ConfirmOffers(ctx context.Context, req OffersConfirmRequest) 
 	res, err := s.Call(ctx, ContractShopOffers, OffersConfirm, req, ServiceCallOptions{})
 	if err != nil {
 		return nil, err
+	}
+	if len(res.Missed) > 0 {
+		return nil, fmt.Errorf("nilda: %s did not answer %s %s (%s)", res.Missed[0].Provider, ContractShopOffers,
+			OffersConfirm, res.Missed[0].Reason)
 	}
 	out := map[string]Offer{}
 	for _, a := range res.Answers {

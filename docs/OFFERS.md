@@ -14,8 +14,8 @@ offers and their numbers are a plugin's; the **shop** draws them, adds the item 
 The shop asks `offers.confirm` whenever it prices a basket that holds an offer's line, so an offer the owner switched
 off — or whose trigger the shopper took back out of the basket — gives no discount at the checkout. Several plugins may
 provide the contract: `Services.Offers` returns every answer and leaves out a plugin that did not answer (an offer is a
-suggestion); `Services.ConfirmOffers` returns the offers that stand by id, and an offer whose plugin did not answer does
-not stand. A provider that returns a nil list answers an empty one.
+suggestion); `Services.ConfirmOffers` returns the offers that stand by id, and an error when a plugin that is there did
+not answer — the shop then waits rather than take the discount away. A provider that returns a nil list answers an empty one.
 
 The shop never shows an offer for an item it cannot sell now, or one already in the basket. It records the offer on the
 order line, and `shop.orders/v1` returns it (`ShopOrderLine.OfferID`), so an offers plugin counts what its offers sold.

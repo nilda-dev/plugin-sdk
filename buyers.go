@@ -76,7 +76,7 @@ func (t BuyerTerms) Validate() error {
 		return errors.New("nilda: buyer terms with a discount outside 0–100%, net days outside 0–365 or a negative minimum")
 	}
 	for _, p := range t.Prices {
-		if strings.TrimSpace(p.SKU) == "" || p.PriceMinor < 0 {
+		if strings.TrimSpace(p.SKU) == "" || p.PriceMinor < 0 || p.MaxQty < 0 || (p.QuoteID != "" && p.MaxQty == 0) {
 			return errors.New("nilda: a buyer price names its item and is not negative")
 		}
 		if err := validCurrency("a buyer price's currency", p.Currency); err != nil {
@@ -96,6 +96,10 @@ type BuyerPrice struct {
 	SKU        string `json:"sku"`
 	PriceMinor int64  `json:"price_minor"`
 	Currency   string `json:"currency"`
+	// QuoteID names the quote the price comes from, "" for the group's own: a quote's price is the buyer's only on the
+	// basket lines the quote filled (QuoteOpenResult), for at most MaxQty units, in one order.
+	QuoteID string `json:"quote_id,omitempty"`
+	MaxQty  int64  `json:"max_qty,omitempty"`
 }
 
 // BuyerMinimum is the least quantity of one item.
