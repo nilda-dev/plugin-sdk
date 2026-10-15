@@ -12,8 +12,8 @@ import (
 type fakeShop struct{ broken bool }
 
 func (f fakeShop) HandleHook(context.Context, string, []byte) ([]byte, error) { return nil, nil }
-func (f fakeShop) HandleEvent(context.Context, string, []byte) error         { return nil }
-func (f fakeShop) Init(context.Context, *Core) (InitResult, error)           { return InitResult{}, nil }
+func (f fakeShop) HandleEvent(context.Context, string, []byte) error          { return nil }
+func (f fakeShop) Init(context.Context, *Core) (InitResult, error)            { return InitResult{}, nil }
 
 func (f fakeShop) DescribeCatalog(context.Context) (CatalogDescription, error) {
 	return CatalogDescription{Name: "Atelier Kari", Origin: "https://kari.example", Currency: "EUR", ShipsTo: []string{"*"}, ReturnDays: 14, Locale: "en"}, nil
@@ -63,12 +63,12 @@ func TestServeAnswersAShopThatImplementsTheCatalogue(t *testing.T) {
 func TestACatalogueAnswerAChannelCannotUseIsRefused(t *testing.T) {
 	sale := int64(2000)
 	for name, p := range map[string]CatalogProduct{
-		"no title":        {SKU: "a", URL: "https://x", Variants: []CatalogVariant{{SKU: "a", Currency: "EUR", Availability: AvailabilityInStock}}},
-		"a relative URL":  {SKU: "a", Title: "A", URL: "/a", Variants: []CatalogVariant{{SKU: "a", Currency: "EUR", Availability: AvailabilityInStock}}},
-		"no variant":      {SKU: "a", Title: "A", URL: "https://x"},
-		"a sale above":    {SKU: "a", Title: "A", URL: "https://x", Variants: []CatalogVariant{{SKU: "a", PriceMinor: 1000, SalePriceMinor: &sale, Currency: "EUR", Availability: AvailabilityInStock}}},
-		"no currency":     {SKU: "a", Title: "A", URL: "https://x", Variants: []CatalogVariant{{SKU: "a", Availability: AvailabilityInStock}}},
-		"a condition":     {SKU: "a", Title: "A", URL: "https://x", Condition: "like new", Variants: []CatalogVariant{{SKU: "a", Currency: "EUR", Availability: AvailabilityInStock}}},
+		"no title":       {SKU: "a", URL: "https://x", Variants: []CatalogVariant{{SKU: "a", Currency: "EUR", Availability: AvailabilityInStock}}},
+		"a relative URL": {SKU: "a", Title: "A", URL: "/a", Variants: []CatalogVariant{{SKU: "a", Currency: "EUR", Availability: AvailabilityInStock}}},
+		"no variant":     {SKU: "a", Title: "A", URL: "https://x"},
+		"a sale above":   {SKU: "a", Title: "A", URL: "https://x", Variants: []CatalogVariant{{SKU: "a", PriceMinor: 1000, SalePriceMinor: &sale, Currency: "EUR", Availability: AvailabilityInStock}}},
+		"no currency":    {SKU: "a", Title: "A", URL: "https://x", Variants: []CatalogVariant{{SKU: "a", Availability: AvailabilityInStock}}},
+		"a condition":    {SKU: "a", Title: "A", URL: "https://x", Condition: "like new", Variants: []CatalogVariant{{SKU: "a", Currency: "EUR", Availability: AvailabilityInStock}}},
 	} {
 		if p.Validate() == nil {
 			t.Errorf("%s: accepted", name)
