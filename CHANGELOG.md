@@ -4,7 +4,7 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
-## v0.22.0 — unreleased (back-in-stock requests)
+## v0.22.0 — 2026-10-15 (back-in-stock requests)
 
 Additions only (`surface.txt` grows by 29 entries; nothing removed). On the wire: a new contract file,
 `contracts/stock.alerts/v1/contract.json`, and `stock_alert` on the commerce endpoints answer — optional, so an older
