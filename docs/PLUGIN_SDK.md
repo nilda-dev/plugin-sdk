@@ -1696,6 +1696,23 @@ shop. `docs/SHIPPING.md` is the whole of it; `_examples/carrier` is a working on
 - **A carrier's "no" is a result**: a status and a failure code (`CarrierNoService`, `CarrierUnavailable`, …), never an
   error; a `Rates` past its 4 seconds answers `unavailable` by itself.
 
+### The shop's catalogue (`shop.catalog/v1`)
+
+The shop provides it; a channel plugin — a Google Merchant feed, a marketplace, an AI agent's catalogue — requires it
+and reads the published products in a feed-grade shape. `docs/CATALOG.md` is the whole of it.
+
+- **The shop** implements `CatalogProvider` (`DescribeCatalog`, `CatalogPage`, `CatalogProduct`) and returns
+  `CatalogMethods(c)` — or nothing: `Serve` finds a `CatalogProvider` by itself, as it finds a `Carrier`. The shapes:
+  `CatalogDescription` (the shop: name, address, currency, tax-inclusive prices, where it ships, the return window);
+  `CatalogPageRequest` (a cursor, a limit of at most `CatalogPageMax`, `UpdatedSince` for deltas) answered by
+  `CatalogPage` of `CatalogProduct`s, each with its `CatalogVariant`s (prices as numbers, availability —
+  `AvailabilityInStock`, `AvailabilityOutOfStock`, `AvailabilityBackorder` — brand, GTIN, MPN, page, pictures; a
+  product taken off sale since `UpdatedSince` comes back `Removed`); `CatalogProductRequest` answered by
+  `CatalogProductResult`. Each has `Validate`.
+- **A channel** declares `"requires": ["shop.catalog/v1"]` with `service_consumer` and calls
+  `Services.CatalogDescription`, `Services.CatalogPage` and `Services.CatalogProduct` (contract `ContractShopCatalog`,
+  methods `CatalogDescribe`, `CatalogProductsPage`, `CatalogProductGet`).
+
 ---
 
 ## 6. What Core guarantees, and what it does not

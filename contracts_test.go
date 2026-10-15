@@ -127,8 +127,36 @@ var shippingCarrierV1 = contractDef{
 const shopKeepsTheRecord = "the shop keeps every label on its order, so its own abilities buy_shipping_label and " +
 	"void_label are the doors; a label bought straight from the carrier would belong to no order"
 
+// shopCatalogV1 is the shop's catalogue, read by channel plugins (CATALOG.md). One shop answers, so a failure blocks
+// the call: a feed built without the catalogue would empty a channel.
+var shopCatalogV1 = contractDef{
+	name: ContractShopCatalog,
+	description: "The shop's catalogue for a channel: a feed plugin, a marketplace, an AI agent's catalogue reads the " +
+		"published products in a feed-grade shape — prices as numbers, availability per variant, brand, GTIN and MPN, " +
+		"the page and the pictures — and what changed since it last asked (CATALOG.md).",
+	methods: []methodDef{
+		{ContractMethod{Name: CatalogDescribe, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: catalogAgentReason,
+			Description: "The shop as a channel needs it: name, address, currency, whether prices include tax, where it ships, the return window."},
+			ordinary{}, CatalogDescription{}},
+		{ContractMethod{Name: CatalogProductsPage, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: catalogAgentReason,
+			Description: "One page of the published products, oldest change first, each with its variants; with updated_since, only what changed — a product taken off sale is listed as removed."},
+			CatalogPageRequest{}, CatalogPage{}},
+		{ContractMethod{Name: CatalogProductGet, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: catalogAgentReason,
+			Description: "One product by its SKU or one of its variants'."},
+			CatalogProductRequest{}, CatalogProductResult{}},
+	},
+}
+
+// catalogAgentReason: the owner reads and changes the catalogue through the shop's own abilities, which a feed's read
+// would only repeat.
+const catalogAgentReason = "the owner reads the catalogue through the shop's own abilities (list_products, " +
+	"get_product, list_variants); this is how a channel plugin reads it"
+
 // contractDefs is every contract this module defines.
-var contractDefs = []contractDef{paymentsV1, shippingCarrierV1}
+var contractDefs = []contractDef{paymentsV1, shippingCarrierV1, shopCatalogV1}
 
 // render builds a contract file from its definition.
 func (d contractDef) render(t *testing.T) []byte {

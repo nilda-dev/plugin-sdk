@@ -97,6 +97,7 @@ func TestEveryExportedProviderInterfaceIsInTheTable(t *testing.T) {
 		"Carrier":          "Serve answers it through CarrierMethods; Core subscribes it from provides — SHIPPING.md",
 		"CarrierTracker":   "rides on Carrier: CarrierMethods answers track with it, or \"unsupported\" without",
 		"CarrierDocuments": "rides on Carrier: CarrierMethods answers documents with it, or \"unsupported\" without",
+		"CatalogProvider":  "Serve answers it through CatalogMethods; Core subscribes it from provides — CATALOG.md",
 	}
 	wired := map[string]bool{}
 	for _, p := range providerHooks {

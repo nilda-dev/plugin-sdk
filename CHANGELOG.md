@@ -4,6 +4,21 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## Unreleased (v0.17.0) — the shop's catalogue for channels
+
+Additions only (`surface.txt` grows by 71 entries; nothing removed; no wire change). A new contract file,
+`contracts/shop.catalog/v1/contract.json`, which Core reads from the SDK it is built with: a Core built on an older SDK
+refuses a manifest naming it. `docs/CATALOG.md` is the whole of it.
+
+### Added
+
+- **The catalogue contract**: `CatalogProvider` (`DescribeCatalog`, `CatalogPage`, `CatalogProduct`) and
+  `CatalogMethods`; `Serve` finds a `CatalogProvider` by itself, as it finds a `Carrier` (a plugin may be both). The
+  shapes `CatalogDescription`, `CatalogPageRequest` (`UpdatedSince` for deltas, at most `CatalogPageMax`),
+  `CatalogPage`, `CatalogProduct` (`Removed` for a product taken off sale), `CatalogVariant` (prices as numbers,
+  availability, GTIN, MPN), `CatalogProductRequest`, `CatalogProductResult`, each with `Validate`.
+- **A channel's calls**: `Services.CatalogDescription`, `Services.CatalogPage`, `Services.CatalogProduct`.
+
 ## v0.16.0 — 2026-10-13 (where a visitor is, the EU's VAT rates and the seller)
 
 Additions only (`surface.txt` grows by 35 entries; nothing removed; no wire change).

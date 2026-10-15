@@ -3,6 +3,9 @@ const AdminPageList
 const AdminPageReport
 const AdminPageSettings
 const AdminReportHook
+const AvailabilityBackorder
+const AvailabilityInStock
+const AvailabilityOutOfStock
 const CarrierCredentialsRefused
 const CarrierCustomsMissing
 const CarrierDeclined
@@ -27,6 +30,10 @@ const CarrierSupportVoid
 const CarrierTrack
 const CarrierUnavailable
 const CarrierUnsupported
+const CatalogDescribe
+const CatalogPageMax
+const CatalogProductGet
+const CatalogProductsPage
 const ClassAccess
 const ClassAdditive
 const ClassAnalyze
@@ -37,6 +44,7 @@ const ClassRead
 const ClassStructural
 const ClassWrite
 const ContractShippingCarrier
+const ContractShopCatalog
 const DisputeChargeback
 const DisputeClosed
 const DisputeInquiry
@@ -246,6 +254,47 @@ field CarrierService.RequiresPhone bool json:requires_phone
 field CarrierService.Supports []string json:supports
 field CarrierService.Test bool json:test
 field CarrierService.TestHint map[string]string json:test_hint
+field CatalogDescription.Country string json:country
+field CatalogDescription.Currency string json:currency
+field CatalogDescription.Locale string json:locale
+field CatalogDescription.Name string json:name
+field CatalogDescription.Origin string json:origin
+field CatalogDescription.PricesIncludeTax bool json:prices_include_tax
+field CatalogDescription.ReturnDays int json:return_days
+field CatalogDescription.ShipsTo []string json:ships_to
+field CatalogPage.NextCursor string json:next_cursor
+field CatalogPage.Products []CatalogProduct json:products
+field CatalogPageRequest.Cursor string json:cursor
+field CatalogPageRequest.Limit int json:limit
+field CatalogPageRequest.UpdatedSince *time.Time json:updated_since
+field CatalogProduct.Brand string json:brand
+field CatalogProduct.Condition string json:condition
+field CatalogProduct.Description string json:description
+field CatalogProduct.GoogleCategory string json:google_category
+field CatalogProduct.ImageURLs []string json:image_urls
+field CatalogProduct.Removed bool json:removed
+field CatalogProduct.SKU string json:sku
+field CatalogProduct.Title string json:title
+field CatalogProduct.URL string json:url
+field CatalogProduct.UpdatedAt time.Time json:updated_at
+field CatalogProduct.Variants []CatalogVariant json:variants
+field CatalogProductRequest.SKU string json:sku
+field CatalogProductResult.Found bool json:found
+field CatalogProductResult.Product *CatalogProduct json:product
+field CatalogVariant.Availability string json:availability
+field CatalogVariant.Currency string json:currency
+field CatalogVariant.GTIN string json:gtin
+field CatalogVariant.ImageURL string json:image_url
+field CatalogVariant.MPN string json:mpn
+field CatalogVariant.Options map[string]string json:options
+field CatalogVariant.PriceMinor int64 json:price_minor
+field CatalogVariant.Quantity *int64 json:quantity
+field CatalogVariant.RequiresShipping bool json:requires_shipping
+field CatalogVariant.SKU string json:sku
+field CatalogVariant.SaleEnds *time.Time json:sale_ends
+field CatalogVariant.SalePriceMinor *int64 json:sale_price_minor
+field CatalogVariant.Title string json:title
+field CatalogVariant.WeightGrams *int64 json:weight_grams
 field CommerceEndpoints.Account string json:account
 field CommerceEndpoints.AddToCart string json:add_to_cart
 field CommerceEndpoints.Cart string json:cart
@@ -674,6 +723,7 @@ field WidgetRenderRequest.URL string json:url
 func AbilityHook(string) (string)
 func CallOf(context.Context) (CallInfo)
 func CarrierMethods(Carrier) ([]ServiceMethod)
+func CatalogMethods(CatalogProvider) ([]ServiceMethod)
 func ContractNamed(string) (ServiceContract, bool)
 func ContractToolName(string, string) (string)
 func Contracts() ([]ServiceContract, error)
@@ -735,6 +785,9 @@ imethod Carrier.Rates(context.Context, RatesRequest) (RatesResult, error)
 imethod Carrier.VoidLabel(context.Context, VoidRequest) (VoidResult, error)
 imethod CarrierDocuments.Documents(context.Context, DocumentsRequest) (DocumentsResult, error)
 imethod CarrierTracker.Track(context.Context, TrackRequest) (TrackResult, error)
+imethod CatalogProvider.CatalogPage(context.Context, CatalogPageRequest) (CatalogPage, error)
+imethod CatalogProvider.CatalogProduct(context.Context, CatalogProductRequest) (CatalogProductResult, error)
+imethod CatalogProvider.DescribeCatalog(context.Context) (CatalogDescription, error)
 imethod Commerce.Endpoints(context.Context) (CommerceEndpoints)
 imethod Commerce.Product(context.Context, string) (CommerceProduct, bool)
 imethod Commerce.Products(context.Context, CommerceQuery) ([]CommerceProduct, error)
@@ -835,12 +888,22 @@ method (*Secrets) Delete(context.Context, string) (bool, error)
 method (*Secrets) Get(context.Context, string) (string, bool, error)
 method (*Secrets) Set(context.Context, string, string) (error)
 method (*Services) Call(context.Context, string, string, any, ServiceCallOptions) (ServiceResult, error)
+method (*Services) CatalogDescription(context.Context) (CatalogDescription, error)
+method (*Services) CatalogPage(context.Context, CatalogPageRequest) (CatalogPage, error)
+method (*Services) CatalogProduct(context.Context, string) (CatalogProductResult, error)
 method (*Services) CreateShippingLabel(context.Context, string, LabelRequest) (LabelResult, error)
 method (*Services) ShippingDocuments(context.Context, string, DocumentsRequest) (DocumentsResult, error)
 method (*Services) ShippingRates(context.Context, RatesRequest, ServiceCallOptions) ([]CarrierRatesAnswer, []ServiceMiss, error)
 method (*Services) TrackShipment(context.Context, string, TrackRequest) (TrackResult, error)
 method (*Services) VoidShippingLabel(context.Context, string, VoidRequest) (VoidResult, error)
 method (CarrierDescription) Validate() (error)
+method (CatalogDescription) Validate() (error)
+method (CatalogPage) Validate() (error)
+method (CatalogPageRequest) Validate() (error)
+method (CatalogProduct) Validate() (error)
+method (CatalogProductRequest) Validate() (error)
+method (CatalogProductResult) Validate() (error)
+method (CatalogVariant) Validate() (error)
 method (ContractMethod) ValidateInput([]byte) (error)
 method (ContractMethod) ValidateOutput([]byte) (error)
 method (Customs) Validate() (error)
@@ -891,6 +954,14 @@ type CarrierRate
 type CarrierRatesAnswer
 type CarrierService
 type CarrierTracker
+type CatalogDescription
+type CatalogPage
+type CatalogPageRequest
+type CatalogProduct
+type CatalogProductRequest
+type CatalogProductResult
+type CatalogProvider
+type CatalogVariant
 type Class
 type Commerce
 type CommerceCounter

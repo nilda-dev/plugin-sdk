@@ -1,0 +1,382 @@
+{
+  "name": "shop.catalog/v1",
+  "description": "The shop's catalogue for a channel: a feed plugin, a marketplace, an AI agent's catalogue reads the published products in a feed-grade shape — prices as numbers, availability per variant, brand, GTIN and MPN, the page and the pictures — and what changed since it last asked (CATALOG.md).",
+  "methods": [
+    {
+      "name": "describe",
+      "answered_by": "provider",
+      "description": "The shop as a channel needs it: name, address, currency, whether prices include tax, where it ships, the return window.",
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reads the catalogue through the shop's own abilities (list_products, get_product, list_variants); this is how a channel plugin reads it",
+      "input": {
+        "type": "object"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "origin": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "prices_include_tax": {
+            "type": "boolean"
+          },
+          "country": {
+            "type": "string"
+          },
+          "ships_to": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "return_days": {
+            "type": "integer"
+          },
+          "locale": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "origin",
+          "currency",
+          "prices_include_tax",
+          "ships_to",
+          "return_days",
+          "locale"
+        ]
+      }
+    },
+    {
+      "name": "products.page",
+      "answered_by": "provider",
+      "description": "One page of the published products, oldest change first, each with its variants; with updated_since, only what changed — a product taken off sale is listed as removed.",
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reads the catalogue through the shop's own abilities (list_products, get_product, list_variants); this is how a channel plugin reads it",
+      "input": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "updated_since": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "products": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "sku": {
+                  "type": "string"
+                },
+                "removed": {
+                  "type": "boolean"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                },
+                "image_urls": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "brand": {
+                  "type": "string"
+                },
+                "condition": {
+                  "type": "string"
+                },
+                "google_category": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "string"
+                },
+                "variants": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "sku": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "options": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      },
+                      "price_minor": {
+                        "type": "integer"
+                      },
+                      "sale_price_minor": {
+                        "type": [
+                          "null",
+                          "integer"
+                        ]
+                      },
+                      "sale_ends": {
+                        "type": [
+                          "null",
+                          "string"
+                        ]
+                      },
+                      "currency": {
+                        "type": "string"
+                      },
+                      "availability": {
+                        "type": "string"
+                      },
+                      "quantity": {
+                        "type": [
+                          "null",
+                          "integer"
+                        ]
+                      },
+                      "gtin": {
+                        "type": "string"
+                      },
+                      "mpn": {
+                        "type": "string"
+                      },
+                      "weight_grams": {
+                        "type": [
+                          "null",
+                          "integer"
+                        ]
+                      },
+                      "requires_shipping": {
+                        "type": "boolean"
+                      },
+                      "image_url": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "sku",
+                      "price_minor",
+                      "currency",
+                      "availability",
+                      "requires_shipping"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "sku",
+                "updated_at"
+              ]
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "products"
+        ]
+      }
+    },
+    {
+      "name": "product.get",
+      "answered_by": "provider",
+      "description": "One product by its SKU or one of its variants'.",
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reads the catalogue through the shop's own abilities (list_products, get_product, list_variants); this is how a channel plugin reads it",
+      "input": {
+        "type": "object",
+        "properties": {
+          "sku": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sku"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "found": {
+            "type": "boolean"
+          },
+          "product": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "sku": {
+                "type": "string"
+              },
+              "removed": {
+                "type": "boolean"
+              },
+              "title": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "image_urls": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "brand": {
+                "type": "string"
+              },
+              "condition": {
+                "type": "string"
+              },
+              "google_category": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              },
+              "variants": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "sku": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "options": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "price_minor": {
+                      "type": "integer"
+                    },
+                    "sale_price_minor": {
+                      "type": [
+                        "null",
+                        "integer"
+                      ]
+                    },
+                    "sale_ends": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "currency": {
+                      "type": "string"
+                    },
+                    "availability": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": [
+                        "null",
+                        "integer"
+                      ]
+                    },
+                    "gtin": {
+                      "type": "string"
+                    },
+                    "mpn": {
+                      "type": "string"
+                    },
+                    "weight_grams": {
+                      "type": [
+                        "null",
+                        "integer"
+                      ]
+                    },
+                    "requires_shipping": {
+                      "type": "boolean"
+                    },
+                    "image_url": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "sku",
+                    "price_minor",
+                    "currency",
+                    "availability",
+                    "requires_shipping"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "sku",
+              "updated_at"
+            ]
+          }
+        },
+        "required": [
+          "found"
+        ]
+      }
+    }
+  ]
+}

@@ -220,21 +220,29 @@ func Serves[In, Out any](contract, method string, fn func(ctx context.Context, i
 }
 
 // serviceProviderOf is what answers a plugin's service hooks: its own ServiceMethods, or — for a plugin that
-// implements Carrier and wrote no ServiceMethods — CarrierMethods, so a carrier that forgot the one line is still
-// answered rather than failing every call.
+// implements Carrier or CatalogProvider and wrote no ServiceMethods — their methods (CarrierMethods, CatalogMethods),
+// so a provider that forgot the one line is still answered rather than failing every call. A plugin may be both.
 func serviceProviderOf(h Handler) ServiceProvider {
 	if sp, is := h.(ServiceProvider); is {
 		return sp
 	}
+	var methods []ServiceMethod
 	if c, is := h.(Carrier); is {
-		return carrierProvider{c}
+		methods = append(methods, CarrierMethods(c)...)
 	}
-	return nil
+	if c, is := h.(CatalogProvider); is {
+		methods = append(methods, CatalogMethods(c)...)
+	}
+	if methods == nil {
+		return nil
+	}
+	return methodsProvider(methods)
 }
 
-type carrierProvider struct{ c Carrier }
+// methodsProvider answers from a fixed list of methods.
+type methodsProvider []ServiceMethod
 
-func (p carrierProvider) ServiceMethods() []ServiceMethod { return CarrierMethods(p.c) }
+func (m methodsProvider) ServiceMethods() []ServiceMethod { return m }
 
 // DispatchServiceHook answers one service hook from a provider's methods. ok is false for a hook that is not a
 // service hook, or names a method p does not answer — it then reaches the plugin's own HandleHook.
