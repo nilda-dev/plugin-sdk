@@ -1922,6 +1922,19 @@ A plugin keeps the owner's offers; the shop draws them and prices their discount
 - **The shop** declares `"uses": ["shop.offers/v1"]` and asks `Services.Offers` for a page and `Services.ConfirmOffers`
   whenever it prices a basket holding an offer's line.
 
+### Business buyers: prices, terms and quotes (`shop.buyers/v1`; from v0.24.0)
+
+A plugin keeps customer groups, their prices, minimums, payment terms and quotes; the shop applies a signed-in buyer's
+terms through its own pricing. `docs/BUYERS.md` is the whole of it.
+
+- **The plugin** implements `BuyersProvider` (`BuyerTerms` with a `BuyerTermsRequest`, answered by `BuyerTerms` with
+  `BuyerPrice`s and `BuyerMinimum`s; `RequestQuote` with a `QuoteRequestInput` of `QuoteLine`s, answered by a
+  `QuoteRequestResult`; `OpenQuote` with a `QuoteOpenRequest`, answered by a `QuoteOpenResult` holding a `Quote`) —
+  `Serve` finds it by itself, or return `BuyersMethods(p)` (contract `ContractShopBuyers`, methods `BuyerTermsGet`,
+  `QuoteRequest`, `QuoteOpen`).
+- **The shop** declares `"uses": ["shop.buyers/v1"]` and asks `Services.BuyerTerms` for a member's basket,
+  `Services.RequestQuote` and `Services.OpenQuote` for quotes.
+
 ### The shop's checkout (`shop.checkout/v1`)
 
 The shop provides it; an agentic-commerce adapter — ACP, UCP — requires it and drives the shop's own checkout for an AI

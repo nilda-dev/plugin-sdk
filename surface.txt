@@ -14,6 +14,7 @@ const BadgeGold
 const BadgeGreen
 const BadgeGrey
 const BadgeWarn
+const BuyerTermsGet
 const CarrierCredentialsRefused
 const CarrierCustomsMissing
 const CarrierDeclined
@@ -76,6 +77,7 @@ const ColumnMoney
 const ColumnNumber
 const ColumnText
 const ContractShippingCarrier
+const ContractShopBuyers
 const ContractShopCatalog
 const ContractShopCheckout
 const ContractShopDeliverables
@@ -191,6 +193,8 @@ const PaymentRejected
 const PaymentResolved
 const PluginSetName
 const ProtocolVersion
+const QuoteOpen
+const QuoteRequest
 const RatesInvalid
 const RatesNoService
 const RatesOK
@@ -295,6 +299,23 @@ field AuthStartRequest.Nonce string json:nonce
 field AuthStartRequest.Provider string json:provider
 field AuthStartRequest.RedirectURI string json:redirect_uri
 field AuthStartRequest.State string json:state
+field BuyerMinimum.Qty int64 json:qty
+field BuyerMinimum.SKU string json:sku
+field BuyerPrice.Currency string json:currency
+field BuyerPrice.PriceMinor int64 json:price_minor
+field BuyerPrice.SKU string json:sku
+field BuyerTerms.Group string json:group
+field BuyerTerms.GroupName string json:group_name
+field BuyerTerms.Member bool json:member
+field BuyerTerms.MinOrderMinor int64 json:min_order_minor
+field BuyerTerms.MinQty []BuyerMinimum json:min_qty
+field BuyerTerms.NetDays int json:net_days
+field BuyerTerms.PayByInvoice bool json:pay_by_invoice
+field BuyerTerms.PercentOff int json:percent_off
+field BuyerTerms.Prices []BuyerPrice json:prices
+field BuyerTerms.Quotes bool json:quotes
+field BuyerTermsRequest.SKUs []string json:skus
+field BuyerTermsRequest.UserID string json:user_id
 field CallInfo.Caller string
 field CallInfo.Contract string
 field CallInfo.IdempotencyKey string
@@ -813,6 +834,27 @@ field PluginClient.Broker *plugin.GRPCBroker
 field PluginClient.Plugin contract.PluginServiceClient
 field PluginMobile.Headline []HeadlineMetric json:headline
 field PluginMobile.Icon string json:icon
+field Quote.Currency string json:currency
+field Quote.ExpiresAt time.Time json:expires_at
+field Quote.ID string json:id
+field Quote.Lines []QuoteLine json:lines
+field QuoteLine.Qty int64 json:qty
+field QuoteLine.SKU string json:sku
+field QuoteLine.Title string json:title
+field QuoteLine.UnitPriceMinor int64 json:unit_price_minor
+field QuoteOpenRequest.Token string json:token
+field QuoteOpenRequest.UserID string json:user_id
+field QuoteOpenResult.Found bool json:found
+field QuoteOpenResult.Quote *Quote json:quote
+field QuoteRequestInput.AcceptURL string json:accept_url
+field QuoteRequestInput.Currency string json:currency
+field QuoteRequestInput.Email string json:email
+field QuoteRequestInput.Lines []QuoteLine json:lines
+field QuoteRequestInput.Locale string json:locale
+field QuoteRequestInput.Note string json:note
+field QuoteRequestInput.UserID string json:user_id
+field QuoteRequestResult.Message string json:message
+field QuoteRequestResult.QuoteID string json:quote_id
 field RatesRequest.Currency string json:currency
 field RatesRequest.Customs *Customs json:customs
 field RatesRequest.DeclaredValueMinor int64 json:declared_value_minor
@@ -1006,6 +1048,7 @@ field WidgetRenderRequest.URL string json:url
 func AbilityHook(string) (string)
 func AgentOf(*http.Request) (Agent, bool)
 func BadgeTones() ([]string)
+func BuyersMethods(BuyersProvider) ([]ServiceMethod)
 func CallOf(context.Context) (CallInfo)
 func CarrierMethods(Carrier) ([]ServiceMethod)
 func CatalogMethods(CatalogProvider) ([]ServiceMethod)
@@ -1075,6 +1118,9 @@ imethod AssetProvider.FooterScripts(context.Context, RenderAssetsRequest) ([]Scr
 imethod AuthProvider.Complete(context.Context, *Core, AuthCompleteRequest) (AuthAssertion, error)
 imethod AuthProvider.Describe(context.Context, *Core) ([]AuthProviderStatus)
 imethod AuthProvider.Start(context.Context, *Core, AuthStartRequest) (string, error)
+imethod BuyersProvider.BuyerTerms(context.Context, BuyerTermsRequest) (BuyerTerms, error)
+imethod BuyersProvider.OpenQuote(context.Context, QuoteOpenRequest) (QuoteOpenResult, error)
+imethod BuyersProvider.RequestQuote(context.Context, QuoteRequestInput) (QuoteRequestResult, error)
 imethod Carrier.CreateLabel(context.Context, LabelRequest) (LabelResult, error)
 imethod Carrier.DescribeCarrier(context.Context) (CarrierDescription, error)
 imethod Carrier.Rates(context.Context, RatesRequest) (RatesResult, error)
@@ -1198,6 +1244,7 @@ method (*Reference) Seller(context.Context) (Seller, error)
 method (*Secrets) Delete(context.Context, string) (bool, error)
 method (*Secrets) Get(context.Context, string) (string, bool, error)
 method (*Secrets) Set(context.Context, string, string) (error)
+method (*Services) BuyerTerms(context.Context, BuyerTermsRequest) (BuyerTerms, error)
 method (*Services) Call(context.Context, string, string, any, ServiceCallOptions) (ServiceResult, error)
 method (*Services) CancelCheckout(context.Context, CheckoutRef, string) (CheckoutResult, error)
 method (*Services) CatalogDescription(context.Context) (CatalogDescription, error)
@@ -1211,7 +1258,9 @@ method (*Services) CreateShippingLabel(context.Context, string, LabelRequest) (L
 method (*Services) DeliveredSKUs(context.Context) (map[string]bool, error)
 method (*Services) GetCheckout(context.Context, CheckoutRef) (CheckoutResult, error)
 method (*Services) Offers(context.Context, OffersRequest) ([]Offer, error)
+method (*Services) OpenQuote(context.Context, QuoteOpenRequest) (QuoteOpenResult, error)
 method (*Services) OrderDeliverables(context.Context, DeliverablesRequest) ([]DeliveredItem, int, error)
+method (*Services) RequestQuote(context.Context, QuoteRequestInput) (QuoteRequestResult, error)
 method (*Services) ShippingDocuments(context.Context, string, DocumentsRequest) (DocumentsResult, error)
 method (*Services) ShippingRates(context.Context, RatesRequest, ServiceCallOptions) ([]CarrierRatesAnswer, []ServiceMiss, error)
 method (*Services) ShopOrder(context.Context, string) (ShopOrderResult, error)
@@ -1220,6 +1269,8 @@ method (*Services) SubscribeStockAlert(context.Context, StockAlertRequest) (Stoc
 method (*Services) TrackShipment(context.Context, string, TrackRequest) (TrackResult, error)
 method (*Services) UpdateCheckout(context.Context, CheckoutUpdateRequest, string) (CheckoutResult, error)
 method (*Services) VoidShippingLabel(context.Context, string, VoidRequest) (VoidResult, error)
+method (BuyerTerms) Validate() (error)
+method (BuyerTermsRequest) Validate() (error)
 method (CarrierDescription) Validate() (error)
 method (CatalogDescription) Validate() (error)
 method (CatalogPage) Validate() (error)
@@ -1266,6 +1317,10 @@ method (PaymentRefundParams) Validate() (error)
 method (PaymentRejection) Validate() (error)
 method (PaymentResolution) Validate() (error)
 method (PaymentSessionParams) Validate() (error)
+method (QuoteOpenRequest) Validate() (error)
+method (QuoteOpenResult) Validate() (error)
+method (QuoteRequestInput) Validate() (error)
+method (QuoteRequestResult) Validate() (error)
 method (RatesRequest) Validate() (error)
 method (RatesResult) Validate() (error)
 method (ServiceAnswer) Decode(any) (error)
@@ -1299,6 +1354,11 @@ type AuthCompleteRequest
 type AuthProvider
 type AuthProviderStatus
 type AuthStartRequest
+type BuyerMinimum
+type BuyerPrice
+type BuyerTerms
+type BuyerTermsRequest
+type BuyersProvider
 type CallInfo
 type Carrier
 type CarrierDescription
@@ -1416,6 +1476,12 @@ type PaymentSyncer
 type Payments
 type PluginClient
 type PluginMobile
+type Quote
+type QuoteLine
+type QuoteOpenRequest
+type QuoteOpenResult
+type QuoteRequestInput
+type QuoteRequestResult
 type RatesRequest
 type RatesResult
 type Reference

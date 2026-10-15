@@ -28,6 +28,11 @@ delivering plugin provides — `describe` (the SKUs it delivers, which the shop 
 `OffersProvider`, `OffersMethods`, `Services.Offers`, `Services.ConfirmOffers`); `ShopOrderLine.OfferID`. A provider
 that returns a nil list now answers an empty one, for `shop.orders/v1` and `shop.deliverables/v1` too.
 
+**Business buyers** (commerce unit 10, the B2B starter; `docs/BUYERS.md`): `shop.buyers/v1`, which a B2B plugin
+provides — `buyer.terms`, `quote.request` and `quote.open` (`BuyerTermsRequest`, `BuyerTerms`, `BuyerPrice`,
+`BuyerMinimum`, `QuoteLine`, `QuoteRequestInput`, `QuoteRequestResult`, `QuoteOpenRequest`, `QuoteOpenResult`, `Quote`,
+`BuyersProvider`, `BuyersMethods`, `Services.BuyerTerms`, `Services.RequestQuote`, `Services.OpenQuote`).
+
 ## v0.23.0 — 2026-10-15 (one list decides which agent may pay; what a buyer and a shopper are told and kept)
 
 Additions only (`surface.txt` grows by 35 entries, `nildatest/surface.txt` by 1; nothing removed). On the wire: Core's

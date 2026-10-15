@@ -288,9 +288,38 @@ var shopOffersV1 = contractDef{
 const offersAgentReason = "an offer is shown to a shopper on the shop's pages; the owner sets and reads offers " +
 	"through the offers plugin's own abilities"
 
+// shopBuyersV1 is business buyers' terms and quotes (BUYERS.md). One plugin answers. No plugin is an ordinary shopper
+// (terms skip); one that is there and did not answer is an error to the shop (Services.BuyerTerms) — a member's basket
+// priced as a stranger's would be the wrong price. A quote nobody keeps cannot be asked or opened (block).
+var shopBuyersV1 = contractDef{
+	name: ContractShopBuyers,
+	description: "Business buyers: a signed-in buyer's group, prices, minimums and payment terms for the shop to apply " +
+		"through its own pricing, and quotes — asked for from the basket, priced by the owner, opened by the buyer " +
+		"(BUYERS.md).",
+	methods: []methodDef{
+		{ContractMethod{Name: BuyerTermsGet, AnsweredBy: "provider", RetryClass: "failure", Fallback: "skip",
+			Idempotent: true, Agent: "none", AgentReason: buyersAgentReason,
+			Description: "A signed-in buyer's group, their prices for given items, minimum quantities and order, and whether they may pay by invoice and ask for quotes."},
+			BuyerTermsRequest{}, BuyerTerms{}},
+		{ContractMethod{Name: QuoteRequest, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: false, Agent: "none", AgentReason: buyersAgentReason,
+			Description: "Keep a buyer's request for a quote for their basket; the owner prices it and the buyer is emailed a link."},
+			QuoteRequestInput{}, QuoteRequestResult{}},
+		{ContractMethod{Name: QuoteOpen, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: buyersAgentReason,
+			Description: "Open a priced quote by its link's token, for the signed-in buyer it was made for."},
+			QuoteOpenRequest{}, QuoteOpenResult{}},
+	},
+}
+
+// buyersAgentReason: a buyer's terms and quotes are theirs; the owner manages groups, prices and quotes through the
+// B2B plugin's own abilities.
+const buyersAgentReason = "a buyer's terms and quotes are read for that buyer on the shop's pages; the owner manages " +
+	"groups, prices and quotes through the B2B plugin's own abilities"
+
 // contractDefs is every contract this module defines.
 var contractDefs = []contractDef{paymentsV1, shippingCarrierV1, shopCatalogV1, shopCheckoutV1, stockAlertsV1, shopOrdersV1,
-	shopDeliverablesV1, shopOffersV1}
+	shopDeliverablesV1, shopOffersV1, shopBuyersV1}
 
 // render builds a contract file from its definition.
 func (d contractDef) render(t *testing.T) []byte {

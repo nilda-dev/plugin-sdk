@@ -227,3 +227,47 @@ func TestAnOffersPluginThatFailsIsLeftOutAndItsOffersDoNotStand(t *testing.T) {
 		t.Errorf("confirmed: %+v %v", stand, err)
 	}
 }
+
+// buyersKeeper is a B2B plugin whose terms come, or fail.
+type buyersKeeper struct{ fail bool }
+
+func (b buyersKeeper) BuyerTerms(context.Context, nilda.BuyerTermsRequest) (nilda.BuyerTerms, error) {
+	if b.fail {
+		return nilda.BuyerTerms{}, errors.New("database down")
+	}
+	return nilda.BuyerTerms{Member: true, Group: "trade", PercentOff: 10}, nil
+}
+
+func (b buyersKeeper) RequestQuote(context.Context, nilda.QuoteRequestInput) (nilda.QuoteRequestResult, error) {
+	return nilda.QuoteRequestResult{QuoteID: "q1"}, nil
+}
+
+func (b buyersKeeper) OpenQuote(context.Context, nilda.QuoteOpenRequest) (nilda.QuoteOpenResult, error) {
+	return nilda.QuoteOpenResult{}, nil
+}
+
+func (b buyersKeeper) ServiceMethods() []nilda.ServiceMethod { return nilda.BuyersMethods(b) }
+
+// A B2B PLUGIN THAT FAILS IS NOT "AN ORDINARY SHOPPER": no plugin is no terms and no error; one that is there and
+// did not answer is an error, so a member's basket is never priced as a stranger's.
+func TestABuyersPluginThatFailsIsNotAnOrdinaryShopper(t *testing.T) {
+	ctx := context.Background()
+	ask := func(keeper *buyersKeeper) (nilda.BuyerTerms, error) {
+		desk := NewServices()
+		if keeper != nil {
+			desk.Provider("b2b", *keeper)
+		}
+		core, _, srv := desk.Core("shop", nilda.ContractShopBuyers)
+		defer srv.Close()
+		return core.API().Services().BuyerTerms(ctx, nilda.BuyerTermsRequest{UserID: "u1"})
+	}
+	if terms, err := ask(nil); err != nil || terms.Member {
+		t.Errorf("no plugin: %+v %v", terms, err)
+	}
+	if _, err := ask(&buyersKeeper{fail: true}); err == nil || !strings.Contains(err.Error(), "b2b") {
+		t.Errorf("a plugin that failed: %v — want an error naming it", err)
+	}
+	if terms, err := ask(&buyersKeeper{}); err != nil || !terms.Member || terms.PercentOff != 10 {
+		t.Errorf("a member: %+v %v", terms, err)
+	}
+}

@@ -1,0 +1,284 @@
+{
+  "name": "shop.buyers/v1",
+  "description": "Business buyers: a signed-in buyer's group, prices, minimums and payment terms for the shop to apply through its own pricing, and quotes — asked for from the basket, priced by the owner, opened by the buyer (BUYERS.md).",
+  "methods": [
+    {
+      "name": "buyer.terms",
+      "answered_by": "provider",
+      "description": "A signed-in buyer's group, their prices for given items, minimum quantities and order, and whether they may pay by invoice and ask for quotes.",
+      "retry_class": "failure",
+      "fallback": "skip",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "a buyer's terms and quotes are read for that buyer on the shop's pages; the owner manages groups, prices and quotes through the B2B plugin's own abilities",
+      "input": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "skus": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "user_id",
+          "skus"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "member": {
+            "type": "boolean"
+          },
+          "group": {
+            "type": "string"
+          },
+          "group_name": {
+            "type": "string"
+          },
+          "percent_off": {
+            "type": "integer"
+          },
+          "prices": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "sku": {
+                  "type": "string"
+                },
+                "price_minor": {
+                  "type": "integer"
+                },
+                "currency": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "sku",
+                "price_minor",
+                "currency"
+              ]
+            }
+          },
+          "min_qty": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "sku": {
+                  "type": "string"
+                },
+                "qty": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sku",
+                "qty"
+              ]
+            }
+          },
+          "min_order_minor": {
+            "type": "integer"
+          },
+          "pay_by_invoice": {
+            "type": "boolean"
+          },
+          "net_days": {
+            "type": "integer"
+          },
+          "quotes": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "member"
+        ]
+      }
+    },
+    {
+      "name": "quote.request",
+      "answered_by": "provider",
+      "description": "Keep a buyer's request for a quote for their basket; the owner prices it and the buyer is emailed a link.",
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": false,
+      "agent": "none",
+      "agent_reason": "a buyer's terms and quotes are read for that buyer on the shop's pages; the owner manages groups, prices and quotes through the B2B plugin's own abilities",
+      "input": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "lines": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "sku": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "qty": {
+                  "type": "integer"
+                },
+                "unit_price_minor": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sku",
+                "qty",
+                "unit_price_minor"
+              ]
+            }
+          },
+          "note": {
+            "type": "string"
+          },
+          "accept_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "email",
+          "currency",
+          "lines",
+          "accept_url"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "quote_id": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "quote_id"
+        ]
+      }
+    },
+    {
+      "name": "quote.open",
+      "answered_by": "provider",
+      "description": "Open a priced quote by its link's token, for the signed-in buyer it was made for.",
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "a buyer's terms and quotes are read for that buyer on the shop's pages; the owner manages groups, prices and quotes through the B2B plugin's own abilities",
+      "input": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "user_id"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "found": {
+            "type": "boolean"
+          },
+          "quote": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "expires_at": {
+                "type": "string"
+              },
+              "lines": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "sku": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "qty": {
+                      "type": "integer"
+                    },
+                    "unit_price_minor": {
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "sku",
+                    "qty",
+                    "unit_price_minor"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "currency",
+              "expires_at",
+              "lines"
+            ]
+          }
+        },
+        "required": [
+          "found"
+        ]
+      }
+    }
+  ]
+}
