@@ -31,6 +31,9 @@ and `stock.alerts/v1` subscribe.
   key for a request's address; `StockAlertRequest.Requester` (it) and `StockAlertRequest.ConsentText` (the sentence the
   form showed); `CommerceEndpoints.StockAlertConsent`, the plugin's sentence for Core to draw under the email box.
 
+- **`plugin.json`'s `processing`** (documented; Core reads it): what a plugin does with personal data, who receives it
+  and how long it is kept, listed in the site's privacy record while the plugin is active (commerce plan 13, D4).
+
 ### Changed
 
 - **`Services.StockAlertsDescription`**: a stock-alerts plugin that is installed and did not answer (a timeout, an

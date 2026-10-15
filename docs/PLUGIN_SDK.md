@@ -583,6 +583,24 @@ is refused with a 503 rather than queued — and a tunnel nothing crosses, in ei
 is closed. A pooled client stays far inside both; a plugin that opens a connection per request and never
 closes it does not.
 
+### What you do with personal data (`processing`)
+
+A site's privacy notice must say what is done with a visitor's data, who receives it and how long it is kept (GDPR
+Art. 13). Core knows its own and names a payment gateway's processor and a carrier plugin's carrier; for anything else
+your plugin does, say it in `plugin.json` (Core from the release after SDK v0.23.0):
+
+```json
+"processing": [
+  { "what": "a shopper's email address and the sentence they agreed to, to email them once when an item is back",
+    "recipient": "this site only", "retention": "30 days after the email was sent or the request stopped" }
+]
+```
+
+`what` and `recipient` are required — `recipient` is "this site only" or the outside party by name — and `retention`
+says how long or by what rule; at most 16 entries, a sentence each. The owner reads them at install and on the plugin's
+row, and while the plugin is active every entry is a row of the site's privacy record (`legal_requirements`,
+`legal_notice`), in your words. Core cannot check them: write what the code does.
+
 ### "/" commands in the content editor (`editor_commands`)
 
 A plugin can add entries to the content editor's "/" menu. Like tables, they are DECLARED — there is no
