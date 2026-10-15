@@ -1787,6 +1787,18 @@ and reads the published products in a feed-grade shape. `docs/CATALOG.md` is the
   `Services.CatalogDescription`, `Services.CatalogPage` and `Services.CatalogProduct` (contract `ContractShopCatalog`,
   methods `CatalogDescribe`, `CatalogProductsPage`, `CatalogProductGet`).
 
+### Back-in-stock requests (`stock.alerts/v1`)
+
+A plugin keeps them; the shop's product page takes them. `docs/STOCK_ALERTS.md` is the whole of it.
+
+- **The plugin** implements `StockAlertProvider` (`DescribeStockAlerts`, `SubscribeStockAlert`) and returns
+  `StockAlertMethods(p)` — or nothing: `Serve` finds it by itself. The shapes: `StockAlertsDescription` (collecting,
+  and the sentence beside the email box), `StockAlertRequest` (the SKUs, title, page, email and language; `Validate`)
+  answered by `StockAlertResult` (`StockAlertSubscribed`, `StockAlertAlready`, `StockAlertRefused`).
+- **The shop** declares `"uses": ["stock.alerts/v1"]` with `service_consumer`, asks `Services.StockAlertsDescription`
+  and sets `CommerceEndpoints.StockAlert` only while one is collecting, and hands a request on with
+  `Services.SubscribeStockAlert` (contract `ContractStockAlerts`, methods `StockAlertsDescribe`, `StockAlertSubscribe`).
+
 ### The shop's checkout (`shop.checkout/v1`)
 
 The shop provides it; an agentic-commerce adapter — ACP, UCP — requires it and drives the shop's own checkout for an AI

@@ -1,0 +1,86 @@
+{
+  "name": "stock.alerts/v1",
+  "description": "Back-in-stock requests: the shop's product page hands a shopper's \"tell me when it is back\" for a sold-out item to the plugin that keeps the requests, confirms them and sends the news when the item can be bought again (STOCK_ALERTS.md).",
+  "methods": [
+    {
+      "name": "describe",
+      "answered_by": "provider",
+      "description": "Whether requests are taken now, and the sentence the form shows beside the email box.",
+      "retry_class": "failure",
+      "fallback": "skip",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "a back-in-stock request is a shopper's, sent from the shop's product page; the owner reads and removes them through the stock-alerts plugin's own abilities",
+      "input": {
+        "type": "object"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "collecting": {
+            "type": "boolean"
+          },
+          "consent_text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "collecting"
+        ]
+      }
+    },
+    {
+      "name": "subscribe",
+      "answered_by": "provider",
+      "description": "Keep one shopper's request for one sold-out item, and confirm it to them; the same request again changes nothing.",
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "a back-in-stock request is a shopper's, sent from the shop's product page; the owner reads and removes them through the stock-alerts plugin's own abilities",
+      "input": {
+        "type": "object",
+        "properties": {
+          "sku": {
+            "type": "string"
+          },
+          "product_sku": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sku",
+          "title",
+          "url",
+          "email"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    }
+  ]
+}

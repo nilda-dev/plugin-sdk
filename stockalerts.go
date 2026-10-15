@@ -1,0 +1,152 @@
+package nilda
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"net/mail"
+	"strings"
+)
+
+// BACK-IN-STOCK REQUESTS, KEPT BY A PLUGIN OF THEIR OWN (STOCK_ALERTS.md; commerce unit 10).
+//
+// A shopper on a sold-out product leaves an email and is told, once, when it can be bought again. The button and the
+// form are the shop's product page (Core's add-to-cart widget, the shop's CommerceEndpoints.StockAlert); keeping the
+// requests, confirming them, watching the stock and sending the news are a plugin's — the way Shopify, BigCommerce
+// and WooCommerce ship it, as an app or an extension beside the shop. The plugin PROVIDES stock.alerts/v1; the shop
+// USES it, and shows the form only while a provider says it is collecting.
+
+// ContractStockAlerts is the contract's name.
+const ContractStockAlerts = "stock.alerts/v1"
+
+// The contract's methods.
+const (
+	StockAlertsDescribe = "describe"
+	StockAlertSubscribe = "subscribe"
+)
+
+// What a subscribe came to (StockAlertResult.Status).
+const (
+	// StockAlertSubscribed: the request is kept; a confirmation is on its way to the email.
+	StockAlertSubscribed = "subscribed"
+	// StockAlertAlready: this email already waits for this item; nothing changed.
+	StockAlertAlready = "already"
+	// StockAlertRefused: not kept — Message says why (the item is in stock, the email has too many waiting).
+	StockAlertRefused = "refused"
+)
+
+// StockAlertsDescription is whether the plugin takes requests now, and the sentence the form shows beside the
+// email box — how the address is used, in the shop's words.
+type StockAlertsDescription struct {
+	Collecting  bool   `json:"collecting"`
+	ConsentText string `json:"consent_text,omitempty"`
+}
+
+// Validate accepts any description.
+func (StockAlertsDescription) Validate() error { return nil }
+
+// StockAlertRequest is one shopper asking to be told when one item is back.
+type StockAlertRequest struct {
+	// SKU is the variant's — the item the shopper chose; ProductSKU its product's.
+	SKU        string `json:"sku"`
+	ProductSKU string `json:"product_sku,omitempty"`
+	// Title is what the mails call it ("Linen shirt — Blue / M"); URL its page, absolute.
+	Title string `json:"title"`
+	URL   string `json:"url"`
+	Email string `json:"email"`
+	// Locale is the language the shopper read the page in; the mails are written in it.
+	Locale string `json:"locale,omitempty"`
+}
+
+// Validate refuses a request the plugin cannot keep.
+func (r StockAlertRequest) Validate() error {
+	if strings.TrimSpace(r.SKU) == "" || strings.TrimSpace(r.Title) == "" {
+		return errors.New("nilda: a back-in-stock request names the item's SKU and title")
+	}
+	if !strings.HasPrefix(r.URL, "https://") && !strings.HasPrefix(r.URL, "http://") {
+		return errors.New("nilda: a back-in-stock request carries the item's page, absolute")
+	}
+	e := strings.TrimSpace(r.Email)
+	if len(e) > 254 {
+		return errors.New("nilda: that email address is too long")
+	}
+	if a, err := mail.ParseAddress(e); err != nil || a.Address != e || !strings.Contains(e[strings.LastIndex(e, "@")+1:], ".") {
+		return errors.New("nilda: that is not an email address")
+	}
+	return nil
+}
+
+// StockAlertResult is what a subscribe came to.
+type StockAlertResult struct {
+	Status  string `json:"status"`
+	Message string `json:"message,omitempty"`
+}
+
+// Validate checks the status.
+func (r StockAlertResult) Validate() error {
+	switch r.Status {
+	case StockAlertSubscribed, StockAlertAlready, StockAlertRefused:
+		return nil
+	}
+	return fmt.Errorf("nilda: a back-in-stock answer with status %q", r.Status)
+}
+
+// ---- the plugin's side -------------------------------------------------------------------------------------
+
+// StockAlertProvider keeps the requests. Serve finds it by itself; declare "provides": ["stock.alerts/v1"] with
+// service_provider.
+type StockAlertProvider interface {
+	DescribeStockAlerts(ctx context.Context) (StockAlertsDescription, error)
+	SubscribeStockAlert(ctx context.Context, req StockAlertRequest) (StockAlertResult, error)
+}
+
+// StockAlertMethods are the provider's contract methods; a request the checks refuse is answered as refused, with
+// the reason the shopper reads.
+func StockAlertMethods(p StockAlertProvider) []ServiceMethod {
+	return []ServiceMethod{
+		Serves(ContractStockAlerts, StockAlertsDescribe, func(ctx context.Context, _ struct{}) (StockAlertsDescription, error) {
+			return checked(p.DescribeStockAlerts(ctx))
+		}),
+		Serves(ContractStockAlerts, StockAlertSubscribe, func(ctx context.Context, req StockAlertRequest) (StockAlertResult, error) {
+			if err := req.Validate(); err != nil {
+				return StockAlertResult{Status: StockAlertRefused, Message: strings.TrimPrefix(err.Error(), "nilda: ")}, nil
+			}
+			return checked(p.SubscribeStockAlert(ctx, req))
+		}),
+	}
+}
+
+// ---- the shop's side ---------------------------------------------------------------------------------------
+
+// StockAlertsDescription asks whether a plugin takes back-in-stock requests now. ok is false when none is installed
+// and on, or none answered — the shop then shows no form.
+func (s *Services) StockAlertsDescription(ctx context.Context) (StockAlertsDescription, bool, error) {
+	res, err := s.Call(ctx, ContractStockAlerts, StockAlertsDescribe, struct{}{}, ServiceCallOptions{})
+	if err != nil {
+		return StockAlertsDescription{}, false, err
+	}
+	if len(res.Answers) == 0 {
+		return StockAlertsDescription{}, false, nil
+	}
+	var d StockAlertsDescription
+	if err := res.Answers[0].Decode(&d); err != nil {
+		return StockAlertsDescription{}, false, err
+	}
+	return d, true, nil
+}
+
+// SubscribeStockAlert hands one shopper's request to the plugin that keeps them.
+func (s *Services) SubscribeStockAlert(ctx context.Context, req StockAlertRequest) (StockAlertResult, error) {
+	res, err := s.Call(ctx, ContractStockAlerts, StockAlertSubscribe, req, ServiceCallOptions{})
+	if err != nil {
+		return StockAlertResult{}, err
+	}
+	if len(res.Answers) == 0 {
+		return StockAlertResult{}, fmt.Errorf("nilda: nothing answered %s %s", ContractStockAlerts, StockAlertSubscribe)
+	}
+	var r StockAlertResult
+	if err := res.Answers[0].Decode(&r); err != nil {
+		return StockAlertResult{}, err
+	}
+	return r, r.Validate()
+}

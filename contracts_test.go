@@ -199,8 +199,32 @@ const checkoutAgentReason = "a checkout is a buyer's: a visitor's agent reaches 
 	"(create_cart, quote, place_order), the owner through the shop's own abilities (list_saved_checkouts); this is " +
 	"how a protocol adapter drives it"
 
+// stockAlertsV1 is back-in-stock requests, kept by a plugin of their own (STOCK_ALERTS.md). Describe skips when nothing
+// answers — the shop then shows no form; a subscribe nobody answered fails, so the shopper is told it did not go.
+var stockAlertsV1 = contractDef{
+	name: ContractStockAlerts,
+	description: "Back-in-stock requests: the shop's product page hands a shopper's \"tell me when it is back\" for a " +
+		"sold-out item to the plugin that keeps the requests, confirms them and sends the news when the item can be " +
+		"bought again (STOCK_ALERTS.md).",
+	methods: []methodDef{
+		{ContractMethod{Name: StockAlertsDescribe, AnsweredBy: "provider", RetryClass: "failure", Fallback: "skip",
+			Idempotent: true, Agent: "none", AgentReason: stockAlertsAgentReason,
+			Description: "Whether requests are taken now, and the sentence the form shows beside the email box."},
+			ordinary{}, StockAlertsDescription{}},
+		{ContractMethod{Name: StockAlertSubscribe, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: stockAlertsAgentReason,
+			Description: "Keep one shopper's request for one sold-out item, and confirm it to them; the same request again changes nothing."},
+			StockAlertRequest{}, StockAlertResult{}},
+	},
+}
+
+// stockAlertsAgentReason: a request is a shopper's, sent from the product page; the owner reads and removes them
+// through the stock-alerts plugin's own abilities.
+const stockAlertsAgentReason = "a back-in-stock request is a shopper's, sent from the shop's product page; the owner " +
+	"reads and removes them through the stock-alerts plugin's own abilities"
+
 // contractDefs is every contract this module defines.
-var contractDefs = []contractDef{paymentsV1, shippingCarrierV1, shopCatalogV1, shopCheckoutV1}
+var contractDefs = []contractDef{paymentsV1, shippingCarrierV1, shopCatalogV1, shopCheckoutV1, stockAlertsV1}
 
 // render builds a contract file from its definition.
 func (d contractDef) render(t *testing.T) []byte {

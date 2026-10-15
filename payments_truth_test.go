@@ -213,7 +213,7 @@ func TestThePaymentNumbersInTheGuideAreCores(t *testing.T) {
 	// "At most": start and describe run on the asking request's context, which a WithTimeout inside the call
 	// keeps (a child context never outlives its parent's deadline).
 	for _, want := range []string{
-		"res, callErr := s.start(ctx, row)",
+		"res, callErr := s.start(ctx, row, p.Credential)",
 		"out, err := s.plugins.Call(ctx, row.GatewayKey, plugin.HookPaymentStart, payload)",
 		"cat, err := s.catalogue(ctx)",
 		"out, err := s.plugins.Call(ctx, gateway, plugin.HookPaymentDescribe, []byte(`{}`))",

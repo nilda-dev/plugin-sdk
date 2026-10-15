@@ -4,6 +4,21 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## v0.22.0 — unreleased (back-in-stock requests)
+
+Additions only (`surface.txt` grows by 29 entries; nothing removed). On the wire: a new contract file,
+`contracts/stock.alerts/v1/contract.json`, and `stock_alert` on the commerce endpoints answer — optional, so an older
+Core ignores it and draws no form.
+
+### Added
+
+- **`stock.alerts/v1`** (docs/STOCK_ALERTS.md): a plugin keeps back-in-stock requests — `StockAlertProvider`
+  (`DescribeStockAlerts`, `SubscribeStockAlert`; `Serve` finds it, `StockAlertMethods` names it), `StockAlertsDescription`,
+  `StockAlertRequest` (`Validate`), `StockAlertResult` (`StockAlertSubscribed`, `StockAlertAlready`,
+  `StockAlertRefused`); the shop asks `Services.StockAlertsDescription` and `Services.SubscribeStockAlert`.
+- **`CommerceEndpoints.StockAlert`**: the shop's POST for a sold-out item's request; Core's add-to-cart widget draws
+  "Notify me when available" while it is set.
+
 ## v0.21.0 — 2026-10-15 (the shop's checkout, driven by an agentic-commerce adapter)
 
 Additions only (`surface.txt` grows by 140 entries; nothing removed). A new contract file,

@@ -287,6 +287,12 @@ type CommerceEndpoints struct {
 	// and draws the answer inside the site's page; the form in it is sent by the shell (see "Forms in your
 	// fragments" above). Leave it empty and the widget draws nothing.
 	Reviews string `json:"reviews,omitempty"`
+	// StockAlert is a POST taking a sold-out item's back-in-stock request: the product id, the shopper's variation
+	// answers (as AddToCart receives them) and `email`; it answers JSON {"status", "message"} — subscribed, already
+	// or refused, and the sentence the shopper reads. Core's add-to-cart widget draws a "notify me" form beside a
+	// sold-out item's button only while it is set, so set it only while something keeps the requests
+	// (stock.alerts/v1, STOCK_ALERTS.md) and leave it empty otherwise. From v0.22.0.
+	StockAlert string `json:"stock_alert,omitempty"`
 }
 
 // Commerce is the interface a shop plugin implements.
