@@ -4,7 +4,7 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
-## v0.20.0 — unreleased (an AI agent that proves who it is, and pays for its buyer)
+## v0.20.0 — 2026-10-15 (an AI agent that proves who it is, and pays for its buyer)
 
 Additions only (`surface.txt` grows by 21 entries, `nildatest/surface.txt` by 3; nothing removed). On the wire:
 `VisitorCall.agent`, and `credential` on the payment session request and the start request, `credential_types` on a
