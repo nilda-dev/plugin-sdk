@@ -4,9 +4,10 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
-## Unreleased (v0.24.0) — your plugin in the Nilda app
+## v0.24.0 — 2026-10-15 (your plugin in the Nilda app; orders, deliveries, offers and business buyers)
 
-Additions only (`surface.txt` grows by 46 entries; nothing removed). In `plugin.json`: a plugin-level `description` and
+Additions only: `surface.txt` grows by 229 entries in all, nothing removed; `nildatest/surface.txt` unchanged. The
+Nilda app's part (46 of them): In `plugin.json`: a plugin-level `description` and
 `mobile` (`icon`, `headline`), a page's `mobile` (`hide`, `row`, `pin`), a report page's `metrics`, and on a column the
 types `money` (with `currency` or `currency_column`) and `badge` (with `badges`). In Go: `ReportMetric`, `PageMobile`,
 `MobileRow`, `PluginMobile`, `HeadlineMetric`, the `Column*`, `Badge*` and `Metric*` words with `ColumnTypes`,
