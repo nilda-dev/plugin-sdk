@@ -1,0 +1,107 @@
+{
+  "name": "shop.deliverables/v1",
+  "description": "What a plugin delivers for the shop's orders — a licence key, a code, a ticket — for the shop to show the buyer on its thank-you page and in their account, and the SKUs it delivers, which the shop sells as digital content (ORDERS.md).",
+  "methods": [
+    {
+      "name": "describe",
+      "answered_by": "provider",
+      "description": "The SKUs this plugin delivers, which the shop sells as digital content.",
+      "retry_class": "failure",
+      "fallback": "skip",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "what was delivered is shown to its buyer; the owner reads, resends and disables it through the delivering plugin's own abilities",
+      "input": {
+        "type": "object"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "skus": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "skus"
+        ]
+      }
+    },
+    {
+      "name": "order.items",
+      "answered_by": "provider",
+      "description": "What this plugin delivered for one order, for the buyer to read.",
+      "retry_class": "failure",
+      "fallback": "skip",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "what was delivered is shown to its buyer; the owner reads, resends and disables it through the delivering plugin's own abilities",
+      "input": {
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_id"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "sku": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "value": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": "string"
+                },
+                "pending": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "sku",
+                "title",
+                "kind",
+                "label",
+                "value"
+              ]
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
+      }
+    }
+  ]
+}

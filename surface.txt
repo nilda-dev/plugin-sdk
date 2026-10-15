@@ -78,8 +78,14 @@ const ColumnText
 const ContractShippingCarrier
 const ContractShopCatalog
 const ContractShopCheckout
+const ContractShopDeliverables
+const ContractShopOrders
 const ContractStockAlerts
 const CredentialStripeSPT
+const DeliverableKey
+const DeliverableLink
+const DeliverablesDescribe
+const DeliverablesOrderItems
 const DisputeChargeback
 const DisputeClosed
 const DisputeInquiry
@@ -156,6 +162,13 @@ const MetricMoney
 const MetricNumber
 const MetricPercent
 const MetricText
+const OrderGet
+const OrderStatusCancelled
+const OrderStatusCompleted
+const OrderStatusFailed
+const OrderStatusPending
+const OrderStatusProcessing
+const OrderStatusRefunded
 const PaymentCreated
 const PaymentExpired
 const PaymentFailAmountMismatch
@@ -525,6 +538,17 @@ field CustomsItem.OriginCountry string json:origin_country
 field CustomsItem.Quantity int64 json:quantity
 field CustomsItem.UnitValueMinor int64 json:unit_value_minor
 field CustomsItem.WeightGrams int64 json:weight_grams
+field DeliverablesDescription.SKUs []string json:skus
+field DeliverablesRequest.Locale string json:locale
+field DeliverablesRequest.OrderID string json:order_id
+field DeliverablesResult.Items []DeliveredItem json:items
+field DeliveredItem.Kind string json:kind
+field DeliveredItem.Label string json:label
+field DeliveredItem.Note string json:note
+field DeliveredItem.Pending bool json:pending
+field DeliveredItem.SKU string json:sku
+field DeliveredItem.Title string json:title
+field DeliveredItem.Value string json:value
 field DocumentRef.Data string json:data
 field DocumentRef.Format string json:format
 field DocumentRef.Kind string json:kind
@@ -867,6 +891,25 @@ field ShipAddress.Name string json:name
 field ShipAddress.Phone string json:phone
 field ShipAddress.PostalCode string json:postal_code
 field ShipAddress.Region string json:region
+field ShopOrder.Currency string json:currency
+field ShopOrder.Email string json:email
+field ShopOrder.ID string json:id
+field ShopOrder.Lines []ShopOrderLine json:lines
+field ShopOrder.Locale string json:locale
+field ShopOrder.Paid bool json:paid
+field ShopOrder.PlacedAt time.Time json:placed_at
+field ShopOrder.Ref string json:ref
+field ShopOrder.Status string json:status
+field ShopOrder.TotalMinor int64 json:total_minor
+field ShopOrderLine.ProductSKU string json:product_sku
+field ShopOrderLine.Quantity int64 json:quantity
+field ShopOrderLine.QuantityRefunded int64 json:quantity_refunded
+field ShopOrderLine.SKU string json:sku
+field ShopOrderLine.Title string json:title
+field ShopOrderLine.UnitPriceMinor int64 json:unit_price_minor
+field ShopOrderRequest.OrderID string json:order_id
+field ShopOrderResult.Found bool json:found
+field ShopOrderResult.Order *ShopOrder json:order
 field StockAlertRequest.ConsentText string json:consent_text
 field StockAlertRequest.Email string json:email
 field StockAlertRequest.Locale string json:locale
@@ -944,6 +987,7 @@ func ContractNamed(string) (ServiceContract, bool)
 func ContractToolName(string, string) (string)
 func Contracts() ([]ServiceContract, error)
 func CurrentUser(*http.Request) (Viewer, bool)
+func DeliverablesMethods(DeliverablesProvider) ([]ServiceMethod)
 func DispatchAdminAction(context.Context, string, []byte, func(context.Context, AdminAction) (AdminActionResult, error)) ([]byte, bool, error)
 func DispatchAdminReport(context.Context, string, []byte, func(context.Context, AdminReportRequest) (AdminReportResult, error)) ([]byte, bool, error)
 func DispatchAuthHook(context.Context, *Core, AuthProvider, string, []byte) ([]byte, bool, error)
@@ -969,6 +1013,7 @@ func NewCoreForTest(string, []string, contract.HostServiceClient, string, string
 func NewOIDCClient(string, string, string, ...string) (*OIDCClient)
 func NewTransport(http.RoundTripper) (http.RoundTripper)
 func ObjectSchema(map[string]any, ...string) (json.RawMessage)
+func OrdersMethods(OrdersProvider) ([]ServiceMethod)
 func ParseContract([]byte) (ServiceContract, error)
 func ParseMinor(string, string) (int64, error)
 func PaymentCanMove(string, string) (bool)
@@ -1021,11 +1066,14 @@ imethod Commerce.Product(context.Context, string) (CommerceProduct, bool)
 imethod Commerce.Products(context.Context, CommerceQuery) ([]CommerceProduct, error)
 imethod CommerceCounter.CountProducts(context.Context, CommerceQuery) (int, bool)
 imethod CredentialPayer.StartPaymentWithCredential(context.Context, PaymentSession, PaymentCredential) (PaymentStartResult, error)
+imethod DeliverablesProvider.DescribeDeliverables(context.Context) (DeliverablesDescription, error)
+imethod DeliverablesProvider.OrderDeliverables(context.Context, DeliverablesRequest) (DeliverablesResult, error)
 imethod FieldProvider.Choices(context.Context, *Core, FieldChoicesRequest) ([]FieldChoice, error)
 imethod FieldProvider.Validate(context.Context, *Core, FieldValidateRequest) (string)
 imethod Handler.HandleEvent(context.Context, string, []byte) (error)
 imethod Handler.HandleHook(context.Context, string, []byte) ([]byte, error)
 imethod Handler.Init(context.Context, *Core) (InitResult, error)
+imethod OrdersProvider.ShopOrder(context.Context, ShopOrderRequest) (ShopOrderResult, error)
 imethod PaymentConsumer.ConfirmPayment(context.Context, PaymentSession) (PaymentConfirmResult, error)
 imethod PaymentConsumer.PaymentUpdated(context.Context, PaymentSession) (error)
 imethod PaymentConsumer.RefundUpdated(context.Context, PaymentRefund, PaymentSession) (error)
@@ -1128,9 +1176,12 @@ method (*Services) CheckoutDescription(context.Context) (CheckoutDescription, er
 method (*Services) CompleteCheckout(context.Context, CheckoutCompleteRequest, string) (CheckoutResult, error)
 method (*Services) CreateCheckout(context.Context, CheckoutCreateRequest, string) (CheckoutResult, error)
 method (*Services) CreateShippingLabel(context.Context, string, LabelRequest) (LabelResult, error)
+method (*Services) DeliveredSKUs(context.Context) (map[string]bool, error)
 method (*Services) GetCheckout(context.Context, CheckoutRef) (CheckoutResult, error)
+method (*Services) OrderDeliverables(context.Context, DeliverablesRequest) ([]DeliveredItem, int, error)
 method (*Services) ShippingDocuments(context.Context, string, DocumentsRequest) (DocumentsResult, error)
 method (*Services) ShippingRates(context.Context, RatesRequest, ServiceCallOptions) ([]CarrierRatesAnswer, []ServiceMiss, error)
+method (*Services) ShopOrder(context.Context, string) (ShopOrderResult, error)
 method (*Services) StockAlertsDescription(context.Context) (StockAlertsDescription, bool, error)
 method (*Services) SubscribeStockAlert(context.Context, StockAlertRequest) (StockAlertResult, error)
 method (*Services) TrackShipment(context.Context, string, TrackRequest) (TrackResult, error)
@@ -1155,6 +1206,10 @@ method (CheckoutUpdateRequest) Validate() (error)
 method (ContractMethod) ValidateInput([]byte) (error)
 method (ContractMethod) ValidateOutput([]byte) (error)
 method (Customs) Validate() (error)
+method (DeliverablesDescription) Validate() (error)
+method (DeliverablesRequest) Validate() (error)
+method (DeliverablesResult) Validate() (error)
+method (DeliveredItem) Validate() (error)
 method (DocumentRef) Bytes() ([]byte, error)
 method (DocumentsRequest) Validate() (error)
 method (DocumentsResult) Validate() (error)
@@ -1179,6 +1234,9 @@ method (ServiceAnswer) Decode(any) (error)
 method (ServiceContract) AssistantTools() ([]string)
 method (ServiceContract) Method(string) (ContractMethod, bool)
 method (ShipAddress) Validate() (error)
+method (ShopOrder) Validate() (error)
+method (ShopOrderRequest) Validate() (error)
+method (ShopOrderResult) Validate() (error)
 method (StockAlertRequest) Validate() (error)
 method (StockAlertResult) Validate() (error)
 method (StockAlertsDescription) Validate() (error)
@@ -1252,6 +1310,11 @@ type Core
 type CredentialPayer
 type Customs
 type CustomsItem
+type DeliverablesDescription
+type DeliverablesProvider
+type DeliverablesRequest
+type DeliverablesResult
+type DeliveredItem
 type DocumentRef
 type DocumentsRequest
 type DocumentsResult
@@ -1273,6 +1336,7 @@ type LabelResult
 type ListColumn
 type MobileRow
 type OIDCClient
+type OrdersProvider
 type PageMobile
 type Parcel
 type PaymentAddress
@@ -1332,6 +1396,10 @@ type ServiceResult
 type Services
 type SettingField
 type ShipAddress
+type ShopOrder
+type ShopOrderLine
+type ShopOrderRequest
+type ShopOrderResult
 type StockAlertProvider
 type StockAlertRequest
 type StockAlertResult

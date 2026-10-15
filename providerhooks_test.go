@@ -94,13 +94,15 @@ func TestEveryExportedProviderInterfaceIsInTheTable(t *testing.T) {
 		// providedHooks), so there are no hooks for Serve to add: a svc: name a process lists itself is not kept.
 		"ServiceProvider": "Core subscribes it from the manifest's provides, not from InitResult — SERVICES.md",
 		// A Carrier is answered through CarrierMethods by Serve itself (serviceProviderOf); its optional halves ride it.
-		"Carrier":            "Serve answers it through CarrierMethods; Core subscribes it from provides — SHIPPING.md",
-		"CarrierTracker":     "rides on Carrier: CarrierMethods answers track with it, or \"unsupported\" without",
-		"CarrierDocuments":   "rides on Carrier: CarrierMethods answers documents with it, or \"unsupported\" without",
-		"CatalogProvider":    "Serve answers it through CatalogMethods; Core subscribes it from provides — CATALOG.md",
-		"CheckoutProvider":   "Serve answers it through CheckoutMethods; Core subscribes it from provides — CHECKOUT.md",
-		"StockAlertProvider": "Serve answers it through StockAlertMethods; Core subscribes it from provides — STOCK_ALERTS.md",
-		"CredentialPayer":    "rides on PaymentGateway: payment.start, which its row subscribes, carries the credential",
+		"Carrier":              "Serve answers it through CarrierMethods; Core subscribes it from provides — SHIPPING.md",
+		"CarrierTracker":       "rides on Carrier: CarrierMethods answers track with it, or \"unsupported\" without",
+		"CarrierDocuments":     "rides on Carrier: CarrierMethods answers documents with it, or \"unsupported\" without",
+		"CatalogProvider":      "Serve answers it through CatalogMethods; Core subscribes it from provides — CATALOG.md",
+		"CheckoutProvider":     "Serve answers it through CheckoutMethods; Core subscribes it from provides — CHECKOUT.md",
+		"StockAlertProvider":   "Serve answers it through StockAlertMethods; Core subscribes it from provides — STOCK_ALERTS.md",
+		"OrdersProvider":       "Serve answers it through OrdersMethods; Core subscribes it from provides — ORDERS.md",
+		"DeliverablesProvider": "Serve answers it through DeliverablesMethods; Core subscribes it from provides — ORDERS.md",
+		"CredentialPayer":      "rides on PaymentGateway: payment.start, which its row subscribes, carries the credential",
 	}
 	wired := map[string]bool{}
 	for _, p := range providerHooks {

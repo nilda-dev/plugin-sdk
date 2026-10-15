@@ -13,6 +13,15 @@ types `money` (with `currency` or `currency_column`) and `badge` (with `badges`)
 `BadgeTones`, `MetricFormats` and `MobileIcons`. A row action's `confirm` is now at most 300 characters. Every installed
 plugin already appears in the owner's app without any of it; see PLUGIN_SDK.md, "In the Nilda app".
 
+**Orders, and what a plugin delivers for them** (commerce unit 10, licence keys; `docs/ORDERS.md`). Two contracts:
+`shop.orders/v1`, which the shop provides — `order.get`, an order's reference, status, buyer email and language,
+currency and lines with their quantity refunded (`ShopOrderRequest`, `ShopOrderResult`, `ShopOrder`, `ShopOrderLine`, the
+`OrderStatus*` words, `OrdersProvider`, `OrdersMethods`, `Services.ShopOrder`); and `shop.deliverables/v1`, which a
+delivering plugin provides — `describe` (the SKUs it delivers, which the shop sells as digital content) and `order.items`
+(`DeliverablesDescription`, `DeliverablesRequest`, `DeliverablesResult`, `DeliveredItem` with `DeliverableKey` and
+`DeliverableLink`, `DeliverablesProvider`, `DeliverablesMethods`, `Services.DeliveredSKUs`, `Services.OrderDeliverables`).
+`docs_truth_test` reads Core's plugin refusal as Core now writes it (`PlainText`).
+
 ## v0.23.0 — 2026-10-15 (one list decides which agent may pay; what a buyer and a shopper are told and kept)
 
 Additions only (`surface.txt` grows by 35 entries, `nildatest/surface.txt` by 1; nothing removed). On the wire: Core's

@@ -1893,6 +1893,22 @@ A plugin keeps them; the shop's product page takes them. `docs/STOCK_ALERTS.md` 
   and hands a request on with `Services.SubscribeStockAlert` (contract `ContractStockAlerts`, methods
   `StockAlertsDescribe`, `StockAlertSubscribe`).
 
+### Orders, and what a plugin delivers for them (`shop.orders/v1`, `shop.deliverables/v1`; from v0.24.0)
+
+A plugin that delivers what an order bought — a licence key, a code, a ticket — reads the order from the shop and hands
+back what it delivered. `docs/ORDERS.md` is the whole of it.
+
+- **The shop** implements `OrdersProvider` (`ShopOrder`, asked with a `ShopOrderRequest` and answered by `ShopOrderResult` with a `ShopOrder` and its
+  `ShopOrderLine`s; the `OrderStatus*` words) — `Serve` finds it by itself, or return `OrdersMethods(p)` — and declares
+  `"provides": ["shop.orders/v1"]`; it declares
+  `"uses": ["shop.deliverables/v1"]` and asks `Services.DeliveredSKUs` at checkout (those SKUs are digital content)
+  and `Services.OrderDeliverables` on its thank-you page and in the buyer's account.
+- **The delivering plugin** requires `shop.orders/v1` and calls `Services.ShopOrder`; it implements
+  `DeliverablesProvider` (`DescribeDeliverables` → `DeliverablesDescription`, `OrderDeliverables` with a
+  `DeliverablesRequest` → `DeliverablesResult` of `DeliveredItem`s, kind `DeliverableKey` or `DeliverableLink`) —
+  `Serve` finds it by itself, or return `DeliverablesMethods(p)` (contracts `ContractShopOrders`,
+  `ContractShopDeliverables`; methods `OrderGet`, `DeliverablesDescribe`, `DeliverablesOrderItems`).
+
 ### The shop's checkout (`shop.checkout/v1`)
 
 The shop provides it; an agentic-commerce adapter — ACP, UCP — requires it and drives the shop's own checkout for an AI

@@ -223,8 +223,51 @@ var stockAlertsV1 = contractDef{
 const stockAlertsAgentReason = "a back-in-stock request is a shopper's, sent from the shop's product page; the owner " +
 	"reads and removes them through the stock-alerts plugin's own abilities"
 
+// shopOrdersV1 is the shop's order reads, for a plugin that delivers what an order bought (ORDERS.md). One shop
+// answers; a read nobody answered fails, and the plugin tries again at its next pass.
+var shopOrdersV1 = contractDef{
+	name: ContractShopOrders,
+	description: "The shop's orders, read by a plugin that delivers what an order bought — a licence key, a code, a " +
+		"ticket: the lines, the buyer's email and language, and whether it is paid (ORDERS.md).",
+	methods: []methodDef{
+		{ContractMethod{Name: OrderGet, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: shopOrdersAgentReason,
+			Description: "One order by its id: reference, status, buyer email and language, currency, and each line's SKU, title, quantity and quantity refunded."},
+			ShopOrderRequest{}, ShopOrderResult{}},
+	},
+}
+
+// shopOrdersAgentReason: the owner reads orders through the shop's own abilities.
+const shopOrdersAgentReason = "the owner reads orders through the shop's own abilities (list_orders, get_order); this " +
+	"is how a delivering plugin reads the order it was told was paid"
+
+// shopDeliverablesV1 is what plugins deliver for the shop's orders (ORDERS.md). Several plugins may answer; one that
+// does not is left out of a page (skip), and the shop's checkout treats a describe nobody could answer as an error.
+var shopDeliverablesV1 = contractDef{
+	name: ContractShopDeliverables,
+	description: "What a plugin delivers for the shop's orders — a licence key, a code, a ticket — for the shop to show " +
+		"the buyer on its thank-you page and in their account, and the SKUs it delivers, which the shop sells as " +
+		"digital content (ORDERS.md).",
+	methods: []methodDef{
+		{ContractMethod{Name: DeliverablesDescribe, AnsweredBy: "provider", RetryClass: "failure", Fallback: "skip",
+			Idempotent: true, Agent: "none", AgentReason: deliverablesAgentReason,
+			Description: "The SKUs this plugin delivers, which the shop sells as digital content."},
+			ordinary{}, DeliverablesDescription{}},
+		{ContractMethod{Name: DeliverablesOrderItems, AnsweredBy: "provider", RetryClass: "failure", Fallback: "skip",
+			Idempotent: true, Agent: "none", AgentReason: deliverablesAgentReason,
+			Description: "What this plugin delivered for one order, for the buyer to read."},
+			DeliverablesRequest{}, DeliverablesResult{}},
+	},
+}
+
+// deliverablesAgentReason: a delivered key is the buyer's; the owner reads and resends them through the delivering
+// plugin's own abilities.
+const deliverablesAgentReason = "what was delivered is shown to its buyer; the owner reads, resends and disables it " +
+	"through the delivering plugin's own abilities"
+
 // contractDefs is every contract this module defines.
-var contractDefs = []contractDef{paymentsV1, shippingCarrierV1, shopCatalogV1, shopCheckoutV1, stockAlertsV1}
+var contractDefs = []contractDef{paymentsV1, shippingCarrierV1, shopCatalogV1, shopCheckoutV1, stockAlertsV1, shopOrdersV1,
+	shopDeliverablesV1}
 
 // render builds a contract file from its definition.
 func (d contractDef) render(t *testing.T) []byte {

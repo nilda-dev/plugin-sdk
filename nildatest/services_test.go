@@ -129,3 +129,58 @@ func TestAStockAlertsPluginThatFailsIsNotNobody(t *testing.T) {
 		t.Errorf("a collecting plugin: %+v %v %v", d, ok, err)
 	}
 }
+
+// keyDelivery is a delivering plugin whose describe answers, or fails.
+type keyDelivery struct {
+	skus []string
+	fail bool
+}
+
+func (k keyDelivery) DescribeDeliverables(context.Context) (nilda.DeliverablesDescription, error) {
+	if k.fail {
+		return nilda.DeliverablesDescription{}, errors.New("database down")
+	}
+	return nilda.DeliverablesDescription{SKUs: k.skus}, nil
+}
+
+func (k keyDelivery) OrderDeliverables(context.Context, nilda.DeliverablesRequest) (nilda.DeliverablesResult, error) {
+	if k.fail {
+		return nilda.DeliverablesResult{}, errors.New("database down")
+	}
+	return nilda.DeliverablesResult{Items: []nilda.DeliveredItem{{SKU: k.skus[0], Kind: nilda.DeliverableKey, Label: "Key", Value: "K-" + k.skus[0]}}}, nil
+}
+
+func (k keyDelivery) ServiceMethods() []nilda.ServiceMethod { return nilda.DeliverablesMethods(k) }
+
+// EVERY DELIVERING PLUGIN IS ASKED, AND ONE THAT FAILS IS NOT "NOTHING DELIVERED": the SKUs come from all of them, a
+// checkout cannot sell a key without its waiver because one plugin was slow, and a page shows what the others gave
+// and counts the one it could not ask.
+func TestEveryDeliveringPluginIsAskedAndAFailureIsNotNone(t *testing.T) {
+	ctx := context.Background()
+	desk := NewServices()
+	desk.Provider("license_keys", keyDelivery{skus: []string{"pe-pro"}})
+	desk.Provider("tickets", keyDelivery{skus: []string{"gig-1"}})
+	core, _, srv := desk.Core("shop", nilda.ContractShopDeliverables)
+	defer srv.Close()
+	skus, err := core.API().Services().DeliveredSKUs(ctx)
+	if err != nil || !skus["pe-pro"] || !skus["gig-1"] {
+		t.Fatalf("the SKUs of two plugins: %v %v", skus, err)
+	}
+	items, missed, err := core.API().Services().OrderDeliverables(ctx, nilda.DeliverablesRequest{OrderID: "o1"})
+	if err != nil || missed != 0 || len(items) != 2 {
+		t.Fatalf("two plugins' items: %+v %d %v", items, missed, err)
+	}
+
+	desk = NewServices()
+	desk.Provider("license_keys", keyDelivery{skus: []string{"pe-pro"}})
+	desk.Provider("tickets", keyDelivery{skus: []string{"gig-1"}, fail: true})
+	core, _, srv2 := desk.Core("shop", nilda.ContractShopDeliverables)
+	defer srv2.Close()
+	if _, err := core.API().Services().DeliveredSKUs(ctx); err == nil || !strings.Contains(err.Error(), "tickets") {
+		t.Errorf("a plugin whose describe failed: %v — want an error naming it", err)
+	}
+	items, missed, err = core.API().Services().OrderDeliverables(ctx, nilda.DeliverablesRequest{OrderID: "o1"})
+	if err != nil || missed != 1 || len(items) != 1 {
+		t.Errorf("one plugin failed: %+v missed %d %v — want the other's item and one missed", items, missed, err)
+	}
+}

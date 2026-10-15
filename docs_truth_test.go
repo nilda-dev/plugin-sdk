@@ -757,7 +757,7 @@ func TestARowActionsRefusalIsTheOwnersReasonAndNotAFailure(t *testing.T) {
 	for _, want := range []string{
 		"if said := pluginRefusal(err); said != \"\" {\n\t\t\t\treturn nil, apperr.New(apperr.CodeConflict, \"the plugin did not run this action: \"+said).\n" +
 			"\t\t\t\t\tWithDetails(map[string]string{\"reason\": ReasonActionRefused, \"said\": said})",
-		"return trimTo(strings.TrimSpace(st.GRPCStatus().Message()), maxValidationMsgLen)",
+		"return PlainText(st.GRPCStatus().Message(), maxValidationMsgLen, false)",
 	} {
 		if !strings.Contains(list, want) {
 			t.Errorf("core's adminlist.go no longer has %q — re-read DispatchAdminAction's error sentence and ANY_LANGUAGE's failure count", want)
