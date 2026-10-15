@@ -313,6 +313,10 @@ field CatalogProduct.Variants []CatalogVariant json:variants
 field CatalogProductRequest.SKU string json:sku
 field CatalogProductResult.Found bool json:found
 field CatalogProductResult.Product *CatalogProduct json:product
+field CatalogUnitPricing.Base string json:base
+field CatalogUnitPricing.Measure string json:measure
+field CatalogUnitPricing.Quantity float64 json:quantity
+field CatalogUnitPricing.ShownUnitPriceMinor int64 json:shown_unit_price_minor
 field CatalogVariant.Availability string json:availability
 field CatalogVariant.Currency string json:currency
 field CatalogVariant.GTIN string json:gtin
@@ -326,8 +330,10 @@ field CatalogVariant.SKU string json:sku
 field CatalogVariant.SaleEnds *time.Time json:sale_ends
 field CatalogVariant.SalePriceMinor *int64 json:sale_price_minor
 field CatalogVariant.ShownPriceMinor int64 json:shown_price_minor
+field CatalogVariant.ShownPriorPriceMinor *int64 json:shown_prior_price_minor
 field CatalogVariant.ShownSalePriceMinor *int64 json:shown_sale_price_minor
 field CatalogVariant.Title string json:title
+field CatalogVariant.UnitPricing *CatalogUnitPricing json:unit_pricing
 field CatalogVariant.WeightGrams *int64 json:weight_grams
 field CheckoutAddress.City string json:city
 field CheckoutAddress.Country string json:country
@@ -343,6 +349,7 @@ field CheckoutCompleteRequest.Agent *Agent json:agent
 field CheckoutCompleteRequest.Buyer *CheckoutBuyer json:buyer
 field CheckoutCompleteRequest.Credential *PaymentCredential json:credential
 field CheckoutCompleteRequest.DigitalConsent bool json:digital_consent
+field CheckoutCompleteRequest.DigitalConsentText string json:digital_consent_text
 field CheckoutCompleteRequest.TermsAccepted bool json:terms_accepted
 field CheckoutCompleteRequest.Token string json:token
 field CheckoutCreateRequest.Address *CheckoutAddress json:address
@@ -361,6 +368,7 @@ field CheckoutDescription.Locale string json:locale
 field CheckoutDescription.Name string json:name
 field CheckoutDescription.Origin string json:origin
 field CheckoutDescription.PrivacyURL string json:privacy_url
+field CheckoutDescription.ReturnsURL string json:returns_url
 field CheckoutDescription.TermsURL string json:terms_url
 field CheckoutLine.ImageURL string json:image_url
 field CheckoutLine.Quantity int64 json:quantity
@@ -378,12 +386,25 @@ field CheckoutOrder.ID string json:id
 field CheckoutOrder.Paid bool json:paid
 field CheckoutOrder.Status string json:status
 field CheckoutOrder.URL string json:url
+field CheckoutPreContract.OrderButtonText string json:order_button_text
+field CheckoutPreContract.PrivacyURL string json:privacy_url
+field CheckoutPreContract.ReturnsURL string json:returns_url
+field CheckoutPreContract.Seller CheckoutSeller json:seller
+field CheckoutPreContract.TermsURL string json:terms_url
+field CheckoutPreContract.WithdrawalDays int json:withdrawal_days
+field CheckoutPreContract.WithdrawalFormURL string json:withdrawal_form_url
+field CheckoutPreContract.WithdrawalText string json:withdrawal_text
 field CheckoutRef.Agent *Agent json:agent
 field CheckoutRef.Token string json:token
 field CheckoutRefusal.Code string json:code
 field CheckoutRefusal.Message string json:message
 field CheckoutResult.Refused *CheckoutRefusal json:refused
 field CheckoutResult.State *CheckoutState json:state
+field CheckoutSeller.Address string json:address
+field CheckoutSeller.Email string json:email
+field CheckoutSeller.Name string json:name
+field CheckoutSeller.Phone string json:phone
+field CheckoutSeller.VATID string json:vat_id
 field CheckoutState.Address *CheckoutAddress json:address
 field CheckoutState.Buyer *CheckoutBuyer json:buyer
 field CheckoutState.ContinueURL string json:continue_url
@@ -391,10 +412,12 @@ field CheckoutState.CredentialTypes []string json:credential_types
 field CheckoutState.Currency string json:currency
 field CheckoutState.DeliveryOptionID string json:delivery_option_id
 field CheckoutState.DeliveryOptions []CheckoutDeliveryOption json:delivery_options
+field CheckoutState.DigitalConsentText string json:digital_consent_text
 field CheckoutState.ExpiresAt *time.Time json:expires_at
 field CheckoutState.Lines []CheckoutLine json:lines
 field CheckoutState.Messages []CheckoutMessage json:messages
 field CheckoutState.Order *CheckoutOrder json:order
+field CheckoutState.PreContract *CheckoutPreContract json:pre_contract
 field CheckoutState.RequiresShipping bool json:requires_shipping
 field CheckoutState.Status string json:status
 field CheckoutState.TermsURL string json:terms_url
@@ -1148,6 +1171,7 @@ type CatalogProduct
 type CatalogProductRequest
 type CatalogProductResult
 type CatalogProvider
+type CatalogUnitPricing
 type CatalogVariant
 type CheckoutAddress
 type CheckoutBuyer
@@ -1159,10 +1183,12 @@ type CheckoutLine
 type CheckoutLineRequest
 type CheckoutMessage
 type CheckoutOrder
+type CheckoutPreContract
 type CheckoutProvider
 type CheckoutRef
 type CheckoutRefusal
 type CheckoutResult
+type CheckoutSeller
 type CheckoutState
 type CheckoutTotals
 type CheckoutUpdateRequest

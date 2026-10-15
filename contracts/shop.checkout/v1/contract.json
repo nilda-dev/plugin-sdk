@@ -46,6 +46,9 @@
             "items": {
               "type": "string"
             }
+          },
+          "returns_url": {
+            "type": "string"
           }
         },
         "required": [
@@ -366,6 +369,67 @@
                 }
               },
               "terms_url": {
+                "type": "string"
+              },
+              "pre_contract": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "seller": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "address": {
+                        "type": "string"
+                      },
+                      "email": {
+                        "type": "string"
+                      },
+                      "phone": {
+                        "type": "string"
+                      },
+                      "vat_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  "withdrawal_days": {
+                    "type": "integer"
+                  },
+                  "withdrawal_text": {
+                    "type": "string"
+                  },
+                  "withdrawal_form_url": {
+                    "type": "string"
+                  },
+                  "terms_url": {
+                    "type": "string"
+                  },
+                  "privacy_url": {
+                    "type": "string"
+                  },
+                  "returns_url": {
+                    "type": "string"
+                  },
+                  "order_button_text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "seller",
+                  "withdrawal_days",
+                  "withdrawal_text",
+                  "order_button_text"
+                ]
+              },
+              "digital_consent_text": {
                 "type": "string"
               },
               "order": {
@@ -750,6 +814,67 @@
               "terms_url": {
                 "type": "string"
               },
+              "pre_contract": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "seller": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "address": {
+                        "type": "string"
+                      },
+                      "email": {
+                        "type": "string"
+                      },
+                      "phone": {
+                        "type": "string"
+                      },
+                      "vat_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  "withdrawal_days": {
+                    "type": "integer"
+                  },
+                  "withdrawal_text": {
+                    "type": "string"
+                  },
+                  "withdrawal_form_url": {
+                    "type": "string"
+                  },
+                  "terms_url": {
+                    "type": "string"
+                  },
+                  "privacy_url": {
+                    "type": "string"
+                  },
+                  "returns_url": {
+                    "type": "string"
+                  },
+                  "order_button_text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "seller",
+                  "withdrawal_days",
+                  "withdrawal_text",
+                  "order_button_text"
+                ]
+              },
+              "digital_consent_text": {
+                "type": "string"
+              },
               "order": {
                 "type": [
                   "null",
@@ -1056,6 +1181,67 @@
               "terms_url": {
                 "type": "string"
               },
+              "pre_contract": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "seller": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "address": {
+                        "type": "string"
+                      },
+                      "email": {
+                        "type": "string"
+                      },
+                      "phone": {
+                        "type": "string"
+                      },
+                      "vat_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  "withdrawal_days": {
+                    "type": "integer"
+                  },
+                  "withdrawal_text": {
+                    "type": "string"
+                  },
+                  "withdrawal_form_url": {
+                    "type": "string"
+                  },
+                  "terms_url": {
+                    "type": "string"
+                  },
+                  "privacy_url": {
+                    "type": "string"
+                  },
+                  "returns_url": {
+                    "type": "string"
+                  },
+                  "order_button_text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "seller",
+                  "withdrawal_days",
+                  "withdrawal_text",
+                  "order_button_text"
+                ]
+              },
+              "digital_consent_text": {
+                "type": "string"
+              },
               "order": {
                 "type": [
                   "null",
@@ -1156,6 +1342,9 @@
           },
           "digital_consent": {
             "type": "boolean"
+          },
+          "digital_consent_text": {
+            "type": "string"
           },
           "credential": {
             "type": [
@@ -1403,6 +1592,67 @@
                 }
               },
               "terms_url": {
+                "type": "string"
+              },
+              "pre_contract": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "seller": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "address": {
+                        "type": "string"
+                      },
+                      "email": {
+                        "type": "string"
+                      },
+                      "phone": {
+                        "type": "string"
+                      },
+                      "vat_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  "withdrawal_days": {
+                    "type": "integer"
+                  },
+                  "withdrawal_text": {
+                    "type": "string"
+                  },
+                  "withdrawal_form_url": {
+                    "type": "string"
+                  },
+                  "terms_url": {
+                    "type": "string"
+                  },
+                  "privacy_url": {
+                    "type": "string"
+                  },
+                  "returns_url": {
+                    "type": "string"
+                  },
+                  "order_button_text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "seller",
+                  "withdrawal_days",
+                  "withdrawal_text",
+                  "order_button_text"
+                ]
+              },
+              "digital_consent_text": {
                 "type": "string"
               },
               "order": {
@@ -1709,6 +1959,67 @@
                 }
               },
               "terms_url": {
+                "type": "string"
+              },
+              "pre_contract": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "seller": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "address": {
+                        "type": "string"
+                      },
+                      "email": {
+                        "type": "string"
+                      },
+                      "phone": {
+                        "type": "string"
+                      },
+                      "vat_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "name"
+                    ]
+                  },
+                  "withdrawal_days": {
+                    "type": "integer"
+                  },
+                  "withdrawal_text": {
+                    "type": "string"
+                  },
+                  "withdrawal_form_url": {
+                    "type": "string"
+                  },
+                  "terms_url": {
+                    "type": "string"
+                  },
+                  "privacy_url": {
+                    "type": "string"
+                  },
+                  "returns_url": {
+                    "type": "string"
+                  },
+                  "order_button_text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "seller",
+                  "withdrawal_days",
+                  "withdrawal_text",
+                  "order_button_text"
+                ]
+              },
+              "digital_consent_text": {
                 "type": "string"
               },
               "order": {

@@ -76,6 +76,34 @@ type CheckoutDescription struct {
 	// CredentialTypes are the delegated payment credentials the shop's payment plugins can charge now
 	// (CredentialStripeSPT, …); empty when none can — every checkout is then finished by a person.
 	CredentialTypes []string `json:"credential_types"`
+	// ReturnsURL is the shop's returns and withdrawal page, absolute; "" when it has none published. From v0.23.0.
+	ReturnsURL string `json:"returns_url,omitempty"`
+}
+
+// CheckoutSeller is who sells: the trader's identity a consumer must be told before a distance contract binds them
+// (Directive 2011/83/EU Art. 6(1)(b), (c)). From v0.23.0.
+type CheckoutSeller struct {
+	Name    string `json:"name"`
+	Address string `json:"address,omitempty"`
+	Email   string `json:"email,omitempty"`
+	Phone   string `json:"phone,omitempty"`
+	VATID   string `json:"vat_id,omitempty"`
+}
+
+// CheckoutPreContract is what the buyer must be told before they are bound, for an agent buying for them to show:
+// who sells, the right of withdrawal and how to use it, and where the terms, privacy notice and returns are (Directive
+// 2011/83/EU Art. 6(1) and 8(2) — a consumer the trader did not inform is not bound, and a withdrawal period without
+// its information runs twelve months longer, Art. 10(1)). OrderButtonText is the words the final step must carry
+// ("order with obligation to pay", Art. 8(2)). From v0.23.0.
+type CheckoutPreContract struct {
+	Seller            CheckoutSeller `json:"seller"`
+	WithdrawalDays    int            `json:"withdrawal_days"`
+	WithdrawalText    string         `json:"withdrawal_text"`
+	WithdrawalFormURL string         `json:"withdrawal_form_url,omitempty"`
+	TermsURL          string         `json:"terms_url,omitempty"`
+	PrivacyURL        string         `json:"privacy_url,omitempty"`
+	ReturnsURL        string         `json:"returns_url,omitempty"`
+	OrderButtonText   string         `json:"order_button_text"`
 }
 
 // Validate refuses a description an adapter could not announce.
@@ -167,8 +195,11 @@ type CheckoutCompleteRequest struct {
 	Buyer *CheckoutBuyer `json:"buyer,omitempty"`
 	// TermsAccepted says the buyer accepts the shop's terms (TermsURL); the shop refuses without it.
 	TermsAccepted bool `json:"terms_accepted"`
-	// DigitalConsent, for a download: the buyer wants it at once and gives up withdrawing (EU).
-	DigitalConsent bool `json:"digital_consent,omitempty"`
+	// DigitalConsent, for a download: the buyer wants it at once and gives up withdrawing (EU). It counts only with
+	// DigitalConsentText — the state's sentence, word for word, which the agent showed its buyer and they agreed to
+	// (Directive 2011/83/EU Art. 16(m): their prior express consent and acknowledgement); the shop keeps it as proof.
+	DigitalConsent     bool   `json:"digital_consent,omitempty"`
+	DigitalConsentText string `json:"digital_consent_text,omitempty"`
 	// Credential is the delegated payment credential the shop charges. Never logged, never kept: it passes to the
 	// payment plugin and Core's payments, which keep nothing of it either.
 	Credential *PaymentCredential `json:"credential,omitempty"`
@@ -240,6 +271,13 @@ type CheckoutState struct {
 	// (the status is then requires_escalation once nothing is missing).
 	CredentialTypes []string `json:"credential_types,omitempty"`
 	TermsURL        string   `json:"terms_url,omitempty"`
+	// PreContract is what the buyer must be told before they are bound — an agent completing for them shows it
+	// first. From v0.23.0.
+	PreContract *CheckoutPreContract `json:"pre_contract,omitempty"`
+	// DigitalConsentText is, when the basket holds a download, the sentence the buyer must agree to before it is
+	// delivered at once (their right of withdrawal then ends); complete sends it back with DigitalConsent. "" for a
+	// basket with none. From v0.23.0.
+	DigitalConsentText string `json:"digital_consent_text,omitempty"`
 	// Order is the order it became, once completed.
 	Order     *CheckoutOrder `json:"order,omitempty"`
 	ExpiresAt *time.Time     `json:"expires_at,omitempty"`

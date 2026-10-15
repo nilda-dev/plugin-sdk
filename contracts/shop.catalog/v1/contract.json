@@ -179,6 +179,38 @@
                           "integer"
                         ]
                       },
+                      "shown_prior_price_minor": {
+                        "type": [
+                          "null",
+                          "integer"
+                        ]
+                      },
+                      "unit_pricing": {
+                        "type": [
+                          "null",
+                          "object"
+                        ],
+                        "properties": {
+                          "quantity": {
+                            "type": "number"
+                          },
+                          "measure": {
+                            "type": "string"
+                          },
+                          "base": {
+                            "type": "string"
+                          },
+                          "shown_unit_price_minor": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "quantity",
+                          "measure",
+                          "base",
+                          "shown_unit_price_minor"
+                        ]
+                      },
                       "availability": {
                         "type": "string"
                       },
@@ -345,6 +377,38 @@
                       "type": [
                         "null",
                         "integer"
+                      ]
+                    },
+                    "shown_prior_price_minor": {
+                      "type": [
+                        "null",
+                        "integer"
+                      ]
+                    },
+                    "unit_pricing": {
+                      "type": [
+                        "null",
+                        "object"
+                      ],
+                      "properties": {
+                        "quantity": {
+                          "type": "number"
+                        },
+                        "measure": {
+                          "type": "string"
+                        },
+                        "base": {
+                          "type": "string"
+                        },
+                        "shown_unit_price_minor": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "quantity",
+                        "measure",
+                        "base",
+                        "shown_unit_price_minor"
                       ]
                     },
                     "availability": {

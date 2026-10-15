@@ -28,6 +28,12 @@ price and the sale price now with the sale's end, the same two as a buyer pays t
 with tax lists; from v0.19.0), the currency, the availability (`in_stock`, `out_of_stock`,
 `backorder`) and the quantity when it is counted, GTIN and MPN, the weight, whether it ships, its own picture.
 
+A variant on sale carries `shown_prior_price_minor` (from v0.23.0): the lowest price, as a buyer pays it, in the 30
+days before the reduction began — the only price an EU channel may strike through (Directive 98/6/EC Art. 6a; Austria's
+PrAG §9a). With none, a channel shows the sale price as the price and no reduction. Goods sold by weight, volume, length
+or area carry `unit_pricing` — quantity, measure, the base the unit price is stated in, and that unit price as paid —
+which an advertisement naming the price names too (Art. 3(4)).
+
 With `updated_since`, only products that changed since — the text, a price, the stock, a variant — and products taken
 off sale since, listed with `removed: true` and nothing else, so the channel withdraws them.
 

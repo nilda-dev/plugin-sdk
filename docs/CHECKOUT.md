@@ -41,12 +41,22 @@ own agent has the shop's visitor tools, the owner the shop's abilities.
   `requires_shipping`, `delivery_options` and the chosen `delivery_option_id`, the `buyer`, the `address`,
   `messages`, `continue_url`, `credential_types`, `terms_url`, `expires_at`.
 
+## What the buyer is told first
+
+Every open state carries `pre_contract`: who sells (name, address, email, phone, VAT number), the withdrawal period and
+its text and form, the terms, privacy and returns pages, and the words the final step must carry. An agent buying for a
+person shows it before it completes — a consumer the trader did not inform is not bound, and a withdrawal period
+without its information runs twelve months longer (Directive 2011/83/EU Art. 6(1), 8(2), 10(1)). A basket holding a
+download carries `digital_consent_text`; `session.complete` sends it back word for word with `digital_consent`, and the
+shop keeps the sentence and the agent with the order as proof (Art. 16(m)).
+
 ## Who may pay
 
-`agent` names the AI agent the adapter serves, as the adapter knows it — the platform's API key the merchant issued,
-or the agent's Web Bot Auth signature Core verified (`AgentOf`). Its operator is recorded on the order (the shop's
-"sold by agents" report). Only an agent of tier `buy` may complete with a credential: the adapter says `buy` only where
-the merchant switched paying on for that platform, and every other caller gets `requires_escalation` and the link.
+`agent` names the AI agent the adapter serves — the platform its API key belongs to, or the agent Core identified by
+its Web Bot Auth signature (`AgentOf`). The shop does not take the tier the adapter claims: it asks Core what the owner
+set for that operator on SEO → Shopping agents (`API().AgentTier`), refuses a blocked one, and lets only `buy` complete
+with a credential — every other checkout is finished by a person at `continue_url`. The operator, and the door it came
+through (the adapter's plugin key), are recorded on the order (the shop's "sold by agents" report).
 
 The credential (`PaymentCredential`: `stripe.shared_payment_token`, …) passes from the adapter through Core's desk to
 the shop, the payment plugin and Core's payments, and none of them logs or keeps it. Core's desk logs who asked whom,

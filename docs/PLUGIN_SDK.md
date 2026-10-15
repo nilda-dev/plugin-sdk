@@ -1791,7 +1791,10 @@ and reads the published products in a feed-grade shape. `docs/CATALOG.md` is the
   `CatalogPage` of `CatalogProduct`s, each with its `CatalogVariant`s (prices as numbers, availability —
   `AvailabilityInStock`, `AvailabilityOutOfStock`, `AvailabilityBackorder` — brand, GTIN, MPN, page, pictures; a
   product taken off sale since `UpdatedSince` comes back `Removed`); `CatalogProductRequest` answered by
-  `CatalogProductResult`. Each has `Validate`.
+  `CatalogProductResult`. Each has `Validate`. From v0.23.0 a variant on sale carries `ShownPriorPriceMinor`, the
+  lowest price of the 30 days before the reduction — the only price a channel may strike through (Directive 98/6/EC
+  Art. 6a) — and goods sold by measure carry `UnitPricing`, a `CatalogUnitPricing` (quantity, measure, base, the
+  unit price as paid; Art. 3(4)).
 - **A channel** declares `"requires": ["shop.catalog/v1"]` with `service_consumer` and calls
   `Services.CatalogDescription`, `Services.CatalogPage` and `Services.CatalogProduct` (contract `ContractShopCatalog`,
   methods `CatalogDescribe`, `CatalogProductsPage`, `CatalogProductGet`).
@@ -1828,8 +1831,15 @@ agent's basket. `docs/CHECKOUT.md` is the whole of it.
   `Services.CompleteCheckout` and `Services.CancelCheckout` (contract `ContractShopCheckout`, methods
   `CheckoutDescribe`, `CheckoutSessionCreate`, `CheckoutSessionUpdate`, `CheckoutSessionGet`,
   `CheckoutSessionComplete`, `CheckoutSessionCancel`), passing the protocol request's idempotency key.
-- **Only an agent of tier `AgentBuy`** completes with a credential — the adapter says so only where the merchant
-  switched paying on; every other checkout is finished by a person at `continue_url`.
+- **Only an agent of tier `AgentBuy`** completes with a credential — the shop asks Core for the tier of the operator
+  a checkout names (`API().AgentTier`), never the calling plugin; every other checkout is finished by a person at
+  `continue_url`.
+- **What the buyer must be told before they are bound** rides every open state as `PreContract` — a
+  `CheckoutPreContract` with the `CheckoutSeller`, the withdrawal period, its text and form, the terms, privacy and
+  returns pages, and the final button's words — for the agent to show its buyer first (Directive 2011/83/EU Art. 6,
+  8(2)). A basket with a download carries `DigitalConsentText`, which complete sends back word for word with
+  `DigitalConsent`; the shop keeps it as proof (Art. 16(m)). `CheckoutDescription.ReturnsURL` names the returns page.
+  From v0.23.0.
 
 ---
 

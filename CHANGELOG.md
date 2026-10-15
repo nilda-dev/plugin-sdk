@@ -6,8 +6,8 @@ here.
 
 ## v0.23.0 — unreleased (one list decides which agent may pay)
 
-Additions only (`surface.txt` grows by 3 entries, `nildatest/surface.txt` by 1; nothing removed). On the wire: Core's
-`GET /api/rest/v1/agents/tier`.
+Additions only (`surface.txt` grows by 29 entries, `nildatest/surface.txt` by 1; nothing removed). On the wire: Core's
+`GET /api/rest/v1/agents/tier`; optional new fields on `shop.catalog/v1` and `shop.checkout/v1`.
 
 ### Added
 
@@ -17,6 +17,13 @@ Additions only (`surface.txt` grows by 3 entries, `nildatest/surface.txt` by 1; 
 - **`WithCallInfo`**: sets what `CallOf` answers, for a test driving a provider method directly; nildatest's service
   desk now tells a provider which plugin asked, as Core does.
 - **nildatest**: `Services.SetAgentTier`.
+- **What an agent's buyer must be told** (commerce plan 13, D2–D3): `CheckoutState.PreContract` — a
+  `CheckoutPreContract` with the `CheckoutSeller`, the withdrawal period, text and form, the terms, privacy and returns
+  pages and the final button's words; `CheckoutState.DigitalConsentText` and
+  `CheckoutCompleteRequest.DigitalConsentText`, the download waiver's sentence sent back word for word;
+  `CheckoutDescription.ReturnsURL`.
+- **Channel prices as EU law has them** (E1, E5): `CatalogVariant.ShownPriorPriceMinor`, the 30-day lowest price a
+  reduction is announced against, and `CatalogVariant.UnitPricing` (`CatalogUnitPricing`).
 
 ## v0.22.0 — 2026-10-15 (back-in-stock requests)
 

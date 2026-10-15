@@ -202,6 +202,16 @@ type CatalogVariant struct {
 	// before v0.19.0: PriceMinor is then the best a channel has.
 	ShownPriceMinor     int64  `json:"shown_price_minor,omitempty"`
 	ShownSalePriceMinor *int64 `json:"shown_sale_price_minor,omitempty"`
+	// ShownPriorPriceMinor is, while the variant is on sale, the lowest price (as a buyer pays it) in the 30 days
+	// before the reduction began — the only price an EU shop may announce a reduction against (Directive 98/6/EC Art.
+	// 6a; Austria's PrAG §9a, in the same sales channel). nil when there is none to compare with. A channel showing a
+	// struck-through price shows THIS one; with none, it shows the sale price as the price and no reduction. From
+	// v0.23.0.
+	ShownPriorPriceMinor *int64 `json:"shown_prior_price_minor,omitempty"`
+	// UnitPricing is how much one holds and the base its unit price is stated in, for goods sold by weight, volume,
+	// length or area (Directive 98/6/EC Art. 3(4): an advertisement naming the price names the unit price too). nil
+	// for anything else. From v0.23.0.
+	UnitPricing *CatalogUnitPricing `json:"unit_pricing,omitempty"`
 	// Availability is in_stock, out_of_stock or backorder; Quantity how many are available, nil when not counted.
 	Availability string `json:"availability"`
 	Quantity     *int64 `json:"quantity,omitempty"`
@@ -214,6 +224,15 @@ type CatalogVariant struct {
 	ImageURL string `json:"image_url,omitempty"`
 }
 
+// CatalogUnitPricing is a variant's measure: Quantity of Measure in one item (250 g), the unit price stated per Base
+// ("100 g"), and that unit price as a buyer pays it, in minor units.
+type CatalogUnitPricing struct {
+	Quantity            float64 `json:"quantity"`
+	Measure             string  `json:"measure"`
+	Base                string  `json:"base"`
+	ShownUnitPriceMinor int64   `json:"shown_unit_price_minor"`
+}
+
 // Validate refuses a variant a channel could not list.
 func (v CatalogVariant) Validate() error {
 	if strings.TrimSpace(v.SKU) == "" {
@@ -224,6 +243,12 @@ func (v CatalogVariant) Validate() error {
 	}
 	if v.ShownPriceMinor < 0 || v.ShownSalePriceMinor != nil && (*v.ShownSalePriceMinor < 0 || *v.ShownSalePriceMinor > v.ShownPriceMinor) {
 		return fmt.Errorf("variant %q has a shown price below zero or a shown sale price above its shown price", v.SKU)
+	}
+	if v.ShownPriorPriceMinor != nil && (v.ShownSalePriceMinor == nil || *v.ShownPriorPriceMinor < *v.ShownSalePriceMinor) {
+		return fmt.Errorf("variant %q has a prior price without a sale, or below its sale price", v.SKU)
+	}
+	if u := v.UnitPricing; u != nil && (u.Quantity <= 0 || u.Measure == "" || u.Base == "" || u.ShownUnitPriceMinor < 0) {
+		return fmt.Errorf("variant %q has a unit pricing missing its quantity, measure or base", v.SKU)
 	}
 	if err := validCurrency(fmt.Sprintf("variant %q's currency", v.SKU), v.Currency); err != nil {
 		return err
