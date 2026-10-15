@@ -13,6 +13,12 @@ import (
 type Viewer struct {
 	UserID      string
 	DisplayName string
+	// ImpersonatedBy is the Core user id of the member of staff acting AS this person through Core's
+	// impersonation (support signed in as a customer), or "" for the person themself. Treat it the way Core
+	// does its own guardrails: refuse or hold what must be the person's own act — a purchase, a payment
+	// method, deleting their data — and record both ids on what you do allow. Sent by Core from the release
+	// that fixed hunt 2026-10-15 #199; "" from an older Core.
+	ImpersonatedBy string
 }
 
 // currentUserHeader/currentUserNameHeader are the exact header names Core's proxy sets — spelled out here
@@ -22,6 +28,7 @@ type Viewer struct {
 const (
 	currentUserHeader     = "X-Nilda-User"
 	currentUserNameHeader = "X-Nilda-User-Name"
+	impersonatedByHeader  = "X-Nilda-Impersonated-By"
 	visitorCountryHeader  = "X-Nilda-Visitor-Country"
 	visitorKeyHeader      = "X-Nilda-Visitor-Key"
 )
@@ -43,7 +50,7 @@ func CurrentUser(r *http.Request) (Viewer, bool) {
 	if id == "" {
 		return Viewer{}, false
 	}
-	return Viewer{UserID: id, DisplayName: r.Header.Get(currentUserNameHeader)}, true
+	return Viewer{UserID: id, DisplayName: r.Header.Get(currentUserNameHeader), ImpersonatedBy: r.Header.Get(impersonatedByHeader)}, true
 }
 
 // VisitorCountry is the country Core placed the visitor in from their internet address — ISO 3166-1 alpha-2 ("AT") —

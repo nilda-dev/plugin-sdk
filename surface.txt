@@ -1024,6 +1024,7 @@ field TrackResult.FailureCode string json:failure_code
 field TrackResult.FailureMessage string json:failure_message
 field TrackResult.Status string json:status
 field Viewer.DisplayName string
+field Viewer.ImpersonatedBy string
 field Viewer.UserID string
 field VisitorCall.Agent *Agent json:agent
 field VisitorCall.Args json.RawMessage json:args

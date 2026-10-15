@@ -15,6 +15,11 @@ subscribes and answers the four hooks (`account.start`, `account.finish`, `accou
 Handler that implements the interface; `DispatchAccount` is for routing them by hand. Types: `PluginAccount`,
 `AccountStart`, `AccountStartResult`, `AccountFinish`, `AccountStatus`. Additions only; `surface.txt` grows by 27.
 
+**Staff acting as the person** (`viewer.go`). `Viewer.ImpersonatedBy` is the Core user id of a member of staff acting
+AS the viewer through Core's impersonation (Core sends `X-Nilda-Impersonated-By`), "" for the person themself or an
+older Core. Hold what must be the person's own act — a purchase, a payment method, deleting their data — and record
+both ids on what you allow. Additions only; `surface.txt` grows by 1.
+
 ## v0.24.0 — 2026-10-15 (your plugin in the Nilda app; orders, deliveries, offers and business buyers)
 
 Additions only: `surface.txt` grows by 229 entries in all, nothing removed; `nildatest/surface.txt` unchanged. The

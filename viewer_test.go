@@ -23,6 +23,21 @@ func TestCurrentUserReadsCoresAssertedHeaders(t *testing.T) {
 	}
 }
 
+// Staff acting as somebody through Core's impersonation are named beside them, so a plugin can hold what must be the
+// person's own act (hunt 2026-10-15 #199).
+func TestCurrentUserNamesStaffActingAsThePerson(t *testing.T) {
+	r := httptest.NewRequest("GET", "/shop/", nil)
+	r.Header.Set("X-Nilda-User", "customer-1")
+	r.Header.Set("X-Nilda-Impersonated-By", "staff-9")
+	if v, _ := CurrentUser(r); v.ImpersonatedBy != "staff-9" {
+		t.Errorf("ImpersonatedBy = %q, want staff-9", v.ImpersonatedBy)
+	}
+	r.Header.Del("X-Nilda-Impersonated-By")
+	if v, _ := CurrentUser(r); v.ImpersonatedBy != "" {
+		t.Errorf("the person's own request reads as impersonated: %q", v.ImpersonatedBy)
+	}
+}
+
 // TestCurrentUserAnonymousWithNoHeader: no X-Nilda-User at all (guest storefront traffic, the common case)
 // must answer ok=false, not a Viewer with an empty UserID a caller might use by mistake.
 func TestCurrentUserAnonymousWithNoHeader(t *testing.T) {
