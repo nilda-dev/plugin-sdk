@@ -4,7 +4,7 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
-## v0.18.0 — unreleased (what a visitor's own AI agent may do; files at the site's root)
+## v0.18.0 — 2026-10-15 (what a visitor's own AI agent may do; files at the site's root)
 
 Additions only (`surface.txt` grows by 18 entries, `nildatest/surface.txt` by 1; nothing removed). One wire
 addition: `InitResponse.visitor_tools` (field 6) and the `VisitorTool` message — a Core that predates it ignores the
