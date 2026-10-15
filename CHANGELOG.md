@@ -4,7 +4,7 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
-## Unreleased (v0.17.0) — the shop's catalogue for channels
+## v0.17.0 — 2026-10-15 (the shop's catalogue for channels)
 
 Additions only (`surface.txt` grows by 71 entries; nothing removed; no wire change). A new contract file,
 `contracts/shop.catalog/v1/contract.json`, which Core reads from the SDK it is built with: a Core built on an older SDK
