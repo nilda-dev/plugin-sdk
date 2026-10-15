@@ -6,7 +6,7 @@ here.
 
 ## v0.23.0 — unreleased (one list decides which agent may pay)
 
-Additions only (`surface.txt` grows by 34 entries, `nildatest/surface.txt` by 1; nothing removed). On the wire: Core's
+Additions only (`surface.txt` grows by 35 entries, `nildatest/surface.txt` by 1; nothing removed). On the wire: Core's
 `GET /api/rest/v1/agents/tier` and `X-Nilda-Visitor-Key` header; optional new fields on `shop.catalog/v1`, `shop.checkout/v1`
 and `stock.alerts/v1` subscribe.
 
@@ -24,7 +24,8 @@ and `stock.alerts/v1` subscribe.
   `CheckoutCompleteRequest.DigitalConsentText`, the download waiver's sentence sent back word for word;
   `CheckoutDescription.ReturnsURL`; `CheckoutLine.Digital`, the line the waiver is about.
 - **Channel prices as EU law has them** (E1, E5): `CatalogVariant.ShownPriorPriceMinor`, the 30-day lowest price a
-  reduction is announced against, and `CatalogVariant.UnitPricing` (`CatalogUnitPricing`).
+  reduction is announced against, and `CatalogVariant.UnitPricing` (`CatalogUnitPricing`); `CatalogVariant.PriceWithoutTax`
+  (E6), a shown price that holds no VAT, for a channel to leave out.
 
 - **Back-in-stock requests that can be limited and proven** (commerce plan 13, C1–C2): `VisitorKey(r)`, an opaque daily
   key for a request's address; `StockAlertRequest.Requester` (it) and `StockAlertRequest.ConsentText` (the sentence the
@@ -171,7 +172,7 @@ Core built on an older SDK refuses a manifest naming it. `docs/SHIPPING.md` is t
 
 ## v0.14.0 — 2026-10-13 (one plugin asking another through Core)
 
-Additions only (`surface.txt` grows by 34 entries, `nildatest/surface.txt` by 15; nothing removed; no wire change —
+Additions only (`surface.txt` grows by 35 entries, `nildatest/surface.txt` by 15; nothing removed; no wire change —
 a relayed call is an ordinary hook named `svc:<contract>.<method>`, carrying the fields v0.13.0 added). Needs a Core
 built on this release: an older Core refuses `service_provider` and `service_consumer` at install, and answers the
 route 404. `docs/SERVICES.md` is the whole story; `docs/EVENTS.md` writes down what v0.13.0's stored events promise.

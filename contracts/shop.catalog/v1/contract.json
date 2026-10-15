@@ -179,6 +179,9 @@
                           "integer"
                         ]
                       },
+                      "price_without_tax": {
+                        "type": "boolean"
+                      },
                       "shown_prior_price_minor": {
                         "type": [
                           "null",
@@ -378,6 +381,9 @@
                         "null",
                         "integer"
                       ]
+                    },
+                    "price_without_tax": {
+                      "type": "boolean"
                     },
                     "shown_prior_price_minor": {
                       "type": [

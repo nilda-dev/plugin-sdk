@@ -1797,8 +1797,9 @@ and reads the published products in a feed-grade shape. `docs/CATALOG.md` is the
   product taken off sale since `UpdatedSince` comes back `Removed`); `CatalogProductRequest` answered by
   `CatalogProductResult`. Each has `Validate`. From v0.23.0 a variant on sale carries `ShownPriorPriceMinor`, the
   lowest price of the 30 days before the reduction — the only price a channel may strike through (Directive 98/6/EC
-  Art. 6a) — and goods sold by measure carry `UnitPricing`, a `CatalogUnitPricing` (quantity, measure, base, the
-  unit price as paid; Art. 3(4)).
+  Art. 6a) — goods sold by measure carry `UnitPricing`, a `CatalogUnitPricing` (quantity, measure, base, the
+  unit price as paid; Art. 3(4)), and `PriceWithoutTax` marks a shown price that holds no VAT, for a channel that
+  must show the price with VAT to leave out (Art. 2(a)).
 - **A channel** declares `"requires": ["shop.catalog/v1"]` with `service_consumer` and calls
   `Services.CatalogDescription`, `Services.CatalogPage` and `Services.CatalogProduct` (contract `ContractShopCatalog`,
   methods `CatalogDescribe`, `CatalogProductsPage`, `CatalogProductGet`).

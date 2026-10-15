@@ -32,7 +32,9 @@ A variant on sale carries `shown_prior_price_minor` (from v0.23.0): the lowest p
 days before the reduction began — the only price an EU channel may strike through (Directive 98/6/EC Art. 6a; Austria's
 PrAG §9a). With none, a channel shows the sale price as the price and no reduction. Goods sold by weight, volume, length
 or area carry `unit_pricing` — quantity, measure, the base the unit price is stated in, and that unit price as paid —
-which an advertisement naming the price names too (Art. 3(4)).
+which an advertisement naming the price names too (Art. 3(4)). `price_without_tax: true` says the shown prices hold no
+VAT though the shop's prices are entered without it (no tax rate matches the variant's class): a channel that must show
+the price with VAT (Art. 2(a)) leaves that variant out and says why.
 
 With `updated_since`, only products that changed since — the text, a price, the stock, a variant — and products taken
 off sale since, listed with `removed: true` and nothing else, so the channel withdraws them.

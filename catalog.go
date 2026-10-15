@@ -202,6 +202,11 @@ type CatalogVariant struct {
 	// before v0.19.0: PriceMinor is then the best a channel has.
 	ShownPriceMinor     int64  `json:"shown_price_minor,omitempty"`
 	ShownSalePriceMinor *int64 `json:"shown_sale_price_minor,omitempty"`
+	// PriceWithoutTax: the shown prices hold no tax although the shop's prices are entered without it — no tax rate
+	// matches the variant's tax class — so the price with VAT is unknown. A channel that must show the price with VAT
+	// (Directive 98/6/EC Art. 2(a); Google and Meta in the EU) leaves the variant out and says why, rather than
+	// publishing a net price as the gross one. From v0.23.0.
+	PriceWithoutTax bool `json:"price_without_tax,omitempty"`
 	// ShownPriorPriceMinor is, while the variant is on sale, the lowest price (as a buyer pays it) in the 30 days
 	// before the reduction began — the only price an EU shop may announce a reduction against (Directive 98/6/EC Art.
 	// 6a; Austria's PrAG §9a, in the same sales channel). nil when there is none to compare with. A channel showing a

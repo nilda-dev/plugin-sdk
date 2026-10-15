@@ -324,6 +324,7 @@ field CatalogVariant.ImageURL string json:image_url
 field CatalogVariant.MPN string json:mpn
 field CatalogVariant.Options map[string]string json:options
 field CatalogVariant.PriceMinor int64 json:price_minor
+field CatalogVariant.PriceWithoutTax bool json:price_without_tax
 field CatalogVariant.Quantity *int64 json:quantity
 field CatalogVariant.RequiresShipping bool json:requires_shipping
 field CatalogVariant.SKU string json:sku
