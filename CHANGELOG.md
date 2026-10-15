@@ -4,6 +4,20 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## v0.23.0 — unreleased (one list decides which agent may pay)
+
+Additions only (`surface.txt` grows by 3 entries, `nildatest/surface.txt` by 1; nothing removed). On the wire: Core's
+`GET /api/rest/v1/agents/tier`.
+
+### Added
+
+- **`API().AgentTier(ctx, operator)`** and **`AgentBlocked`**: what the site's owner lets an AI agent's operator do,
+  from the one list on SEO → Shopping agents — for a plugin serving an agent platform by an API key, and for a shop
+  told an agent's name by another plugin (commerce plan 13, B4–B5).
+- **`WithCallInfo`**: sets what `CallOf` answers, for a test driving a provider method directly; nildatest's service
+  desk now tells a provider which plugin asked, as Core does.
+- **nildatest**: `Services.SetAgentTier`.
+
 ## v0.22.0 — 2026-10-15 (back-in-stock requests)
 
 Additions only (`surface.txt` grows by 29 entries; nothing removed). On the wire: a new contract file,

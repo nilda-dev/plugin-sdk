@@ -1299,6 +1299,12 @@ Only an `AgentBuy` agent may complete an order with a delegated payment token �
 "Taking payments" and `docs/PAYMENTS.md` §5). A gateway that charges one implements `nilda.CredentialPayer` and lists
 the type on its method's `CredentialTypes`.
 
+**One list decides who may pay.** A plugin that serves an agent platform by an API key rather than a signature (an ACP
+adapter), or a shop handed an agent's name by another plugin, asks Core: `core.API().AgentTier(ctx, "chatgpt.com")`
+answers what the owner set on SEO → Shopping agents — `AgentBrowse` (also for an operator never named), `AgentBuy`, or
+`AgentBlocked`, which such a plugin refuses itself (Core refuses a blocked agent only when it signs). Never keep a "may
+pay" switch of your own beside it. From the Core release built on v0.23.0.
+
 ### Taking payments (`payment_gateway`, `payment_session`)
 
 **[PAYMENTS.md](PAYMENTS.md) is the whole contract** — read it before writing either side. In one paragraph:
@@ -1695,7 +1701,10 @@ inside `HandleEvent` returns an `EventInfo`: `ID`
 (unique per event, and kept by a redelivery, so an id you have seen is a repeat to drop), `Source` (set by Core,
 `/core` or `/plugins/<key>` — an emitter cannot claim another's), `Time`, `Subject` and `DataSchema`.
 
-Every field is empty from a Core that does not fill it, and Core's own hooks carry no `Contract` or `Caller`.
+Every field is empty from a Core that does not fill it, and Core's own hooks carry no `Contract` or `Caller`. A
+provider that must know which plugin asked — a shop deciding whether to trust an agent named in a checkout — reads
+`Caller`. In a test that drives a provider method directly, `nilda.WithCallInfo(ctx, nilda.CallInfo{…})` sets what
+`CallOf` answers (nildatest's service desk does it for you), and `Services.SetAgentTier` sets what `AgentTier` answers.
 Neither says who the PERSON was (see abilities, above). Log `RequestID` beside your own lines: one search in the
 owner's log then finds both halves of a failure.
 

@@ -83,6 +83,7 @@ method (*Services) Ask(context.Context, string, string, any, nilda.ServiceCallOp
 method (*Services) Calls() ([]ServiceCallLog)
 method (*Services) Core(string, ...string) (*nilda.Core, *Host, *httptest.Server)
 method (*Services) Provider(string, nilda.ServiceProvider)
+method (*Services) SetAgentTier(string, nilda.AgentTier)
 method (*StubCarrier) Asked() ([]nilda.RatesRequest)
 method (*StubCarrier) Bought() (int)
 method (*StubCarrier) CreateLabel(context.Context, nilda.LabelRequest) (nilda.LabelResult, error)

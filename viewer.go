@@ -1,6 +1,11 @@
 package nilda
 
-import "net/http"
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/url"
+)
 
 // Viewer is the identity Core asserts about whoever made a request to your resident HTTP server — see
 // CurrentUser. Deliberately minimal: an id and a display name, never a token, session, or permission set
@@ -70,7 +75,31 @@ const (
 	AgentBrowse AgentTier = "browse"
 	// AgentBuy: also pay for an order with a payment token it carries; the buyer it acts for still pays.
 	AgentBuy AgentTier = "buy"
+	// AgentBlocked: the owner refuses it. Core refuses a blocked agent that signs; API().AgentTier answers it for one
+	// a plugin knows by other means (an API key), which the plugin then refuses itself. From v0.23.0.
+	AgentBlocked AgentTier = "blocked"
 )
+
+// AgentTier asks Core what the site's owner lets an AI agent's operator do — the one list on SEO → Shopping agents
+// (from the release built on plugin-sdk v0.23.0). A plugin that serves an agent platform by an API key rather than a
+// signature (an ACP adapter) asks it for its platform's operator instead of keeping a "may pay" switch of its own; a
+// shop asks it for the agent a checkout names rather than trusting what a calling plugin claims. An operator the owner
+// never named browses.
+func (a *API) AgentTier(ctx context.Context, operator string) (AgentTier, error) {
+	var out struct {
+		Data struct {
+			Tier AgentTier `json:"tier"`
+		} `json:"data"`
+	}
+	if err := a.Get(ctx, "/agents/tier", url.Values{"operator": {operator}}, &out); err != nil {
+		return "", err
+	}
+	switch out.Data.Tier {
+	case AgentBrowse, AgentBuy, AgentBlocked:
+		return out.Data.Tier, nil
+	}
+	return "", fmt.Errorf("nilda: Core answered the tier %q for %s", out.Data.Tier, operator)
+}
 
 // Agent is an identified AI agent: the host of its operator ("chatgpt.com") and its tier.
 type Agent struct {

@@ -38,6 +38,18 @@ type Services struct {
 	order     []string
 	last      map[string][]byte // provider + request → last good answer, for the "cached" fallback
 	calls     []ServiceCallLog
+	tiers     map[string]nilda.AgentTier // operator → what the owner set (SetAgentTier); browse when absent
+}
+
+// SetAgentTier sets what the site's owner lets an agent's operator do, as Core's SEO → Shopping agents list holds it —
+// what a plugin's API().AgentTier answers through this desk's Core.
+func (s *Services) SetAgentTier(operator string, tier nilda.AgentTier) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.tiers == nil {
+		s.tiers = map[string]nilda.AgentTier{}
+	}
+	s.tiers[strings.ToLower(operator)] = tier
 }
 
 // ServiceCallLog is one call a provider was asked, as a test reads it.
@@ -151,6 +163,8 @@ func (s *Services) call(ctx context.Context, caller, contract, method string, in
 			s.mu.Unlock()
 			cctx, cancel := context.WithTimeout(ctx, budget)
 			defer cancel()
+			// What Core tells a provider about the call: the contract, the asking plugin, its key (CallOf).
+			cctx = nilda.WithCallInfo(cctx, nilda.CallInfo{Contract: contract, Caller: caller, IdempotencyKey: opts.IdempotencyKey})
 			done := make(chan got, 1)
 			go func() {
 				out, _, err := nilda.DispatchServiceHook(cctx, p, nilda.ServiceHook(contract, method), input)
@@ -227,6 +241,18 @@ func canonical(raw []byte) string {
 // routes is the consumer's door: POST /services/<name>/<major>/<method>, as Core serves it.
 func (s *Services) routes(caller string, scopes []string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/agents/tier" {
+			op := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("operator")))
+			s.mu.Lock()
+			tier, ok := s.tiers[op]
+			s.mu.Unlock()
+			if !ok {
+				tier = nilda.AgentBrowse
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"operator": op, "tier": tier}})
+			return
+		}
 		parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/services/"), "/")
 		if r.Method != http.MethodPost || !strings.HasPrefix(r.URL.Path, "/services/") || len(parts) != 3 {
 			writeServiceError(w, http.StatusNotFound, "NOT_FOUND", "no such route", nil)

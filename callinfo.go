@@ -49,6 +49,12 @@ func CallOf(ctx context.Context) CallInfo {
 	return ci
 }
 
+// WithCallInfo returns ctx carrying ci, as Core's call would — for a test (nildatest's service desk uses it) that
+// drives a provider method directly and needs CallOf to answer who asked. From v0.23.0.
+func WithCallInfo(ctx context.Context, ci CallInfo) context.Context {
+	return context.WithValue(ctx, callInfoKey{}, ci)
+}
+
 // EventOf returns the CloudEvents context of the event ctx belongs to. Read it inside HandleEvent; anywhere else it
 // is the zero value.
 func EventOf(ctx context.Context) EventInfo {
