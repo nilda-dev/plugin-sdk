@@ -1075,8 +1075,8 @@ optional hints make that drawing right:
 - `row` lays a list row out as a title, at most two columns under it, a trailing value and a badge — each one
   of the page's columns. `pin` lets the owner pin a row to a message in the site's chat ("Ask in Chat about
   this order"); the assistant then reads that row as the owner may see it.
-- `hide` keeps a page off the phone. Prefer leaving it: a page the app cannot draw already becomes a card
-  saying it is done on a computer.
+- `hide` keeps a page off the phone. Prefer leaving it: a page an older app cannot draw already becomes a card
+  saying it needs a newer app.
 - `description` is one sentence, at most 300 characters; `icon` is one of `nilda.MobileIcons()`.
 
 In Go these are `nilda.PluginMobile` (with `nilda.HeadlineMetric`), a page's `nilda.PageMobile` (with
@@ -1088,6 +1088,41 @@ install: one this Nilda does not know is drawn as text, grey or the generic icon
 on an older Nilda. What is refused is a hint that can be drawn on no Nilda: money with no currency, a row naming
 a column the page does not show, a pin on a table with no primary key, a headline pointing at a metric no
 report declares, metrics on a page that is not a report.
+
+#### The owner's account elsewhere
+
+When your plugin works on the owner's OWN account at another service — their Higgsfield credits, their Google
+Merchant Center, their Instagram business page — declare it, and the owner gets a **Connect** button with the
+account's status on your plugin's screen in the admin and in the Nilda app:
+
+```json
+{ "account": { "name": "Higgsfield", "host": "higgsfield.ai" } }
+```
+
+and implement `nilda.AccountHandler` — four methods; `Serve` subscribes and answers the hooks for you:
+
+```go
+func (p *Plugin) AccountStart(ctx context.Context, in nilda.AccountStart) (nilda.AccountStartResult, error) {
+	// Register in.RedirectURI with the service if you must, make a PKCE pair and a state, keep the verifier
+	// under the state for ten minutes, and say where the browser goes.
+	return nilda.AccountStartResult{AuthorizeURL: authorizeURL, State: state}, nil
+}
+
+func (p *Plugin) AccountFinish(ctx context.Context, in nilda.AccountFinish) (nilda.AccountStatus, error) {
+	// in.Error when the owner pressed Cancel; else trade in.Code (with the verifier kept under in.State) for
+	// tokens, keep them with SetSecret, and say how the account stands.
+}
+
+func (p *Plugin) AccountStatus(ctx context.Context) (nilda.AccountStatus, error)  // from what you keep
+func (p *Plugin) AccountDisconnect(ctx context.Context) error                     // drop the tokens
+```
+
+Core runs the road, not your plugin: the link is made only when the owner presses Connect, works once for ten
+minutes, and opens Core's own route; Core sends the browser only to https on your `host` (or a subdomain), binds
+the sign-in to that browser with a cookie, and refuses a return from any other browser — so a link that leaks
+connects nobody's account. You never make a link, and nothing you show in a row or a report should be one.
+`nilda.PluginAccount`, `nilda.AccountStart`, `nilda.AccountStartResult`, `nilda.AccountFinish` and
+`nilda.AccountStatus` are the types; `nilda.DispatchAccount` routes the hooks for a plugin that does it by hand.
 
 ### Contributing a field type (`field`)
 

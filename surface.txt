@@ -1,3 +1,7 @@
+const AccountDisconnectHook
+const AccountFinishHook
+const AccountStartHook
+const AccountStatusHook
 const AdminActionHook
 const AdminPageList
 const AdminPageReport
@@ -252,6 +256,16 @@ field Ability.Label string
 field Ability.Name string
 field Ability.ReadOnly bool
 field Ability.Run func(ctx context.Context, args json.RawMessage) (any, error)
+field AccountFinish.Code string json:code
+field AccountFinish.Error string json:error
+field AccountFinish.RedirectURI string json:redirect_uri
+field AccountFinish.State string json:state
+field AccountStart.RedirectURI string json:redirect_uri
+field AccountStartResult.AuthorizeURL string json:authorize_url
+field AccountStartResult.State string json:state
+field AccountStatus.Connected bool json:connected
+field AccountStatus.Problem string json:problem
+field AccountStatus.Who string json:who
 field AdminAction.Action string json:action
 field AdminAction.ID string json:id
 field AdminAction.Page string json:page
@@ -832,6 +846,8 @@ field PaymentStartResult.ProviderRef string json:provider_ref
 field PaymentStartResult.RedirectURL string json:redirect_url
 field PaymentStartResult.Status string json:status
 field PaymentSyncRequest.Session PaymentSession json:session
+field PluginAccount.Host string json:host
+field PluginAccount.Name string json:name
 field PluginClient.Broker *plugin.GRPCBroker
 field PluginClient.Plugin contract.PluginServiceClient
 field PluginMobile.Headline []HeadlineMetric json:headline
@@ -1063,6 +1079,7 @@ func ContractToolName(string, string) (string)
 func Contracts() ([]ServiceContract, error)
 func CurrentUser(*http.Request) (Viewer, bool)
 func DeliverablesMethods(DeliverablesProvider) ([]ServiceMethod)
+func DispatchAccount(context.Context, string, []byte, AccountHandler) ([]byte, bool, error)
 func DispatchAdminAction(context.Context, string, []byte, func(context.Context, AdminAction) (AdminActionResult, error)) ([]byte, bool, error)
 func DispatchAdminReport(context.Context, string, []byte, func(context.Context, AdminReportRequest) (AdminReportResult, error)) ([]byte, bool, error)
 func DispatchAuthHook(context.Context, *Core, AuthProvider, string, []byte) ([]byte, bool, error)
@@ -1118,6 +1135,10 @@ func VisitorCountry(*http.Request) (string, bool)
 func VisitorKey(*http.Request) (string)
 func VisitorToolHook(string) (string)
 func WithCallInfo(context.Context, CallInfo) (context.Context)
+imethod AccountHandler.AccountDisconnect(context.Context) (error)
+imethod AccountHandler.AccountFinish(context.Context, AccountFinish) (AccountStatus, error)
+imethod AccountHandler.AccountStart(context.Context, AccountStart) (AccountStartResult, error)
+imethod AccountHandler.AccountStatus(context.Context) (AccountStatus, error)
 imethod AssetProvider.FooterScripts(context.Context, RenderAssetsRequest) ([]ScriptAsset)
 imethod AuthProvider.Complete(context.Context, *Core, AuthCompleteRequest) (AuthAssertion, error)
 imethod AuthProvider.Describe(context.Context, *Core) ([]AuthProviderStatus)
@@ -1345,6 +1366,11 @@ method (VoidResult) Validate() (error)
 type API
 type APIError
 type Ability
+type AccountFinish
+type AccountHandler
+type AccountStart
+type AccountStartResult
+type AccountStatus
 type AdminAction
 type AdminActionResult
 type AdminPage
@@ -1478,6 +1504,7 @@ type PaymentStartResult
 type PaymentSyncRequest
 type PaymentSyncer
 type Payments
+type PluginAccount
 type PluginClient
 type PluginMobile
 type Quote

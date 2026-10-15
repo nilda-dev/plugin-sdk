@@ -272,6 +272,13 @@ type renderAssetsResponse struct {
 // tries it first and falls through to the author's HandleHook, so implementing WidgetProvider does not take
 // "widget.render" away from a plugin that also wants to see it.
 func dispatchProvided(ctx context.Context, h Handler, hook string, payload []byte) (out []byte, ok bool, err error) {
+	// The account hooks are answered for a plugin that implements AccountHandler (account.go): implementing it is
+	// the whole job, as it is for a payment gateway.
+	if ah, is := h.(AccountHandler); is {
+		if out, handled, err := DispatchAccount(ctx, hook, payload, ah); handled {
+			return out, true, err
+		}
+	}
 	switch hook {
 	case HookWidgetDescribe:
 		wp, is := h.(WidgetProvider)
@@ -393,6 +400,8 @@ var providerHooks = []struct {
 		[]string{HookRenderAssets}},
 	{"WidgetProvider", func(h Handler) bool { _, is := h.(WidgetProvider); return is },
 		[]string{HookWidgetDescribe, HookWidgetRender}},
+	{"AccountHandler", func(h Handler) bool { _, is := h.(AccountHandler); return is },
+		[]string{AccountStartHook, AccountFinishHook, AccountStatusHook, AccountDisconnectHook}},
 	{"AuthProvider", func(h Handler) bool { _, is := h.(AuthProvider); return is },
 		[]string{HookAuthDescribe, HookAuthStart, HookAuthComplete}},
 	{"FieldProvider", func(h Handler) bool { _, is := h.(FieldProvider); return is },

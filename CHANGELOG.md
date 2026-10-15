@@ -4,6 +4,17 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## Unreleased (v0.25.0)
+
+**The owner's account elsewhere** (`account.go`; PLUGIN_SDK.md, "The owner's account elsewhere"). Declare
+`"account": {"name", "host"}` in plugin.json and implement `AccountHandler` — `AccountStart`, `AccountFinish`,
+`AccountStatus`, `AccountDisconnect` — and the owner gets a Connect button with the account's status in the admin and
+in the Nilda app. Core makes the link only on that press, sends the browser only to https on your `host`, binds the
+sign-in to the browser that started it, and hands you the code; you keep the tokens with `SetSecret`. `Serve`
+subscribes and answers the four hooks (`account.start`, `account.finish`, `account.status`, `account.disconnect`) for a
+Handler that implements the interface; `DispatchAccount` is for routing them by hand. Types: `PluginAccount`,
+`AccountStart`, `AccountStartResult`, `AccountFinish`, `AccountStatus`. Additions only; `surface.txt` grows by 27.
+
 ## v0.24.0 — 2026-10-15 (your plugin in the Nilda app; orders, deliveries, offers and business buyers)
 
 Additions only: `surface.txt` grows by 229 entries in all, nothing removed; `nildatest/surface.txt` unchanged. The
