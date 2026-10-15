@@ -4,6 +4,23 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## v0.18.0 — unreleased (what a visitor's own AI agent may do; files at the site's root)
+
+Additions only (`surface.txt` grows by 18 entries, `nildatest/surface.txt` by 1; nothing removed). One wire
+addition: `InitResponse.visitor_tools` (field 6) and the `VisitorTool` message — a Core that predates it ignores the
+field, so a plugin declaring visitor tools still loads there and offers none. Needs a Core that grants the new
+capabilities `visitor_tools` and `site_files`.
+
+### Added
+
+- **Visitor tools**: `InitResult.VisitorTools`, `VisitorTool` (`Name`, `Description`, `Effect`, `InputSchema`, `Paths`,
+  `Run`, `Validate`), `VisitorEffect` (`VisitorRead`, `VisitorSubmit` — nothing else), `VisitorCall` and
+  `VisitorToolHook`. Core publishes each beside its own public tools (WebMCP and the public MCP) as
+  `<plugin-key>.<name>`. Init refuses a tool Core would refuse, and two with one name.
+- **`nildatest.ManifestVisitorTools`** holds plugin.json's `"visitor_tools"` to Init, as `ManifestAbilities` does.
+- **`site_files`** in plugin.json (`/agents.md`, `/.well-known/<name>`): Core sends GET and HEAD for those paths to
+  your resident server. No Go API; documented in `docs/PLUGIN_SDK.md`.
+
 ## v0.17.0 — 2026-10-15 (the shop's catalogue for channels)
 
 Additions only (`surface.txt` grows by 71 entries; nothing removed; no wire change). A new contract file,

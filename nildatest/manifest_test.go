@@ -73,3 +73,45 @@ func TestManifestAbilitiesWritesThenHolds(t *testing.T) {
 		t.Fatalf("the rewrite did not replace the old list in place:\n%s", got)
 	}
 }
+
+func runVisitor(tb testing.TB, path string, list []nilda.VisitorTool) (failed string) {
+	f := &fakeT{TB: tb}
+	defer func() {
+		if r := recover(); r != nil && r != f {
+			panic(r)
+		}
+		failed = f.failed
+	}()
+	ManifestVisitorTools(f, path, list)
+	return ""
+}
+
+// The visitor tools the owner reads before granting `visitor_tools` are written by the SDK, beside the abilities,
+// and a changed one fails until written again.
+func TestManifestVisitorToolsWritesThenHolds(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "plugin.json")
+	if err := os.WriteFile(path, []byte("{\n  \"key\": \"shop\"\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tools := []nilda.VisitorTool{{Name: "search_products", Description: "Search the shop.", Effect: nilda.VisitorRead, Paths: []string{"/shop"}}}
+	if failed := runVisitor(t, path, tools); !strings.Contains(failed, WriteManifestEnv) {
+		t.Fatalf("a manifest with no visitor tools passed: %q", failed)
+	}
+	t.Setenv(WriteManifestEnv, "1")
+	if failed := runVisitor(t, path, tools); failed != "" {
+		t.Fatalf("writing failed: %s", failed)
+	}
+	got, _ := os.ReadFile(path)
+	if !strings.Contains(string(got), `"effect": "read"`) || !strings.Contains(string(got), `"/shop"`) {
+		t.Fatalf("written:\n%s", got)
+	}
+	t.Setenv(WriteManifestEnv, "")
+	if failed := runVisitor(t, path, tools); failed != "" {
+		t.Fatalf("the written manifest does not hold: %s", failed)
+	}
+	tools[0].Effect = nilda.VisitorSubmit
+	if failed := runVisitor(t, path, tools); failed == "" {
+		t.Fatal("a changed effect passed")
+	}
+}

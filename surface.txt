@@ -166,6 +166,8 @@ const TrackLabelPrinted
 const TrackOutForDelivery
 const TrackPreTransit
 const TrackReturnedToSender
+const VisitorRead
+const VisitorSubmit
 const VoidPending
 const VoidRejected
 const VoidVoided
@@ -407,6 +409,7 @@ field InitResult.Events []string
 field InitResult.Hooks []string
 field InitResult.RouteAddr string
 field InitResult.Schedules []Schedule
+field InitResult.VisitorTools []VisitorTool
 field LabelRequest.Customs *Customs json:customs
 field LabelRequest.Destination ShipAddress json:destination
 field LabelRequest.Key string json:key
@@ -691,6 +694,16 @@ field TrackResult.FailureMessage string json:failure_message
 field TrackResult.Status string json:status
 field Viewer.DisplayName string
 field Viewer.UserID string
+field VisitorCall.Args json.RawMessage json:args
+field VisitorCall.IP string json:ip
+field VisitorCall.Path string json:path
+field VisitorCall.UserAgent string json:user_agent
+field VisitorTool.Description string
+field VisitorTool.Effect VisitorEffect
+field VisitorTool.InputSchema json.RawMessage
+field VisitorTool.Name string
+field VisitorTool.Paths []string
+field VisitorTool.Run func(ctx context.Context, call VisitorCall) (any, error)
 field VoidRequest.Key string json:key
 field VoidRequest.ProviderRef string json:provider_ref
 field VoidResult.FailureCode string json:failure_code
@@ -775,6 +788,7 @@ func Supports([]string, string) (bool)
 func SupportsOf(PaymentMethod) ([]string)
 func TestHintFor(map[string]string, string) (string)
 func VisitorCountry(*http.Request) (string, bool)
+func VisitorToolHook(string) (string)
 imethod AssetProvider.FooterScripts(context.Context, RenderAssetsRequest) ([]ScriptAsset)
 imethod AuthProvider.Complete(context.Context, *Core, AuthCompleteRequest) (AuthAssertion, error)
 imethod AuthProvider.Describe(context.Context, *Core) ([]AuthProviderStatus)
@@ -930,6 +944,7 @@ method (ServiceContract) Method(string) (ContractMethod, bool)
 method (ShipAddress) Validate() (error)
 method (TrackRequest) Validate() (error)
 method (TrackResult) Validate() (error)
+method (VisitorTool) Validate() (error)
 method (VoidRequest) Validate() (error)
 method (VoidResult) Validate() (error)
 type API
@@ -1052,6 +1067,9 @@ type TrackEvent
 type TrackRequest
 type TrackResult
 type Viewer
+type VisitorCall
+type VisitorEffect
+type VisitorTool
 type VoidRequest
 type VoidResult
 type WidgetDef

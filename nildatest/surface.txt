@@ -33,6 +33,7 @@ field StubGateway.Methods []nilda.PaymentMethod
 field StubGateway.Refund nilda.PaymentRefundResult
 field StubGateway.Start nilda.PaymentStartResult
 func ManifestAbilities(testing.TB, string, []nilda.Ability)
+func ManifestVisitorTools(testing.TB, string, []nilda.VisitorTool)
 func New(string, ...string) (*nilda.Core, *Host)
 func NewPayments() (*Payments)
 func NewSecrets() (*Secrets)

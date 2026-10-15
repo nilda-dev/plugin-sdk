@@ -720,6 +720,64 @@ letting a model decide to run one of your actions with no human in the loop are 
 owner granting the second should be agreeing to exactly that. It appears on their consent screen as
 "Offer its actions to an AI agent, which can then run them on your behalf".
 
+### What a visitor's own AI agent may do (`visitor_tools`)
+
+An ability acts for the site's OWNER. A visitor tool acts for whoever is looking at the page — an anonymous
+stranger, or the assistant that stranger pointed at the site: "find me a linen shirt in M under €60 here".
+
+```go
+return nilda.InitResult{VisitorTools: []nilda.VisitorTool{{
+	Name:        "search_products",
+	Description: "Search this shop's products by words; each comes with its price, sizes and page.",
+	Effect:      nilda.VisitorRead,
+	InputSchema: nilda.ObjectSchema(map[string]any{"query": map[string]any{"type": "string"}}, "query"),
+	Paths:       []string{"/shop"},
+	Run:         s.searchForAVisitor, // func(ctx context.Context, call nilda.VisitorCall) (any, error)
+}}}, nil
+```
+
+Core publishes each one beside its own public tools — in the page through WebMCP (`navigator.modelContext`),
+and on the site's public MCP endpoint for an agent with no browser — as `<plugin-key>.<name>`, under the same
+owner switch for the whole surface and the same per-address rate limit. `Paths` are the prefixes it is offered
+on (`/shop` covers `/shop/product/mug`); empty is every page.
+
+**Two effects, and no third.** `Effect` is a `nilda.VisitorEffect`: `nilda.VisitorRead` answers from what the public pages show; `nilda.VisitorSubmit`
+hands the site what a form on the page would. There is no write, publish or delete for an anonymous caller,
+because a visitor has none. Core cannot see inside `Run`, so keeping that ceiling is yours, and the way to keep
+it is reuse: call the code your public route calls, behind the same checks, and return what that page would
+show.
+
+`Run` gets a `nilda.VisitorCall` — the arguments, the page path, the caller's address and agent string — and
+no identity, on purpose: the tool acts for nobody, and one that answered a signed-in caller differently would
+grow a private surface on a public endpoint. The address is for your anti-abuse checks, never to vary the
+answer. Leave `Run` nil and the call reaches `HandleHook` under `nilda.VisitorToolHook(name)`, the
+`VisitorCall` JSON as its payload.
+
+Requires the `visitor_tools` capability, and each tool declared in `plugin.json`'s `"visitor_tools"` (name,
+description, effect, paths) exactly as Init returns it — Core offers only those. Do not type the list:
+`nildatest.ManifestVisitorTools(t, "plugin.json", tools)` holds it and writes it with
+`NILDA_WRITE_MANIFEST=1`. The owner's consent screen shows "Let visitors' own AI agents use its public
+actions — search, look up, or send what its public forms send".
+
+### Files at the site's root (`site_files`)
+
+Some standards put a file at the origin's root, where no plugin prefix reaches: a protocol's discovery
+document (`/.well-known/ucp`, `/.well-known/acp.json`) or an agents' guide (`/agents.md`). Declare the ones you
+answer:
+
+```json
+"capabilities": ["route", "site_files"],
+"site_files": ["/.well-known/ucp", "/agents.md"]
+```
+
+Core sends a GET or HEAD for exactly those paths to your resident server, at the same path — register them on
+your own mux beside your prefix — and nothing else: another method is refused, and the request carries no
+identity, as a `webhook_paths` call does not. A file is `/agents.md` or `/.well-known/<name>`; Core keeps the
+names it answers itself or that guard the site (`mcp`, `oauth-*`, `openid-configuration`, `acme-challenge`,
+`security.txt`, `change-password`, the app-link files), and two plugins cannot hold one file — the second
+install is refused and says which plugin has it. Requires `route`. The consent screen shows "Answer at these
+addresses at the root of your site", with the list.
+
 ### Sending mail (`email`)
 
 ```go

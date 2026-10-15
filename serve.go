@@ -55,6 +55,9 @@ type InitResult struct {
 	// becomes an agent tool named "<plugin-key>.<name>". An ability with a Run function is dispatched for
 	// you; one without arrives at HandleHook under AbilityHook(name). See abilities.go.
 	Abilities []Ability
+	// VisitorTools are what a VISITOR's own AI agent may do on the public site through this plugin (requires
+	// `visitor_tools`): read what the pages show, or submit what a form on them submits. See visitortools.go.
+	VisitorTools []VisitorTool
 }
 
 // Schedule is one recurring callback.
@@ -139,6 +142,8 @@ type pluginServer struct {
 	// abilityRun holds the Run functions from Init, keyed by ability name. Written once in Init and read
 	// by HandleHook; go-plugin serialises Init before any hook arrives.
 	abilityRun map[string]func(context.Context, json.RawMessage) (any, error)
+	// visitorRun holds the visitor tools' Run functions, keyed by name, written once in Init like abilityRun.
+	visitorRun map[string]func(context.Context, VisitorCall) (any, error)
 	broker     *plugin.GRPCBroker // injected by GRPCPlugin.GRPCServer
 	conn       *grpc.ClientConn   // the dialed HostService broker stream
 }
@@ -170,7 +175,16 @@ func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (res
 	if err != nil {
 		return nil, err
 	}
+	return s.wire(res)
+}
+
+// wire turns what the plugin's Init returned into Core's answer, and keeps the runners Serve dispatches for the
+// author. Apart from Init so it can be tested without a Core to dial.
+func (s *pluginServer) wire(res InitResult) (*contract.InitResponse, error) {
 	if err := duplicateAbility(res.Abilities); err != nil {
+		return nil, err
+	}
+	if err := checkVisitorTools(res.VisitorTools); err != nil {
 		return nil, err
 	}
 	out := &contract.InitResponse{
@@ -194,6 +208,13 @@ func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (res
 	// wiring anything: declaring an ability and then forgetting to route its hook is a plugin that
 	// advertises an action and fails every time an agent tries it.
 	s.abilityRun = abilityRunners(res.Abilities)
+	for _, t := range res.VisitorTools {
+		out.VisitorTools = append(out.VisitorTools, &contract.VisitorTool{
+			Name: t.Name, Description: t.Description, Effect: string(t.Effect), InputSchema: string(t.InputSchema),
+			Paths: t.Paths,
+		})
+	}
+	s.visitorRun = visitorRunners(res.VisitorTools)
 	return out, nil
 }
 
@@ -257,6 +278,13 @@ func (s *pluginServer) HandleHook(ctx context.Context, req *contract.HookRequest
 	// it cannot happen — Core dispatches `ability:<name>` only for abilities this plugin declared at Init,
 	// so the only names that arrive are the author's own.
 	if out, handled, err := dispatchAbility(ctx, s.abilityRun, req.Hook, req.Payload); handled {
+		if err != nil {
+			return nil, asAnswer(err)
+		}
+		return &contract.HookResponse{Payload: out}, nil
+	}
+	// A visitor tool with a Run, the same way; one without falls through to HandleHook.
+	if out, handled, err := dispatchVisitorTool(ctx, s.visitorRun, req.Hook, req.Payload); handled {
 		if err != nil {
 			return nil, asAnswer(err)
 		}

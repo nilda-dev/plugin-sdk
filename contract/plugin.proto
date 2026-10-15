@@ -147,6 +147,22 @@ message InitResponse {
   // Without this, the only actions an agent knows about are the ones Core itself ships: a shop plugin
   // could register a product all day and "add these fifty products" had nothing to call.
   repeated Ability abilities = 5;
+
+  // What a VISITOR's own AI agent may do on the public site through this plugin (requires `visitor_tools`).
+  // Core publishes each beside its own public tools — WebMCP in the page, and the site's public MCP — as
+  // "<plugin_key>.<name>", under the same owner switch and per-address rate limit. Only "read" and "submit":
+  // a visitor's agent may do what the visitor could do on the page, and nothing a form cannot.
+  repeated VisitorTool visitor_tools = 6;
+}
+
+// VisitorTool is one action a visitor's agent may take on the public site.
+message VisitorTool {
+  string name = 1;         // lowercase id within the plugin, e.g. "search_products"
+  string description = 2;  // what a STRANGER's model reads, knowing nothing of this site
+  string effect = 3;       // "read" or "submit" — nothing else exists for an anonymous caller
+  string input_schema = 4; // JSON Schema object describing the arguments; required
+  // The site paths it is offered on, as prefixes ("/shop"); empty offers it on every page.
+  repeated string paths = 5;
 }
 
 // Ability is one action the plugin offers an AI agent.

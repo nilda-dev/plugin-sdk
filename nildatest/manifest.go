@@ -49,7 +49,7 @@ func ManifestAbilities(t testing.TB, manifestPath string, abilities []nilda.Abil
 	if err != nil {
 		t.Fatalf("read %s: %v", manifestPath, err)
 	}
-	start, end, err := abilitiesSpan(raw)
+	start, end, err := keySpan(raw, "abilities")
 	if err != nil {
 		t.Fatalf("%s: %v", manifestPath, err)
 	}
@@ -67,7 +67,7 @@ func ManifestAbilities(t testing.TB, manifestPath string, abilities []nilda.Abil
 		t.Fatalf("%s does not declare the abilities Init returns (%s) — run this test with %s=1 to write them",
 			manifestPath, diff, WriteManifestEnv)
 	}
-	out, err := withAbilities(raw, start, end, want)
+	out, err := withKey(raw, start, end, "abilities", want)
 	if err != nil {
 		t.Fatalf("%s: %v", manifestPath, err)
 	}
@@ -77,8 +77,8 @@ func ManifestAbilities(t testing.TB, manifestPath string, abilities []nilda.Abil
 	t.Logf("wrote %d abilities into %s (%s)", len(want), manifestPath, diff)
 }
 
-// abilitiesSpan finds the byte span of the top-level "abilities" value, or -1, -1 when there is none.
-func abilitiesSpan(raw []byte) (start, end int, err error) {
+// keySpan finds the byte span of a top-level value ("abilities", "visitor_tools"), or -1, -1 when there is none.
+func keySpan(raw []byte, key string) (start, end int, err error) {
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
 		return 0, 0, fmt.Errorf("not a JSON object")
@@ -92,7 +92,7 @@ func abilitiesSpan(raw []byte) (start, end int, err error) {
 		if err := dec.Decode(&v); err != nil {
 			return 0, 0, err
 		}
-		if tok == "abilities" {
+		if tok == key {
 			end := int(dec.InputOffset())
 			return end - len(v), end, nil
 		}
@@ -100,8 +100,8 @@ func abilitiesSpan(raw []byte) (start, end int, err error) {
 	return -1, -1, nil
 }
 
-// withAbilities puts the list in place of the old value, or adds the key before the object's closing brace.
-func withAbilities(raw []byte, start, end int, list []manifestAbility) ([]byte, error) {
+// withKey puts the list in place of the key's old value, or adds the key before the object's closing brace.
+func withKey(raw []byte, start, end int, key string, list any) ([]byte, error) {
 	val, err := json.MarshalIndent(list, "  ", "  ")
 	if err != nil {
 		return nil, err
@@ -116,7 +116,7 @@ func withAbilities(raw []byte, start, end int, list []manifestAbility) ([]byte, 
 		sep = ""
 	}
 	out := append([]byte{}, body...)
-	out = append(out, []byte(sep+"\n  \"abilities\": ")...)
+	out = append(out, []byte(sep+"\n  \""+key+"\": ")...)
 	out = append(out, val...)
 	out = append(out, '\n')
 	return append(out, raw[closing:]...), nil
@@ -149,4 +149,59 @@ func abilityDiff(have, want []manifestAbility) string {
 		parts = append(parts, "a name is declared twice")
 	}
 	return strings.Join(parts, ", ")
+}
+
+// manifestVisitorTool is one visitor tool as plugin.json declares it — what the owner reads before granting
+// `visitor_tools`, and what Core compares with Init.
+type manifestVisitorTool struct {
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Effect      string   `json:"effect"`
+	Paths       []string `json:"paths,omitempty"`
+}
+
+// ManifestVisitorTools holds plugin.json's "visitor_tools" to the visitor tools your Init returns, as
+// ManifestAbilities does for abilities: the test fails while the two disagree, and NILDA_WRITE_MANIFEST=1 writes
+// the list.
+//
+//	func TestPluginJSONDeclaresTheVisitorTools(t *testing.T) {
+//		nildatest.ManifestVisitorTools(t, "plugin.json", (&Shop{}).visitorTools())
+//	}
+func ManifestVisitorTools(t testing.TB, manifestPath string, tools []nilda.VisitorTool) {
+	t.Helper()
+	want := make([]manifestVisitorTool, 0, len(tools))
+	for _, v := range tools {
+		want = append(want, manifestVisitorTool{Name: v.Name, Description: v.Description, Effect: string(v.Effect), Paths: v.Paths})
+	}
+	raw, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", manifestPath, err)
+	}
+	start, end, err := keySpan(raw, "visitor_tools")
+	if err != nil {
+		t.Fatalf("%s: %v", manifestPath, err)
+	}
+	var have []manifestVisitorTool
+	if start >= 0 {
+		if err := json.Unmarshal(raw[start:end], &have); err != nil {
+			t.Fatalf("%s: \"visitor_tools\" is not a list of visitor tools: %v", manifestPath, err)
+		}
+	}
+	haveJSON, _ := json.Marshal(have)
+	wantJSON, _ := json.Marshal(want)
+	if bytes.Equal(haveJSON, wantJSON) {
+		return
+	}
+	if os.Getenv(WriteManifestEnv) == "" {
+		t.Fatalf("%s does not declare the visitor tools Init returns — run this test with %s=1 to write them",
+			manifestPath, WriteManifestEnv)
+	}
+	out, err := withKey(raw, start, end, "visitor_tools", want)
+	if err != nil {
+		t.Fatalf("%s: %v", manifestPath, err)
+	}
+	if err := os.WriteFile(manifestPath, out, 0o644); err != nil {
+		t.Fatalf("write %s: %v", manifestPath, err)
+	}
+	t.Logf("wrote %d visitor tools into %s", len(want), manifestPath)
 }
