@@ -23,6 +23,7 @@ const (
 	currentUserHeader     = "X-Nilda-User"
 	currentUserNameHeader = "X-Nilda-User-Name"
 	visitorCountryHeader  = "X-Nilda-Visitor-Country"
+	visitorKeyHeader      = "X-Nilda-Visitor-Key"
 )
 
 // CurrentUser reports the Core user behind a request your resident HTTP server received — the `route`
@@ -59,6 +60,19 @@ func VisitorCountry(r *http.Request) (string, bool) {
 		return "", false
 	}
 	return c, true
+}
+
+// VisitorKey is an opaque key for the visitor's internet address, for a request your resident HTTP server received —
+// to LIMIT a public write by (a form that mails whoever it is given, a sign-up), never to identify anyone. Core sends
+// a keyed hash of the address (the whole IPv4 address, an IPv6 address's /64) that changes every UTC day, never the
+// address; the same visitor reads the same key all day. It strips any value a client sent, as it does every X-Nilda-*
+// header. "" when Core sent none (an older Core). From v0.23.0.
+func VisitorKey(r *http.Request) string {
+	k := r.Header.Get(visitorKeyHeader)
+	if len(k) > 64 {
+		return ""
+	}
+	return k
 }
 
 // AGENTS THAT PROVE WHO THEY ARE (Web Bot Auth). An AI agent — ChatGPT's agent, Google's — can sign its requests

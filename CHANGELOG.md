@@ -6,8 +6,9 @@ here.
 
 ## v0.23.0 — unreleased (one list decides which agent may pay)
 
-Additions only (`surface.txt` grows by 29 entries, `nildatest/surface.txt` by 1; nothing removed). On the wire: Core's
-`GET /api/rest/v1/agents/tier`; optional new fields on `shop.catalog/v1` and `shop.checkout/v1`.
+Additions only (`surface.txt` grows by 33 entries, `nildatest/surface.txt` by 1; nothing removed). On the wire: Core's
+`GET /api/rest/v1/agents/tier` and `X-Nilda-Visitor-Key` header; optional new fields on `shop.catalog/v1`, `shop.checkout/v1`
+and `stock.alerts/v1` subscribe.
 
 ### Added
 
@@ -24,6 +25,10 @@ Additions only (`surface.txt` grows by 29 entries, `nildatest/surface.txt` by 1;
   `CheckoutDescription.ReturnsURL`.
 - **Channel prices as EU law has them** (E1, E5): `CatalogVariant.ShownPriorPriceMinor`, the 30-day lowest price a
   reduction is announced against, and `CatalogVariant.UnitPricing` (`CatalogUnitPricing`).
+
+- **Back-in-stock requests that can be limited and proven** (commerce plan 13, C1–C2): `VisitorKey(r)`, an opaque daily
+  key for a request's address; `StockAlertRequest.Requester` (it) and `StockAlertRequest.ConsentText` (the sentence the
+  form showed); `CommerceEndpoints.StockAlertConsent`, the plugin's sentence for Core to draw under the email box.
 
 ### Changed
 

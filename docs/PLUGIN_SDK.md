@@ -852,6 +852,10 @@ address — ISO 3166-1 alpha-2, the country and never the address, with any clie
 the evidence EU VAT law accepts for where a buyer of a digital service is (Regulation 282/2011 Art. 24f(b)); keep it
 with the sale.
 
+**A key to limit by.** `nilda.VisitorKey(r)` (from v0.23.0) is an opaque key for the request's internet address — a
+keyed hash Core makes of the whole IPv4 address or an IPv6 address's /64, changing every UTC day, never the address.
+Limit a public write by it (a form that mails whoever it is given); it identifies nobody. "" from an older Core.
+
 **The EU's VAT rates.** `core.API().Reference().EUVATRates(ctx, day)` returns an `EUVATRateSet`: every member state's
 rates applying on that day (Brussels time), each an `EUVATRate` in basis points, read by Nilda Central from the European
 Commission's Taxes in Europe Database and kept by Core through an outage. `set.Standard("FR")` is a member state's
@@ -1805,11 +1809,14 @@ A plugin keeps them; the shop's product page takes them. `docs/STOCK_ALERTS.md` 
 
 - **The plugin** implements `StockAlertProvider` (`DescribeStockAlerts`, `SubscribeStockAlert`) and returns
   `StockAlertMethods(p)` — or nothing: `Serve` finds it by itself. The shapes: `StockAlertsDescription` (collecting,
-  and the sentence beside the email box), `StockAlertRequest` (the SKUs, title, page, email and language; `Validate`)
-  answered by `StockAlertResult` (`StockAlertSubscribed`, `StockAlertAlready`, `StockAlertRefused`).
+  and the sentence under the email box), `StockAlertRequest` (the SKUs, title, page, email and language; from v0.23.0
+  the `ConsentText` the form showed, to keep as the record of what the shopper agreed to, and the `Requester` — the
+  shop's `VisitorKey` — to limit requests by; `Validate`) answered by `StockAlertResult` (`StockAlertSubscribed`,
+  `StockAlertAlready`, `StockAlertRefused`).
 - **The shop** declares `"uses": ["stock.alerts/v1"]` with `service_consumer`, asks `Services.StockAlertsDescription`
-  and sets `CommerceEndpoints.StockAlert` only while one is collecting, and hands a request on with
-  `Services.SubscribeStockAlert` (contract `ContractStockAlerts`, methods `StockAlertsDescribe`, `StockAlertSubscribe`).
+  and sets `CommerceEndpoints.StockAlert` (and `StockAlertConsent`, the plugin's sentence) only while one is collecting,
+  and hands a request on with `Services.SubscribeStockAlert` (contract `ContractStockAlerts`, methods
+  `StockAlertsDescribe`, `StockAlertSubscribe`).
 
 ### The shop's checkout (`shop.checkout/v1`)
 

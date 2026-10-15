@@ -442,6 +442,7 @@ field CommerceEndpoints.Cart string json:cart
 field CommerceEndpoints.Checkout string json:checkout
 field CommerceEndpoints.Reviews string json:reviews
 field CommerceEndpoints.StockAlert string json:stock_alert
+field CommerceEndpoints.StockAlertConsent string json:stock_alert_consent
 field CommerceProduct.Badge string json:badge
 field CommerceProduct.Excerpt string json:excerpt
 field CommerceProduct.Extra map[string]string json:extra
@@ -827,9 +828,11 @@ field ShipAddress.Name string json:name
 field ShipAddress.Phone string json:phone
 field ShipAddress.PostalCode string json:postal_code
 field ShipAddress.Region string json:region
+field StockAlertRequest.ConsentText string json:consent_text
 field StockAlertRequest.Email string json:email
 field StockAlertRequest.Locale string json:locale
 field StockAlertRequest.ProductSKU string json:product_sku
+field StockAlertRequest.Requester string json:requester
 field StockAlertRequest.SKU string json:sku
 field StockAlertRequest.Title string json:title
 field StockAlertRequest.URL string json:url
@@ -948,6 +951,7 @@ func Supports([]string, string) (bool)
 func SupportsOf(PaymentMethod) ([]string)
 func TestHintFor(map[string]string, string) (string)
 func VisitorCountry(*http.Request) (string, bool)
+func VisitorKey(*http.Request) (string)
 func VisitorToolHook(string) (string)
 func WithCallInfo(context.Context, CallInfo) (context.Context)
 imethod AssetProvider.FooterScripts(context.Context, RenderAssetsRequest) ([]ScriptAsset)

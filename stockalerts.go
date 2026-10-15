@@ -35,8 +35,9 @@ const (
 	StockAlertRefused = "refused"
 )
 
-// StockAlertsDescription is whether the plugin takes requests now, and the sentence the form shows beside the
-// email box — how the address is used, in the shop's words.
+// StockAlertsDescription is whether the plugin takes requests now, and the sentence the form shows under the email
+// box — how the address is used, in the shop's words (the shop hands it to Core as CommerceEndpoints.StockAlertConsent;
+// empty, Core says it in its own words).
 type StockAlertsDescription struct {
 	Collecting  bool   `json:"collecting"`
 	ConsentText string `json:"consent_text,omitempty"`
@@ -56,6 +57,12 @@ type StockAlertRequest struct {
 	Email string `json:"email"`
 	// Locale is the language the shopper read the page in; the mails are written in it.
 	Locale string `json:"locale,omitempty"`
+	// ConsentText is the sentence the form showed under the email box, as the shopper read it — keep it, the locale
+	// and the time as the record of what they agreed to. From v0.23.0.
+	ConsentText string `json:"consent_text,omitempty"`
+	// Requester is the shop's VisitorKey for whoever sent the form: opaque, the same all day, never an address — what a
+	// plugin limits requests by, so a script cannot make it mail a thousand strangers. From v0.23.0.
+	Requester string `json:"requester,omitempty"`
 }
 
 // Validate refuses a request the plugin cannot keep.
@@ -67,6 +74,9 @@ func (r StockAlertRequest) Validate() error {
 		return errors.New("nilda: a back-in-stock request carries the item's page, absolute")
 	}
 	e := strings.TrimSpace(r.Email)
+	if len(r.ConsentText) > 1000 || len(r.Requester) > 64 {
+		return errors.New("nilda: a back-in-stock request's consent text or requester is too long")
+	}
 	if len(e) > 254 {
 		return errors.New("nilda: that email address is too long")
 	}

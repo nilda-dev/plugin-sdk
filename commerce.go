@@ -293,6 +293,11 @@ type CommerceEndpoints struct {
 	// sold-out item's button only while it is set, so set it only while something keeps the requests
 	// (stock.alerts/v1, STOCK_ALERTS.md) and leave it empty otherwise. From v0.22.0.
 	StockAlert string `json:"stock_alert,omitempty"`
+	// StockAlertConsent is the sentence the form shows under the email box — how the address is used, in the
+	// shop's words (the stock-alerts plugin's StockAlertsDescription.ConsentText). Empty: Core's own sentence, in the
+	// page's language. Either way Core links the site's privacy notice beside it, and the form sends the sentence it
+	// showed with the request (`consent_text`), so what the shopper agreed to can be kept. From v0.23.0.
+	StockAlertConsent string `json:"stock_alert_consent,omitempty"`
 }
 
 // Commerce is the interface a shop plugin implements.

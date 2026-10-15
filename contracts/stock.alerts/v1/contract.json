@@ -58,6 +58,12 @@
           },
           "locale": {
             "type": "string"
+          },
+          "consent_text": {
+            "type": "string"
+          },
+          "requester": {
+            "type": "string"
           }
         },
         "required": [
