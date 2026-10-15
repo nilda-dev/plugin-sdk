@@ -4,6 +4,17 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## v0.19.0 — 2026-10-15 (prices as a buyer pays them, in the catalogue)
+
+Additions only (`surface.txt` grows by 2 entries; nothing removed; no wire change). The `shop.catalog/v1` contract file
+grows two optional fields — an object in the contract takes fields it does not name, so a Core on an older SDK still
+accepts an answer carrying them.
+
+### Added
+
+- **`CatalogVariant.ShownPriceMinor` and `ShownSalePriceMinor`**: the regular and sale price as a buyer pays them, with
+  the shop's own tax when its prices are entered without it — what Google and Meta list in the EU.
+
 ## v0.18.0 — 2026-10-15 (what a visitor's own AI agent may do; files at the site's root)
 
 Additions only (`surface.txt` grows by 18 entries, `nildatest/surface.txt` by 1; nothing removed). One wire

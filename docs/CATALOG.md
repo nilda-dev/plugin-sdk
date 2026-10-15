@@ -23,7 +23,9 @@ assistant: the owner reads and changes the catalogue through the shop's own abil
 `CatalogProduct` carries the product's SKU, title, description, absolute page URL, picture URLs (the main one first),
 brand, condition (`new`, `refurbished`, `used`), Google's product category as the merchant gave it, and `updated_at`;
 and one `CatalogVariant` per purchasable variant — the item a channel lists: its SKU, title and options, the regular
-price and the sale price now with the sale's end, the currency, the availability (`in_stock`, `out_of_stock`,
+price and the sale price now with the sale's end, the same two as a buyer pays them (`shown_price_minor`,
+`shown_sale_price_minor`: with the shop's tax when its prices are entered without it — what a channel showing prices
+with tax lists; from v0.19.0), the currency, the availability (`in_stock`, `out_of_stock`,
 `backorder`) and the quantity when it is counted, GTIN and MPN, the weight, whether it ships, its own picture.
 
 With `updated_since`, only products that changed since — the text, a price, the stock, a variant — and products taken

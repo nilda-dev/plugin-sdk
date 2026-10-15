@@ -295,6 +295,8 @@ field CatalogVariant.RequiresShipping bool json:requires_shipping
 field CatalogVariant.SKU string json:sku
 field CatalogVariant.SaleEnds *time.Time json:sale_ends
 field CatalogVariant.SalePriceMinor *int64 json:sale_price_minor
+field CatalogVariant.ShownPriceMinor int64 json:shown_price_minor
+field CatalogVariant.ShownSalePriceMinor *int64 json:shown_sale_price_minor
 field CatalogVariant.Title string json:title
 field CatalogVariant.WeightGrams *int64 json:weight_grams
 field CommerceEndpoints.Account string json:account

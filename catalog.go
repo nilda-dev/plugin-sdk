@@ -196,6 +196,12 @@ type CatalogVariant struct {
 	SalePriceMinor *int64     `json:"sale_price_minor,omitempty"`
 	SaleEnds       *time.Time `json:"sale_ends,omitempty"`
 	Currency       string     `json:"currency"`
+	// ShownPriceMinor and ShownSalePriceMinor are the same two prices as a buyer pays them — with the shop's own tax
+	// when its prices are entered without it (CatalogDescription.PricesIncludeTax false), as its storefront shows
+	// them. A channel that lists prices with tax (Google and Meta in the EU) lists these. Zero from a provider built
+	// before v0.19.0: PriceMinor is then the best a channel has.
+	ShownPriceMinor     int64  `json:"shown_price_minor,omitempty"`
+	ShownSalePriceMinor *int64 `json:"shown_sale_price_minor,omitempty"`
 	// Availability is in_stock, out_of_stock or backorder; Quantity how many are available, nil when not counted.
 	Availability string `json:"availability"`
 	Quantity     *int64 `json:"quantity,omitempty"`
@@ -215,6 +221,9 @@ func (v CatalogVariant) Validate() error {
 	}
 	if v.PriceMinor < 0 || v.SalePriceMinor != nil && (*v.SalePriceMinor < 0 || *v.SalePriceMinor > v.PriceMinor) {
 		return fmt.Errorf("variant %q has a price below zero or a sale price above its price", v.SKU)
+	}
+	if v.ShownPriceMinor < 0 || v.ShownSalePriceMinor != nil && (*v.ShownSalePriceMinor < 0 || *v.ShownSalePriceMinor > v.ShownPriceMinor) {
+		return fmt.Errorf("variant %q has a shown price below zero or a shown sale price above its shown price", v.SKU)
 	}
 	if err := validCurrency(fmt.Sprintf("variant %q's currency", v.SKU), v.Currency); err != nil {
 		return err

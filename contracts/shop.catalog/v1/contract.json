@@ -170,6 +170,15 @@
                       "currency": {
                         "type": "string"
                       },
+                      "shown_price_minor": {
+                        "type": "integer"
+                      },
+                      "shown_sale_price_minor": {
+                        "type": [
+                          "null",
+                          "integer"
+                        ]
+                      },
                       "availability": {
                         "type": "string"
                       },
@@ -328,6 +337,15 @@
                     },
                     "currency": {
                       "type": "string"
+                    },
+                    "shown_price_minor": {
+                      "type": "integer"
+                    },
+                    "shown_sale_price_minor": {
+                      "type": [
+                        "null",
+                        "integer"
+                      ]
                     },
                     "availability": {
                       "type": "string"
