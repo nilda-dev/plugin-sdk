@@ -155,8 +155,52 @@ var shopCatalogV1 = contractDef{
 const catalogAgentReason = "the owner reads the catalogue through the shop's own abilities (list_products, " +
 	"get_product, list_variants); this is how a channel plugin reads it"
 
+// shopCheckoutV1 is the shop's checkout, driven by a protocol adapter (CHECKOUT.md). One shop answers, so a failure
+// blocks: a checkout nobody answered cannot be reported to an agent as anything but a failure. Nothing is cached — a
+// price or a stock level from earlier is not a checkout. Create, update and complete carry the adapter's idempotency
+// key, so a retried request is one checkout and one order.
+var shopCheckoutV1 = contractDef{
+	name: ContractShopCheckout,
+	description: "The shop's checkout for an agentic-commerce adapter (ACP, UCP): open a checkout for a basket, price " +
+		"it for an address with the shop's own delivery, tax and discounts, then place the order with a delegated " +
+		"payment credential where the merchant lets that agent pay, or hand it to a person by continue_url " +
+		"(CHECKOUT.md).",
+	methods: []methodDef{
+		{ContractMethod{Name: CheckoutDescribe, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: checkoutAgentReason,
+			Description: "The shop as an adapter announces it: name, address, currency, its legal pages, and the delegated payment credentials it can charge."},
+			ordinary{}, CheckoutDescription{}},
+		{ContractMethod{Name: CheckoutSessionCreate, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: checkoutAgentReason,
+			Description: "Open a checkout for a new basket, with the buyer and the address when known; answers the checkout as the shop priced it, or why it refused."},
+			CheckoutCreateRequest{}, CheckoutResult{}},
+		{ContractMethod{Name: CheckoutSessionUpdate, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: checkoutAgentReason,
+			Description: "Change a checkout — the basket, the buyer, the address, the delivery option, the discount code — and price it again."},
+			CheckoutUpdateRequest{}, CheckoutResult{}},
+		{ContractMethod{Name: CheckoutSessionGet, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: checkoutAgentReason,
+			Description: "A checkout as it stands, or the order it became."},
+			CheckoutRef{}, CheckoutResult{}},
+		{ContractMethod{Name: CheckoutSessionComplete, AnsweredBy: "provider", BudgetMS: 15000, RetryClass: "failure",
+			Fallback: "block", Idempotent: true, Agent: "none", AgentReason: checkoutAgentReason,
+			Description: "Place the order, paid with the delegated credential when the merchant lets this agent pay; asked again, the same order."},
+			CheckoutCompleteRequest{}, CheckoutResult{}},
+		{ContractMethod{Name: CheckoutSessionCancel, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: checkoutAgentReason,
+			Description: "End a checkout without an order."},
+			CheckoutRef{}, CheckoutResult{}},
+	},
+}
+
+// checkoutAgentReason: a checkout is a visitor's, never the owner's; a visitor's own agent has the shop's visitor
+// tools, and the owner reads checkouts through the shop's abilities.
+const checkoutAgentReason = "a checkout is a buyer's: a visitor's agent reaches it through the shop's visitor tools " +
+	"(create_cart, quote, place_order), the owner through the shop's own abilities (list_saved_checkouts); this is " +
+	"how a protocol adapter drives it"
+
 // contractDefs is every contract this module defines.
-var contractDefs = []contractDef{paymentsV1, shippingCarrierV1, shopCatalogV1}
+var contractDefs = []contractDef{paymentsV1, shippingCarrierV1, shopCatalogV1, shopCheckoutV1}
 
 // render builds a contract file from its definition.
 func (d contractDef) render(t *testing.T) []byte {

@@ -4,6 +4,21 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## v0.21.0 — unreleased (the shop's checkout, driven by an agentic-commerce adapter)
+
+Additions only (`surface.txt` grows by 140 entries; nothing removed). A new contract file,
+`contracts/shop.checkout/v1/contract.json`; nothing else changes on the wire.
+
+### Added
+
+- **`shop.checkout/v1`** (docs/CHECKOUT.md): the shop's checkout for an ACP or UCP adapter — `describe`,
+  `session.create`, `session.update`, `session.get`, `session.complete`, `session.cancel`. The shop implements
+  `CheckoutProvider` (`Serve` finds it, `CheckoutMethods` names it); an adapter calls `Services.CheckoutDescription`,
+  `CreateCheckout`, `UpdateCheckout`, `GetCheckout`, `CompleteCheckout` and `CancelCheckout` with the protocol
+  request's idempotency key. Every answer is a `CheckoutResult` — a `CheckoutState` (statuses `CheckoutIncomplete`,
+  `CheckoutReadyForPayment`, `CheckoutRequiresEscalation`, `CheckoutCompleted`, `CheckoutCanceled`) or a
+  `CheckoutRefusal` an agent can read. Completing with a `PaymentCredential` is for an `Agent` of tier `AgentBuy` only.
+
 ## v0.20.0 — 2026-10-15 (an AI agent that proves who it is, and pays for its buyer)
 
 Additions only (`surface.txt` grows by 21 entries, `nildatest/surface.txt` by 3; nothing removed). On the wire:

@@ -98,6 +98,7 @@ func TestEveryExportedProviderInterfaceIsInTheTable(t *testing.T) {
 		"CarrierTracker":   "rides on Carrier: CarrierMethods answers track with it, or \"unsupported\" without",
 		"CarrierDocuments": "rides on Carrier: CarrierMethods answers documents with it, or \"unsupported\" without",
 		"CatalogProvider":  "Serve answers it through CatalogMethods; Core subscribes it from provides — CATALOG.md",
+		"CheckoutProvider": "Serve answers it through CheckoutMethods; Core subscribes it from provides — CHECKOUT.md",
 		"CredentialPayer":  "rides on PaymentGateway: payment.start, which its row subscribes, carries the credential",
 	}
 	wired := map[string]bool{}

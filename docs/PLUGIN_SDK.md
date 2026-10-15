@@ -1787,6 +1787,29 @@ and reads the published products in a feed-grade shape. `docs/CATALOG.md` is the
   `Services.CatalogDescription`, `Services.CatalogPage` and `Services.CatalogProduct` (contract `ContractShopCatalog`,
   methods `CatalogDescribe`, `CatalogProductsPage`, `CatalogProductGet`).
 
+### The shop's checkout (`shop.checkout/v1`)
+
+The shop provides it; an agentic-commerce adapter — ACP, UCP — requires it and drives the shop's own checkout for an AI
+agent's basket. `docs/CHECKOUT.md` is the whole of it.
+
+- **The shop** implements `CheckoutProvider` (`DescribeCheckout`, `CreateCheckout`, `UpdateCheckout`, `GetCheckout`,
+  `CompleteCheckout`, `CancelCheckout`) and returns `CheckoutMethods(c)` — or nothing: `Serve` finds a
+  `CheckoutProvider` by itself. The shapes: `CheckoutDescription` (the shop, its legal pages, the credential types it
+  can charge); `CheckoutCreateRequest` of `CheckoutLineRequest`s (at most `CheckoutMaxLines`) with a `CheckoutBuyer`
+  and a `CheckoutAddress`; `CheckoutUpdateRequest`; `CheckoutRef`; `CheckoutCompleteRequest` with a
+  `PaymentCredential`. Each is answered by a `CheckoutResult`: a `CheckoutState` (status `CheckoutIncomplete`,
+  `CheckoutReadyForPayment`, `CheckoutRequiresEscalation`, `CheckoutCompleted`, `CheckoutCanceled`; `CheckoutLine`s,
+  `CheckoutTotals`, `CheckoutDeliveryOption`s, `CheckoutMessage`s, the `continue_url`, the `CheckoutOrder`) or a
+  `CheckoutRefusal` (`CheckoutRefusedNotFound`, `CheckoutRefusedInvalid`, `CheckoutRefusedNotAllowed`,
+  `CheckoutRefusedClosed`, `CheckoutRefusedNotCompleted`). Each has `Validate`.
+- **An adapter** declares `"requires": ["shop.checkout/v1"]` with `service_consumer` and calls
+  `Services.CheckoutDescription`, `Services.CreateCheckout`, `Services.UpdateCheckout`, `Services.GetCheckout`,
+  `Services.CompleteCheckout` and `Services.CancelCheckout` (contract `ContractShopCheckout`, methods
+  `CheckoutDescribe`, `CheckoutSessionCreate`, `CheckoutSessionUpdate`, `CheckoutSessionGet`,
+  `CheckoutSessionComplete`, `CheckoutSessionCancel`), passing the protocol request's idempotency key.
+- **Only an agent of tier `AgentBuy`** completes with a credential — the adapter says so only where the merchant
+  switched paying on; every other checkout is finished by a person at `continue_url`.
+
 ---
 
 ## 6. What Core guarantees, and what it does not
