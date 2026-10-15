@@ -370,6 +370,7 @@ field CheckoutDescription.Origin string json:origin
 field CheckoutDescription.PrivacyURL string json:privacy_url
 field CheckoutDescription.ReturnsURL string json:returns_url
 field CheckoutDescription.TermsURL string json:terms_url
+field CheckoutLine.Digital bool json:digital
 field CheckoutLine.ImageURL string json:image_url
 field CheckoutLine.Quantity int64 json:quantity
 field CheckoutLine.SKU string json:sku

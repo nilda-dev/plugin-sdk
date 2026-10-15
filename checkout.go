@@ -335,6 +335,9 @@ type CheckoutLine struct {
 	TotalMinor     int64  `json:"total_minor"`
 	URL            string `json:"url,omitempty"`
 	ImageURL       string `json:"image_url,omitempty"`
+	// Digital: a download delivered at once — the line the waiver (CheckoutState.DigitalConsentText) is about, for an
+	// adapter to show it beside (ACP's line-item disclosures). From v0.23.0.
+	Digital bool `json:"digital,omitempty"`
 }
 
 // CheckoutTotals are the checkout's sums, in minor units. TaxIncluded: TaxMinor is inside TotalMinor, as the shop's

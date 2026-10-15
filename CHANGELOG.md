@@ -6,7 +6,7 @@ here.
 
 ## v0.23.0 — unreleased (one list decides which agent may pay)
 
-Additions only (`surface.txt` grows by 33 entries, `nildatest/surface.txt` by 1; nothing removed). On the wire: Core's
+Additions only (`surface.txt` grows by 34 entries, `nildatest/surface.txt` by 1; nothing removed). On the wire: Core's
 `GET /api/rest/v1/agents/tier` and `X-Nilda-Visitor-Key` header; optional new fields on `shop.catalog/v1`, `shop.checkout/v1`
 and `stock.alerts/v1` subscribe.
 
@@ -22,7 +22,7 @@ and `stock.alerts/v1` subscribe.
   `CheckoutPreContract` with the `CheckoutSeller`, the withdrawal period, text and form, the terms, privacy and returns
   pages and the final button's words; `CheckoutState.DigitalConsentText` and
   `CheckoutCompleteRequest.DigitalConsentText`, the download waiver's sentence sent back word for word;
-  `CheckoutDescription.ReturnsURL`.
+  `CheckoutDescription.ReturnsURL`; `CheckoutLine.Digital`, the line the waiver is about.
 - **Channel prices as EU law has them** (E1, E5): `CatalogVariant.ShownPriorPriceMinor`, the 30-day lowest price a
   reduction is announced against, and `CatalogVariant.UnitPricing` (`CatalogUnitPricing`).
 

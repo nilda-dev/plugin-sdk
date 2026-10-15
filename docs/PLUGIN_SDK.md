@@ -1844,8 +1844,8 @@ agent's basket. `docs/CHECKOUT.md` is the whole of it.
 - **What the buyer must be told before they are bound** rides every open state as `PreContract` — a
   `CheckoutPreContract` with the `CheckoutSeller`, the withdrawal period, its text and form, the terms, privacy and
   returns pages, and the final button's words — for the agent to show its buyer first (Directive 2011/83/EU Art. 6,
-  8(2)). A basket with a download carries `DigitalConsentText`, which complete sends back word for word with
-  `DigitalConsent`; the shop keeps it as proof (Art. 16(m)). `CheckoutDescription.ReturnsURL` names the returns page.
+  8(2)). A basket with a download carries `DigitalConsentText` (and marks each such `CheckoutLine.Digital`), which
+  complete sends back word for word with `DigitalConsent`; the shop keeps it as proof (Art. 16(m)). `CheckoutDescription.ReturnsURL` names the returns page.
   From v0.23.0.
 
 ---

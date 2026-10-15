@@ -47,8 +47,8 @@ Every open state carries `pre_contract`: who sells (name, address, email, phone,
 its text and form, the terms, privacy and returns pages, and the words the final step must carry. An agent buying for a
 person shows it before it completes — a consumer the trader did not inform is not bound, and a withdrawal period
 without its information runs twelve months longer (Directive 2011/83/EU Art. 6(1), 8(2), 10(1)). A basket holding a
-download carries `digital_consent_text`; `session.complete` sends it back word for word with `digital_consent`, and the
-shop keeps the sentence and the agent with the order as proof (Art. 16(m)).
+download carries `digital_consent_text`, and each such line `digital: true`; `session.complete` sends the sentence back
+word for word with `digital_consent`, and the shop keeps the sentence and the agent with the order as proof (Art. 16(m)).
 
 ## Who may pay
 
