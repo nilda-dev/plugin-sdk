@@ -89,3 +89,43 @@ func TestADeadlineIsAResultNotAnError(t *testing.T) {
 		t.Fatalf("a blocking method with nothing answered: %v", err)
 	}
 }
+
+// alertsKeeper is a stock-alerts plugin whose describe answers, or fails.
+type alertsKeeper struct{ fail bool }
+
+func (a alertsKeeper) DescribeStockAlerts(context.Context) (nilda.StockAlertsDescription, error) {
+	if a.fail {
+		return nilda.StockAlertsDescription{}, errors.New("database down")
+	}
+	return nilda.StockAlertsDescription{Collecting: true}, nil
+}
+
+func (a alertsKeeper) SubscribeStockAlert(context.Context, nilda.StockAlertRequest) (nilda.StockAlertResult, error) {
+	return nilda.StockAlertResult{Status: nilda.StockAlertSubscribed}, nil
+}
+
+func (a alertsKeeper) ServiceMethods() []nilda.ServiceMethod { return nilda.StockAlertMethods(a) }
+
+// A PLUGIN THAT IS THERE AND DID NOT ANSWER IS NOT "NOBODY" (the 2026-10-15 review, plan 13 C7): the shop's answer is
+// kept until the next plugin event, so a describe that failed once must not read as "no plugin collects".
+func TestAStockAlertsPluginThatFailsIsNotNobody(t *testing.T) {
+	ctx := context.Background()
+	ask := func(keeper *alertsKeeper) (nilda.StockAlertsDescription, bool, error) {
+		desk := NewServices()
+		if keeper != nil {
+			desk.Provider("stock_alerts", *keeper)
+		}
+		core, _, srv := desk.Core("shop", nilda.ContractStockAlerts)
+		defer srv.Close()
+		return core.API().Services().StockAlertsDescription(ctx)
+	}
+	if _, ok, err := ask(nil); ok || err != nil {
+		t.Errorf("no plugin: ok %v, err %v — want nobody, no error", ok, err)
+	}
+	if _, ok, err := ask(&alertsKeeper{fail: true}); ok || err == nil || !strings.Contains(err.Error(), "stock_alerts") {
+		t.Errorf("a plugin whose describe failed: ok %v, err %v — want an error naming it", ok, err)
+	}
+	if d, ok, err := ask(&alertsKeeper{}); !ok || err != nil || !d.Collecting {
+		t.Errorf("a collecting plugin: %+v %v %v", d, ok, err)
+	}
+}

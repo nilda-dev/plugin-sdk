@@ -25,6 +25,12 @@ Additions only (`surface.txt` grows by 29 entries, `nildatest/surface.txt` by 1;
 - **Channel prices as EU law has them** (E1, E5): `CatalogVariant.ShownPriorPriceMinor`, the 30-day lowest price a
   reduction is announced against, and `CatalogVariant.UnitPricing` (`CatalogUnitPricing`).
 
+### Changed
+
+- **`Services.StockAlertsDescription`**: a stock-alerts plugin that is installed and did not answer (a timeout, an
+  error, an answer the contract refuses) is now an error naming it, not `ok == false` — "nobody collects" is said only
+  when no plugin provides the contract (commerce plan 13, C7).
+
 ## v0.22.0 — 2026-10-15 (back-in-stock requests)
 
 Additions only (`surface.txt` grows by 29 entries; nothing removed). On the wire: a new contract file,

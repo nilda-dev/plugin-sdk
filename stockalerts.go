@@ -118,14 +118,20 @@ func StockAlertMethods(p StockAlertProvider) []ServiceMethod {
 
 // ---- the shop's side ---------------------------------------------------------------------------------------
 
-// StockAlertsDescription asks whether a plugin takes back-in-stock requests now. ok is false when none is installed
-// and on, or none answered — the shop then shows no form.
+// StockAlertsDescription asks whether a plugin takes back-in-stock requests now. ok is false only when none is
+// installed and on — the shop then shows no form. A plugin that is there and did not answer (a timeout, an error, an
+// answer the contract refuses) is an error, not "nobody": the shop cannot tell whether it collects, and a form hidden
+// on that would stay hidden for as long as the shop's answer is kept.
 func (s *Services) StockAlertsDescription(ctx context.Context) (StockAlertsDescription, bool, error) {
 	res, err := s.Call(ctx, ContractStockAlerts, StockAlertsDescribe, struct{}{}, ServiceCallOptions{})
 	if err != nil {
 		return StockAlertsDescription{}, false, err
 	}
 	if len(res.Answers) == 0 {
+		if len(res.Missed) > 0 {
+			return StockAlertsDescription{}, false, fmt.Errorf("nilda: %s did not answer %s %s (%s)", res.Missed[0].Provider,
+				ContractStockAlerts, StockAlertsDescribe, res.Missed[0].Reason)
+		}
 		return StockAlertsDescription{}, false, nil
 	}
 	var d StockAlertsDescription

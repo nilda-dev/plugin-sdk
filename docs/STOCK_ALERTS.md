@@ -8,7 +8,7 @@ app or an extension beside the shop. The plugin **provides** `stock.alerts/v1`; 
 
 | Method | Asks | Answers |
 |---|---|---|
-| `describe` | nothing | `StockAlertsDescription`: `collecting`, and the sentence the form shows beside the email box. Nothing answering is no form (fallback `skip`). |
+| `describe` | nothing | `StockAlertsDescription`: `collecting`, and the sentence the form shows beside the email box. No plugin providing it is no form (fallback `skip`); a plugin that is there and did not answer is an error from `Services.StockAlertsDescription`, not "nobody". |
 | `subscribe` | `StockAlertRequest`: the variant's SKU, its product's, the title and page the mails name, the email, the shopper's language | `StockAlertResult`: `subscribed`, `already` or `refused`, with the sentence the shopper reads |
 
 A request the checks refuse — not an email address, no page — is answered `refused` with the reason, never an error.
