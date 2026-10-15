@@ -1070,8 +1070,8 @@ optional hints make that drawing right:
 - `badge` draws a short status as a coloured badge; `badges` gives each value a tone: `green` (done),
   `gold` (waiting on the owner), `blue` (under way), `warn` (needs attention), `grey` (over). A value with no
   tone is grey.
-- `metrics` type a report's `Summary` keys, with the formats `number` (the default), `money`, `percent` and
-  `text`; `headline` shows at most 3 of them on your plugin's row and at the top of its screen.
+- `metrics` type a report's `Summary` keys, with the formats `number` (the default), `money`, `percent` (the
+  number itself: 12.5 is 12.5 %) and `text`; `headline` shows at most 3 of them on your plugin's row and at the top of its screen.
 - `row` lays a list row out as a title, at most two columns under it, a trailing value and a badge — each one
   of the page's columns. `pin` lets the owner pin a row to a message in the site's chat ("Ask in Chat about
   this order"); the assistant then reads that row as the owner may see it.

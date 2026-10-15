@@ -220,9 +220,9 @@ func BadgeTones() []string {
 
 // Metric formats. A format Core does not know is drawn as text.
 const (
-	MetricNumber  = "number" // the default
-	MetricMoney   = "money"  // an integer in minor units, like ColumnMoney; name the currency
-	MetricPercent = "percent"
+	MetricNumber  = "number"  // the default
+	MetricMoney   = "money"   // an integer in minor units, like ColumnMoney; name the currency
+	MetricPercent = "percent" // the number itself, not a fraction: 12.5 is 12.5 %
 	MetricText    = "text"
 )
 
