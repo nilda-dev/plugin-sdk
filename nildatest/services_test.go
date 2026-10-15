@@ -184,3 +184,46 @@ func TestEveryDeliveringPluginIsAskedAndAFailureIsNotNone(t *testing.T) {
 		t.Errorf("one plugin failed: %+v missed %d %v — want the other's item and one missed", items, missed, err)
 	}
 }
+
+// offersKeeper is an offers plugin whose answers come, or fail.
+type offersKeeper struct {
+	id   string
+	fail bool
+}
+
+func (o offersKeeper) OffersFor(context.Context, nilda.OffersRequest) (nilda.OffersResult, error) {
+	if o.fail {
+		return nilda.OffersResult{}, errors.New("database down")
+	}
+	return nilda.OffersResult{Offers: []nilda.Offer{{ID: o.id, SKU: "cap", PercentOff: 10, MaxUnits: 1}}}, nil
+}
+
+func (o offersKeeper) ConfirmOffers(context.Context, nilda.OffersConfirmRequest) (nilda.OffersConfirmResult, error) {
+	if o.fail {
+		return nilda.OffersConfirmResult{}, errors.New("database down")
+	}
+	return nilda.OffersConfirmResult{Accepted: []nilda.Offer{{ID: o.id, SKU: "cap", PercentOff: 10, MaxUnits: 1}}}, nil
+}
+
+func (o offersKeeper) ServiceMethods() []nilda.ServiceMethod { return nilda.OffersMethods(o) }
+
+// AN OFFERS PLUGIN THAT FAILS IS LEFT OUT, AND ITS OFFERS DO NOT STAND: the page shows the other plugin's offers, and
+// the basket is priced without the silent one's discount.
+func TestAnOffersPluginThatFailsIsLeftOutAndItsOffersDoNotStand(t *testing.T) {
+	ctx := context.Background()
+	desk := NewServices()
+	desk.Provider("offers", offersKeeper{id: "a"})
+	desk.Provider("bumps", offersKeeper{id: "b", fail: true})
+	core, _, srv := desk.Core("shop", nilda.ContractShopOffers)
+	defer srv.Close()
+	basket := []nilda.OfferLine{{SKU: "lens", Qty: 1, UnitPriceMinor: 2000}}
+	offers, err := core.API().Services().Offers(ctx, nilda.OffersRequest{Stage: nilda.OfferStageCart, Currency: "EUR", Lines: basket})
+	if err != nil || len(offers) != 1 || offers[0].ID != "a" {
+		t.Fatalf("offers: %+v %v", offers, err)
+	}
+	stand, err := core.API().Services().ConfirmOffers(ctx, nilda.OffersConfirmRequest{Currency: "EUR",
+		Lines: append(basket, nilda.OfferLine{SKU: "cap", Qty: 1, UnitPriceMinor: 500, OfferID: "b"})})
+	if err != nil || len(stand) != 1 || stand["b"].ID != "" || stand["a"].ID != "a" {
+		t.Errorf("confirmed: %+v %v", stand, err)
+	}
+}

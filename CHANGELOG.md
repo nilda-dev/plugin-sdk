@@ -22,6 +22,12 @@ delivering plugin provides — `describe` (the SKUs it delivers, which the shop 
 `DeliverableLink`, `DeliverablesProvider`, `DeliverablesMethods`, `Services.DeliveredSKUs`, `Services.OrderDeliverables`).
 `docs_truth_test` reads Core's plugin refusal as Core now writes it (`PlainText`).
 
+**Offers at the cart, the checkout and after the purchase** (commerce unit 10, the conversion layer; `docs/OFFERS.md`):
+`shop.offers/v1`, which an offers plugin provides — `offers.for` and `offers.confirm` (`OffersRequest`, `OfferLine`,
+`OffersResult`, `Offer`, `OffersConfirmRequest`, `OffersConfirmResult`, the `OfferStage*` words, `OfferPercentMax`,
+`OffersProvider`, `OffersMethods`, `Services.Offers`, `Services.ConfirmOffers`); `ShopOrderLine.OfferID`. A provider
+that returns a nil list now answers an empty one, for `shop.orders/v1` and `shop.deliverables/v1` too.
+
 ## v0.23.0 — 2026-10-15 (one list decides which agent may pay; what a buyer and a shopper are told and kept)
 
 Additions only (`surface.txt` grows by 35 entries, `nildatest/surface.txt` by 1; nothing removed). On the wire: Core's

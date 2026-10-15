@@ -1909,6 +1909,19 @@ back what it delivered. `docs/ORDERS.md` is the whole of it.
   `Serve` finds it by itself, or return `DeliverablesMethods(p)` (contracts `ContractShopOrders`,
   `ContractShopDeliverables`; methods `OrderGet`, `DeliverablesDescribe`, `DeliverablesOrderItems`).
 
+### Offers at the cart, the checkout and after the purchase (`shop.offers/v1`; from v0.24.0)
+
+A plugin keeps the owner's offers; the shop draws them and prices their discount through its own discounts.
+`docs/OFFERS.md` is the whole of it.
+
+- **The plugin** implements `OffersProvider` (`OffersFor` with an `OffersRequest` of `OfferLine`s at a stage —
+  `OfferStageCart`, `OfferStageCheckout`, `OfferStageAfterPurchase` — answered by an `OffersResult` of `Offer`s, each at
+  most `OfferPercentMax` off; `ConfirmOffers` with an `OffersConfirmRequest`, answered by an `OffersConfirmResult`) —
+  `Serve` finds it by itself, or return `OffersMethods(p)` (contract `ContractShopOffers`, methods `OffersFor`,
+  `OffersConfirm`). An order line bought through an offer names it: `ShopOrderLine.OfferID`.
+- **The shop** declares `"uses": ["shop.offers/v1"]` and asks `Services.Offers` for a page and `Services.ConfirmOffers`
+  whenever it prices a basket holding an offer's line.
+
 ### The shop's checkout (`shop.checkout/v1`)
 
 The shop provides it; an agentic-commerce adapter — ACP, UCP — requires it and drives the shop's own checkout for an AI

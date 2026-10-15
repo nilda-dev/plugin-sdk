@@ -86,6 +86,9 @@
                     },
                     "unit_price_minor": {
                       "type": "integer"
+                    },
+                    "offer_id": {
+                      "type": "string"
                     }
                   },
                   "required": [

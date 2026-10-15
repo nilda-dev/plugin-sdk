@@ -79,6 +79,7 @@ const ContractShippingCarrier
 const ContractShopCatalog
 const ContractShopCheckout
 const ContractShopDeliverables
+const ContractShopOffers
 const ContractShopOrders
 const ContractStockAlerts
 const CredentialStripeSPT
@@ -162,6 +163,12 @@ const MetricMoney
 const MetricNumber
 const MetricPercent
 const MetricText
+const OfferPercentMax
+const OfferStageAfterPurchase
+const OfferStageCart
+const OfferStageCheckout
+const OffersConfirm
+const OffersFor
 const OrderGet
 const OrderStatusCancelled
 const OrderStatusCompleted
@@ -630,6 +637,26 @@ field MobileRow.Badge string json:badge
 field MobileRow.Subtitle []string json:subtitle
 field MobileRow.Title string json:title
 field MobileRow.Trailing string json:trailing
+field Offer.Headline string json:headline
+field Offer.ID string json:id
+field Offer.MaxUnits int json:max_units
+field Offer.PercentOff int json:percent_off
+field Offer.SKU string json:sku
+field OfferLine.OfferID string json:offer_id
+field OfferLine.Qty int64 json:qty
+field OfferLine.SKU string json:sku
+field OfferLine.UnitPriceMinor int64 json:unit_price_minor
+field OffersConfirmRequest.Currency string json:currency
+field OffersConfirmRequest.Lines []OfferLine json:lines
+field OffersConfirmRequest.SubtotalMinor int64 json:subtotal_minor
+field OffersConfirmResult.Accepted []Offer json:accepted
+field OffersRequest.Currency string json:currency
+field OffersRequest.Lines []OfferLine json:lines
+field OffersRequest.Locale string json:locale
+field OffersRequest.OrderID string json:order_id
+field OffersRequest.Stage string json:stage
+field OffersRequest.SubtotalMinor int64 json:subtotal_minor
+field OffersResult.Offers []Offer json:offers
 field PageMobile.Hide bool json:hide
 field PageMobile.Pin bool json:pin
 field PageMobile.Row *MobileRow json:row
@@ -901,6 +928,7 @@ field ShopOrder.PlacedAt time.Time json:placed_at
 field ShopOrder.Ref string json:ref
 field ShopOrder.Status string json:status
 field ShopOrder.TotalMinor int64 json:total_minor
+field ShopOrderLine.OfferID string json:offer_id
 field ShopOrderLine.ProductSKU string json:product_sku
 field ShopOrderLine.Quantity int64 json:quantity
 field ShopOrderLine.QuantityRefunded int64 json:quantity_refunded
@@ -1013,6 +1041,7 @@ func NewCoreForTest(string, []string, contract.HostServiceClient, string, string
 func NewOIDCClient(string, string, string, ...string) (*OIDCClient)
 func NewTransport(http.RoundTripper) (http.RoundTripper)
 func ObjectSchema(map[string]any, ...string) (json.RawMessage)
+func OffersMethods(OffersProvider) ([]ServiceMethod)
 func OrdersMethods(OrdersProvider) ([]ServiceMethod)
 func ParseContract([]byte) (ServiceContract, error)
 func ParseMinor(string, string) (int64, error)
@@ -1073,6 +1102,8 @@ imethod FieldProvider.Validate(context.Context, *Core, FieldValidateRequest) (st
 imethod Handler.HandleEvent(context.Context, string, []byte) (error)
 imethod Handler.HandleHook(context.Context, string, []byte) ([]byte, error)
 imethod Handler.Init(context.Context, *Core) (InitResult, error)
+imethod OffersProvider.ConfirmOffers(context.Context, OffersConfirmRequest) (OffersConfirmResult, error)
+imethod OffersProvider.OffersFor(context.Context, OffersRequest) (OffersResult, error)
 imethod OrdersProvider.ShopOrder(context.Context, ShopOrderRequest) (ShopOrderResult, error)
 imethod PaymentConsumer.ConfirmPayment(context.Context, PaymentSession) (PaymentConfirmResult, error)
 imethod PaymentConsumer.PaymentUpdated(context.Context, PaymentSession) (error)
@@ -1174,10 +1205,12 @@ method (*Services) CatalogPage(context.Context, CatalogPageRequest) (CatalogPage
 method (*Services) CatalogProduct(context.Context, string) (CatalogProductResult, error)
 method (*Services) CheckoutDescription(context.Context) (CheckoutDescription, error)
 method (*Services) CompleteCheckout(context.Context, CheckoutCompleteRequest, string) (CheckoutResult, error)
+method (*Services) ConfirmOffers(context.Context, OffersConfirmRequest) (map[string]Offer, error)
 method (*Services) CreateCheckout(context.Context, CheckoutCreateRequest, string) (CheckoutResult, error)
 method (*Services) CreateShippingLabel(context.Context, string, LabelRequest) (LabelResult, error)
 method (*Services) DeliveredSKUs(context.Context) (map[string]bool, error)
 method (*Services) GetCheckout(context.Context, CheckoutRef) (CheckoutResult, error)
+method (*Services) Offers(context.Context, OffersRequest) ([]Offer, error)
 method (*Services) OrderDeliverables(context.Context, DeliverablesRequest) ([]DeliveredItem, int, error)
 method (*Services) ShippingDocuments(context.Context, string, DocumentsRequest) (DocumentsResult, error)
 method (*Services) ShippingRates(context.Context, RatesRequest, ServiceCallOptions) ([]CarrierRatesAnswer, []ServiceMiss, error)
@@ -1217,6 +1250,11 @@ method (EUVATRateSet) Reduced(string, string) ([]EUVATRate)
 method (EUVATRateSet) Standard(string) (int, bool)
 method (LabelRequest) Validate() (error)
 method (LabelResult) Validate() (error)
+method (Offer) Validate() (error)
+method (OffersConfirmRequest) Validate() (error)
+method (OffersConfirmResult) Validate() (error)
+method (OffersRequest) Validate() (error)
+method (OffersResult) Validate() (error)
 method (Parcel) Validate() (error)
 method (PaymentAddress) Validate() (error)
 method (PaymentCredential) GoString() (string)
@@ -1336,6 +1374,13 @@ type LabelResult
 type ListColumn
 type MobileRow
 type OIDCClient
+type Offer
+type OfferLine
+type OffersConfirmRequest
+type OffersConfirmResult
+type OffersProvider
+type OffersRequest
+type OffersResult
 type OrdersProvider
 type PageMobile
 type Parcel

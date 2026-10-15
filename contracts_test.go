@@ -265,9 +265,32 @@ var shopDeliverablesV1 = contractDef{
 const deliverablesAgentReason = "what was delivered is shown to its buyer; the owner reads, resends and disables it " +
 	"through the delivering plugin's own abilities"
 
+// shopOffersV1 is the owner's offers at the cart, the checkout and after the purchase (OFFERS.md). Several plugins may
+// answer; one that does not is left out (an offer is a suggestion), and an offer it does not confirm gives no discount.
+var shopOffersV1 = contractDef{
+	name: ContractShopOffers,
+	description: "Offers at the cart, the checkout (an order bump) and after the purchase: which to show for a basket, " +
+		"and which offers already on basket lines still stand, for the shop to price them through its own " +
+		"discounts (OFFERS.md).",
+	methods: []methodDef{
+		{ContractMethod{Name: OffersFor, AnsweredBy: "provider", RetryClass: "failure", Fallback: "skip",
+			Idempotent: true, Agent: "none", AgentReason: offersAgentReason,
+			Description: "The offers to show at one stage for one basket or the order just paid, the first first."},
+			OffersRequest{}, OffersResult{}},
+		{ContractMethod{Name: OffersConfirm, AnsweredBy: "provider", RetryClass: "failure", Fallback: "skip",
+			Idempotent: true, Agent: "none", AgentReason: offersAgentReason,
+			Description: "Which offers on the basket's lines still stand, with their discount now."},
+			OffersConfirmRequest{}, OffersConfirmResult{}},
+	},
+}
+
+// offersAgentReason: an offer is shown to a shopper; the owner sets offers through the offers plugin's own abilities.
+const offersAgentReason = "an offer is shown to a shopper on the shop's pages; the owner sets and reads offers " +
+	"through the offers plugin's own abilities"
+
 // contractDefs is every contract this module defines.
 var contractDefs = []contractDef{paymentsV1, shippingCarrierV1, shopCatalogV1, shopCheckoutV1, stockAlertsV1, shopOrdersV1,
-	shopDeliverablesV1}
+	shopDeliverablesV1, shopOffersV1}
 
 // render builds a contract file from its definition.
 func (d contractDef) render(t *testing.T) []byte {

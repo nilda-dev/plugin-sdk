@@ -114,6 +114,9 @@ type ShopOrderLine struct {
 	Quantity         int64 `json:"quantity"`
 	QuantityRefunded int64 `json:"quantity_refunded,omitempty"`
 	UnitPriceMinor   int64 `json:"unit_price_minor"`
+	// OfferID is the offer (shop.offers/v1) the line was bought through, "" for one the buyer added themselves — what
+	// an offers plugin counts its sales by.
+	OfferID string `json:"offer_id,omitempty"`
 }
 
 // ---- the shop's side ---------------------------------------------------------------------------------------
@@ -132,7 +135,11 @@ func OrdersMethods(p OrdersProvider) []ServiceMethod {
 			if err := req.Validate(); err != nil {
 				return ShopOrderResult{}, err
 			}
-			return checked(p.ShopOrder(ctx, req))
+			r, err := p.ShopOrder(ctx, req)
+			if r.Order != nil && r.Order.Lines == nil {
+				r.Order.Lines = []ShopOrderLine{} // none is an empty list on the wire, never null
+			}
+			return checked(r, err)
 		}),
 	}
 }
@@ -273,13 +280,21 @@ type DeliverablesProvider interface {
 func DeliverablesMethods(p DeliverablesProvider) []ServiceMethod {
 	return []ServiceMethod{
 		Serves(ContractShopDeliverables, DeliverablesDescribe, func(ctx context.Context, _ struct{}) (DeliverablesDescription, error) {
-			return checked(p.DescribeDeliverables(ctx))
+			d, err := p.DescribeDeliverables(ctx)
+			if d.SKUs == nil {
+				d.SKUs = []string{} // none is an empty list on the wire, never null
+			}
+			return checked(d, err)
 		}),
 		Serves(ContractShopDeliverables, DeliverablesOrderItems, func(ctx context.Context, req DeliverablesRequest) (DeliverablesResult, error) {
 			if err := req.Validate(); err != nil {
 				return DeliverablesResult{}, err
 			}
-			return checked(p.OrderDeliverables(ctx, req))
+			r, err := p.OrderDeliverables(ctx, req)
+			if r.Items == nil {
+				r.Items = []DeliveredItem{}
+			}
+			return checked(r, err)
 		}),
 	}
 }
