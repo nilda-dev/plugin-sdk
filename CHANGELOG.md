@@ -33,7 +33,7 @@ provides — `buyer.terms`, `quote.request` and `quote.open` (`BuyerTermsRequest
 `BuyerMinimum`, `QuoteLine`, `QuoteRequestInput`, `QuoteRequestResult`, `QuoteOpenRequest`, `QuoteOpenResult`, `Quote`,
 `BuyersProvider`, `BuyersMethods`, `Services.BuyerTerms`, `Services.RequestQuote`, `Services.OpenQuote`). A quote's price names its quote and quantity (`BuyerPrice.QuoteID`, `MaxQty`), and an order line the
 quote it was bought at (`ShopOrderLine.QuoteID`). `Services.ConfirmOffers` returns an error when an offers plugin that
-is there did not answer, never "the offer ended".
+is there did not answer, never "the offer ended". A quote request may be refused with its reason (`QuoteRequestResult.Refused`).
 
 ## v0.23.0 — 2026-10-15 (one list decides which agent may pay; what a buyer and a shopper are told and kept)
 

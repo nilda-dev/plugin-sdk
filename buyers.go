@@ -162,14 +162,22 @@ func (r QuoteRequestInput) Validate() error {
 	return validQuoteLines(r.Lines)
 }
 
-// QuoteRequestResult is the request kept, and the sentence the buyer reads.
+// QuoteRequestResult is the request kept, and the sentence the buyer reads — or Refused, with the sentence saying why
+// (a buyer who asked too often today).
 type QuoteRequestResult struct {
-	QuoteID string `json:"quote_id"`
+	QuoteID string `json:"quote_id,omitempty"`
+	Refused bool   `json:"refused,omitempty"`
 	Message string `json:"message,omitempty"`
 }
 
-// Validate requires the quote's id.
+// Validate requires the quote's id, or a refusal with its reason.
 func (r QuoteRequestResult) Validate() error {
+	if r.Refused {
+		if strings.TrimSpace(r.Message) == "" {
+			return errors.New("nilda: a refused quote request says why")
+		}
+		return nil
+	}
 	if strings.TrimSpace(r.QuoteID) == "" {
 		return errors.New("nilda: a kept quote request has an id")
 	}

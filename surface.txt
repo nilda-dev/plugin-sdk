@@ -857,6 +857,7 @@ field QuoteRequestInput.Note string json:note
 field QuoteRequestInput.UserID string json:user_id
 field QuoteRequestResult.Message string json:message
 field QuoteRequestResult.QuoteID string json:quote_id
+field QuoteRequestResult.Refused bool json:refused
 field RatesRequest.Currency string json:currency
 field RatesRequest.Customs *Customs json:customs
 field RatesRequest.DeclaredValueMinor int64 json:declared_value_minor

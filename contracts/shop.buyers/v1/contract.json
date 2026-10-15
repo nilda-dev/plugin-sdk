@@ -190,13 +190,13 @@
           "quote_id": {
             "type": "string"
           },
+          "refused": {
+            "type": "boolean"
+          },
           "message": {
             "type": "string"
           }
-        },
-        "required": [
-          "quote_id"
-        ]
+        }
       }
     },
     {
