@@ -91,8 +91,8 @@ type VisitorCall struct {
 // HandleHook yourself instead of setting VisitorTool.Run.
 func VisitorToolHook(name string) string { return "visitor_tool:" + name }
 
-// visitorToolName is the shape a tool's own name must have: verb_noun, lowercase.
-var visitorToolName = regexp.MustCompile(`^[a-z][a-z0-9_]{1,62}$`)
+// visitorToolName is the shape a tool's own name must have: verb_noun, lowercase — Core's rule for an ability name.
+var visitorToolName = regexp.MustCompile(`^[a-z][a-z0-9_]{1,48}$`)
 
 // Validate says what is wrong with a tool's declaration, or nil — the checks Core makes again before it publishes
 // one, run at Init so the author hears of them first.

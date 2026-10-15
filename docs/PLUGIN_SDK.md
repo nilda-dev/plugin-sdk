@@ -381,6 +381,8 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `payment_session` | take payments through the site's gateways: an order, a deposit, a donation — see "Taking payments" (the same release) |
 | `service_provider` | answer other plugins through Core's service desk, in the contracts the manifest `provides` — see "Answering and asking other plugins" (Core from the release built on SDK v0.14.0) |
 | `service_consumer` | ask other plugins through Core's service desk, in the contracts the manifest `requires` or `uses` (the same release) |
+| `visitor_tools` | let visitors' own AI agents read and submit through your public actions — see "What a visitor's own AI agent may do" (Core from the release built on SDK v0.18.0) |
+| `site_files` | answer at `/agents.md` or `/.well-known/<name>` at the site's root — see "Files at the site's root" (the same release) |
 
 That is the whole list. Every entry is dispatched by Core and has a surface in this SDK; there is nothing
 to declare that does nothing. `admin.pages` and `payments` used to appear here and were removed in v0.3.0
@@ -774,7 +776,7 @@ Core sends a GET or HEAD for exactly those paths to your resident server, at the
 your own mux beside your prefix — and nothing else: another method is refused, and the request carries no
 identity, as a `webhook_paths` call does not. A file is `/agents.md` or `/.well-known/<name>`; Core keeps the
 names it answers itself or that guard the site (`mcp`, `oauth-*`, `openid-configuration`, `acme-challenge`,
-`security.txt`, `change-password`, the app-link files), and two plugins cannot hold one file — the second
+`security.txt`, `change-password`, the app-link files, `http-message-signatures-directory`), and two plugins cannot hold one file — the second
 install is refused and says which plugin has it. Requires `route`. The consent screen shows "Answer at these
 addresses at the root of your site", with the list.
 
