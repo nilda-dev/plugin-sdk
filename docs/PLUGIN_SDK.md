@@ -601,6 +601,33 @@ says how long or by what rule; at most 16 entries, a sentence each. The owner re
 row, and while the plugin is active every entry is a row of the site's privacy record (`legal_requirements`,
 `legal_notice`), in your words. Core cannot check them: write what the code does.
 
+### Telling the site's owner (`notifications`)
+
+Your events reach other plugins (`events`); the owner hears of them only if you say which. Declare them in plugin.json,
+and Core turns each one you emit into a notice: the panel's bell, the Nilda app's Activity, and a push for the kinds an
+owner acts on at once. Core writes the words from your declaration — never from your process — in the reader's language:
+
+```json
+"notifications": [
+  {"event": "ecommerce.order_placed", "kind": "order", "title": "New order {ref} · {total}",
+   "page": "orders", "row": "order_id"}
+],
+"translations": {"de": {"New order {ref} · {total}": "Neue Bestellung {ref} · {total}"}}
+```
+
+- `event` is a name you may emit (your key's namespace, or a capability's); `events` is required.
+- `kind` is `order`, `booking` or `payment` (a push unless the owner turns it off), or `message`, `comment`, `stock`,
+  `subscriber`, `other` (no push until the owner turns it on). It is also the app's filter.
+- `title` (120 characters) and `body` (200) are English with `{field}` taken from the event's data — a string, number
+  or yes/no; translate them in `translations`, keyed by this English text, like every label.
+- `page` is one of your list pages, `row` the event field holding the row's id there, and `action` one of that page's
+  row actions, offered as the one tap in Activity.
+
+Who hears: the people who may act on your plugin (its admin section's permission and `plugin.manage`). A notice keeps
+only the values its words name, without control or direction characters, and the lock screen says only the kind and
+your plugin's name ("New order — From Shop"): a customer's name or address never reaches it. At most 30 notices a
+minute; past that your event still reaches its subscribers.
+
 ### "/" commands in the content editor (`editor_commands`)
 
 A plugin can add entries to the content editor's "/" menu. Like tables, they are DECLARED — there is no

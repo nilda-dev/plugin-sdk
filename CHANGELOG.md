@@ -4,6 +4,12 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## Unreleased
+
+**Telling the site's owner** (`notifications` in plugin.json; PLUGIN_SDK.md, "Telling the site's owner"): declare which
+of your events the owner hears of, and Core turns each emit into a notice in the panel, the Nilda app's Activity and
+a push. A manifest field only — no Go API changes (Core v0.x with the field; an older Core ignores it).
+
 ## v0.26.0 — 2026-10-16 (what an ability changed; the phone in your tests)
 
 `AbilityChange` (`abilities.go`): an ability that changes something may answer, beside its own result, `changes` —
