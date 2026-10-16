@@ -1101,6 +1101,23 @@ on an older Nilda. What is refused is a hint that can be drawn on no Nilda: mone
 a column the page does not show, a pin on a table with no primary key, a headline pointing at a metric no
 report declares, metrics on a page that is not a report.
 
+**See it before an owner does.** `nilda plugin check` says how each page reaches the phone — Full (drawn with
+your hints), Basic (drawn from what is declared: a list without `row` shows its first column as the title and the
+next two under it; a report without `metrics` shows its rows and nothing of its summary), Hidden, or Not shown,
+with the reason — and what would make it read better: an amount column drawn as a plain number, a choice of
+`"yes"`/`"no"` that is a switch (`"type": "boolean"`), choices written as codes (`auto_capture`), no icon. Three
+things the marketplace does not list, because the app shows plain text inside Nilda's own screens: a row action
+that cannot be taken back (`delete`, `refund`, `cancel`…) with no `confirm`; a web address in a column (`url`,
+`link`) or in a sentence you declare, which the owner can read and not open; a field asking for a password (ask
+for the key or token the service issues, or use the `account` block below). `nilda plugin check --mobile` also
+draws the phone in the terminal and prints what the app receives. In your own tests the same drawing is a golden:
+
+```go
+func TestThePhone(t *testing.T) {
+	nildatest.MobilePreview(t, "plugin.json", "testdata/phone.txt") // NILDA_WRITE_PREVIEW=1 writes it
+}
+```
+
 #### The owner's account elsewhere
 
 When your plugin works on the owner's OWN account at another service — their Higgsfield credits, their Google

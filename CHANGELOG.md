@@ -11,6 +11,12 @@ label, before, after — and Core shows the rows under the assistant's answer in
 €12.00 → €13.00". Plain text, at most ten rows, a row without a label dropped; the model still reads the whole answer.
 Additions only; `surface.txt` grows by 4.
 
+`nildatest.MobilePreview` (`nildatest/mobile.go`): draws your plugin as the Nilda app shows it — its row on the Apps
+tab, its home, each page with how it reaches the phone — and holds the drawing to a golden file
+(`NILDA_WRITE_PREVIEW=1` writes it). The drawing is the one `nilda plugin check --mobile` prints, held equal to Core's
+by a test over the first-party plugins. `PageMobile.Hide`'s doc no longer promises a "do this on a computer" card
+the app does not draw. `nildatest/surface.txt` grows by 2.
+
 ## v0.25.1 — 2026-10-16 (the sign-in server's `iss`)
 
 `AccountFinish.Iss`: the `iss` the service sent back to Core's callback (RFC 9207), "" when none. Compare it with

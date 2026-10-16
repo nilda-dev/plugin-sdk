@@ -249,7 +249,8 @@ type ReportMetric struct {
 // PageMobile is how one page appears in the Nilda app.
 type PageMobile struct {
 	// Hide keeps the page off the phone — a page that only makes sense beside a large screen. Prefer leaving
-	// it shown: a page the app cannot draw already becomes a card saying "do this on a computer".
+	// it shown: every page Core knows is drawn on the phone, and one an older app cannot draw becomes a card
+	// saying it needs a newer app.
 	Hide bool `json:"hide,omitempty"`
 	// Row lays out each row of a list page as the phone shows it. Without it the app shows the first columns.
 	Row *MobileRow `json:"row,omitempty"`
