@@ -4,7 +4,7 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
-## Unreleased (v0.26.0)
+## v0.26.0 — 2026-10-16 (what an ability changed; the phone in your tests)
 
 `AbilityChange` (`abilities.go`): an ability that changes something may answer, beside its own result, `changes` —
 label, before, after — and Core shows the rows under the assistant's answer in the Nilda app and the panel, "Price
