@@ -72,7 +72,7 @@ type FormSection struct {
 	Label string `json:"label"`
 	Help  string `json:"help,omitempty"`
 	// Side puts the card in the narrow column beside the form on a wide screen (status, categories, figures); on a
-	// phone the side cards come first.
+	// phone, and in the panel at a narrow width, the side cards come after the main ones, as Shopify stacks them.
 	Side bool `json:"side,omitempty"`
 	// Folded starts the card closed, showing its label and a one-line summary — for what is rarely changed.
 	Folded bool `json:"folded,omitempty"`
