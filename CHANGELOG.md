@@ -4,7 +4,7 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
-## Unreleased
+## v0.27.0 — 2026-10-16 (a signed-in buyer's own prices; telling the site's owner)
 
 **Telling the site's owner** (`notifications` in plugin.json; PLUGIN_SDK.md, "Telling the site's owner"): declare which
 of your events the owner hears of, and Core turns each emit into a notice in the panel, the Nilda app's Activity and
