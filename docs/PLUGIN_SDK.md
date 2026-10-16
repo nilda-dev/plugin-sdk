@@ -1122,7 +1122,8 @@ at once, works once and for two minutes, and opens Core's own route; Core sends 
 `host` (or a subdomain), binds the sign-in to the browser that opened it with a cookie, and refuses a return from
 any other browser — so a link copied after it was opened, or a sign-in finished elsewhere, connects nobody's
 account. Your `host` is shown to the owner at install and may not be a public suffix (`pages.dev`); an update that
-moves it asks the owner again. You never make a link, and nothing you show in a row or a report should be one.
+moves it asks the owner again. Core passes on the service's `iss` (RFC 9207) as `AccountFinish.Iss`: refuse one that is not
+your sign-in server's issuer, and a missing one when its metadata says it always sends it. You never make a link, and nothing you show in a row or a report should be one.
 `nilda.PluginAccount`, `nilda.AccountStart`, `nilda.AccountStartResult`, `nilda.AccountFinish` and
 `nilda.AccountStatus` are the types; `nilda.DispatchAccount` routes the hooks for a plugin that does it by hand.
 

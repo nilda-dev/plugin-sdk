@@ -74,11 +74,18 @@ type AccountStartResult struct {
 
 // AccountFinish is what came back to Core's callback, after Core checked the browser and the state: the state you
 // gave, and the service's `code` — or its `error` when the owner pressed Cancel or the service refused.
+//
+// Iss is the `iss` the service sent with it (RFC 9207), "" when it sent none. Compare it with the issuer of the
+// server you sent the browser to: a mismatch MUST be refused, and when that server's metadata says
+// `authorization_response_iss_parameter_supported`, so must a missing one (RFC 9207 §2.4). It is what tells two
+// sign-in servers apart for a plugin that talks to more than one (a mix-up attack, RFC 9700 §4.4); with one server
+// and Core's callback per plugin, it is a second check. An `error` with a wrong or missing Iss is not the service's.
 type AccountFinish struct {
 	RedirectURI string `json:"redirect_uri"`
 	State       string `json:"state"`
 	Code        string `json:"code,omitempty"`
 	Error       string `json:"error,omitempty"`
+	Iss         string `json:"iss,omitempty"`
 }
 
 // AccountStatus is how the account stands. Who names the connected account as the owner would recognise it — an

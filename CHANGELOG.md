@@ -4,6 +4,12 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## v0.25.1 — 2026-10-16 (the sign-in server's `iss`)
+
+`AccountFinish.Iss`: the `iss` the service sent back to Core's callback (RFC 9207), "" when none. Compare it with
+the issuer you sent the browser to — refuse a mismatch, and a missing one when the server's metadata says
+`authorization_response_iss_parameter_supported`. Additions only; `surface.txt` grows by 1.
+
 ## v0.25.0 — 2026-10-16 (the owner's account elsewhere; staff acting as the person)
 
 **The owner's account elsewhere** (`account.go`; PLUGIN_SDK.md, "The owner's account elsewhere"). Declare

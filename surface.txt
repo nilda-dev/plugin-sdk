@@ -258,6 +258,7 @@ field Ability.ReadOnly bool
 field Ability.Run func(ctx context.Context, args json.RawMessage) (any, error)
 field AccountFinish.Code string json:code
 field AccountFinish.Error string json:error
+field AccountFinish.Iss string json:iss
 field AccountFinish.RedirectURI string json:redirect_uri
 field AccountFinish.State string json:state
 field AccountStart.RedirectURI string json:redirect_uri
