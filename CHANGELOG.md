@@ -4,7 +4,7 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
-## v0.28.0 — unreleased (edit forms on a list page)
+## v0.28.0 — 2026-10-17 (edit forms on a list page)
 
 **A list page can create and edit its rows** (`adminform.go`; PLUGIN_SDK.md, "A list page can also create and edit
 its rows"): `AdminPage.Form` declares a form — sections, fields in the settings vocabulary plus `date`, `datetime`,
