@@ -98,7 +98,9 @@ type FormField struct {
 	Min       *float64 `json:"min,omitempty"`
 	Max       *float64 `json:"max,omitempty"`
 	MaxLength int      `json:"max_length,omitempty"`
-	// Currency fixes a money field's currency (ISO 4217); empty is the site's.
+	// Currency fixes a money field's currency (ISO 4217). Empty is the form's own `currency` field — declare one,
+	// read-only, and answer the row's currency in it (a shop whose currency the owner chooses) — else the amount is
+	// shown with two decimals and no sign.
 	Currency string `json:"currency,omitempty"`
 	// Reference is the key of another of your list pages, for a reference field; Multiple allows several picks.
 	Reference string `json:"reference,omitempty"`
