@@ -2138,7 +2138,7 @@ nilda plugin trigger content.saved --data '{"content_id":"…","type":"product"}
 
 nilda plugin check .         # the gates Core and the marketplace apply
 nilda plugin build . --sign-key ./signing.key   # every platform, one .nplug each (+ .sig), into dist/
-nilda plugin publish . --changelog "what changed"
+nilda plugin publish . --changelog "what changed" --can-do "Takes card payments through your own Stripe account"
 ```
 
 **`dev`** watches, rebuilds for your machine, and reloads the plugin in the running Core. It needs a token
@@ -2162,6 +2162,10 @@ from anything the CLI typed into a JSON body, so what a reviewer approves is wha
 listing itself — name, summary, screenshots, price — you create once on the web, because those are things you
 want to see while setting them. `publish` finds that listing by its slug, which is your plugin key with `-` for
 `_` (`stock_alerts` → `stock-alerts`); `--listing <id>` names one outright.
+
+Every plugin version also says, in plain lines, what it does and what it does not: `--can-do "…"` (at least one,
+at most eight, repeat the flag) and `--cannot-do "…"`. The start chat quotes these lines to a person choosing a
+plugin and never guesses beyond them, so a line that sells or steers ("the best", "instead of", a link) is refused.
 
 **Your `Log()` lines follow the site's `LOG_LEVEL`** (debug in development, info in production, by default),
 because after the handshake they reach Core's own logger (§5, "Saying something"): a `Debug` line shows only
