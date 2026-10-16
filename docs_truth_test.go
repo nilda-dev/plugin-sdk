@@ -683,6 +683,7 @@ func TestTheAdminPageRulesTheDocsNameAreCores(t *testing.T) {
 		return coreSource(t, "internal", "plugin", file)
 	}
 	manifest, report, list, tables := read("schema_manifest.go"), read("adminreport.go"), read("adminlist.go"), read("tables.go")
+	validation := read("schema_validation.go")
 	num := func(src, name string) string {
 		m := regexp.MustCompile(`\b` + name + `\s*=\s*([0-9]+)\b`).FindStringSubmatch(src)
 		if m == nil {
@@ -757,8 +758,9 @@ func TestTheAdminPageRulesTheDocsNameAreCores(t *testing.T) {
 		`tooLong(where+".icon", c.Icon)`,
 		`if utf8.RuneCountInString(s) > maxDeclaredHelpLen {`,
 	} {
-		if !strings.Contains(manifest, check) {
-			t.Errorf("core's schema_manifest.go no longer checks %s — re-read the guide's bound for it", check)
+		// The bound itself lives in schema_validation.go since Core's checks became one problems list (2026-10-16).
+		if !strings.Contains(manifest+validation, check) {
+			t.Errorf("core's schema_manifest.go / schema_validation.go no longer check %s — re-read the guide's bound for it", check)
 		}
 	}
 	guide := strings.Join(strings.Fields(readText(t, "docs/PLUGIN_SDK.md")), " ")
@@ -793,7 +795,8 @@ func TestARowActionsRefusalIsTheOwnersReasonAndNotAFailure(t *testing.T) {
 		"return answersAPerson, len(hook) > len(AbilityHookPrefix)",
 		"return r.errorIsAnswer && callCtx.Err() == nil && status.Code(err) == codes.Unknown",
 	} {
-		if !strings.Contains(calls, want) {
+		// Spaces flattened: gofmt aligns the table's values, and a new key re-aligns them all.
+		if !strings.Contains(strings.Join(strings.Fields(calls), " "), strings.Join(strings.Fields(want), " ")) {
 			t.Errorf("core's calltable.go no longer has %q — re-read DispatchAdminAction's error sentence and ANY_LANGUAGE's failure count", want)
 		}
 	}

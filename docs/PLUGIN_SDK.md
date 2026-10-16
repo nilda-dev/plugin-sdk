@@ -1119,7 +1119,7 @@ it).
 - A `form` on a page that is not a `list`, a form that neither creates nor edits, a field type outside
   `nilda.FormFieldTypes()`, a `repeater` inside a `repeater`, a `reference` to a page that is not one of your
   lists, a `shown_when` naming no field of the form, or more than 80 fields, 12 sections or 16 fields in a repeater.
-- More than 12 pages, 48 fields on a settings page, 20 filters on a report page, 20 columns or 20 search
+- More than 20 pages, 48 fields on a settings page, 20 filters on a report page, 20 columns or 20 search
   columns on a list page, 8 row actions, or 100 choices on a field; or a name or label longer than 120
   characters — and so is a placeholder, a choice or a page's icon — or help longer than 500 characters,
   or a row action's `confirm` longer than 300.

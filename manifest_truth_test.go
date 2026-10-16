@@ -163,7 +163,8 @@ func TestTheManifestRulesTheDocsNameAreCores(t *testing.T) {
 	}
 
 	// The "/" editor commands a manifest may declare, and what install refuses of them.
-	manifestSrc := read("plugin", "schema_manifest.go")
+	// The label bound itself lives in schema_validation.go since Core's checks became one problems list (2026-10-16).
+	manifestSrc := read("plugin", "schema_manifest.go") + read("plugin", "schema_validation.go")
 	for _, line := range []string{
 		`tooMany("editor_commands", len(m.EditorCommands), maxEditorCommands, "editor commands")`,
 		`tooLong("editor_commands["+strconv.Itoa(i)+"].label", c.Label)`,
