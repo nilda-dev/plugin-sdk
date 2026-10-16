@@ -121,6 +121,8 @@ const (
 	HookCommerceProduct   = "commerce.product"
 	HookCommerceEndpoints = "commerce.endpoints"
 	HookCommerceCount     = "commerce.count"
+	// HookCommercePriceGroup asks which price group a signed-in visitor is in — see CommercePriceGroups.
+	HookCommercePriceGroup = "commerce.price_group"
 )
 
 // EventCommerceCatalogChanged is what you EMIT when your catalogue moves, and you must.
@@ -267,6 +269,54 @@ type CommerceQuery struct {
 	// genuinely cannot compute a gross figure, render what you have rather than nothing: a missing price
 	// is a broken page, and a net price is at worst the gap this flag exists to close.
 	ShowPricesIncludingTax bool `json:"show_prices_including_tax,omitempty"`
+	// Viewer is the signed-in visitor this page is drawn for, when your PriceGroup put them in a price group of
+	// their own — nil for everybody else, who see the public price. CommerceViewerOf reads it from the context
+	// too, for Product, whose signature has no query.
+	Viewer *CommerceViewer `json:"viewer,omitempty"`
+}
+
+// CommerceViewer is a signed-in visitor with prices of their own: a business buyer in a wholesale group, a member
+// with a member price. Core sends it only after your PriceGroup named a group for them.
+//
+// PRICE THEM BY THE GROUP AND NOTHING ELSE. Core keeps one rendered page per group and serves it to every member of
+// that group — the way Adobe Commerce varies its page cache by customer group and Shopware by its context hash —
+// so a price that depended on the one person (a quote they alone accepted, their own basket) would be shown to the
+// next member of the group who opens the page. UserID is there to look the group's terms up, not to personalise.
+type CommerceViewer struct {
+	UserID     string `json:"user_id"`
+	PriceGroup string `json:"price_group"`
+}
+
+// MaxPriceGroupLength bounds a price group's name: it becomes part of Core's cache keys.
+const MaxPriceGroupLength = 64
+
+// CommercePriceGroups is an OPTIONAL extra: which price group a signed-in visitor is in, so the storefront can show
+// them their own prices — on the product page and in every grid, as Shopify B2B, BigCommerce price lists and
+// Adobe Commerce shared catalogs do for a signed-in business buyer.
+//
+// Answer "" for a visitor who sees the public price; that is everybody unless you say otherwise, and it is what a
+// shop without this method gets. Answer a short stable name of your own for a group — the same for every member of
+// it ("b2b:<group id>"), at most MaxPriceGroupLength printable ASCII characters. Core then asks for products with
+// the Viewer set, keeps the pages it draws for that group apart from everyone else's, and never serves them to
+// anybody outside the group. An error is treated as "" — the public price — never as a guess.
+//
+// Core asks once per page a signed-in visitor opens, so answer from what you hold; it is on the page's time.
+type CommercePriceGroups interface {
+	PriceGroup(ctx context.Context, userID string) (string, error)
+}
+
+// ValidPriceGroup says whether a price group's name is one Core keeps: empty, or at most MaxPriceGroupLength
+// printable ASCII characters with no space.
+func ValidPriceGroup(g string) bool {
+	if len(g) > MaxPriceGroupLength {
+		return false
+	}
+	for i := 0; i < len(g); i++ {
+		if g[i] <= ' ' || g[i] > '~' {
+			return false
+		}
+	}
+	return true
 }
 
 // CommerceEndpoints are the same-origin paths your plugin serves. Core renders shells that call them; it
@@ -303,7 +353,8 @@ type CommerceEndpoints struct {
 // Commerce is the interface a shop plugin implements.
 type Commerce interface {
 	// Products answers a catalogue widget. The same answer for every visitor, so its output is cacheable
-	// with the page — never vary it by who is asking, because you are not told and the page is shared.
+	// with the page — never vary it by who is asking, because you are not told and the page is shared. The one
+	// exception is the price group your CommercePriceGroups named, which arrives as q.Viewer.
 	Products(ctx context.Context, q CommerceQuery) ([]CommerceProduct, error)
 	// Product resolves the item a single-product page is about. found=false renders nothing rather than
 	// an empty frame.
@@ -339,6 +390,24 @@ func ShowPricesIncludingTax(ctx context.Context) bool {
 	return v
 }
 
+// commerceViewerKey carries the price group's viewer to Product, as grossPricesKey carries the price display.
+type commerceViewerKey struct{}
+
+// CommerceViewerOf is the signed-in visitor in a price group this commerce hook is drawn for (CommerceViewer), or
+// false for the public price.
+func CommerceViewerOf(ctx context.Context) (CommerceViewer, bool) {
+	v, ok := ctx.Value(commerceViewerKey{}).(CommerceViewer)
+	return v, ok
+}
+
+// withCommerceViewer puts a payload's viewer in the context; one with no group is no viewer.
+func withCommerceViewer(ctx context.Context, v *CommerceViewer) context.Context {
+	if v == nil || v.UserID == "" || v.PriceGroup == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, commerceViewerKey{}, *v)
+}
+
 // withGrossPrices is how the dispatcher puts it there.
 func withGrossPrices(ctx context.Context, v bool) context.Context {
 	if !v {
@@ -372,6 +441,9 @@ func (h *commerceOnlyHandler) Init(ctx context.Context, core *Core) (InitResult,
 	res := InitResult{Hooks: []string{
 		HookCommerceProducts, HookCommerceProduct, HookCommerceEndpoints, HookCommerceCount,
 	}}
+	if _, ok := h.c.(CommercePriceGroups); ok {
+		res.Hooks = append(res.Hooks, HookCommercePriceGroup)
+	}
 	if routes, ok := h.c.(http.Handler); ok {
 		addr, err := StartHTTP(routes)
 		if err != nil {
@@ -401,7 +473,7 @@ func DispatchCommerceHook(ctx context.Context, _ *Core, c Commerce, hook string,
 		if err := json.Unmarshal(payload, &q); err != nil {
 			return nil, true, fmt.Errorf("nilda: commerce.products payload: %w", err)
 		}
-		products, err := c.Products(withGrossPrices(ctx, q.ShowPricesIncludingTax), q)
+		products, err := c.Products(withCommerceViewer(withGrossPrices(ctx, q.ShowPricesIncludingTax), q.Viewer), q)
 		if err != nil {
 			return nil, true, err
 		}
@@ -415,13 +487,14 @@ func DispatchCommerceHook(ctx context.Context, _ *Core, c Commerce, hook string,
 
 	case HookCommerceProduct:
 		var in struct {
-			ID                     string `json:"id"`
-			ShowPricesIncludingTax bool   `json:"show_prices_including_tax,omitempty"`
+			ID                     string          `json:"id"`
+			ShowPricesIncludingTax bool            `json:"show_prices_including_tax,omitempty"`
+			Viewer                 *CommerceViewer `json:"viewer,omitempty"`
 		}
 		if err := json.Unmarshal(payload, &in); err != nil {
 			return nil, true, fmt.Errorf("nilda: commerce.product payload: %w", err)
 		}
-		p, found := c.Product(withGrossPrices(ctx, in.ShowPricesIncludingTax), in.ID)
+		p, found := c.Product(withCommerceViewer(withGrossPrices(ctx, in.ShowPricesIncludingTax), in.Viewer), in.ID)
 		if !found {
 			// An explicit null, not an omitted key: "we looked and there is no such product" and "the
 			// plugin did not answer" must not be the same bytes.
@@ -445,11 +518,35 @@ func DispatchCommerceHook(ctx context.Context, _ *Core, c Commerce, hook string,
 		if err := json.Unmarshal(payload, &q); err != nil {
 			return nil, true, fmt.Errorf("nilda: commerce.count payload: %w", err)
 		}
-		total, answered := counter.CountProducts(ctx, q)
+		total, answered := counter.CountProducts(withCommerceViewer(ctx, q.Viewer), q)
 		if !answered {
 			return []byte(`{}`), true, nil
 		}
 		b, err := json.Marshal(map[string]any{"total": total})
+		return b, true, err
+
+	case HookCommercePriceGroup:
+		groups, ok := c.(CommercePriceGroups)
+		if !ok {
+			return []byte(`{"price_group":""}`), true, nil
+		}
+		var in struct {
+			UserID string `json:"user_id"`
+		}
+		if err := json.Unmarshal(payload, &in); err != nil {
+			return nil, true, fmt.Errorf("nilda: commerce.price_group payload: %w", err)
+		}
+		if in.UserID == "" {
+			return []byte(`{"price_group":""}`), true, nil
+		}
+		g, err := groups.PriceGroup(ctx, in.UserID)
+		if err != nil {
+			return nil, true, err
+		}
+		if !ValidPriceGroup(g) {
+			return nil, true, fmt.Errorf("nilda: price group %q is not at most %d printable ASCII characters", g, MaxPriceGroupLength)
+		}
+		b, err := json.Marshal(map[string]string{"price_group": g})
 		return b, true, err
 	}
 	return nil, false, nil

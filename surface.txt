@@ -137,6 +137,7 @@ const HookAuthDescribe
 const HookAuthStart
 const HookCommerceCount
 const HookCommerceEndpoints
+const HookCommercePriceGroup
 const HookCommerceProduct
 const HookCommerceProducts
 const HookFieldChoices
@@ -163,6 +164,7 @@ const LabelPurchased
 const LabelRejected
 const MaxAssetsPerPlugin
 const MaxDisputesPerSession
+const MaxPriceGroupLength
 const MaxWidgetHTMLBytes
 const MaxWidgetsPerPlugin
 const MetricMoney
@@ -548,6 +550,7 @@ field CommerceQuery.Search string json:search
 field CommerceQuery.ShowPricesIncludingTax bool json:show_prices_including_tax
 field CommerceQuery.Sort string json:sort
 field CommerceQuery.Term string json:term
+field CommerceQuery.Viewer *CommerceViewer json:viewer
 field CommerceTerm.Label string json:label
 field CommerceTerm.Slug string json:slug
 field CommerceTerm.Taxonomy string json:taxonomy
@@ -556,6 +559,8 @@ field CommerceVariation.Key string json:key
 field CommerceVariation.Name string json:name
 field CommerceVariation.Options []string json:options
 field CommerceVariation.Selected string json:selected
+field CommerceViewer.PriceGroup string json:price_group
+field CommerceViewer.UserID string json:user_id
 field ContractMethod.Agent string json:agent
 field ContractMethod.AgentReason string json:agent_reason
 field ContractMethod.AnsweredBy string json:answered_by
@@ -1079,6 +1084,7 @@ func CarrierMethods(Carrier) ([]ServiceMethod)
 func CatalogMethods(CatalogProvider) ([]ServiceMethod)
 func CheckoutMethods(CheckoutProvider) ([]ServiceMethod)
 func ColumnTypes() ([]string)
+func CommerceViewerOf(context.Context) (CommerceViewer, bool)
 func ContractNamed(string) (ServiceContract, bool)
 func ContractToolName(string, string) (string)
 func Contracts() ([]ServiceContract, error)
@@ -1136,6 +1142,7 @@ func StockAlertMethods(StockAlertProvider) ([]ServiceMethod)
 func Supports([]string, string) (bool)
 func SupportsOf(PaymentMethod) ([]string)
 func TestHintFor(map[string]string, string) (string)
+func ValidPriceGroup(string) (bool)
 func VisitorCountry(*http.Request) (string, bool)
 func VisitorKey(*http.Request) (string)
 func VisitorToolHook(string) (string)
@@ -1170,6 +1177,7 @@ imethod Commerce.Endpoints(context.Context) (CommerceEndpoints)
 imethod Commerce.Product(context.Context, string) (CommerceProduct, bool)
 imethod Commerce.Products(context.Context, CommerceQuery) ([]CommerceProduct, error)
 imethod CommerceCounter.CountProducts(context.Context, CommerceQuery) (int, bool)
+imethod CommercePriceGroups.PriceGroup(context.Context, string) (string, error)
 imethod CredentialPayer.StartPaymentWithCredential(context.Context, PaymentSession, PaymentCredential) (PaymentStartResult, error)
 imethod DeliverablesProvider.DescribeDeliverables(context.Context) (DeliverablesDescription, error)
 imethod DeliverablesProvider.OrderDeliverables(context.Context, DeliverablesRequest) (DeliverablesResult, error)
@@ -1435,10 +1443,12 @@ type Class
 type Commerce
 type CommerceCounter
 type CommerceEndpoints
+type CommercePriceGroups
 type CommerceProduct
 type CommerceQuery
 type CommerceTerm
 type CommerceVariation
+type CommerceViewer
 type ContractMethod
 type Core
 type CredentialPayer

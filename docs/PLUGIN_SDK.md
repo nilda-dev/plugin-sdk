@@ -1437,6 +1437,18 @@ server — a path under another prefix is kept, and goes wherever that prefix go
 `ok=false`, and it loses that line rather than printing a wrong total. The query you count has no `Limit` or
 `Offset` — the total is about the whole result.
 
+**A signed-in buyer may see their own prices — by group (v0.27.0).** Implement `PriceGroup(ctx, userID)` (the
+`nilda.CommercePriceGroups` interface) and answer a short name of your own for the price group a signed-in visitor is
+in — `"b2b:<group id>"` for a wholesale buyer — or `""` for the public price. Nilda asks once per page a signed-in
+visitor opens; for a named group it asks for products with `q.Viewer` set (`nilda.CommerceViewerOf(ctx)` inside
+`Product`), keeps the pages it draws for that group apart from everyone else's, and serves them to nobody outside it —
+the way Adobe Commerce varies its page cache by customer group and Shopware by its context hash. **Price them by the
+group and nothing else**: one rendered page is shown to every member of the group, so a price that depended on the
+one person (a quote only they accepted) would reach the next member. `nilda.ValidPriceGroup` is the name rule — at
+most `nilda.MaxPriceGroupLength` printable ASCII characters, no space; a name outside it fails the call, and an error
+is the public price, never a guess. `nilda.CommerceViewer` is what arrives: the user id, to look the group's terms up,
+and the group.
+
 **A product carries its categories and its choices.** `Terms` are `nilda.CommerceTerm`s — a label and the
 archive URL its chip links to; `Variations` are `nilda.CommerceVariation`s — one axis a shopper answers before
 the item can be added ("Size" and its options, as strings). A per-combination price stays in your pricing

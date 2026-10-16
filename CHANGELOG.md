@@ -10,6 +10,13 @@ here.
 of your events the owner hears of, and Core turns each emit into a notice in the panel, the Nilda app's Activity and
 a push. A manifest field only — no Go API changes (Core v0.x with the field; an older Core ignores it).
 
+**A signed-in buyer's own prices** (`commerce.go`; PLUGIN_SDK.md, "A signed-in buyer may see their own prices"): a
+shop that implements `CommercePriceGroups.PriceGroup(ctx, userID)` names the price group a signed-in visitor is in, and
+Core then asks for products with `CommerceQuery.Viewer` set (`CommerceViewerOf(ctx)` inside `Product`), keeping the
+pages it draws for that group apart from everyone else's. Price by the group alone. A new optional hook,
+`commerce.price_group`, subscribed by `Serve` only for a shop that implements it. Additions only; `surface.txt` grows
+by 10.
+
 ## v0.26.0 — 2026-10-16 (what an ability changed; the phone in your tests)
 
 `AbilityChange` (`abilities.go`): an ability that changes something may answer, beside its own result, `changes` —

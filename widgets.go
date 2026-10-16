@@ -413,6 +413,12 @@ var providerHooks = []struct {
 	// commerce.products, and DispatchCommerceHook returns "not handled" when the counter is absent.
 	{"Commerce", func(h Handler) bool { _, is := h.(Commerce); return is },
 		[]string{HookCommerceProducts, HookCommerceProduct, HookCommerceEndpoints, HookCommerceCount}},
+	// commerce.price_group only for a shop that keeps price groups (CommercePriceGroups); Core asks no other.
+	{"CommercePriceGroups", func(h Handler) bool {
+		_, shop := h.(Commerce)
+		_, is := h.(CommercePriceGroups)
+		return shop && is
+	}, []string{HookCommercePriceGroup}},
 	{"PaymentGateway", func(h Handler) bool { _, is := h.(PaymentGateway); return is },
 		[]string{HookPaymentDescribe, HookPaymentStart, HookPaymentRefund}},
 	{"PaymentConsumer", func(h Handler) bool { _, is := h.(PaymentConsumer); return is },
