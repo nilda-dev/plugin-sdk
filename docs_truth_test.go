@@ -285,11 +285,24 @@ func TestTheHookGrantsInitResultNamesAreCores(t *testing.T) {
 	if !strings.Contains(body, "allowed := contains(grants, CapHooks)") {
 		t.Fatal("core's filterHooks no longer defaults to the `hooks` grant — re-read InitResult.Hooks")
 	}
-	grantOf := map[string]string{} // hook value -> capability value, from core
+	grantOf := map[string]string{}    // hook value -> capability value, from core
+	manifestOnly := map[string]bool{} // hook values no list admits: Core subscribes them from the manifest
 	// The assignment must END after its one contains(): a case that became `contains(grants, CapA) &&
 	// contains(grants, CapB)` would otherwise read as CapA alone admitting the hook.
 	caseRE := regexp.MustCompile(`(?s)^([A-Za-z0-9_,\s]+):.*?\n\s*allowed = contains\(grants, (Cap\w+)\)\n`)
+	// `allowed = false`: no grant admits the name from InitResult.Hooks, whatever it is (the account hooks).
+	neverRE := regexp.MustCompile(`(?s)^([A-Za-z0-9_,\s]+):.*?\n\s*allowed = false\n`)
 	for _, chunk := range regexp.MustCompile(`(?m)^\t\tcase `).Split(body, -1)[1:] {
+		if m := neverRE.FindStringSubmatch(chunk); m != nil && strings.Count(chunk, "allowed =") == 1 {
+			for _, name := range strings.Split(m[1], ",") {
+				hook, ok := values[strings.TrimSpace(name)]
+				if !ok {
+					t.Fatalf("core's filterHooks names %s, which no constant in internal/plugin names", name)
+				}
+				manifestOnly[hook] = true
+			}
+			continue
+		}
 		m := caseRE.FindStringSubmatch(chunk)
 		if m == nil || strings.Count(chunk, "allowed =") != 1 {
 			t.Fatalf("a case of core's filterHooks does not read as `case Hooks…: allowed = contains(grants, Cap…)` — teach this guard:\n%s", chunk)
@@ -350,6 +363,16 @@ func TestTheHookGrantsInitResultNamesAreCores(t *testing.T) {
 		if !used {
 			t.Errorf("InitResult.Hooks names %s, which core's filterHooks has no case for", pattern)
 		}
+	}
+	// A hook no list admits is one InitResult.Hooks says the manifest admits, by its block's name.
+	for hook := range manifestOnly {
+		fam, _, _ := strings.Cut(hook, ".")
+		if !strings.Contains(c, fam+".* are by the manifest's `"+fam+"` block alone") {
+			t.Errorf("core subscribes %s only from the manifest, and InitResult.Hooks does not say so", hook)
+		}
+	}
+	if len(manifestOnly) == 0 {
+		t.Error("core's filterHooks keeps no hook out of every list any more — the account hooks were the case; re-read InitResult.Hooks")
 	}
 	if !strings.Contains(c, "require `hooks`") {
 		t.Error("InitResult.Hooks no longer says the content-lifecycle hooks require `hooks`, core's default")

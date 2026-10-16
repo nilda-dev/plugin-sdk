@@ -43,7 +43,8 @@ type InitResult struct {
 	// `auth_provider`, widget.* by `widget`, render.assets by `render.assets`,
 	// payment.describe/payment.start/payment.refund/payment.sync by `payment_gateway`, and
 	// payment.session.confirm/payment.session.updated/payment.refund.updated/payment.dispute.updated by
-	// `payment_session` — and `hooks` does not admit them.
+	// `payment_session` — and `hooks` does not admit them. account.* are by the manifest's `account` block alone:
+	// Core subscribes a plugin that declares it, and keeps none listed here.
 	Hooks  []string
 	Events []string // event types to receive (requires `events`)
 	// Schedules is recurring work Core runs on the plugin's behalf (requires `schedule`). The plugin is a

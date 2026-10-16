@@ -16,7 +16,9 @@ func (f *fakeBuyers) HandleHook(context.Context, string, []byte) ([]byte, error)
 func (f *fakeBuyers) HandleEvent(context.Context, string, []byte) error          { return nil }
 func (f *fakeBuyers) Init(context.Context, *Core) (InitResult, error)            { return InitResult{}, nil }
 
-func (f *fakeBuyers) BuyerTerms(context.Context, BuyerTermsRequest) (BuyerTerms, error) { return f.terms, nil }
+func (f *fakeBuyers) BuyerTerms(context.Context, BuyerTermsRequest) (BuyerTerms, error) {
+	return f.terms, nil
+}
 
 func (f *fakeBuyers) RequestQuote(context.Context, QuoteRequestInput) (QuoteRequestResult, error) {
 	return QuoteRequestResult{QuoteID: "q1"}, nil

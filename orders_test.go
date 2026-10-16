@@ -68,9 +68,11 @@ func TestServeAnswersAShopThatProvidesItsOrders(t *testing.T) {
 // fakeKeyDelivery delivers keys.
 type fakeKeyDelivery struct{ items []DeliveredItem }
 
-func (f *fakeKeyDelivery) HandleHook(context.Context, string, []byte) ([]byte, error) { return nil, nil }
-func (f *fakeKeyDelivery) HandleEvent(context.Context, string, []byte) error          { return nil }
-func (f *fakeKeyDelivery) Init(context.Context, *Core) (InitResult, error)            { return InitResult{}, nil }
+func (f *fakeKeyDelivery) HandleHook(context.Context, string, []byte) ([]byte, error) {
+	return nil, nil
+}
+func (f *fakeKeyDelivery) HandleEvent(context.Context, string, []byte) error { return nil }
+func (f *fakeKeyDelivery) Init(context.Context, *Core) (InitResult, error)   { return InitResult{}, nil }
 
 func (f *fakeKeyDelivery) DescribeDeliverables(context.Context) (DeliverablesDescription, error) {
 	return DeliverablesDescription{SKUs: []string{"pe-pro"}}, nil
