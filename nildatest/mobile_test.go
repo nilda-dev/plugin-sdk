@@ -14,12 +14,16 @@ const coreConformance = "../../core/internal/plugin/testdata/conformance"
 // The drawing here and Core's (`nilda plugin check --mobile`) are two programs; this keeps them one picture. Every
 // first-party manifest Core draws, this draws the same, to the byte.
 func TestMobilePreviewDrawsWhatCoreDraws(t *testing.T) {
-	manifests, err := filepath.Glob(filepath.Join(coreConformance, "real", "*.json"))
-	if err != nil || len(manifests) == 0 {
+	real, _ := filepath.Glob(filepath.Join(coreConformance, "real", "*.json"))
+	stress, _ := filepath.Glob(filepath.Join(coreConformance, "stress", "*.json"))
+	if len(real) == 0 {
 		t.Skip("core is not checked out beside the SDK; its conformance corpus is what this is held to")
 	}
-	for _, path := range manifests {
+	for _, path := range append(real, stress...) {
 		name := strings.TrimSuffix(filepath.Base(path), ".json")
+		if filepath.Base(filepath.Dir(path)) == "stress" {
+			name = "stress-" + name // the drawings of the stress manifests are named so in Core's phone/
+		}
 		t.Run(name, func(t *testing.T) {
 			raw, err := os.ReadFile(path)
 			if err != nil {

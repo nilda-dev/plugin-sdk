@@ -302,6 +302,21 @@ func resolvePage(m previewManifest, pg nilda.AdminPage, tr func(string, int) str
 	return out, true
 }
 
+// printable is Core's Printable: every control and format character but the line break removed — what a terminal
+// or a diff would obey — and nothing else changed, so the drawing keeps its spacing.
+func printable(s string) string {
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r == '\u200C' || r == '\u200D' || r == '\n':
+			return r
+		case r == utf8.RuneError, unicode.Is(unicode.Cc, r), unicode.Is(unicode.Cf, r),
+			r == '\u2028', r == '\u2029', r >= '\uFFF9' && r <= '\uFFFC':
+			return -1
+		}
+		return r
+	}, s)
+}
+
 // plain is Core's PlainText: NFC, no control or format character (the zero-width joiner and non-joiner are
 // spelling and stay), at most max runes with an ellipsis, line breaks kept only where prose is allowed.
 func plain(s string, max int, keepLines bool) string {
@@ -500,6 +515,7 @@ func (b *phone) rule() { b.WriteString("+" + strings.Repeat("-", phoneWidth+2) +
 func (b *phone) blank() { b.line("") }
 
 func (b *phone) line(s string) {
+	s = printable(s)
 	if n := utf8.RuneCountInString(s); n > phoneWidth {
 		s = string([]rune(s)[:phoneWidth-1]) + "…"
 	}
