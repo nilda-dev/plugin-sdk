@@ -547,8 +547,9 @@ nilda plugin build . --sign-key ./signing.key     # a file holding the base64 Ed
 private key passed on the command line lands in your shell history and in the process list. The
 alternative is `NILDA_SIGN_KEY`, which holds the base64 key ITSELF, not a path to it (the file wins when
 both are set). Without either, `build` writes unsigned packages and says so. Unsigned packages are fine
-locally; the marketplace requires a signature — `nilda plugin check` reports an unsigned package as a
-problem, and `nilda plugin publish` refuses one.
+locally AND for the marketplace: `publish` uploads only the `.nplug`, and Central signs what its reviewer
+approves — over the listing, the version and the bytes — so an install trusts the marketplace's signature,
+not yours. Your signature matters to a site that installs your file by UPLOAD under a signed-uploads policy.
 
 **Leave `os` and `arch` out of a Go plugin's manifest.** Core reads the platform out of the binary's own
 build information and refuses, at install, a binary built for another platform than the server's, with a
@@ -2152,14 +2153,15 @@ receives — a hook or event its Init subscribes to, under a capability it holds
 real one; anything else is refused with a sentence saying Core does not deliver it to your plugin.
 
 **`build`** signs each package only when given a key (`--sign-key`, or `NILDA_SIGN_KEY` — §5.1); without
-one it writes unsigned packages, and `publish` refuses those.
+one it writes unsigned packages, which `publish` takes — the marketplace signs what it approves.
 
 **`publish`** uploads the built packages and submits the version for review. It reads each artifact's
 platform out of the binary inside it, so there are no slots to label and none to mislabel — and the
 marketplace reads your capabilities and network hosts out of the manifest inside the package rather than
 from anything the CLI typed into a JSON body, so what a reviewer approves is what a site installs. It publishes VERSIONS: the
 listing itself — name, summary, screenshots, price — you create once on the web, because those are things you
-want to see while setting them.
+want to see while setting them. `publish` finds that listing by its slug, which is your plugin key with `-` for
+`_` (`stock_alerts` → `stock-alerts`); `--listing <id>` names one outright.
 
 **Your `Log()` lines follow the site's `LOG_LEVEL`** (debug in development, info in production, by default),
 because after the handshake they reach Core's own logger (§5, "Saying something"): a `Debug` line shows only
