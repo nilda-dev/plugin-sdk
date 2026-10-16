@@ -23,8 +23,9 @@ import (
 // Core checks the cookie and the state, and hands you what came back (AccountFinishHook) to trade for tokens, which
 // you keep with SetSecret. Then Core asks you how the account stands (AccountStatusHook) and shows it.
 //
-// So a link that leaks — mailed, pasted into a chat, read off a screen — connects nobody's account to the site: it
-// works once, for ten minutes, and the callback refuses any browser that did not start it. That is the attack the
+// The press opens the link at once, and it works once and for two minutes; the callback refuses any browser that did
+// not open it. So a link copied after it was opened, or a sign-in finished in another browser, connects nobody's
+// account to the site. That is the attack the
 // old "sign-in link in a report row" left open (login CSRF, RFC 9700 §2.1), and why a plugin no longer mints the
 // link itself.
 //

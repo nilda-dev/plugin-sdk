@@ -1117,10 +1117,12 @@ func (p *Plugin) AccountStatus(ctx context.Context) (nilda.AccountStatus, error)
 func (p *Plugin) AccountDisconnect(ctx context.Context) error                     // drop the tokens
 ```
 
-Core runs the road, not your plugin: the link is made only when the owner presses Connect, works once for ten
-minutes, and opens Core's own route; Core sends the browser only to https on your `host` (or a subdomain), binds
-the sign-in to that browser with a cookie, and refuses a return from any other browser — so a link that leaks
-connects nobody's account. You never make a link, and nothing you show in a row or a report should be one.
+Core runs the road, not your plugin: the link is made only when the owner presses Connect, is opened by that press
+at once, works once and for two minutes, and opens Core's own route; Core sends the browser only to https on your
+`host` (or a subdomain), binds the sign-in to the browser that opened it with a cookie, and refuses a return from
+any other browser — so a link copied after it was opened, or a sign-in finished elsewhere, connects nobody's
+account. Your `host` is shown to the owner at install and may not be a public suffix (`pages.dev`); an update that
+moves it asks the owner again. You never make a link, and nothing you show in a row or a report should be one.
 `nilda.PluginAccount`, `nilda.AccountStart`, `nilda.AccountStartResult`, `nilda.AccountFinish` and
 `nilda.AccountStatus` are the types; `nilda.DispatchAccount` routes the hooks for a plugin that does it by hand.
 
