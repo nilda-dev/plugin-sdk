@@ -256,6 +256,9 @@ field Ability.Label string
 field Ability.Name string
 field Ability.ReadOnly bool
 field Ability.Run func(ctx context.Context, args json.RawMessage) (any, error)
+field AbilityChange.After string json:after
+field AbilityChange.Before string json:before
+field AbilityChange.Label string json:label
 field AccountFinish.Code string json:code
 field AccountFinish.Error string json:error
 field AccountFinish.Iss string json:iss
@@ -1368,6 +1371,7 @@ method (VoidResult) Validate() (error)
 type API
 type APIError
 type Ability
+type AbilityChange
 type AccountFinish
 type AccountHandler
 type AccountStart

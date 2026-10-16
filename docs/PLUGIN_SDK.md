@@ -691,6 +691,18 @@ func TestPluginJSONDeclaresTheAbilities(t *testing.T) {
 Run it once with `NILDA_WRITE_MANIFEST=1 go test -run PluginJSON .` and it writes the list into `plugin.json`,
 leaving the rest of the file as it was; from then on it fails whenever `Init` and the manifest disagree.
 
+**Say what you changed, row by row (`nilda.AbilityChange`).** An ability that changes something may answer, beside
+its own result, a field `changes` — each row a `Label`, the `Before` and the `After`, plain text — and Core shows the
+rows under the assistant's answer in the Nilda app and the panel: "Price €12.00 → €13.00". The model still reads your
+whole answer. At most ten rows, a row with no label is dropped, `Before` empty for something new:
+
+```go
+return struct {
+	Product string                `json:"product"`
+	Changes []nilda.AbilityChange `json:"changes"`
+}{id, []nilda.AbilityChange{{Label: "Price", Before: "€12.00", After: "€13.00"}}}, nil
+```
+
 **An ability that changes the site asks the person first.** `write` and every class above it take Core's own two
 steps: the first call answers with a preview — your plugin's name, the ability's label and the arguments — and runs
 nothing; the person's yes runs exactly the arguments they saw. Your plugin is called once, after the yes, and never

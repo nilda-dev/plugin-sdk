@@ -99,6 +99,26 @@ type Ability struct {
 	Run func(ctx context.Context, args json.RawMessage) (any, error)
 }
 
+// AbilityChange is one thing an ability changed, as the owner reads it: "Price €12.00 → €13.00". An ability that
+// changes something may answer, beside its own result, a field `changes` holding these — put one in your result
+// struct:
+//
+//	type priceSet struct {
+//		Product string                `json:"product"`
+//		Changes []nilda.AbilityChange `json:"changes"`
+//	}
+//	return priceSet{Product: id, Changes: []nilda.AbilityChange{{Label: "Price", Before: "€12.00", After: "€13.00"}}}, nil
+//
+// Core shows the rows under the assistant's answer in the Nilda app and in the panel, before → after, and the model
+// still reads your whole answer. Label is a short name like a column header (80 characters); Before and After are
+// plain values (200 each), Before empty for something new. Rows with no Label are dropped, and at most ten are shown
+// — say a longer change in your result's words instead. Plain text only: no markup, no links.
+type AbilityChange struct {
+	Label  string `json:"label"`
+	Before string `json:"before,omitempty"`
+	After  string `json:"after"`
+}
+
 // AbilityHook is the hook name Core dispatches an ability under. Only needed if you handle abilities in
 // HandleHook yourself instead of setting Ability.Run.
 func AbilityHook(name string) string { return "ability:" + name }

@@ -4,6 +4,13 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## Unreleased (v0.26.0)
+
+`AbilityChange` (`abilities.go`): an ability that changes something may answer, beside its own result, `changes` —
+label, before, after — and Core shows the rows under the assistant's answer in the Nilda app and the panel, "Price
+€12.00 → €13.00". Plain text, at most ten rows, a row without a label dropped; the model still reads the whole answer.
+Additions only; `surface.txt` grows by 4.
+
 ## v0.25.1 — 2026-10-16 (the sign-in server's `iss`)
 
 `AccountFinish.Iss`: the `iss` the service sent back to Core's callback (RFC 9207), "" when none. Compare it with

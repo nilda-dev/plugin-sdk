@@ -146,3 +146,34 @@ func TestTriggerDeliversOnlyWhatThePluginReceives(t *testing.T) {
 		t.Error("PLUGIN_SDK.md no longer says trigger delivers only what the plugin receives")
 	}
 }
+
+// The rows an ability may answer (AbilityChange): how many Core shows and how long a label and a value may be, as
+// abilities.go tells an author, held to core's internal/aichat/abilitychanges.go.
+func TestTheAbilityChangeBoundsTheDocsNameAreCores(t *testing.T) {
+	src := coreSource(t, "internal", "aichat", "abilitychanges.go")
+	num := func(name string) string {
+		m := regexp.MustCompile(`\b` + name + `\s*=\s*([0-9]+)\b`).FindStringSubmatch(src)
+		if m == nil {
+			t.Fatalf("core's abilitychanges.go no longer declares %s as a number — repoint this guard", name)
+		}
+		return m[1]
+	}
+	doc := strings.Join(strings.Fields(strings.ReplaceAll(readText(t, "abilities.go"), "\n//", " ")), " ")
+	for _, want := range []string{
+		"a short name like a column header (" + num("changeLabelLen") + " characters)",
+		"plain values (" + num("changeValueLen") + " each)",
+		"at most " + numberWord(num("maxChangeRows")) + " are shown",
+	} {
+		if !strings.Contains(doc, want) {
+			t.Errorf("abilities.go does not say %q, which is Core's bound", want)
+		}
+	}
+}
+
+// numberWord writes the small numbers the docs spell out.
+func numberWord(n string) string {
+	if w, ok := map[string]string{"5": "five", "10": "ten", "20": "twenty"}[n]; ok {
+		return w
+	}
+	return n
+}
