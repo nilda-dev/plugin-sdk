@@ -1064,11 +1064,61 @@ hooks: `Hooks: []string{nilda.AdminActionHook, nilda.AdminReportHook}`.
 The shapes a manifest declares here are Go types too — `nilda.AdminPage`, `nilda.SettingField`,
 `nilda.ListColumn`, `nilda.RowAction` — and their comments are the reference for every field.
 
+**A list page can also create and edit its rows — in a form you declare and save yourself** (`form`, v0.28.0,
+`adminform.go`). The list stays read-only to Core: what the owner types goes to YOUR `admin.form.save` hook, and
+nothing is written until you answer. Declare the form on the list page:
+
+```json
+{ "key": "products", "kind": "list", "table": "products", "columns": [ … ],
+  "form": {
+    "create": true, "edit": true, "create_label": "New product",
+    "sections": [ { "key": "main", "label": "Product" },
+                  { "key": "status", "label": "Status", "side": true },
+                  { "key": "google", "label": "For Google", "folded": true } ],
+    "fields": [
+      { "key": "title", "label": "Title", "type": "text", "section": "main", "required": true },
+      { "key": "price", "label": "Price", "type": "money", "section": "main", "required": true },
+      { "key": "on_sale", "label": "Sale", "type": "boolean", "section": "main" },
+      { "key": "sale_ends", "label": "Ends", "type": "datetime", "section": "main",
+        "shown_when": { "field": "on_sale", "equals": true } },
+      { "key": "photos", "label": "Photos", "type": "gallery", "section": "main" },
+      { "key": "sizes", "label": "Sizes", "type": "repeater", "section": "main",
+        "fields": [ { "key": "name", "label": "Size", "type": "text" },
+                    { "key": "price", "label": "Price", "type": "money" } ] },
+      { "key": "status", "label": "Status", "type": "radio", "section": "status", "choices": ["published", "draft"] }
+    ] } }
+```
+
+The types are the settings ones, plus `date`, `datetime`, `image`, `gallery` and `repeater` from the widget
+vocabulary, plus `money` (minor units on the wire), `tags`, `reference` (rows of another of your list pages) and
+`stat` (a figure you fill) — `nilda.FormFieldTypes()`. Subscribe `nilda.AdminFormLoadHook` and
+`nilda.AdminFormSaveHook` and route both with `nilda.DispatchAdminForm(ctx, hook, payload, p.loadForm, p.saveForm)`:
+
+- **load** gets the row's id ("" for New) and answers its `Values`, a `Title` and a `Version`;
+- **save** gets every field's value and the `Version` the load gave, and answers the row as saved — or `Errors`,
+  field by field (`"sizes.1.price"` for a repeater row), and nothing saved; `Warnings` are said and do not stop it;
+  a save started before somebody else's change answers `Conflict` (the row as it is now, who changed it) and saves
+  nothing, so the owner chooses instead of a change being lost.
+
+Core checks the plain things first — a required field left empty, a number that is not one, a choice not offered,
+a field you did not declare — and never sends you those. **The same form is drawn in the panel and in the Nilda
+app, and the site's assistant gets it too** (Core's `plugin_form` and `plugin_form_save` tools, over MCP as well):
+it saves through your same hook, after the owner's yes, so whatever the owner can change on the screen, the
+assistant can — and your check answers both. Delete stays a row action, with its confirm.
+
+The Go types are `nilda.PageForm` (the block), `nilda.FormSection`, `nilda.FormField` and `nilda.FieldCondition`
+(`shown_when`, `required_when`) for the declaration; `nilda.AdminFormRequest` and `nilda.AdminFormResult` for the two
+hooks, with `nilda.FormError` (one field's error or warning) and `nilda.FormConflict` (the row as somebody else left
+it).
+
 **What Core refuses at install** (and `nilda plugin check` on your machine):
 
 - `admin_pages` without the `admin_page` capability, and the capability without a page.
 - One field key on two settings pages. Your settings reach you as ONE map keyed by field key
   (`core.Setting("api_key")`), so the second page would silently hand you the first page's value.
+- A `form` on a page that is not a `list`, a form that neither creates nor edits, a field type outside
+  `nilda.FormFieldTypes()`, a `repeater` inside a `repeater`, a `reference` to a page that is not one of your
+  lists, a `shown_when` naming no field of the form, or more than 80 fields, 12 sections or 16 fields in a repeater.
 - More than 12 pages, 48 fields on a settings page, 20 filters on a report page, 20 columns or 20 search
   columns on a list page, 8 row actions, or 100 choices on a field; or a name or label longer than 120
   characters — and so is a placeholder, a choice or a page's icon — or help longer than 500 characters,

@@ -156,6 +156,9 @@ type AdminPage struct {
 	// screen, with nobody able to tell. So Core shows the row and you change it: pressing an action calls
 	// your `admin.action` hook with the row's primary key, and what happens next is yours.
 	Actions []RowAction `json:"actions,omitempty"`
+	// Form lets the owner create and edit this list's rows in a form you declare and save yourself (adminform.go).
+	// Nil keeps the list read-only.
+	Form *PageForm `json:"form,omitempty"`
 
 	// --- kind: "report" ---
 

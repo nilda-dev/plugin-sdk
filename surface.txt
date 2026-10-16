@@ -3,6 +3,8 @@ const AccountFinishHook
 const AccountStartHook
 const AccountStatusHook
 const AdminActionHook
+const AdminFormLoadHook
+const AdminFormSaveHook
 const AdminPageList
 const AdminPageReport
 const AdminPageSettings
@@ -129,6 +131,15 @@ const FieldText
 const FieldTextarea
 const FieldTime
 const FieldURL
+const FormDate
+const FormDateTime
+const FormGallery
+const FormImage
+const FormMoney
+const FormReference
+const FormRepeater
+const FormStat
+const FormTags
 const FulfilmentDigital
 const FulfilmentNone
 const FulfilmentPhysical
@@ -276,9 +287,21 @@ field AdminAction.Action string json:action
 field AdminAction.ID string json:id
 field AdminAction.Page string json:page
 field AdminActionResult.Message string json:message
+field AdminFormRequest.ID string json:id
+field AdminFormRequest.Page string json:page
+field AdminFormRequest.Values map[string]any json:values
+field AdminFormRequest.Version string json:version
+field AdminFormResult.Conflict *FormConflict json:conflict
+field AdminFormResult.Errors []FormError json:errors
+field AdminFormResult.ID string json:id
+field AdminFormResult.Title string json:title
+field AdminFormResult.Values map[string]any json:values
+field AdminFormResult.Version string json:version
+field AdminFormResult.Warnings []FormError json:warnings
 field AdminPage.Actions []RowAction json:actions
 field AdminPage.Columns []ListColumn json:columns
 field AdminPage.Fields []SettingField json:fields
+field AdminPage.Form *PageForm json:form
 field AdminPage.Help string json:help
 field AdminPage.Icon string json:icon
 field AdminPage.Key string json:key
@@ -634,6 +657,9 @@ field FieldChoicesRequest.Field string json:field
 field FieldChoicesRequest.Locale string json:locale
 field FieldChoicesRequest.Options map[string]any json:options
 field FieldChoicesResponse.Choices []FieldChoice json:choices
+field FieldCondition.Equals any json:equals
+field FieldCondition.Field string json:field
+field FieldCondition.NotEmpty bool json:not_empty
 field FieldValidateRequest.Field string json:field
 field FieldValidateRequest.Key string json:key
 field FieldValidateRequest.Locale string json:locale
@@ -641,6 +667,37 @@ field FieldValidateRequest.Options map[string]any json:options
 field FieldValidateRequest.Value any json:value
 field FieldValidateResponse.Message string json:message
 field FieldValidateResponse.OK bool json:ok
+field FormConflict.At string json:at
+field FormConflict.By string json:by
+field FormConflict.Values map[string]any json:values
+field FormConflict.Version string json:version
+field FormError.Field string json:field
+field FormError.Message string json:message
+field FormField.Choices []string json:choices
+field FormField.Currency string json:currency
+field FormField.Default any json:default
+field FormField.Fields []FormField json:fields
+field FormField.Help string json:help
+field FormField.Key string json:key
+field FormField.Label string json:label
+field FormField.Max *float64 json:max
+field FormField.MaxLength int json:max_length
+field FormField.Min *float64 json:min
+field FormField.Multiple bool json:multiple
+field FormField.Placeholder string json:placeholder
+field FormField.ReadOnly bool json:read_only
+field FormField.Reference string json:reference
+field FormField.Required bool json:required
+field FormField.RequiredWhen *FieldCondition json:required_when
+field FormField.Section string json:section
+field FormField.ShownWhen *FieldCondition json:shown_when
+field FormField.Type string json:type
+field FormField.Unit string json:unit
+field FormSection.Folded bool json:folded
+field FormSection.Help string json:help
+field FormSection.Key string json:key
+field FormSection.Label string json:label
+field FormSection.Side bool json:side
 field GRPCPlugin.Impl contract.PluginServiceServer
 field HeadlineMetric.Metric string json:metric
 field HeadlineMetric.Page string json:page
@@ -703,6 +760,11 @@ field OffersRequest.OrderID string json:order_id
 field OffersRequest.Stage string json:stage
 field OffersRequest.SubtotalMinor int64 json:subtotal_minor
 field OffersResult.Offers []Offer json:offers
+field PageForm.Create bool json:create
+field PageForm.CreateLabel string json:create_label
+field PageForm.Edit bool json:edit
+field PageForm.Fields []FormField json:fields
+field PageForm.Sections []FormSection json:sections
 field PageMobile.Hide bool json:hide
 field PageMobile.Pin bool json:pin
 field PageMobile.Row *MobileRow json:row
@@ -1092,6 +1154,7 @@ func CurrentUser(*http.Request) (Viewer, bool)
 func DeliverablesMethods(DeliverablesProvider) ([]ServiceMethod)
 func DispatchAccount(context.Context, string, []byte, AccountHandler) ([]byte, bool, error)
 func DispatchAdminAction(context.Context, string, []byte, func(context.Context, AdminAction) (AdminActionResult, error)) ([]byte, bool, error)
+func DispatchAdminForm(context.Context, string, []byte, func(context.Context, AdminFormRequest) (AdminFormResult, error), func(context.Context, AdminFormRequest) (AdminFormResult, error)) ([]byte, bool, error)
 func DispatchAdminReport(context.Context, string, []byte, func(context.Context, AdminReportRequest) (AdminReportResult, error)) ([]byte, bool, error)
 func DispatchAuthHook(context.Context, *Core, AuthProvider, string, []byte) ([]byte, bool, error)
 func DispatchCommerceHook(context.Context, *Core, Commerce, string, []byte) ([]byte, bool, error)
@@ -1105,6 +1168,7 @@ func DisputeFinal(string) (bool)
 func DocumentData(string, string, []byte) (DocumentRef)
 func EventOf(context.Context) (EventInfo)
 func FieldTypes() ([]string)
+func FormFieldTypes() ([]string)
 func FormatMinor(int64, string) (string, bool)
 func HTTPClient(time.Duration) (*http.Client)
 func HostPluginMap() (map[int]plugin.PluginSet)
@@ -1387,6 +1451,8 @@ type AccountStartResult
 type AccountStatus
 type AdminAction
 type AdminActionResult
+type AdminFormRequest
+type AdminFormResult
 type AdminPage
 type AdminReportRequest
 type AdminReportResult
@@ -1468,9 +1534,14 @@ type EventInfo
 type FieldChoice
 type FieldChoicesRequest
 type FieldChoicesResponse
+type FieldCondition
 type FieldProvider
 type FieldValidateRequest
 type FieldValidateResponse
+type FormConflict
+type FormError
+type FormField
+type FormSection
 type GRPCPlugin
 type Handler
 type HeadlineMetric
@@ -1488,6 +1559,7 @@ type OffersProvider
 type OffersRequest
 type OffersResult
 type OrdersProvider
+type PageForm
 type PageMobile
 type Parcel
 type PaymentAddress

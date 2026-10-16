@@ -4,6 +4,16 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## v0.28.0 — unreleased (edit forms on a list page)
+
+**A list page can create and edit its rows** (`adminform.go`; PLUGIN_SDK.md, "A list page can also create and edit
+its rows"): `AdminPage.Form` declares a form — sections, fields in the settings vocabulary plus `date`, `datetime`,
+`image`, `gallery`, `repeater`, `money`, `tags`, `reference` and `stat` (`FormFieldTypes`), `shown_when` and
+`required_when` — that Core draws in the panel and the Nilda app and gives the site's assistant. Two new hooks,
+`admin.form.load` and `admin.form.save` (`AdminFormLoadHook`, `AdminFormSaveHook`), routed by `DispatchAdminForm`;
+the save answers the row as saved, or field errors and nothing saved, or a conflict. Additions only; `surface.txt`
+grows by 72.
+
 ## v0.27.0 — 2026-10-16 (a signed-in buyer's own prices; telling the site's owner)
 
 **Telling the site's owner** (`notifications` in plugin.json; PLUGIN_SDK.md, "Telling the site's owner"): declare which
