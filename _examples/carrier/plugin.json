@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "sdk_version": "0.15.0",
   "capabilities": ["service_provider", "admin_page"],
+  "mobile": { "icon": "truck" },
   "provides": ["shipping.carrier/v1"],
   "admin_pages": [{
     "key": "settings",

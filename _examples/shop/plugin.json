@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "sdk_version": "0.10.1",
   "capabilities": ["hooks", "events", "schedule", "kv", "email", "content.write", "admin_page"],
+  "mobile": { "icon": "shop" },
   "admin_pages": [{
     "key": "settings",
     "label": "Settings",
