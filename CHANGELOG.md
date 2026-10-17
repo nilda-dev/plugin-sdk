@@ -15,7 +15,7 @@ the session carries `ChargedSaved`) and forgets it (`ForgetSavedMethod`). A gate
 `SavedMethodPayer`: its token arrives inside the start request (`PaymentStartRequest.Saved`, a `PaymentSavedToken`),
 and the release as `payment.saved.forget` (`PaymentForgetRequest`). A sixth gateway failure code,
 `authentication_required`: the payer's bank wants them present. `nildatest.Payments` keeps, charges and forgets methods
-as Core does (`SavedMethod`, `SavedToken`, `ChargeSaved`; `StubGateway.SavedStart`, `SavedCharged`, `Forgotten`).
+as Core does (`SavedMethod`, `SavedToken`, `ChargeSaved`, `ForgetSavedMethod`; `StubGateway.SavedStart`, `SavedCharged`, `Forgotten`).
 Additions only.
 
 ## v0.29.0 — 2026-10-17 (a product's photos)

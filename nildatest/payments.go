@@ -867,9 +867,17 @@ func (p *Payments) report(ctx context.Context, caller, id, verb string, body []b
 		if r.ProviderRef != "" && s.Status != nilda.PaymentResolved {
 			s.ProviderRef = r.ProviderRef
 		}
-		if s.Status != nilda.PaymentResolved {
-			p.keep(s, r.Saved)
+		if s.Status == nilda.PaymentResolved {
+			// The kept method may arrive after the money (a capture event before the order that names it): kept
+			// then, and the consumer told — as Core does.
+			if r.Saved != nil && s.Save != nil && s.SavedMethod == "" {
+				p.keep(s, r.Saved)
+				s.UpdatedAt = time.Now().UTC()
+				p.owe(owed{session: s.ID})
+			}
+			return *s, nil
 		}
+		p.keep(s, r.Saved)
 		return p.apply(s, nilda.PaymentResolved)
 
 	case "reject":

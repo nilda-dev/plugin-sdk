@@ -50,6 +50,11 @@ func (p *Payments) ChargeSaved(ctx context.Context, consumer string, params nild
 	return p.chargeSaved(ctx, consumer, params)
 }
 
+// ForgetSavedMethod forgets a kept method for consumer, as the HTTP call does: its gateway is asked to let go of it.
+func (p *Payments) ForgetSavedMethod(ctx context.Context, consumer, id string) (nilda.SavedPaymentMethod, error) {
+	return p.forgetSaved(ctx, consumer, id)
+}
+
 // keep records the method a Save session's gateway reported, and gives the session its id. Callers hold p.mu.
 func (p *Payments) keep(s *nilda.PaymentSession, saved *nilda.PaymentSaved) {
 	if saved == nil || s.Save == nil || s.SavedMethod != "" {
