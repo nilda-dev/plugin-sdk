@@ -4,7 +4,14 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
-## Unreleased
+## v0.28.1 — 2026-10-17 (a secret form field; renamed SKUs)
+
+**A form field may be `secret`** (`FormField.Secret`): a text or long-text value written and never shown back —
+licence keys pasted in — whose value the assistant's confirmation card leaves out, saying only how many lines.
+**`commerce.sku_renamed`** (`EventCommerceSKURenamed`): the shop announces the SKUs its product form renamed, for a
+plugin that keeps SKUs to rewrite its own (CATALOG.md, "When a code is renamed"). Docs: a save the assistant sends in
+part reaches your hook whole, filled from your load; `plugin_form_save` is destructive and the same save is made once,
+so make your version change with everything you store. Additions only; `surface.txt` grows by 2.
 
 **`nildatest.MobilePreview` draws a list page's form** as the app lays it out — New above the list, a row opening in
 its form with its actions under it — the same picture `nilda plugin check --mobile` draws. Docs: a form's side cards
