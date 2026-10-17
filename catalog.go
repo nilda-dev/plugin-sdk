@@ -223,10 +223,10 @@ type CatalogVariant struct {
 	// counted. AvailabilityDate is the day a preorder ships by (v0.30.0) — what every channel asks a pre-order for.
 	Availability     string     `json:"availability"`
 	AvailabilityDate *time.Time `json:"availability_date,omitempty"`
-	Quantity     *int64 `json:"quantity,omitempty"`
-	GTIN         string `json:"gtin,omitempty"`
-	MPN          string `json:"mpn,omitempty"`
-	WeightGrams  *int64 `json:"weight_grams,omitempty"`
+	Quantity         *int64     `json:"quantity,omitempty"`
+	GTIN             string     `json:"gtin,omitempty"`
+	MPN              string     `json:"mpn,omitempty"`
+	WeightGrams      *int64     `json:"weight_grams,omitempty"`
 	// RequiresShipping is false for a download or a service.
 	RequiresShipping bool `json:"requires_shipping"`
 	// ImageURL is the variant's own picture, absolute; "" uses the product's.
