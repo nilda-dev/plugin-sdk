@@ -129,6 +129,67 @@ type phonePage struct {
 	actions                       []phoneAction
 	searchable, pin               bool
 	metrics                       []phoneMetric
+	form                          *phoneForm
+}
+
+// phoneForm is a list page's form as the app draws it: New, and its cards in the app's one-column order.
+type phoneForm struct {
+	create, edit bool
+	createLabel  string
+	cards        []phoneCard
+}
+
+type phoneCard struct {
+	label  string
+	fields []phoneFormField
+}
+
+type phoneFormField struct {
+	label, typ string
+	fields     []phoneFormField
+}
+
+// resolveForm is Core's appForm and formColumn: the fields naming no card first, then the cards in order, the side
+// ones after the main ones; a card with no field is left out.
+func resolveForm(f nilda.PageForm, tr func(string, int) string) *phoneForm {
+	out := &phoneForm{create: f.Create, edit: f.Edit, createLabel: tr(f.CreateLabel, shownLabel)}
+	field := func(fl nilda.FormField) phoneFormField {
+		pf := phoneFormField{label: tr(fl.Label, shownLabel), typ: fl.Type}
+		for _, sub := range fl.Fields {
+			pf.fields = append(pf.fields, phoneFormField{label: tr(sub.Label, shownLabel), typ: sub.Type})
+		}
+		return pf
+	}
+	known := map[string]bool{}
+	for _, sc := range f.Sections {
+		known[sc.Key] = true
+	}
+	var loose []phoneFormField
+	for _, fl := range f.Fields {
+		if !known[fl.Section] {
+			loose = append(loose, field(fl))
+		}
+	}
+	if len(loose) > 0 {
+		out.cards = append(out.cards, phoneCard{fields: loose})
+	}
+	for _, side := range []bool{false, true} {
+		for _, sc := range f.Sections {
+			if sc.Side != side {
+				continue
+			}
+			card := phoneCard{label: tr(sc.Label, shownLabel)}
+			for _, fl := range f.Fields {
+				if fl.Section == sc.Key {
+					card.fields = append(card.fields, field(fl))
+				}
+			}
+			if len(card.fields) > 0 {
+				out.cards = append(out.cards, card)
+			}
+		}
+	}
+	return out
 }
 
 func renderPhone(raw []byte) (string, error) {
@@ -289,6 +350,9 @@ func resolvePage(m previewManifest, pg nilda.AdminPage, tr func(string, int) str
 				confirm: plain(tr(a.Confirm, 0), shownConfirm, false)})
 		}
 		out.searchable = len(pg.Search) > 0
+		if pg.Form != nil {
+			out.form = resolveForm(*pg.Form, tr)
+		}
 		if pg.Mobile != nil {
 			out.row = pg.Mobile.Row
 			out.pin = pg.Mobile.Pin && idKey != ""
@@ -451,6 +515,13 @@ func drawList(b *phone, pg phonePage) {
 		}
 		return ""
 	}
+	if pg.form != nil && pg.form.create {
+		createLabel := pg.form.createLabel
+		if createLabel == "" {
+			createLabel = "New"
+		}
+		b.wrap("[ + "+createLabel+" ]", "")
+	}
 	if pg.searchable {
 		b.line("[ Search " + pg.label + " ]")
 	}
@@ -475,21 +546,49 @@ func drawList(b *phone, pg phonePage) {
 		}
 	}
 	b.line("  …")
-	if len(pg.actions) > 0 || len(pg.columns) > 0 {
+	// A row of a list with a form opens in the form, its actions under it; any other row opens a sheet.
+	opensForm := pg.form != nil && pg.form.edit
+	if !opensForm && (len(pg.actions) > 0 || len(pg.columns) > 0) {
 		b.blank()
 		b.line("A row's sheet:")
 		for _, c := range pg.columns {
 			b.pair("  "+c.label, c.typ)
 		}
-		for _, a := range pg.actions {
-			b.wrap("[ "+a.label+" ]", "  ")
-			if a.confirm != "" {
-				b.wrap("asks: “"+a.confirm+"”", "    ")
+		drawRowActions(b, pg)
+	}
+	if pg.form != nil {
+		b.blank()
+		if pg.form.edit {
+			b.line("A row opens in its form:")
+		} else {
+			b.line("New opens its form:")
+		}
+		for _, card := range pg.form.cards {
+			if card.label != "" {
+				b.wrap(card.label, "  ")
+			}
+			for _, fl := range card.fields {
+				b.pair("    "+fl.label, fl.typ)
+				for _, sub := range fl.fields {
+					b.pair("      "+sub.label, sub.typ)
+				}
 			}
 		}
-		if pg.pin {
-			b.line("  [ Ask in Chat ]")
+		if opensForm {
+			drawRowActions(b, pg)
 		}
+	}
+}
+
+func drawRowActions(b *phone, pg phonePage) {
+	for _, a := range pg.actions {
+		b.wrap("[ "+a.label+" ]", "  ")
+		if a.confirm != "" {
+			b.wrap("asks: “"+a.confirm+"”", "    ")
+		}
+	}
+	if pg.pin {
+		b.line("  [ Ask in Chat ]")
 	}
 }
 

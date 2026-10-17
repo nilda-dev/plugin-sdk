@@ -4,6 +4,14 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## Unreleased
+
+**`nildatest.MobilePreview` draws a list page's form** as the app lays it out — New above the list, a row opening in
+its form with its actions under it — the same picture `nilda plugin check --mobile` draws. Docs: a form's side cards
+follow the main ones on a phone; a money field naming no currency is in the form's own `currency` field; a hosted
+site without the AI-execution plan runs only `read` abilities, a self-hosted one every class (Core's D-96). No change
+to the Go API.
+
 ## v0.28.0 — 2026-10-17 (edit forms on a list page)
 
 **A list page can create and edit its rows** (`adminform.go`; PLUGIN_SDK.md, "A list page can also create and edit

@@ -754,10 +754,11 @@ one, so a typo costs an owner one permission click rather than an unguarded acti
 | `access` | roles, permissions, credentials |
 | `infra` | maintenance, caches, backups, the install itself |
 
-**On an install without Pro, the site's assistant runs only `read` abilities.** Every class above `read` —
-`analyze` included, since an audit costs a model call — is what Pro sells the assistant doing, and is refused
-on a free install before your plugin is reached. So `read` versus `analyze` decides whether your ability runs
-on a free site at all: declare `read` only when that is the truth.
+**On a hosted site without the AI-execution plan, the site's assistant runs only `read` abilities.** Every class
+above `read` — `analyze` included, since an audit costs a model call — is what that plan sells the assistant doing, and
+is refused there before your plugin is reached. A self-hosted install brings its own AI key and client, so there every
+class runs (Core's D-96). So `read` versus `analyze` decides whether your ability runs on a hosted site without the plan:
+declare `read` only when that is the truth.
 
 **Who may run it is Core's decision, not yours.** The class says how risky the action is; it does not say
 which *person* may ask for it. Core runs an ability only for someone who holds `plugin.manage`, or

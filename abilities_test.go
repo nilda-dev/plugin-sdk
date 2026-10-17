@@ -166,19 +166,24 @@ func TestTwoAbilitiesWithOneNameAreRefused(t *testing.T) {
 // Both sides are READ, never typed here: Core's from its catalog.go, the SDK's from every constant of type
 // Class this package declares. A hand-written SDK list would agree with itself — a class added to the SDK
 // alone, or to Core alone and to this test, would pass.
-// "On an install without Pro, the site's assistant runs only `read` abilities" — held to Core's gate: every
-// tool enter()s through policyGate, which refuses a class that mutates() without the AI-execute licence, and
+// "On a hosted site without the AI-execution plan, the site's assistant runs only `read` abilities", and every class on a
+// self-hosted install — held to Core's gate: every tool enter()s through policyGate, which refuses a class that
+// mutates() unless AIExecuteOpen (self-hosted, or the plan on a hosted site; D-96), and
 // mutates() is every class ranked above read; a plugin's ability is run through enter() like a Core tool.
-func TestTheGuideSaysAFreeInstallRunsOnlyReadAbilities(t *testing.T) {
+func TestTheGuideSaysAHostedSiteWithoutThePlanRunsOnlyReadAbilities(t *testing.T) {
 	flat := func(s string) string { return strings.Join(strings.Fields(s), " ") }
 	guard := flat(coreSource(t, "internal", "agent", "guardrails.go"))
 	for _, want := range []string{
 		"if r, blocked := s.policyGate(ctx, pol, spec); blocked { return owner, r }",
-		"if spec.Class.mutates() && !license.IsProUnlocked(license.FeatureAIExecute) {",
+		"if spec.Class.mutates() && !license.AIExecuteOpen() {",
 	} {
 		if !strings.Contains(guard, want) {
-			t.Errorf("core's guardrails.go no longer has %q — re-read the guide's free-install sentence", want)
+			t.Errorf("core's guardrails.go no longer has %q — re-read the guide's hosted-site sentence", want)
 		}
+	}
+	if lic := flat(coreSource(t, "internal", "license", "license.go")); !strings.Contains(lic,
+		"func AIExecuteOpen() bool { return !authz.Hosted() || IsProUnlocked(FeatureAIExecute) }") {
+		t.Error("core's AIExecuteOpen is no longer \"self-hosted, or the plan on a hosted site\" — re-read the guide's sentence")
 	}
 	if !strings.Contains(flat(coreSource(t, "internal", "agent", "catalog.go")), "return ok && r > classRank[ClassRead]") {
 		t.Error("core's mutates() is no longer every class above read — re-read the guide's free-install sentence")
@@ -186,8 +191,14 @@ func TestTheGuideSaysAFreeInstallRunsOnlyReadAbilities(t *testing.T) {
 	if !strings.Contains(flat(coreSource(t, "internal", "agent", "abilities.go")), "owner, ref := svc.enter(ctx, name)") {
 		t.Error("core no longer runs a plugin's ability through enter() — re-read the guide's free-install sentence")
 	}
-	if !strings.Contains(flat(readText(t, "docs/PLUGIN_SDK.md")), "**On an install without Pro, the site's assistant runs only `read` abilities.**") {
-		t.Error("PLUGIN_SDK.md no longer says a free install runs only read abilities, which core's guardrails make true")
+	guide := flat(readText(t, "docs/PLUGIN_SDK.md"))
+	for _, want := range []string{
+		"**On a hosted site without the AI-execution plan, the site's assistant runs only `read` abilities.**",
+		"A self-hosted install brings its own AI key and client, so there every class runs (Core's D-96).",
+	} {
+		if !strings.Contains(guide, want) {
+			t.Errorf("PLUGIN_SDK.md no longer says %q, which core's guardrails make true", want)
+		}
 	}
 }
 
