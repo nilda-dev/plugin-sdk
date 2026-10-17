@@ -35,6 +35,8 @@ const (
 	AvailabilityInStock    = "in_stock"
 	AvailabilityOutOfStock = "out_of_stock"
 	AvailabilityBackorder  = "backorder"
+	// AvailabilityPreOrder is an item sold before it exists, shipping by the variant's AvailabilityDate (v0.30.0).
+	AvailabilityPreOrder = "preorder"
 )
 
 // CatalogDescription is the shop as a channel needs to know it.
@@ -217,8 +219,10 @@ type CatalogVariant struct {
 	// length or area (Directive 98/6/EC Art. 3(4): an advertisement naming the price names the unit price too). nil
 	// for anything else. From v0.23.0.
 	UnitPricing *CatalogUnitPricing `json:"unit_pricing,omitempty"`
-	// Availability is in_stock, out_of_stock or backorder; Quantity how many are available, nil when not counted.
-	Availability string `json:"availability"`
+	// Availability is in_stock, out_of_stock, backorder or preorder; Quantity how many are available, nil when not
+	// counted. AvailabilityDate is the day a preorder ships by (v0.30.0) — what every channel asks a pre-order for.
+	Availability     string     `json:"availability"`
+	AvailabilityDate *time.Time `json:"availability_date,omitempty"`
 	Quantity     *int64 `json:"quantity,omitempty"`
 	GTIN         string `json:"gtin,omitempty"`
 	MPN          string `json:"mpn,omitempty"`
@@ -260,6 +264,10 @@ func (v CatalogVariant) Validate() error {
 	}
 	switch v.Availability {
 	case AvailabilityInStock, AvailabilityOutOfStock, AvailabilityBackorder:
+	case AvailabilityPreOrder:
+		if v.AvailabilityDate == nil {
+			return fmt.Errorf("variant %q is a preorder with no date it ships by", v.SKU)
+		}
 	default:
 		return fmt.Errorf("variant %q has availability %q", v.SKU, v.Availability)
 	}

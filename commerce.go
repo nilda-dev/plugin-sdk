@@ -266,6 +266,20 @@ type CommerceProduct struct {
 	// CACHED and shared: it is a place for a short fact beside a price, not for your product's full
 	// description or a blob of JSON you meant to parse on the other side.
 	Extra map[string]string `json:"extra,omitempty"`
+	// PreOrder marks an item sold before it exists (from v0.30.0): Core's add-to-cart button then says
+	// "Pre-order" and draws the date it ships by and the line about how it is paid under it — what the buyer
+	// must be told before they pay (Directive 2011/83/EU Art. 6(1)(g)). Set InStock too: a pre-order is
+	// bought whatever the stock. Nil for an item sold as itself.
+	PreOrder *CommercePreOrder `json:"pre_order,omitempty"`
+}
+
+// CommercePreOrder is what a pre-order's buyer reads beside its button, both FORMATTED BY YOU in the shop's
+// language, as Price is.
+type CommercePreOrder struct {
+	// ShipsBy is the promise, a sentence with its date: "Ships by 15 March 2027".
+	ShipsBy string `json:"ships_by"`
+	// Note is how it is paid: "Your card is saved now and charged when it ships."
+	Note string `json:"note,omitempty"`
 }
 
 // CommerceQuery is what a catalogue widget asks for. Deliberately small: you own querying, and every field

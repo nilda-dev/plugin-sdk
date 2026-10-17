@@ -217,6 +217,12 @@
                       "availability": {
                         "type": "string"
                       },
+                      "availability_date": {
+                        "type": [
+                          "null",
+                          "string"
+                        ]
+                      },
                       "quantity": {
                         "type": [
                           "null",
@@ -419,6 +425,12 @@
                     },
                     "availability": {
                       "type": "string"
+                    },
+                    "availability_date": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
                     },
                     "quantity": {
                       "type": [

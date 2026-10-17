@@ -15,6 +15,7 @@ const AgentBuy
 const AvailabilityBackorder
 const AvailabilityInStock
 const AvailabilityOutOfStock
+const AvailabilityPreOrder
 const BadgeBlue
 const BadgeGold
 const BadgeGreen
@@ -433,6 +434,7 @@ field CatalogUnitPricing.Measure string json:measure
 field CatalogUnitPricing.Quantity float64 json:quantity
 field CatalogUnitPricing.ShownUnitPriceMinor int64 json:shown_unit_price_minor
 field CatalogVariant.Availability string json:availability
+field CatalogVariant.AvailabilityDate *time.Time json:availability_date
 field CatalogVariant.Currency string json:currency
 field CatalogVariant.GTIN string json:gtin
 field CatalogVariant.ImageURL string json:image_url
@@ -564,6 +566,8 @@ field CommerceImage.Alt string json:alt
 field CommerceImage.MediaID string json:media_id
 field CommerceImage.Selection map[string]string json:selection
 field CommerceImage.URL string json:url
+field CommercePreOrder.Note string json:note
+field CommercePreOrder.ShipsBy string json:ships_by
 field CommerceProduct.Badge string json:badge
 field CommerceProduct.Excerpt string json:excerpt
 field CommerceProduct.Extra map[string]string json:extra
@@ -572,6 +576,7 @@ field CommerceProduct.Image string json:image
 field CommerceProduct.Images []CommerceImage json:images
 field CommerceProduct.InStock bool json:in_stock
 field CommerceProduct.OldPrice string json:old_price
+field CommerceProduct.PreOrder *CommercePreOrder json:pre_order
 field CommerceProduct.Price string json:price
 field CommerceProduct.Rating float64 json:rating
 field CommerceProduct.RatingCount int json:rating_count
@@ -1579,6 +1584,7 @@ type Commerce
 type CommerceCounter
 type CommerceEndpoints
 type CommerceImage
+type CommercePreOrder
 type CommercePriceGroups
 type CommerceProduct
 type CommerceQuery

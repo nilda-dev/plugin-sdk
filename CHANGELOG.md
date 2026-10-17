@@ -19,7 +19,11 @@ most its amount (`MaxAmountMinor` for an amount a rule sets), a pre-order's one 
 sooner than its interval — and a charge whose answer was lost is held pending and asked again for the same session,
 which a gateway makes idempotent by the session's id: never a second charge. `nildatest.Payments` keeps, charges and forgets methods
 as Core does, with the same mandate checks (`SavedMethod`, `SavedToken`, `ChargeSaved`, `ForgetSavedMethod`, and `Now` to move a renewal's clock; `StubGateway.SavedStart`, `SavedCharged`, `Forgotten`).
-Additions only.
+
+**A pre-order on the product page** (`CommerceProduct.PreOrder`, `CommercePreOrder`): an item sold before it exists —
+Core's add-to-cart button says "Pre-order" and draws the date it ships by and how it is paid beneath it, the facts a
+buyer is owed before paying. A catalogue variant may be `AvailabilityPreOrder` (`preorder`), with the
+`AvailabilityDate` it ships by (shop.catalog/v1, as Google's and schema.org's pre-order are). Additions only.
 
 ## v0.29.0 — 2026-10-17 (a product's photos)
 

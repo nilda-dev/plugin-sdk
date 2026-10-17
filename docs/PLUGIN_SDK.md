@@ -1525,6 +1525,11 @@ order the product page's gallery shows them. Give a photo's `MediaID` when it is
 Core draws it at every size the library keeps, with its alt text; give it a `Selection` (`{"Colour": "Black"}`) and
 picking that choice turns the gallery to it — the gallery never changes the shopper's choice.
 
+**And whether it is a pre-order (v0.30.0).** An item sold before it exists carries a `nilda.CommercePreOrder` in
+`PreOrder`: `ShipsBy` ("Ships by 15 March 2027") and `Note` (how it is paid), both formatted by you in the shop's
+language. Core's add-to-cart button then says "Pre-order" and draws both beneath it — the date is what a buyer must be
+told before paying. Set `InStock` too: a pre-order is bought whatever the stock.
+
 **Tell Nilda when your catalogue changes — this one is not optional.** Nilda caches a rendered page for an
 hour and drops it when something it depends on changes, but your catalogue is the one dependency it cannot
 see: a merchant fixing a price in YOUR admin touches nothing in Nilda, so the storefront keeps the old price

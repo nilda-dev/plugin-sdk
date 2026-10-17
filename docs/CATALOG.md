@@ -26,7 +26,7 @@ and one `CatalogVariant` per purchasable variant — the item a channel lists: i
 price and the sale price now with the sale's end, the same two as a buyer pays them (`shown_price_minor`,
 `shown_sale_price_minor`: with the shop's tax when its prices are entered without it — what a channel showing prices
 with tax lists; from v0.19.0), the currency, the availability (`in_stock`, `out_of_stock`,
-`backorder`) and the quantity when it is counted, GTIN and MPN, the weight, whether it ships, its own picture.
+`backorder`, or `preorder` with the `availability_date` it ships by — from v0.30.0) and the quantity when it is counted, GTIN and MPN, the weight, whether it ships, its own picture.
 
 A variant on sale carries `shown_prior_price_minor` (from v0.23.0): the lowest price, as a buyer pays it, in the 30
 days before the reduction began — the only price an EU channel may strike through (Directive 98/6/EC Art. 6a; Austria's
