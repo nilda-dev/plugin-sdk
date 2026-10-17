@@ -4,7 +4,7 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
-## Unreleased
+## v0.29.0 — 2026-10-17 (a product's photos)
 
 **A product's photos** (`CommerceProduct.Images`, `CommerceImage`): every photo in the order the product page's gallery
 shows them, each with its media-library id (Core draws it at every size it keeps) and the choice it shows
