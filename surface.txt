@@ -157,6 +157,7 @@ const HookFieldValidate
 const HookPaymentConfirm
 const HookPaymentDescribe
 const HookPaymentDisputeUpdated
+const HookPaymentForget
 const HookPaymentRefund
 const HookPaymentRefundUpdated
 const HookPaymentSessionUpdated
@@ -171,9 +172,16 @@ const HookSearchRemove
 const HookSearchTruncate
 const HookWidgetDescribe
 const HookWidgetRender
+const IntervalDay
+const IntervalMonth
+const IntervalWeek
+const IntervalYear
 const LabelPending
 const LabelPurchased
 const LabelRejected
+const MandatePreOrder
+const MandateSubscription
+const MandateUpdate
 const MaxAssetsPerPlugin
 const MaxDisputesPerSession
 const MaxPriceGroupLength
@@ -199,6 +207,7 @@ const OrderStatusRefunded
 const PaymentCreated
 const PaymentExpired
 const PaymentFailAmountMismatch
+const PaymentFailAuthenticationRequired
 const PaymentFailCancelled
 const PaymentFailConsumerRefused
 const PaymentFailDeclined
@@ -241,6 +250,7 @@ const StockAlertsDescribe
 const SupportDisputes
 const SupportPartialRefund
 const SupportRefund
+const SupportSaveForLater
 const SupportSync
 const TrackAttemptedDelivery
 const TrackAvailableForPickup
@@ -786,6 +796,13 @@ field PaymentAddress.Line2 string json:line2
 field PaymentAddress.Name string json:name
 field PaymentAddress.PostalCode string json:postal_code
 field PaymentAddress.Region string json:region
+field PaymentChargeParams.AmountMinor int64 json:amount_minor
+field PaymentChargeParams.Currency string json:currency
+field PaymentChargeParams.Description string json:description
+field PaymentChargeParams.Fulfilment string json:fulfilment
+field PaymentChargeParams.Reference string json:reference
+field PaymentChargeParams.SavedMethod string json:saved_method
+field PaymentChargeParams.ShippingAddress *PaymentAddress json:shipping_address
 field PaymentConfirmRequest.Session PaymentSession json:session
 field PaymentConfirmResult.Proceed bool json:proceed
 field PaymentConfirmResult.Reason string json:reason
@@ -827,6 +844,14 @@ field PaymentExternalRefund.AmountMinor int64 json:amount_minor
 field PaymentExternalRefund.Currency string json:currency
 field PaymentExternalRefund.ProviderRef string json:provider_ref
 field PaymentExternalRefund.Reason string json:reason
+field PaymentForgetRequest.Token string json:token
+field PaymentMandate.AmountMinor int64 json:amount_minor
+field PaymentMandate.AmountRule string json:amount_rule
+field PaymentMandate.Currency string json:currency
+field PaymentMandate.Interval string json:interval
+field PaymentMandate.IntervalCount int json:interval_count
+field PaymentMandate.Purpose string json:purpose
+field PaymentMandate.Text string json:text
 field PaymentMethod.CredentialTypes []string json:credential_types
 field PaymentMethod.Currencies []string json:currencies
 field PaymentMethod.Description string json:description
@@ -874,9 +899,15 @@ field PaymentRejection.ProviderRef string json:provider_ref
 field PaymentResolution.AmountMinor int64 json:amount_minor
 field PaymentResolution.Currency string json:currency
 field PaymentResolution.ProviderRef string json:provider_ref
+field PaymentResolution.Saved *PaymentSaved json:saved
+field PaymentSaved.ExpiresAt *time.Time json:expires_at
+field PaymentSaved.Label string json:label
+field PaymentSaved.Token string json:token
+field PaymentSavedToken.Token string json:token
 field PaymentSession.AmountMinor int64 json:amount_minor
 field PaymentSession.BillingAddress *PaymentAddress json:billing_address
 field PaymentSession.CancelURL string json:cancel_url
+field PaymentSession.ChargedSaved string json:charged_saved
 field PaymentSession.Consumer string json:consumer
 field PaymentSession.CreatedAt time.Time json:created_at
 field PaymentSession.Currency string json:currency
@@ -895,6 +926,8 @@ field PaymentSession.RedirectURL string json:redirect_url
 field PaymentSession.Reference string json:reference
 field PaymentSession.RefundedMinor int64 json:refunded_minor
 field PaymentSession.ReturnURL string json:return_url
+field PaymentSession.Save *PaymentMandate json:save
+field PaymentSession.SavedMethod string json:saved_method
 field PaymentSession.ShippingAddress *PaymentAddress json:shipping_address
 field PaymentSession.Status string json:status
 field PaymentSession.Supports []string json:supports
@@ -913,9 +946,11 @@ field PaymentSessionParams.Locale string json:locale
 field PaymentSessionParams.Method string json:method
 field PaymentSessionParams.Reference string json:reference
 field PaymentSessionParams.ReturnURL string json:return_url
+field PaymentSessionParams.Save *PaymentMandate json:save
 field PaymentSessionParams.ShippingAddress *PaymentAddress json:shipping_address
 field PaymentSessionUpdate.Session PaymentSession json:session
 field PaymentStartRequest.Credential *PaymentCredential json:credential
+field PaymentStartRequest.Saved *PaymentSavedToken json:saved
 field PaymentStartRequest.Session PaymentSession json:session
 field PaymentStartResult.ExpiresAt *time.Time json:expires_at
 field PaymentStartResult.FailureCode string json:failure_code
@@ -975,6 +1010,18 @@ field ReportMetric.Label string json:label
 field RowAction.Confirm string json:confirm
 field RowAction.Key string json:key
 field RowAction.Label string json:label
+field SavedPaymentMethod.Consumer string json:consumer
+field SavedPaymentMethod.CreatedAt time.Time json:created_at
+field SavedPaymentMethod.Email string json:email
+field SavedPaymentMethod.ExpiresAt *time.Time json:expires_at
+field SavedPaymentMethod.ForgottenAt *time.Time json:forgotten_at
+field SavedPaymentMethod.Gateway string json:gateway
+field SavedPaymentMethod.ID string json:id
+field SavedPaymentMethod.Label string json:label
+field SavedPaymentMethod.Mandate PaymentMandate json:mandate
+field SavedPaymentMethod.Method string json:method
+field SavedPaymentMethod.Session string json:session
+field SavedPaymentMethod.Test bool json:test
 field Schedule.Cron string
 field Schedule.Name string
 field ScriptAsset.Async bool json:async
@@ -1268,6 +1315,8 @@ imethod PaymentGateway.DescribePayments(context.Context) ([]PaymentMethod, error
 imethod PaymentGateway.RefundPayment(context.Context, PaymentRefund, PaymentSession) (PaymentRefundResult, error)
 imethod PaymentGateway.StartPayment(context.Context, PaymentSession) (PaymentStartResult, error)
 imethod PaymentSyncer.SyncPayment(context.Context, PaymentSession) (error)
+imethod SavedMethodPayer.ForgetSaved(context.Context, string) (error)
+imethod SavedMethodPayer.StartPaymentWithSaved(context.Context, PaymentSession, string) (PaymentStartResult, error)
 imethod SearchProvider.Configure(context.Context) (error)
 imethod SearchProvider.Healthy(context.Context) (bool)
 imethod SearchProvider.Index(context.Context, []SearchDoc) (error)
@@ -1330,11 +1379,14 @@ method (*OIDCClient) Discover(context.Context) (error)
 method (*OIDCClient) EndSessionURL(context.Context) (string)
 method (*OIDCClient) Exchange(context.Context, AuthCompleteRequest) (AuthAssertion, error)
 method (*OIDCClient) Ready(context.Context) (bool, string)
+method (*Payments) ChargeSaved(context.Context, string, PaymentChargeParams) (PaymentSession, error)
 method (*Payments) Confirm(context.Context, string) (PaymentConfirmResult, error)
 method (*Payments) CreateRefund(context.Context, string, string, PaymentRefundParams) (PaymentRefund, error)
 method (*Payments) CreateSession(context.Context, string, PaymentSessionParams) (PaymentSession, error)
+method (*Payments) ForgetSavedMethod(context.Context, string) (SavedPaymentMethod, error)
 method (*Payments) GetDispute(context.Context, string) (PaymentDispute, error)
 method (*Payments) GetRefund(context.Context, string) (PaymentRefund, error)
+method (*Payments) GetSavedMethod(context.Context, string) (SavedPaymentMethod, error)
 method (*Payments) GetSecret(context.Context, string) (string, bool, error)
 method (*Payments) GetSession(context.Context, string) (PaymentSession, error)
 method (*Payments) ListDisputes(context.Context, string) ([]PaymentDispute, error)
@@ -1417,14 +1469,23 @@ method (OffersRequest) Validate() (error)
 method (OffersResult) Validate() (error)
 method (Parcel) Validate() (error)
 method (PaymentAddress) Validate() (error)
+method (PaymentChargeParams) Validate() (error)
 method (PaymentCredential) GoString() (string)
 method (PaymentCredential) String() (string)
 method (PaymentCredential) Validate() (error)
 method (PaymentDisputeReport) Validate() (error)
 method (PaymentExternalRefund) Validate() (error)
+method (PaymentForgetRequest) GoString() (string)
+method (PaymentForgetRequest) String() (string)
+method (PaymentMandate) Validate() (error)
 method (PaymentRefundParams) Validate() (error)
 method (PaymentRejection) Validate() (error)
 method (PaymentResolution) Validate() (error)
+method (PaymentSaved) GoString() (string)
+method (PaymentSaved) String() (string)
+method (PaymentSaved) Validate() (error)
+method (PaymentSavedToken) GoString() (string)
+method (PaymentSavedToken) String() (string)
 method (PaymentSessionParams) Validate() (error)
 method (QuoteOpenRequest) Validate() (error)
 method (QuoteOpenResult) Validate() (error)
@@ -1571,6 +1632,7 @@ type PageForm
 type PageMobile
 type Parcel
 type PaymentAddress
+type PaymentChargeParams
 type PaymentConfirmRequest
 type PaymentConfirmResult
 type PaymentConsumer
@@ -1581,8 +1643,10 @@ type PaymentDisputeConsumer
 type PaymentDisputeReport
 type PaymentDisputeUpdate
 type PaymentExternalRefund
+type PaymentForgetRequest
 type PaymentGateway
 type PaymentGatewayPlugin
+type PaymentMandate
 type PaymentMethod
 type PaymentOption
 type PaymentRefund
@@ -1592,6 +1656,8 @@ type PaymentRefundResult
 type PaymentRefundUpdate
 type PaymentRejection
 type PaymentResolution
+type PaymentSaved
+type PaymentSavedToken
 type PaymentSession
 type PaymentSessionParams
 type PaymentSessionUpdate
@@ -1615,6 +1681,8 @@ type Reference
 type RenderAssetsRequest
 type ReportMetric
 type RowAction
+type SavedMethodPayer
+type SavedPaymentMethod
 type Schedule
 type ScriptAsset
 type SearchDoc

@@ -60,6 +60,7 @@ type Payments struct {
 	keys      map[string]replay        // caller + idempotency key → the first answer
 	disputes  map[string]*nilda.PaymentDispute
 	secrets   map[string]map[string]string // gateway key → name → value, as Core keeps them (encrypted there)
+	saved     map[string]*savedMethod      // kept payment methods by id, with their tokens (paymentsaved.go)
 	owed      []owed                       // what the consumers have not heard yet, oldest change first
 	log       []Delivery
 }
@@ -123,6 +124,7 @@ func NewPayments() *Payments {
 		keys:      map[string]replay{},
 		disputes:  map[string]*nilda.PaymentDispute{},
 		secrets:   map[string]map[string]string{},
+		saved:     map[string]*savedMethod{},
 	}
 }
 
@@ -336,6 +338,9 @@ func (p *Payments) routes(caller string) http.Handler {
 		}
 		body, _ := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 		ctx := r.Context()
+		if p.savedRoutes(w, r, caller, parts, body) {
+			return
+		}
 		switch {
 		case r.Method == http.MethodGet && len(parts) == 2 && parts[1] == "methods":
 			if err := p.may(caller, "payment_session"); err != nil {
@@ -623,6 +628,9 @@ func (p *Payments) createSession(ctx context.Context, consumer string, params ni
 		return nilda.PaymentSession{}, invalid("%q of %q does not take a %s credential", params.Method, params.Gateway,
 			params.Credential.Type)
 	}
+	if err := mayKeep(m, params); err != nil {
+		return nilda.PaymentSession{}, err
+	}
 	now := time.Now().UTC()
 	expires := now.Add(sessionLifetime)
 	s := &nilda.PaymentSession{
@@ -631,7 +639,7 @@ func (p *Payments) createSession(ctx context.Context, consumer string, params ni
 		Status: nilda.PaymentCreated, Test: m.Test, Description: params.Description,
 		ReturnURL: params.ReturnURL, CancelURL: params.CancelURL, Email: params.Email, Locale: params.Locale,
 		Supports: nilda.SupportsOf(m), Fulfilment: params.Fulfilment,
-		BillingAddress: params.BillingAddress, ShippingAddress: params.ShippingAddress,
+		BillingAddress: params.BillingAddress, ShippingAddress: params.ShippingAddress, Save: params.Save,
 		ExpiresAt: &expires, CreatedAt: now, UpdatedAt: now,
 	}
 	if s.CancelURL == "" {
@@ -853,8 +861,14 @@ func (p *Payments) report(ctx context.Context, caller, id, verb string, body []b
 		if s.Status != nilda.PaymentResolved && !nilda.PaymentCanMove(s.Status, nilda.PaymentResolved) {
 			return nil, conflict(s)
 		}
+		if r.Saved != nil && s.Save == nil {
+			return nil, invalid("this session keeps no payment method; it was not created with Save")
+		}
 		if r.ProviderRef != "" && s.Status != nilda.PaymentResolved {
 			s.ProviderRef = r.ProviderRef
+		}
+		if s.Status != nilda.PaymentResolved {
+			p.keep(s, r.Saved)
 		}
 		return p.apply(s, nilda.PaymentResolved)
 
@@ -1305,6 +1319,26 @@ type StubGateway struct {
 	Charged         []nilda.PaymentCredential
 	// Refund answers every payment.refund. The zero value says pending.
 	Refund nilda.PaymentRefundResult
+	// SavedStart answers a charge of a kept method (SavedMethodPayer). The zero value says resolved. SavedCharged
+	// records the tokens it was handed, Forgotten the ones it let go of, in order.
+	SavedStart   nilda.PaymentStartResult
+	SavedCharged []string
+	Forgotten    []string
+}
+
+// StartPaymentWithSaved answers with SavedStart and records the token.
+func (g *StubGateway) StartPaymentWithSaved(_ context.Context, s nilda.PaymentSession, token string) (nilda.PaymentStartResult, error) {
+	g.SavedCharged = append(g.SavedCharged, token)
+	if g.SavedStart.Status == "" {
+		return nilda.PaymentStartResult{Status: nilda.PaymentResolved, ProviderRef: "stub_" + s.ID}, nil
+	}
+	return g.SavedStart, nil
+}
+
+// ForgetSaved records the token it let go of.
+func (g *StubGateway) ForgetSaved(_ context.Context, token string) error {
+	g.Forgotten = append(g.Forgotten, token)
+	return nil
 }
 
 // DescribePayments answers with Methods.

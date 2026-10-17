@@ -1609,6 +1609,15 @@ implements `nilda.PaymentSyncer` answers `payment.sync` (a `nilda.PaymentSyncReq
 missed webhook; a gateway's own secrets kept by Core (`SetSecret`, `GetSecret`); and `core.SiteURL`, the site's
 public address. Serve subscribes the two optional interfaces' hooks only when your handler implements them.
 
+**v0.30.0 adds a method kept for later** (PAYMENTS.md §5): a consumer sends `PaymentSessionParams.Save`, a
+`nilda.PaymentMandate` — what the payer agreed to — on a method that lists `nilda.SupportSaveForLater`; the gateway
+reports the kept method with the resolution, a `nilda.PaymentSaved`; the session carries `SavedMethod`, which the
+consumer reads as a `nilda.SavedPaymentMethod` (`GetSavedMethod`), charges with the payer absent (`ChargeSaved`,
+with `nilda.PaymentChargeParams`) and forgets (`ForgetSavedMethod`). A gateway that keeps methods implements
+`nilda.SavedMethodPayer`: the token arrives inside the start request as a `nilda.PaymentSavedToken`, and the release
+as a `nilda.PaymentForgetRequest` (`payment.saved.forget`). A charge the payer's bank wants them present for is
+rejected with `authentication_required`.
+
 **v0.10.5 adds** a test-mode hint (PAYMENTS.md §3): a gateway holding its processor's test keys sets
 `PaymentMethod.TestHint` beside `Test` — how a payer pays in test mode, by language — and a consumer shows
 `PaymentOption.TestHint` beside the method, in its own language with `nilda.TestHintFor` (English when the gateway

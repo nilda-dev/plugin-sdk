@@ -4,6 +4,20 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## v0.30.0 — 2026-10-17 (a payment method kept for later)
+
+**A payer's method kept for later** (PAYMENTS.md §5): a subscription's next charge, a pre-order charged when it ships.
+A consumer sends `PaymentSessionParams.Save`, a `PaymentMandate` — what the payer agreed to — on a method that lists
+`SupportSaveForLater`; such a session may be for 0. The gateway reports the kept method with the resolution
+(`PaymentResolution.Saved`, a `PaymentSaved`); the session carries `SavedMethod`. The consumer reads it
+(`GetSavedMethod`, a `SavedPaymentMethod`), charges it with the payer absent (`ChargeSaved`, `PaymentChargeParams`;
+the session carries `ChargedSaved`) and forgets it (`ForgetSavedMethod`). A gateway that keeps methods implements
+`SavedMethodPayer`: its token arrives inside the start request (`PaymentStartRequest.Saved`, a `PaymentSavedToken`),
+and the release as `payment.saved.forget` (`PaymentForgetRequest`). A sixth gateway failure code,
+`authentication_required`: the payer's bank wants them present. `nildatest.Payments` keeps, charges and forgets methods
+as Core does (`SavedMethod`, `SavedToken`, `ChargeSaved`; `StubGateway.SavedStart`, `SavedCharged`, `Forgotten`).
+Additions only.
+
 ## v0.29.0 — 2026-10-17 (a product's photos)
 
 **A product's photos** (`CommerceProduct.Images`, `CommerceImage`): every photo in the order the product page's gallery

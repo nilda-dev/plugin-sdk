@@ -88,8 +88,9 @@ const (
 	RefundRejected  = "rejected"  // it did not; FailureCode says why
 )
 
-// Why a session or a refund ended without money — the FailureCode, a closed set. The first five are a
-// GATEWAY's to report; the last two are Core's, and a gateway reporting one is refused.
+// Why a session or a refund ended without money — the FailureCode, a closed set. The first five — and
+// PaymentFailAuthenticationRequired, beside the kept methods it is about (paymentsaved.go) — are a GATEWAY's to
+// report; the last two are Core's, and a gateway reporting one is refused.
 const (
 	// PaymentFailDeclined — the processor said no: a card declined, a bank refused.
 	PaymentFailDeclined = "declined"
@@ -114,7 +115,7 @@ const (
 
 // gatewayFailureCodes are the codes a gateway may report; the other two are Core's own verdicts.
 var gatewayFailureCodes = []string{PaymentFailDeclined, PaymentFailCancelled, PaymentFailProviderUnavailable,
-	PaymentFailInvalidRequest, PaymentFailExpired}
+	PaymentFailInvalidRequest, PaymentFailExpired, PaymentFailAuthenticationRequired}
 
 // THE STATE MACHINE, one table. Core holds its own copy, and two tests hold the two equal — Core's
 // TestTheMachineIsTheSDKs against this module, and TestCoresPaymentMachineIsTheSDKs here (payments_truth_test.go,
@@ -243,6 +244,12 @@ type PaymentSession struct {
 	// ExpiresAt is when Core closes a session nothing decided: what the gateway reported at start, or Core's
 	// own default.
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	// Save is the mandate when this session keeps the payer's method (PaymentSessionParams.Save); SavedMethod is the
+	// id Core gave the kept method once the session resolved; ChargedSaved is the kept method this session charged,
+	// with the payer absent (Payments.ChargeSaved). v0.30.0.
+	Save         *PaymentMandate `json:"save,omitempty"`
+	SavedMethod  string          `json:"saved_method,omitempty"`
+	ChargedSaved string          `json:"charged_saved,omitempty"`
 	// RefundedMinor is the sum of the session's RESOLVED refunds.
 	RefundedMinor int64     `json:"refunded_minor"`
 	CreatedAt     time.Time `json:"created_at"`
@@ -299,6 +306,11 @@ type PaymentSessionParams struct {
 	// type in CredentialTypes, and the gateway charges it on the spot. Core hands it to the gateway once and keeps
 	// nothing of it. Send it only for an agent the site's owner lets buy (AgentBuy).
 	Credential *PaymentCredential `json:"credential,omitempty"`
+	// Save asks the gateway to keep the payer's method for later charges, under this mandate — what the payer read
+	// and accepted (v0.30.0, paymentsaved.go). The method must list SupportSaveForLater. With Save, AmountMinor may be
+	// 0: the payer only sets the method up (a pre-order paid at shipment, a card replaced). The resolved session
+	// carries SavedMethod.
+	Save *PaymentMandate `json:"save,omitempty"`
 }
 
 // Validate refuses what Core refuses without asking anything: a missing gateway, method or reference, an
@@ -316,8 +328,19 @@ func (p PaymentSessionParams) Validate() error {
 	case utf8.RuneCountInString(p.Description) > maxPaymentText:
 		return fmt.Errorf("nilda: a payment description is at most %d characters", maxPaymentText)
 	}
-	if err := validAmount(p.AmountMinor, p.Currency); err != nil {
+	if err := validSessionAmount(p.AmountMinor, p.Currency, p.Save != nil); err != nil {
 		return err
+	}
+	if p.Save != nil {
+		if err := p.Save.Validate(); err != nil {
+			return err
+		}
+		if !strings.EqualFold(strings.TrimSpace(p.Save.Currency), strings.TrimSpace(p.Currency)) {
+			return fmt.Errorf("nilda: a mandate is in the session's currency")
+		}
+		if p.Credential != nil {
+			return fmt.Errorf("nilda: a delegated credential is charged once; it is not a method to keep")
+		}
 	}
 	if err := validPayerURL("return_url", p.ReturnURL, true); err != nil {
 		return err
@@ -378,12 +401,21 @@ type PaymentResolution struct {
 	AmountMinor int64  `json:"amount_minor"`
 	Currency    string `json:"currency"`
 	ProviderRef string `json:"provider_ref,omitempty"`
+	// Saved is the method the processor kept, for a session with Save (v0.30.0): Core keeps its token and gives the
+	// session its SavedMethod. A Save session resolved without it keeps nothing, and its consumer is told so.
+	Saved *PaymentSaved `json:"saved,omitempty"`
 }
 
-// Validate refuses a resolution with no positive amount or no currency ISO 4217 knows.
+// Validate refuses a resolution with no currency ISO 4217 knows, or no positive amount — 0 only beside a kept method
+// (a session that only set the method up).
 func (r PaymentResolution) Validate() error {
-	if err := validAmount(r.AmountMinor, r.Currency); err != nil {
+	if err := validSessionAmount(r.AmountMinor, r.Currency, r.Saved != nil); err != nil {
 		return err
+	}
+	if r.Saved != nil {
+		if err := r.Saved.Validate(); err != nil {
+			return err
+		}
 	}
 	return validProviderRef(r.ProviderRef)
 }
@@ -391,8 +423,8 @@ func (r PaymentResolution) Validate() error {
 // PaymentRejection is what a GATEWAY reports when a session or a refund ended without money
 // (Payments.Reject, Payments.RejectRefund).
 type PaymentRejection struct {
-	// FailureCode is one of the gateway's five: declined, cancelled, provider_unavailable, invalid_request,
-	// expired.
+	// FailureCode is one of the gateway's six: declined, cancelled, provider_unavailable, invalid_request,
+	// expired, and authentication_required (a kept method's charge, v0.30.0).
 	FailureCode string `json:"failure_code"`
 	// FailureMessage, at most 500 characters, is the processor's reason as a person can read it. It reaches
 	// the site owner and the consumer; say "card declined", never a card number.
@@ -400,7 +432,7 @@ type PaymentRejection struct {
 	ProviderRef    string `json:"provider_ref,omitempty"`
 }
 
-// Validate refuses a code outside the gateway's five and a message past its bound.
+// Validate refuses a code outside the gateway's six and a message past its bound.
 func (r PaymentRejection) Validate() error {
 	if err := validGatewayFailure(r.FailureCode); err != nil {
 		return err
@@ -429,6 +461,9 @@ type PaymentStartRequest struct {
 	// of a type the method lists: charge it now and answer resolved, pending or rejected. It is here ONCE — Core keeps
 	// nothing of it — so never store, log or echo it.
 	Credential *PaymentCredential `json:"credential,omitempty"`
+	// Saved is the token of the kept method to charge, the payer absent (Session.ChargedSaved): charge it now and
+	// answer resolved, pending or rejected (SavedMethodPayer). Never store, log or echo it.
+	Saved *PaymentSavedToken `json:"saved,omitempty"`
 }
 
 // PaymentStartResult is a gateway's answer to HookPaymentStart.
@@ -562,7 +597,19 @@ func DispatchPaymentGatewayHook(ctx context.Context, _ *Core, g PaymentGateway, 
 		}
 		var res PaymentStartResult
 		var err error
-		if in.Credential != nil {
+		if in.Saved != nil {
+			// A kept method goes to a gateway that charges one (SavedMethodPayer); Core sends one only to the gateway
+			// that kept it, so any other is a gateway that changed under it, and the charge is refused, not guessed.
+			sp, ok := g.(SavedMethodPayer)
+			if !ok {
+				res = PaymentStartResult{Status: PaymentRejected, FailureCode: PaymentFailInvalidRequest,
+					FailureMessage: "this gateway does not charge a kept payment method"}
+			} else if strings.TrimSpace(in.Saved.Token) == "" {
+				return nil, true, fmt.Errorf("nilda: payment.start carried a kept method with no token")
+			} else {
+				res, err = sp.StartPaymentWithSaved(ctx, in.Session, in.Saved.Token)
+			}
+		} else if in.Credential != nil {
 			// A delegated credential goes to a gateway that charges one (CredentialPayer); any other answers the
 			// session rejected, as a method that does not take it would be refused by Core before it got here.
 			cp, ok := g.(CredentialPayer)
@@ -583,6 +630,23 @@ func DispatchPaymentGatewayHook(ctx context.Context, _ *Core, g PaymentGateway, 
 		}
 		b, err := json.Marshal(res)
 		return b, true, err
+
+	case HookPaymentForget:
+		var in PaymentForgetRequest
+		if err := json.Unmarshal(payload, &in); err != nil {
+			return nil, true, fmt.Errorf("nilda: payment.saved.forget payload: %w", err)
+		}
+		sp, ok := g.(SavedMethodPayer)
+		if !ok {
+			return nil, true, fmt.Errorf("nilda: this gateway keeps no payment methods")
+		}
+		if strings.TrimSpace(in.Token) == "" {
+			return nil, true, fmt.Errorf("nilda: payment.saved.forget carried no token")
+		}
+		if err := sp.ForgetSaved(ctx, in.Token); err != nil {
+			return nil, true, err
+		}
+		return []byte("{}"), true, nil
 
 	case HookPaymentRefund:
 		var in PaymentRefundRequest
@@ -690,6 +754,17 @@ const (
 	maxLocale           = 35
 )
 
+// validSessionAmount is validAmount, but 0 is allowed where only a method is kept (setupOnly).
+func validSessionAmount(minor int64, currency string, setupOnly bool) error {
+	if minor == 0 && setupOnly {
+		if _, ok := MinorUnits(currency); !ok {
+			return fmt.Errorf("nilda: %q is not a currency ISO 4217 gives a minor unit to", currency)
+		}
+		return nil
+	}
+	return validAmount(minor, currency)
+}
+
 func validAmount(minor int64, currency string) error {
 	if minor <= 0 {
 		return fmt.Errorf("nilda: a payment's amount_minor must be positive, got %d", minor)
@@ -776,7 +851,7 @@ func validSession(s PaymentSession) error {
 	if s.ID == "" {
 		return fmt.Errorf("nilda: a payment session with no id cannot be matched to its outcome")
 	}
-	return validAmount(s.AmountMinor, s.Currency)
+	return validSessionAmount(s.AmountMinor, s.Currency, s.Save != nil)
 }
 
 func validStart(r PaymentStartResult) error {

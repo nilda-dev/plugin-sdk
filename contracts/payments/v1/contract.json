@@ -233,6 +233,46 @@
                   "string"
                 ]
               },
+              "save": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "purpose": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "amount_minor": {
+                    "type": "integer"
+                  },
+                  "amount_rule": {
+                    "type": "string"
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "interval": {
+                    "type": "string"
+                  },
+                  "interval_count": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "purpose",
+                  "text",
+                  "currency"
+                ]
+              },
+              "saved_method": {
+                "type": "string"
+              },
+              "charged_saved": {
+                "type": "string"
+              },
               "refunded_minor": {
                 "type": "integer"
               },
@@ -274,6 +314,20 @@
             },
             "required": [
               "type",
+              "token"
+            ]
+          },
+          "saved": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "token": {
+                "type": "string"
+              }
+            },
+            "required": [
               "token"
             ]
           }
@@ -514,6 +568,46 @@
                   "string"
                 ]
               },
+              "save": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "purpose": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "amount_minor": {
+                    "type": "integer"
+                  },
+                  "amount_rule": {
+                    "type": "string"
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "interval": {
+                    "type": "string"
+                  },
+                  "interval_count": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "purpose",
+                  "text",
+                  "currency"
+                ]
+              },
+              "saved_method": {
+                "type": "string"
+              },
+              "charged_saved": {
+                "type": "string"
+              },
               "refunded_minor": {
                 "type": "integer"
               },
@@ -713,6 +807,46 @@
                   "string"
                 ]
               },
+              "save": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "purpose": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "amount_minor": {
+                    "type": "integer"
+                  },
+                  "amount_rule": {
+                    "type": "string"
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "interval": {
+                    "type": "string"
+                  },
+                  "interval_count": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "purpose",
+                  "text",
+                  "currency"
+                ]
+              },
+              "saved_method": {
+                "type": "string"
+              },
+              "charged_saved": {
+                "type": "string"
+              },
               "refunded_minor": {
                 "type": "integer"
               },
@@ -742,6 +876,31 @@
         },
         "required": [
           "session"
+        ]
+      },
+      "output": {
+        "type": "object"
+      }
+    },
+    {
+      "name": "saved.forget",
+      "hook": "payment.saved.forget",
+      "answered_by": "provider",
+      "description": "Let go of a kept payment method at the processor; an error means it may still be kept, so Core asks again.",
+      "budget_ms": 15000,
+      "retry_class": "answer",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reaches payments through Core's own payment tools (payments_list, payment_detail, payment_decide, payment_methods, payment_method_set); this hook is Core-to-plugin plumbing beneath them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
         ]
       },
       "output": {
@@ -892,6 +1051,46 @@
                   "null",
                   "string"
                 ]
+              },
+              "save": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "purpose": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "amount_minor": {
+                    "type": "integer"
+                  },
+                  "amount_rule": {
+                    "type": "string"
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "interval": {
+                    "type": "string"
+                  },
+                  "interval_count": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "purpose",
+                  "text",
+                  "currency"
+                ]
+              },
+              "saved_method": {
+                "type": "string"
+              },
+              "charged_saved": {
+                "type": "string"
               },
               "refunded_minor": {
                 "type": "integer"
@@ -1083,6 +1282,46 @@
                   "null",
                   "string"
                 ]
+              },
+              "save": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "purpose": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "amount_minor": {
+                    "type": "integer"
+                  },
+                  "amount_rule": {
+                    "type": "string"
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "interval": {
+                    "type": "string"
+                  },
+                  "interval_count": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "purpose",
+                  "text",
+                  "currency"
+                ]
+              },
+              "saved_method": {
+                "type": "string"
+              },
+              "charged_saved": {
+                "type": "string"
               },
               "refunded_minor": {
                 "type": "integer"
@@ -1319,6 +1558,46 @@
                   "null",
                   "string"
                 ]
+              },
+              "save": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "purpose": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "amount_minor": {
+                    "type": "integer"
+                  },
+                  "amount_rule": {
+                    "type": "string"
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "interval": {
+                    "type": "string"
+                  },
+                  "interval_count": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "purpose",
+                  "text",
+                  "currency"
+                ]
+              },
+              "saved_method": {
+                "type": "string"
+              },
+              "charged_saved": {
+                "type": "string"
               },
               "refunded_minor": {
                 "type": "integer"
@@ -1581,6 +1860,46 @@
                   "null",
                   "string"
                 ]
+              },
+              "save": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "purpose": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "amount_minor": {
+                    "type": "integer"
+                  },
+                  "amount_rule": {
+                    "type": "string"
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "interval": {
+                    "type": "string"
+                  },
+                  "interval_count": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "purpose",
+                  "text",
+                  "currency"
+                ]
+              },
+              "saved_method": {
+                "type": "string"
+              },
+              "charged_saved": {
+                "type": "string"
               },
               "refunded_minor": {
                 "type": "integer"

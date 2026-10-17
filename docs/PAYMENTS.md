@@ -139,6 +139,7 @@ gateway reporting one is refused:
 | `provider_unavailable` | gateway, or Core | the processor could not be reached; usually nothing was charged. Core records it too when the gateway does not answer `payment.start`, or answers something Core cannot act on — see "Core asks once" for the charge that can happen anyway |
 | `invalid_request` | gateway | the processor cannot take this payment (a currency, a minimum) |
 | `expired` | gateway | the processor's page expired before the payer paid |
+| `authentication_required` | gateway | a kept method's charge the payer's bank takes only with the payer present: send them a link to pay on-session (v0.30.0) |
 | `amount_mismatch` | Core, then a person | the processor took a different amount or currency; held `pending` for a person — and kept as the code when that person rejects it |
 | `consumer_refused` | Core | the consumer's confirm step said no |
 
@@ -356,7 +357,8 @@ Core asks for longer than that).
   `PLUGIN_CALL_TIMEOUT`, so an operator who raised that past 15 is never given less. At most, because
   `payment.start` and `payment.describe` run inside the request that asked — the payer is waiting — and keep
   its deadline: a consumer asking from its own 5-second hook, or from a page with 1.5 seconds for every
-  plugin, gives you that much. `payment.refund` runs from Core's delivery job and has the whole budget.
+  plugin, gives you that much. `payment.refund` and `payment.saved.forget` run from Core's delivery job and have
+  the whole budget; an error from either means "not done", and Core asks again.
 - Its own sessions only: every other session answers 404, to reads and to reports alike.
 
 ### Testing a gateway with nothing running
@@ -496,6 +498,33 @@ on a method whose `CredentialTypes` lists that type. Core hands it to the gatewa
 The gateway charges it on the spot and answers `resolved`, `pending` or `rejected` — there is no page to send anyone
 to. The same idempotency key gives the same session, never a second charge. A credential's `String` shows only its type.
 
+### A method kept for later (v0.30.0)
+
+A subscription's next charge, a pre-order charged when it ships, a card the payer replaces: the payer is present
+ONCE, and later charges are merchant-initiated. This is how the market does it (Shopify's customer payment
+methods, WooCommerce's tokens; Stripe's `setup_future_usage=off_session`, PayPal's vault), and what PSD2 asks for:
+strong customer authentication when the method is kept, later charges out of its scope.
+
+1. **Keep it.** Send a session with `Save` — a `nilda.PaymentMandate`: its purpose (`subscription`, `pre_order`,
+   `update`), the agreement exactly as the payer read it, each charge's amount (or the rule that sets it), the
+   currency and, for a subscription, the interval. The method must list `save_for_later` in its `Supports`. With
+   `Save`, `AmountMinor` may be `0`: the payer only sets the method up. The gateway asks its processor to keep the
+   method and reports it with the resolution (`PaymentResolution.Saved`: the processor's token and a label a
+   person recognises, "Visa •••• 4242, 12/28"). Core keeps the token, encrypted, with the mandate, and the resolved
+   session carries `SavedMethod`, the id Core gave it. A Save session resolved without `Saved` keeps nothing.
+2. **Charge it.** `Payments.ChargeSaved(ctx, key, nilda.PaymentChargeParams{SavedMethod, Reference, AmountMinor,
+   Currency, …})`: no page, no return address. Core checks the method is yours, not forgotten, in the mandate's
+   currency and still offered; creates a session with `ChargedSaved` set; and hands the token to the gateway in the
+   start request (`PaymentStartRequest.Saved`) — never to you. The gateway charges with the payer absent and
+   answers `resolved`, `pending` or `rejected`. `authentication_required` is not a decline: the payer's bank wants
+   them present, so send them a link to pay on-session and keep the method.
+3. **Forget it.** `Payments.ForgetSavedMethod` — when the last subscription on it ends and the pre-order is paid.
+   Core asks the gateway to let go at the processor (`payment.saved.forget`) and drops the token; it charges nothing
+   again. Forgetting twice is no error.
+
+A gateway that keeps methods implements `nilda.SavedMethodPayer`: `StartPaymentWithSaved` for the charge and
+`ForgetSaved` for the release. A token is never logged, echoed or shown: its types print `[token redacted]`.
+
 ## 6. The wire — for a plugin not written in Go
 
 Hooks arrive over the plugin protocol (docs/ANY_LANGUAGE.md) with these JSON payloads:
@@ -510,10 +539,11 @@ Hooks arrive over the plugin protocol (docs/ANY_LANGUAGE.md) with these JSON pay
 | `payment.refund.updated` | consumer | `{"refund":{…},"session":{…}}` | `{}` — the same |
 | `payment.sync` | gateway (a `PaymentSyncer`) | `{"session":{…}}` | `{}` — what it found is reported through the calls below |
 | `payment.dispute.updated` | consumer (a `PaymentDisputeConsumer`) | `{"dispute":{…},"session":{…}}` | `{}` — an error means "tell me again" |
+| `payment.saved.forget` | gateway (a `SavedMethodPayer`) | `{"token"}` | `{}` — let go of the method at the processor; an unknown token is forgotten already |
 
 A session is `{"id","consumer","gateway","method","reference","amount_minor","currency","status","test",
 "description","return_url","cancel_url","redirect_url","provider_ref","failure_code","failure_message",
-"email","locale","supports","fulfilment","billing_address","shipping_address","expires_at","refunded_minor",
+"email","locale","supports","fulfilment","billing_address","shipping_address","expires_at","save","saved_method","charged_saved","refunded_minor",
 "created_at","updated_at"}`; a refund is `{"id","session","amount_minor","currency","status","reason",
 "provider_ref","failure_code","failure_message","external","reversed_at","created_at","updated_at"}`; an address
 is `{"name","line1","line2","city","postal_code","region","country"}`; a dispute is `{"id","session",
@@ -526,11 +556,11 @@ Calls into Core, under `/api/rest/v1`, with the plugin's token; answers inside `
 | call | who | body | answer |
 |---|---|---|---|
 | `GET /payments/methods?currency=EUR` | consumer | — | `[{"gateway","method","label","description","refunds","test","test_hint","supports"}]` |
-| `POST /payments/sessions` + `Idempotency-Key` | consumer | `{"gateway","method","reference","amount_minor","currency","description","return_url","cancel_url","email","locale","fulfilment","billing_address","shipping_address"}` | 201, the session |
+| `POST /payments/sessions` + `Idempotency-Key` | consumer | `{"gateway","method","reference","amount_minor","currency","description","return_url","cancel_url","email","locale","fulfilment","billing_address","shipping_address","credential","save"}` | 201, the session |
 | `GET /payments/sessions/{id}` | either side of it | — | the session |
 | `POST /payments/sessions/{id}/refunds` + `Idempotency-Key` | consumer | `{"amount_minor","reason"}` | 201, the refund |
 | `GET /payments/refunds/{id}` | either side of it | — | the refund |
-| `POST /payments/sessions/{id}/resolve` | gateway | `{"amount_minor","currency","provider_ref"}` | the session |
+| `POST /payments/sessions/{id}/resolve` | gateway | `{"amount_minor","currency","provider_ref","saved"}` | the session |
 | `POST /payments/sessions/{id}/reject` | gateway | `{"failure_code","failure_message","provider_ref"}` | the session |
 | `POST /payments/sessions/{id}/pending` | gateway | `{"provider_ref"}` | the session |
 | `POST /payments/sessions/{id}/confirm` | gateway | — | `{"proceed","reason"}` |
@@ -543,6 +573,9 @@ Calls into Core, under `/api/rest/v1`, with the plugin's token; answers inside `
 | `GET /payments/disputes/{id}` | either side of it | — | the dispute |
 | `PUT /payments/secrets/{name}` | gateway | `{"value"}` | `{}` |
 | `GET /payments/secrets/{name}` | gateway | — | `{"value"}`; 404 when none is set |
+| `POST /payments/charges` + `Idempotency-Key` | consumer | `{"saved_method","reference","amount_minor","currency","description","fulfilment","shipping_address"}` | 201, the session |
+| `GET /payments/saved-methods/{id}` | consumer | — | the kept method, never its token |
+| `POST /payments/saved-methods/{id}/forget` | consumer | — | the kept method, `forgotten_at` set |
 
 Refusals: **404** a session that is not yours; **409** a report the session has moved past, a refund of an
 unpaid session, or a keyed request sent again while the first is still being answered; **422** what `Validate`
@@ -572,6 +605,10 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
 | disputes on one payment | 10 | a split dispute is rare; a loop is not |
 | a secret's name | 1–64 of `a-z 0-9 _` | Nilda's choice |
 | a secret's value | 4,096 bytes | a signing secret is under a hundred |
+| a mandate's `text` | 4,000 characters | Nilda's choice: the whole agreement fits |
+| a kept method's `token` | 1,024 bytes | Nilda's choice: a processor's ids are under a hundred |
+| a kept method's `label` | 100 characters | Nilda's choice |
+| a mandate's `interval_count` | 1–365 | Nilda's choice |
 | `Idempotency-Key` | 255 bytes | Core's, which is Stripe's |
 | a session nothing decided | 24 hours, unless the gateway says | Stripe Checkout's own default |
 | a gateway's hook | at most 15 seconds, or `PLUGIN_CALL_TIMEOUT` if that is longer | Core's budget for a processor's API |
@@ -583,8 +620,9 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
   description and — when it knows them — the payer's addresses. A gateway that needs more asks the payer on the
   processor's page.
 - **No answering a dispute.** Disputes are REPORTED (v0.10.4); the owner answers one at the processor.
-- **No saved cards, no subscriptions, no capture/void.** The names are reserved so the door stays additive: the
-  `supports` tokens `capture`, `partial_capture` and `void`. A guard on each side fails if anything takes one of these
+- **No subscriptions here, no capture/void.** A method kept for later (§5, v0.30.0) is the door a consumer builds
+  subscriptions on; the schedule, the retries and the portal are the consumer's. The names `capture`,
+  `partial_capture` and `void` are reserved so the door stays additive: the `supports` tokens. A guard on each side fails if anything takes one of these
   names before the feature is built. (`credential` and `credential_types` were reserved the same way until v0.20.0
   built them: "An agent paying for its buyer", §5.)
 - **No money arithmetic in Core** beyond comparing amounts and summing refunds. Prices, tax and rounding stay

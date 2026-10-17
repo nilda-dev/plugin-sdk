@@ -324,7 +324,7 @@ func dispatchProvided(ctx context.Context, h Handler, hook string, payload []byt
 
 	// The payment hooks are answered here too, and for the reason WidgetProvider's are: a gateway that is
 	// subscribed and then fails every payment.start is a checkout that fails, silently, for every payer.
-	case HookPaymentDescribe, HookPaymentStart, HookPaymentRefund, HookPaymentSync:
+	case HookPaymentDescribe, HookPaymentStart, HookPaymentRefund, HookPaymentSync, HookPaymentForget:
 		g, is := h.(PaymentGateway)
 		if !is {
 			return nil, false, nil
@@ -431,6 +431,12 @@ var providerHooks = []struct {
 		_, is := h.(PaymentSyncer)
 		return gw && is
 	}, []string{HookPaymentSync}},
+	// payment.saved.forget only for a gateway that keeps methods (SavedMethodPayer); its charges ride payment.start.
+	{"SavedMethodPayer", func(h Handler) bool {
+		_, gw := h.(PaymentGateway)
+		_, is := h.(SavedMethodPayer)
+		return gw && is
+	}, []string{HookPaymentForget}},
 	{"PaymentDisputeConsumer", func(h Handler) bool {
 		_, c := h.(PaymentConsumer)
 		_, is := h.(PaymentDisputeConsumer)

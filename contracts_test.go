@@ -61,6 +61,10 @@ var paymentsV1 = contractDef{
 			RetryClass: "answer", Idempotent: true,
 			Description: "Read a payment's state at the processor and report it, for a session whose news did not arrive."},
 			PaymentSyncRequest{}, ordinary{}},
+		{ContractMethod{Name: "saved.forget", Hook: HookPaymentForget, AnsweredBy: "provider", BudgetMS: 15000,
+			RetryClass: "answer", Idempotent: true,
+			Description: "Let go of a kept payment method at the processor; an error means it may still be kept, so Core asks again."},
+			PaymentForgetRequest{}, ordinary{}},
 		{ContractMethod{Name: "session.confirm", Hook: HookPaymentConfirm, AnsweredBy: "consumer",
 			RetryClass: "answer", Idempotent: true,
 			Description: "Ask the plugin that wanted the payment whether it still wants it, before Core resolves it."},
@@ -502,6 +506,7 @@ func TestThePaymentsContractTimesEachHookAsCoreDoes(t *testing.T) {
 		"HookPaymentStart":          "gatewayCall",
 		"HookPaymentRefund":         "{budget: PaymentHookBudget, errorIsAnswer: true}",
 		"HookPaymentSync":           "{budget: PaymentHookBudget, errorIsAnswer: true}",
+		"HookPaymentForget":         "{budget: PaymentHookBudget, errorIsAnswer: true}",
 		"HookPaymentConfirm":        "answersAgain",
 		"HookPaymentSessionUpdated": "answersAgain",
 		"HookPaymentRefundUpdated":  "answersAgain",
@@ -520,7 +525,7 @@ func TestThePaymentsContractTimesEachHookAsCoreDoes(t *testing.T) {
 			if !budget || answer {
 				t.Errorf("%s: want 15 s and errors as failures, as gatewayCall", m.Name)
 			}
-		case HookPaymentRefund, HookPaymentSync:
+		case HookPaymentRefund, HookPaymentSync, HookPaymentForget:
 			if !budget || !answer {
 				t.Errorf("%s: want 15 s and errors as answers", m.Name)
 			}

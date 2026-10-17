@@ -32,8 +32,11 @@ field StubCarrier.Name string
 field StubCarrier.Quotes []nilda.CarrierRate
 field StubGateway.Charged []nilda.PaymentCredential
 field StubGateway.CredentialStart nilda.PaymentStartResult
+field StubGateway.Forgotten []string
 field StubGateway.Methods []nilda.PaymentMethod
 field StubGateway.Refund nilda.PaymentRefundResult
+field StubGateway.SavedCharged []string
+field StubGateway.SavedStart nilda.PaymentStartResult
 field StubGateway.Start nilda.PaymentStartResult
 func ManifestAbilities(testing.TB, string, []nilda.Ability)
 func ManifestVisitorTools(testing.TB, string, []nilda.VisitorTool)
@@ -62,6 +65,7 @@ method (*Host) Revoke(string)
 method (*Host) RevokeIdentity(context.Context, *contract.RevokeIdentityRequest, ...grpc.CallOption) (*contract.RevokeIdentityResponse, error)
 method (*Host) SendEmail(context.Context, *contract.SendEmailRequest, ...grpc.CallOption) (*contract.SendEmailResponse, error)
 method (*Host) SetSessionsPerIdentity(int)
+method (*Payments) ChargeSaved(context.Context, string, nilda.PaymentChargeParams) (nilda.PaymentSession, error)
 method (*Payments) Consumer(string, nilda.PaymentConsumer)
 method (*Payments) Core(string, ...string) (*nilda.Core, *Host, *httptest.Server)
 method (*Payments) CreateSession(context.Context, string, nilda.PaymentSessionParams) (nilda.PaymentSession, error)
@@ -74,6 +78,8 @@ method (*Payments) Gateway(string, nilda.PaymentGateway)
 method (*Payments) GetDispute(string) (nilda.PaymentDispute, bool)
 method (*Payments) GetRefund(string) (nilda.PaymentRefund, bool)
 method (*Payments) GetSession(string) (nilda.PaymentSession, bool)
+method (*Payments) SavedMethod(string) (nilda.SavedPaymentMethod, bool)
+method (*Payments) SavedToken(string) (string)
 method (*Payments) Secret(string, string) (string, bool)
 method (*Payments) Sessions() ([]nilda.PaymentSession)
 method (*Payments) Sync(context.Context, string) (error)
@@ -95,9 +101,11 @@ method (*StubCarrier) ServiceMethods() ([]nilda.ServiceMethod)
 method (*StubCarrier) Track(context.Context, nilda.TrackRequest) (nilda.TrackResult, error)
 method (*StubCarrier) VoidLabel(context.Context, nilda.VoidRequest) (nilda.VoidResult, error)
 method (*StubGateway) DescribePayments(context.Context) ([]nilda.PaymentMethod, error)
+method (*StubGateway) ForgetSaved(context.Context, string) (error)
 method (*StubGateway) RefundPayment(context.Context, nilda.PaymentRefund, nilda.PaymentSession) (nilda.PaymentRefundResult, error)
 method (*StubGateway) StartPayment(context.Context, nilda.PaymentSession) (nilda.PaymentStartResult, error)
 method (*StubGateway) StartPaymentWithCredential(context.Context, nilda.PaymentSession, nilda.PaymentCredential) (nilda.PaymentStartResult, error)
+method (*StubGateway) StartPaymentWithSaved(context.Context, nilda.PaymentSession, string) (nilda.PaymentStartResult, error)
 type Delivery
 type Email
 type Event

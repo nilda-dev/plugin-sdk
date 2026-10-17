@@ -41,7 +41,7 @@ type InitResult struct {
 	// are admitted by that provider's grant instead — commerce.* by `commerce`, search.* by
 	// `search_provider`, admin.action/admin.report/admin.form.load/admin.form.save by `admin_page`, field.* by
 	// `field`, auth.* by `auth_provider`, widget.* by `widget`, render.assets by `render.assets`,
-	// payment.describe/payment.start/payment.refund/payment.sync by `payment_gateway`, and
+	// payment.describe/payment.start/payment.refund/payment.sync/payment.saved.forget by `payment_gateway`, and
 	// payment.session.confirm/payment.session.updated/payment.refund.updated/payment.dispute.updated by
 	// `payment_session` — and `hooks` does not admit them. account.* are by the manifest's `account` block alone:
 	// Core subscribes a plugin that declares it, and keeps none listed here.

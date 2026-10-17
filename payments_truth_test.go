@@ -80,9 +80,9 @@ func TestCoresPaymentMachineIsTheSDKs(t *testing.T) {
 		t.Errorf("a refund's moves differ.\n core: %s\n  sdk: %s", got, want)
 	}
 
-	// The failure codes: the same seven, and the same five a gateway may report.
+	// The failure codes: the same eight, and the same six a gateway may report.
 	all := []string{PaymentFailDeclined, PaymentFailCancelled, PaymentFailProviderUnavailable, PaymentFailInvalidRequest,
-		PaymentFailExpired, PaymentFailAmountMismatch, PaymentFailConsumerRefused}
+		PaymentFailExpired, PaymentFailAuthenticationRequired, PaymentFailAmountMismatch, PaymentFailConsumerRefused}
 	var core []string
 	for name, v := range consts {
 		if strings.HasPrefix(name, "Fail") {
@@ -113,8 +113,8 @@ func TestThePaymentHooksAreCores(t *testing.T) {
 	for _, m := range regexp.MustCompile(`(?m)^\s*Hook\w+\s*=\s*"(payment\.[a-z.]+)"`).FindAllStringSubmatch(src, -1) {
 		core = append(core, m[1])
 	}
-	sdk := []string{HookPaymentDescribe, HookPaymentStart, HookPaymentRefund, HookPaymentSync, HookPaymentConfirm,
-		HookPaymentSessionUpdated, HookPaymentRefundUpdated, HookPaymentDisputeUpdated}
+	sdk := []string{HookPaymentDescribe, HookPaymentStart, HookPaymentRefund, HookPaymentSync, HookPaymentForget,
+		HookPaymentConfirm, HookPaymentSessionUpdated, HookPaymentRefundUpdated, HookPaymentDisputeUpdated}
 	sort.Strings(core)
 	sort.Strings(sdk)
 	if strings.Join(core, ",") != strings.Join(sdk, ",") {
@@ -197,17 +197,19 @@ func TestThePaymentNumbersInTheGuideAreCores(t *testing.T) {
 		{calls, "internal/plugin/calltable.go", "HookPaymentDescribe: gatewayCall, HookPaymentStart: gatewayCall,"},
 		{calls, "internal/plugin/calltable.go", "HookPaymentRefund: {budget: PaymentHookBudget, errorIsAnswer: true}, " +
 			"HookPaymentSync: {budget: PaymentHookBudget, errorIsAnswer: true},"},
+		{calls, "internal/plugin/calltable.go", "HookPaymentForget: {budget: PaymentHookBudget, errorIsAnswer: true},"},
 		{service, "internal/payments/service.go", "Lifetime: sessionLifetime,"},
-		{queries, "internal/db/queries/payments.sql", "shipping_address, expires_at ) VALUES ( $1, $2, $3, $4, $5, $6, $7, " +
-			"'created', $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, now() + sqlc.arg('lifetime')::interval )"},
+		{queries, "internal/db/queries/payments.sql", "save, charged_saved_id, expires_at ) VALUES ( $1, $2, $3, $4, $5, $6, $7, " +
+			"'created', $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, sqlc.narg('save'), sqlc.narg('charged_saved_id'), " +
+			"now() + sqlc.arg('lifetime')::interval )"},
 	} {
 		if !strings.Contains(c.src, c.want) {
 			t.Errorf("core's %s no longer has %q — re-read what PAYMENTS.md says about it", c.file, c.want)
 		}
 	}
-	// "and nothing else": those three places are the only rows that name the payment budget.
-	if n := strings.Count(calls, "PaymentHookBudget"); n != 3 {
-		t.Errorf("core's call table names PaymentHookBudget %d times, want the gateway row kind and the refund and sync rows — "+
+	// "and nothing else": those four places are the only rows that name the payment budget.
+	if n := strings.Count(calls, "PaymentHookBudget"); n != 4 {
+		t.Errorf("core's call table names PaymentHookBudget %d times, want the gateway row kind and the refund, sync and forget rows — "+
 			"re-read which hooks PAYMENTS.md says get 15 seconds", n)
 	}
 	// "At most": start and describe run on the asking request's context, which a WithTimeout inside the call
@@ -390,7 +392,7 @@ func TestThePaymentRoutesAreCores(t *testing.T) {
 	sent := map[string]bool{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, mount[1])
-		path = strings.NewReplacer("/sid/", "/:id/", "/rid/", "/:id/", "/did/", "/:id/", "/proof_secret/", "/:name/").Replace(path + "/")
+		path = strings.NewReplacer("/sid/", "/:id/", "/rid/", "/:id/", "/did/", "/:id/", "/smid/", "/:id/", "/proof_secret/", "/:name/").Replace(path + "/")
 		mu.Lock()
 		sent[r.Method+" "+strings.TrimSuffix(path, "/")] = true
 		mu.Unlock()
@@ -427,6 +429,11 @@ func TestThePaymentRoutesAreCores(t *testing.T) {
 		"GetDispute":   func() { _, _ = pay.GetDispute(ctx, "did") },
 		"SetSecret":    func() { _ = pay.SetSecret(ctx, "proof_secret", "v") },
 		"GetSecret":    func() { _, _, _ = pay.GetSecret(ctx, "proof_secret") },
+		"ChargeSaved": func() {
+			_, _ = pay.ChargeSaved(ctx, "k3", PaymentChargeParams{SavedMethod: "smid", Reference: "r", AmountMinor: 1, Currency: "EUR"})
+		},
+		"GetSavedMethod":    func() { _, _ = pay.GetSavedMethod(ctx, "smid") },
+		"ForgetSavedMethod": func() { _, _ = pay.ForgetSavedMethod(ctx, "smid") },
 	}
 	methods := reflect.TypeOf(pay)
 	for i := 0; i < methods.NumMethod(); i++ {
