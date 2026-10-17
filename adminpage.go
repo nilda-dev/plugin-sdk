@@ -116,6 +116,11 @@ type AdminPage struct {
 	// Icon is a name from Core's bundled icon set; unknown names fall back to a generic one rather than
 	// rendering nothing.
 	Icon string `json:"icon,omitempty"`
+	// Group files the page under a heading in your section of the sidebar (v0.32.0) — a shop's "Sales", "Catalog",
+	// "Settings" — so a section of many pages reads in a few kinds rather than one long list. Pages with the same
+	// group sit together, under the heading, in the order you declare them; a page with none sits above the first
+	// heading. Your own word, translated through your translations like a label; at most 120 characters.
+	Group string `json:"group,omitempty"`
 	// Kind is what the page IS: "settings" — a form Core renders, validates and stores; "list" — read-only
 	// rows from one of your own declared tables; "report" — read-only rows YOU compute, for anything a
 	// "list" page cannot show because it is not one table's rows (a total, a GROUP BY, a number joined
@@ -202,11 +207,13 @@ const (
 	// ColumnBadge is a short status the screen draws as a coloured badge; ListColumn.Badges gives each value
 	// its tone.
 	ColumnBadge = "badge"
+	// ColumnPercent is the number itself, not a fraction: 20 is 20 % (v0.32.0).
+	ColumnPercent = "percent"
 )
 
 // ColumnTypes returns every column type Core draws, sorted.
 func ColumnTypes() []string {
-	out := []string{ColumnText, ColumnNumber, ColumnDate, ColumnDatetime, ColumnBoolean, ColumnMoney, ColumnBadge}
+	out := []string{ColumnText, ColumnNumber, ColumnDate, ColumnDatetime, ColumnBoolean, ColumnMoney, ColumnBadge, ColumnPercent}
 	sort.Strings(out)
 	return out
 }
@@ -327,6 +334,18 @@ type ListColumn struct {
 	CurrencyColumn string `json:"currency_column,omitempty"`
 	// Badges belong to a ColumnBadge: each value the column may hold → its tone (Badge* constants).
 	Badges map[string]string `json:"badges,omitempty"`
+	// Labels say what each value the column holds READS as (v0.32.0): a code you store ("fixed_amount", "shipment")
+	// → the words the owner reads ("Fixed amount", "When it ships"), translated through your translations like any
+	// label. A value with none is shown as stored. For a text or badge column.
+	Labels map[string]string `json:"labels,omitempty"`
+	// TypeBy and Types draw the column per ROW (v0.32.0): TypeBy names another column of the row, and Types maps
+	// its value to the type this cell is drawn as — a discount's value is money when its kind is "fixed_amount" and
+	// a percentage when it is "percentage". A value Types does not name draws as Type.
+	TypeBy string            `json:"type_by,omitempty"`
+	Types  map[string]string `json:"types,omitempty"`
+	// Reference names another of your list pages whose row this column holds the id of (v0.32.0): a shipment's
+	// order_id is drawn as that order's reference — the other page's first column — and opens it, never a bare id.
+	Reference string `json:"reference,omitempty"`
 }
 
 // RowAction is one button on a row of a list page.

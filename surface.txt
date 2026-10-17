@@ -82,6 +82,7 @@ const ColumnDate
 const ColumnDatetime
 const ColumnMoney
 const ColumnNumber
+const ColumnPercent
 const ColumnText
 const ContractShippingCarrier
 const ContractShopBuyers
@@ -315,6 +316,7 @@ field AdminPage.Columns []ListColumn json:columns
 field AdminPage.Edits string json:edits
 field AdminPage.Fields []SettingField json:fields
 field AdminPage.Form *PageForm json:form
+field AdminPage.Group string json:group
 field AdminPage.Help string json:help
 field AdminPage.Icon string json:icon
 field AdminPage.Key string json:key
@@ -758,7 +760,11 @@ field ListColumn.Currency string json:currency
 field ListColumn.CurrencyColumn string json:currency_column
 field ListColumn.Key string json:key
 field ListColumn.Label string json:label
+field ListColumn.Labels map[string]string json:labels
+field ListColumn.Reference string json:reference
 field ListColumn.Type string json:type
+field ListColumn.TypeBy string json:type_by
+field ListColumn.Types map[string]string json:types
 field MobileRow.Badge string json:badge
 field MobileRow.Subtitle []string json:subtitle
 field MobileRow.Title string json:title

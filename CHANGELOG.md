@@ -4,6 +4,21 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## v0.32.0 — unreleased (sidebar groups; columns that read as words)
+
+- `ListColumn.Labels`: what each stored value reads as — `"labels": {"fixed_amount": "Fixed amount"}` — translated
+  through your translations; the panel showed the stored code.
+- `ListColumn.Reference`: the column holds a row id of another of your list pages, and is drawn as that row's first
+  column, linked to it — a shipment's order reads "NLD-1042", not a uuid.
+- `ListColumn.TypeBy` and `Types`: a cell drawn by its row — a discount's value is money for one kind and a
+  percentage for another. `ColumnPercent` (`"percent"`) is new: the number itself, 20 is 20 %.
+
+- `AdminPage.Group` (`"group"` on any page): the heading the page sits under in your section of the sidebar, so a
+  plugin with many pages reads in a few kinds — a shop's Sales, Catalog, Marketing, Reports, Settings. Pages of one
+  group sit together in the order declared; translated through your translations. The page `icon` is now drawn
+  beside each page in the sidebar too; Core draws the market's common names (Lucide's: `receipt`, `package`,
+  `percent`, `gift`, `truck`, `star`, `undo-2`, `shield-alert`, `bar-chart`, `list-checks`, `activity` …).
+
 ## v0.31.0 — 2026-10-17 (a form that edits your own content type)
 
 - `AdminPage.Edits` (`"edits"` on a list page with a form): the content type whose items the form edits. Core shows

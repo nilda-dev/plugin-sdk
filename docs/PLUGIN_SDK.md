@@ -1124,6 +1124,13 @@ The Go types are `nilda.PageForm` (the block), `nilda.FormSection`, `nilda.FormF
 hooks, with `nilda.FormError` (one field's error or warning) and `nilda.FormConflict` (the row as somebody else left
 it).
 
+**Groups and icons in the sidebar** (`group`, v0.32.0). A plugin with many pages names each page's `group` — a
+shop's `"Sales"`, `"Catalog"`, `"Marketing"`, `"Reports"`, `"Settings"` — and Core draws your section in those kinds,
+each under its heading, rather than as one long list; pages of a group sit together in the order you declare them.
+Each page's `icon` is drawn beside it: name it in the market's common words (Lucide's — `receipt`, `package`,
+`percent`, `gift`, `truck`, `file-text`, `star`, `undo-2`, `shield-alert`, `bar-chart`, `list-checks`, `activity`,
+`settings`); a name Core does not draw falls back to the generic plug.
+
 **A form that edits your own content type** (`edits`, v0.31.0). A plugin whose rows each have a Core content item —
 a shop's products, each with its own address, search entry and sitemap line — names that content type on the list
 page whose form edits them: `"edits": "my_plugin_product"`. Core then offers the type nowhere else. It is not its
@@ -1186,8 +1193,17 @@ optional hints make that drawing right:
 - `badge` draws a short status as a coloured badge; `badges` gives each value a tone: `green` (done),
   `gold` (waiting on the owner), `blue` (under way), `warn` (needs attention), `grey` (over). A value with no
   tone is grey.
+- `labels` say what each stored value reads as — `{ "fixed_amount": "Fixed amount", "shipment": "When it ships" }` —
+  on a text or badge column (v0.32.0), translated through your translations. Without them the owner reads your code.
+- `reference` names another of your list pages whose row id the column holds (v0.32.0): `{ "key": "order_id",
+  "label": "Order", "reference": "orders" }` draws the order's own first column ("NLD-1042") and links to it, where a
+  bare id read as a uuid.
+- `type_by` and `types` draw a cell by its row (v0.32.0): `{ "key": "value", "type": "number", "type_by": "value_type",
+  "types": { "fixed_amount": "money", "percentage": "percent" }, "currency_column": "currency" }` — a discount's value
+  is €5.00 for one kind and 20 % for the other. `percent` is a column type too: the number itself, 20 is 20 %.
 - `metrics` type a report's `Summary` keys, with the formats `number` (the default), `money`, `percent` (the
-  number itself: 12.5 is 12.5 %) and `text`; `headline` shows at most 3 of them on your plugin's row and at the top of its screen.
+  number itself: 12.5 is 12.5 %) and `text`; `headline` shows at most 3 of them on your plugin's row and at the top of
+  its screen. The panel draws them too, by their labels, so declare every key your Summary carries.
 - `row` lays a list row out as a title, at most two columns under it, a trailing value and a badge — each one
   of the page's columns. `pin` lets the owner pin a row to a message in the site's chat ("Ask in Chat about
   this order"); the assistant then reads that row as the owner may see it.
