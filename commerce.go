@@ -142,6 +142,14 @@ const (
 // plugin could trigger is a cache stampede one bad plugin away.
 const EventCommerceCatalogChanged = "commerce.catalog.changed"
 
+// EventCommerceSKURenamed is what the shop EMITS when it renamed SKUs (its product form changes a product's or a
+// choice's code), after the commit: {"renamed": [{"from": "TSHIRT-M", "to": "TSHIRT-MED"}, …]}. A plugin that keeps
+// SKUs — a wholesale price, an offer, a licence-key product, a back-in-stock request — subscribes and rewrites its
+// own, applying the list as ONE mapping (two codes may have swapped) and leaving what was sold under an old code
+// (a receipt, a key already delivered) as it was. Without it the price, the offer or the key delivery quietly
+// stops: the shop's new code names nothing the plugin knows.
+const EventCommerceSKURenamed = "commerce.sku_renamed"
+
 // CommerceTerm is one product category, carrying the archive URL a chip links to.
 type CommerceTerm struct {
 	Label string `json:"label"`

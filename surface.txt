@@ -103,6 +103,7 @@ const DisputeNeedsResponse
 const DisputeUnderReview
 const DisputeWon
 const EventCommerceCatalogChanged
+const EventCommerceSKURenamed
 const FieldBoolean
 const FieldCheckbox
 const FieldColor
@@ -689,6 +690,7 @@ field FormField.ReadOnly bool json:read_only
 field FormField.Reference string json:reference
 field FormField.Required bool json:required
 field FormField.RequiredWhen *FieldCondition json:required_when
+field FormField.Secret bool json:secret
 field FormField.Section string json:section
 field FormField.ShownWhen *FieldCondition json:shown_when
 field FormField.Type string json:type

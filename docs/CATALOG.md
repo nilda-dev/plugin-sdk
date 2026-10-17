@@ -39,6 +39,15 @@ the price with VAT (Art. 2(a)) leaves that variant out and says why.
 With `updated_since`, only products that changed since — the text, a price, the stock, a variant — and products taken
 off sale since, listed with `removed: true` and nothing else, so the channel withdraws them.
 
+## When a code is renamed
+
+A SKU names an item to every plugin that keeps one, and the shop's product form can rename it. The shop then emits
+`commerce.sku_renamed` (`nilda.EventCommerceSKURenamed`) with `{"renamed": [{"from": …, "to": …}]}`, after its own
+commit: subscribe to it (the `events` capability) if you keep SKUs, and rewrite yours as one mapping — two codes may
+have swapped — leaving what was sold under an old code as it was. Core keeps the event until you have handled it
+(`EVENTS.md`), so a plugin that was down catches up. A channel that reads the catalogue again — a product feed — needs
+no event: the next read lists the new code, and the item no longer listed is withdrawn.
+
 ## In Go
 
 ```go

@@ -112,6 +112,9 @@ type FormField struct {
 	RequiredWhen *FieldCondition `json:"required_when,omitempty"`
 	// ReadOnly shows the value without letting it be changed here (an order number, a created date).
 	ReadOnly bool `json:"read_only,omitempty"`
+	// Secret is a text or long-text value that is written and never shown back — licence keys pasted in, a token.
+	// Load it empty; the assistant's confirmation card says how many lines will be sent, never what.
+	Secret bool `json:"secret,omitempty"`
 }
 
 // FieldCondition names another field of the same form (or of the same repeater row) and the value it must hold.
@@ -134,9 +137,10 @@ const (
 )
 
 // AdminFormRequest is one open or one save of a form. ID is the row's primary key as text, "" for a new row.
-// On a save, Values are every field the form declares, as the owner left them (money in minor units, a gallery a
-// list of media ids, a repeater a list of objects), and Version is the one your load answered with — so a save
-// started before somebody else's can be told apart from one started after.
+// On a save, Values are every writable field the form declares, as the owner left them (money in minor units, a
+// gallery a list of media ids, a repeater a list of objects) — a field the assistant did not send arrives with the
+// value your load answered — and Version is the one your load answered with, so a save started before somebody
+// else's can be told apart from one started after.
 type AdminFormRequest struct {
 	Page    string         `json:"page"`
 	ID      string         `json:"id,omitempty"`

@@ -1101,11 +1101,23 @@ vocabulary, plus `money` (minor units on the wire), `tags`, `reference` (rows of
   a save started before somebody else's change answers `Conflict` (the row as it is now, who changed it) and saves
   nothing, so the owner chooses instead of a change being lost.
 
-Core checks the plain things first — a required field left empty, a number that is not one, a choice not offered,
-a field you did not declare — and never sends you those. **The same form is drawn in the panel and in the Nilda
-app, and the site's assistant gets it too** (Core's `plugin_form` and `plugin_form_save` tools, over MCP as well):
-it saves through your same hook, after the owner's yes, so whatever the owner can change on the screen, the
-assistant can — and your check answers both. Delete stays a row action, with its confirm.
+Core checks the plain things first — a required field left empty, a number that is not one (or past 2^53), a
+choice not offered, a field you did not declare — and never sends you those. **The same form is drawn in the panel
+and in the Nilda app, and the site's assistant gets it too** (Core's `plugin_form` and `plugin_form_save` tools,
+over MCP as well): it saves through your same hook, after the owner's yes, so whatever the owner can change on the
+screen, the assistant can — and your check answers both. Delete stays a row action, with its confirm.
+
+What the assistant's save means for your hook:
+
+- **It sends the fields it changes; Core fills in the rest** with the values your load answers, so your save still
+  gets every writable field. A repeater is sent whole: a row missing from it is a row taken away.
+- **It is `destructive`**, as a row action is: a save may take rows away or issue money, so a connector trusted only
+  to write cannot run one, and the owner is asked first.
+- **The same save is made once.** A save repeated within ten minutes — the same values at the same version, or the
+  same `Idempotency-Key` from the panel or the app — is answered as the first. Make your version change whenever
+  what you store changes (a gift card's balance, not only its note), so a repeat after that is a conflict.
+- **`"secret": true`** on a text or long-text field (licence keys pasted in) keeps its value off the assistant's
+  confirmation card, which says only how many lines; load such a field empty.
 
 The Go types are `nilda.PageForm` (the block), `nilda.FormSection`, `nilda.FormField` and `nilda.FieldCondition`
 (`shown_when`, `required_when`) for the declaration; `nilda.AdminFormRequest` and `nilda.AdminFormResult` for the two
@@ -1119,7 +1131,9 @@ it).
   (`core.Setting("api_key")`), so the second page would silently hand you the first page's value.
 - A `form` on a page that is not a `list`, a form that neither creates nor edits, a field type outside
   `nilda.FormFieldTypes()`, a `repeater` inside a `repeater`, a `reference` to a page that is not one of your
-  lists, a `shown_when` naming no field of the form, or more than 80 fields, 12 sections or 16 fields in a repeater.
+  lists, a `shown_when` naming no field of the form, or more than 80 fields, 12 sections or 16 fields in a repeater;
+  a label, help, placeholder, unit or choice holding an invisible or direction-changing character (the zero-width
+  joiners Persian and Arabic spell with aside); `secret` on anything but a text or long-text field, or with a default.
 - More than 20 pages, 48 fields on a settings page, 20 filters on a report page, 20 columns or 20 search
   columns on a list page, 8 row actions, or 100 choices on a field; or a name or label longer than 120
   characters — and so is a placeholder, a choice or a page's icon — or help longer than 500 characters,
