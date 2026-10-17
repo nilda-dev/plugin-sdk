@@ -251,6 +251,9 @@
                   "amount_rule": {
                     "type": "string"
                   },
+                  "max_amount_minor": {
+                    "type": "integer"
+                  },
                   "currency": {
                     "type": "string"
                   },
@@ -586,6 +589,9 @@
                   "amount_rule": {
                     "type": "string"
                   },
+                  "max_amount_minor": {
+                    "type": "integer"
+                  },
                   "currency": {
                     "type": "string"
                   },
@@ -824,6 +830,9 @@
                   },
                   "amount_rule": {
                     "type": "string"
+                  },
+                  "max_amount_minor": {
+                    "type": "integer"
                   },
                   "currency": {
                     "type": "string"
@@ -1070,6 +1079,9 @@
                   "amount_rule": {
                     "type": "string"
                   },
+                  "max_amount_minor": {
+                    "type": "integer"
+                  },
                   "currency": {
                     "type": "string"
                   },
@@ -1300,6 +1312,9 @@
                   },
                   "amount_rule": {
                     "type": "string"
+                  },
+                  "max_amount_minor": {
+                    "type": "integer"
                   },
                   "currency": {
                     "type": "string"
@@ -1576,6 +1591,9 @@
                   },
                   "amount_rule": {
                     "type": "string"
+                  },
+                  "max_amount_minor": {
+                    "type": "integer"
                   },
                   "currency": {
                     "type": "string"
@@ -1878,6 +1896,9 @@
                   },
                   "amount_rule": {
                     "type": "string"
+                  },
+                  "max_amount_minor": {
+                    "type": "integer"
                   },
                   "currency": {
                     "type": "string"

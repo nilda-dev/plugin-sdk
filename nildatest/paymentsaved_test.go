@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	nilda "github.com/nilda-dev/plugin-sdk"
 )
@@ -49,6 +50,16 @@ func TestAKeptMethodIsChargedLaterAndForgotten(t *testing.T) {
 	}
 
 	charge := nilda.PaymentChargeParams{SavedMethod: resolved.SavedMethod, Reference: "renewal-1", AmountMinor: 1234, Currency: "EUR"}
+	if _, err := w.shopAPI.ChargeSaved(ctx, "too-soon", charge); err == nil || httpStatus(t, err) != 422 {
+		t.Fatalf("a renewal a month early: %v", err)
+	}
+	more := charge
+	more.AmountMinor = 1235
+	month := time.Now().AddDate(0, 1, 0)
+	w.pay.Now = func() time.Time { return month }
+	if _, err := w.shopAPI.ChargeSaved(ctx, "too-much", more); err == nil || httpStatus(t, err) != 422 {
+		t.Fatalf("a charge above the agreed amount: %v", err)
+	}
 	c, err := w.shopAPI.ChargeSaved(ctx, "renewal-1", charge)
 	if err != nil {
 		t.Fatal(err)
@@ -66,6 +77,8 @@ func TestAKeptMethodIsChargedLaterAndForgotten(t *testing.T) {
 		t.Fatalf("a charge outside the mandate's currency: %v", err)
 	}
 
+	two := time.Now().AddDate(0, 2, 0)
+	w.pay.Now = func() time.Time { return two }
 	w.gw.SavedStart = nilda.PaymentStartResult{Status: nilda.PaymentRejected, FailureCode: nilda.PaymentFailAuthenticationRequired}
 	needs, err := w.shopAPI.ChargeSaved(ctx, "renewal-2", nilda.PaymentChargeParams{SavedMethod: resolved.SavedMethod,
 		Reference: "renewal-2", AmountMinor: 1234, Currency: "EUR"})
@@ -107,6 +120,14 @@ func TestASetUpOnlySessionKeepsTheMethodWithNoCharge(t *testing.T) {
 		Saved: &nilda.PaymentSaved{Token: "seti_1/pm_9", Label: "Mastercard •••• 4444"}})
 	if err != nil || r.Status != nilda.PaymentResolved || r.SavedMethod == "" {
 		t.Fatalf("the set-up session: %+v, %v", r, err)
+	}
+	// The pre-order's one charge, when it ships — and only one.
+	shipped := nilda.PaymentChargeParams{SavedMethod: r.SavedMethod, Reference: "lamp", AmountMinor: 5900, Currency: "EUR"}
+	if c, err := w.shopAPI.ChargeSaved(ctx, "ship-1", shipped); err != nil || c.Status != nilda.PaymentResolved {
+		t.Fatalf("the charge at shipment: %+v, %v", c, err)
+	}
+	if _, err := w.shopAPI.ChargeSaved(ctx, "ship-2", shipped); err == nil || httpStatus(t, err) != 422 {
+		t.Fatalf("a pre-order charged twice: %v", err)
 	}
 
 	plain, err := w.shopAPI.CreateSession(ctx, "k-plain", params())

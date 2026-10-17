@@ -69,10 +69,13 @@ type PaymentMandate struct {
 	Purpose string `json:"purpose"`
 	// Text is the agreement exactly as the payer read it before they accepted: at most 4000 characters.
 	Text string `json:"text"`
-	// AmountMinor is each later charge, in Currency; 0 when it varies — then AmountRule says how it is set.
-	AmountMinor int64  `json:"amount_minor,omitempty"`
-	AmountRule  string `json:"amount_rule,omitempty"`
-	Currency    string `json:"currency"`
+	// AmountMinor is each later charge, in Currency; 0 when it varies — then AmountRule says how it is set and
+	// MaxAmountMinor is the most one charge may be. Core refuses a charge above the one or the other: the payer agreed
+	// to this much and no more.
+	AmountMinor    int64  `json:"amount_minor,omitempty"`
+	AmountRule     string `json:"amount_rule,omitempty"`
+	MaxAmountMinor int64  `json:"max_amount_minor,omitempty"`
+	Currency       string `json:"currency"`
 	// Interval and IntervalCount are a subscription's rhythm (every IntervalCount Intervals); empty for a pre-order's
 	// one later charge.
 	Interval      string `json:"interval,omitempty"`
@@ -92,11 +95,11 @@ func (m PaymentMandate) Validate() error {
 	if _, ok := MinorUnits(m.Currency); !ok {
 		return fmt.Errorf("nilda: %q is not a currency ISO 4217 gives a minor unit to", m.Currency)
 	}
-	if m.AmountMinor < 0 {
+	if m.AmountMinor < 0 || m.MaxAmountMinor < 0 {
 		return fmt.Errorf("nilda: a mandate's amount cannot be negative")
 	}
-	if m.AmountMinor == 0 && strings.TrimSpace(m.AmountRule) == "" {
-		return fmt.Errorf("nilda: a mandate names each charge's amount, or the rule that sets it")
+	if m.AmountMinor == 0 && (strings.TrimSpace(m.AmountRule) == "" || m.MaxAmountMinor == 0) {
+		return fmt.Errorf("nilda: a mandate names each charge's amount, or the rule that sets it and the most one charge may be")
 	}
 	if utf8.RuneCountInString(m.AmountRule) > maxPaymentText {
 		return fmt.Errorf("nilda: a mandate's amount rule is at most %d characters", maxPaymentText)
@@ -217,7 +220,11 @@ func (p PaymentChargeParams) Validate() error {
 //   - StartPaymentWithSaved charges a kept method with the payer absent: a merchant-initiated charge. Answer resolved
 //     when the processor took the money, pending when it is deciding, rejected when it will not —
 //     PaymentFailAuthenticationRequired when the bank wants the payer present, declined for a card that is refused.
-//     There is no page to redirect to. Never store, log or echo the token.
+//     There is no page to redirect to. Never store, log or echo the token. A charge whose answer you did not get may
+//     have been made: answer PENDING with no ProviderRef, never "nothing was charged". Core holds a charge it got no
+//     answer to pending the same way, and asks you again — the same start, the same session — for up to 20 hours: make
+//     the charge idempotent by the session's id, so the processor answers the repeat with the first charge if there
+//     was one. Once you answer with a ProviderRef, payment.sync looks it up as for any payment.
 //   - ForgetSaved lets go of the method at the processor (Stripe: detach; PayPal: delete the vault token). A token
 //     the processor no longer knows is forgotten already: answer nil.
 type SavedMethodPayer interface {
@@ -250,7 +257,9 @@ func (r PaymentForgetRequest) GoString() string { return r.String() }
 // ---- the consumer's calls -------------------------------------------------------------------------------------
 
 // ChargeSaved charges a kept method with the payer absent. Core checks the method is this consumer's, not forgotten,
-// and in the mandate's currency, creates a session and hands the token to its gateway; the answer is the session as
+// and that the charge is inside the mandate — its currency; at most its amount (or its MaxAmountMinor); a pre-order's
+// one charge, once; a subscription's charge no sooner than its interval after the last — creates a session and hands
+// the token to its gateway; the answer is the session as
 // the gateway left it — resolved, pending or rejected (PaymentFailAuthenticationRequired: send the payer a link to
 // pay on-session). The outcome reaches PaymentUpdated as for any session.
 //

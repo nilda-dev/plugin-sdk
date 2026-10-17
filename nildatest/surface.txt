@@ -15,6 +15,7 @@ field Email.Transactional bool
 field Event.Data []byte
 field Event.Type string
 field Host.Fail error
+field Payments.Now func() time.Time
 field Payments.SiteURL string
 field Revocation.Provider string
 field Revocation.Reason string

@@ -850,6 +850,7 @@ field PaymentMandate.AmountRule string json:amount_rule
 field PaymentMandate.Currency string json:currency
 field PaymentMandate.Interval string json:interval
 field PaymentMandate.IntervalCount int json:interval_count
+field PaymentMandate.MaxAmountMinor int64 json:max_amount_minor
 field PaymentMandate.Purpose string json:purpose
 field PaymentMandate.Text string json:text
 field PaymentMethod.CredentialTypes []string json:credential_types

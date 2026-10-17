@@ -67,6 +67,9 @@ func (p *Payments) Sync(ctx context.Context, sessionID string) error {
 	if !ok {
 		return fmt.Errorf("gateway %q is not installed", snapshot.Gateway)
 	}
+	if snapshot.ChargedSaved != "" && snapshot.Status == nilda.PaymentPending && snapshot.ProviderRef == "" {
+		return p.restartCharge(ctx, sessionID) // a charge nobody answered: asked again, as Core asks (paymentsaved.go)
+	}
 	payload, _ := json.Marshal(nilda.PaymentSyncRequest{Session: snapshot})
 	gctx, cancel := context.WithTimeout(ctx, gatewayHookBudget)
 	defer cancel()

@@ -46,6 +46,9 @@ type Payments struct {
 	// SiteURL is the site's own origin. A return or cancel address anywhere else is refused, as Core refuses
 	// it. Set it before the first call; the default is "https://site.test".
 	SiteURL string
+	// Now is the clock a kept method's next charge is judged by (a subscription's interval); nil is time.Now. Move it
+	// forward to charge next month's renewal in a test.
+	Now func() time.Time
 
 	mu        sync.Mutex
 	hosts     map[string]*Host // plugin key → the fake Core it was given, for its grants

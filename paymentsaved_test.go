@@ -34,8 +34,12 @@ func TestAMandateRecordsWhatThePayerAgreedTo(t *testing.T) {
 	}
 	rule := ok
 	rule.AmountMinor, rule.AmountRule = 0, "the basket's price at each delivery"
+	if rule.Validate() == nil {
+		t.Error("an amount set by a rule with no most a charge may be was accepted")
+	}
+	rule.MaxAmountMinor = 2500
 	if err := rule.Validate(); err != nil {
-		t.Errorf("an amount set by a rule: %v", err)
+		t.Errorf("an amount set by a rule, at most 25.00: %v", err)
 	}
 }
 

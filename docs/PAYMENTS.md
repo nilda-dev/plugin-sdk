@@ -506,18 +506,22 @@ methods, WooCommerce's tokens; Stripe's `setup_future_usage=off_session`, PayPal
 strong customer authentication when the method is kept, later charges out of its scope.
 
 1. **Keep it.** Send a session with `Save` — a `nilda.PaymentMandate`: its purpose (`subscription`, `pre_order`,
-   `update`), the agreement exactly as the payer read it, each charge's amount (or the rule that sets it), the
-   currency and, for a subscription, the interval. The method must list `save_for_later` in its `Supports`. With
+   `update`), the agreement exactly as the payer read it, each charge's amount (or the rule that sets it and the most
+   one charge may be, `max_amount_minor`), the currency and, for a subscription, the interval. The method must list `save_for_later` in its `Supports`. With
    `Save`, `AmountMinor` may be `0`: the payer only sets the method up. The gateway asks its processor to keep the
    method and reports it with the resolution (`PaymentResolution.Saved`: the processor's token and a label a
    person recognises, "Visa •••• 4242, 12/28"). Core keeps the token, encrypted, with the mandate, and the resolved
    session carries `SavedMethod`, the id Core gave it. A Save session resolved without `Saved` keeps nothing.
 2. **Charge it.** `Payments.ChargeSaved(ctx, key, nilda.PaymentChargeParams{SavedMethod, Reference, AmountMinor,
-   Currency, …})`: no page, no return address. Core checks the method is yours, not forgotten, in the mandate's
-   currency and still offered; creates a session with `ChargedSaved` set; and hands the token to the gateway in the
+   Currency, …})`: no page, no return address. Core checks the method is yours, not forgotten and still offered, and
+   that the charge is inside the mandate: its currency, at most its amount (or `max_amount_minor`), a pre-order's one
+   charge once, a subscription's no sooner than its interval after the last (two days' grace, for month ends); creates a session with `ChargedSaved` set; and hands the token to the gateway in the
    start request (`PaymentStartRequest.Saved`) — never to you. The gateway charges with the payer absent and
    answers `resolved`, `pending` or `rejected`. `authentication_required` is not a decline: the payer's bank wants
-   them present, so send them a link to pay on-session and keep the method.
+   them present, so send them a link to pay on-session and keep the method. A charge whose answer was lost may have
+   been made, so it is held `pending` — never closed as "nothing was charged" — and Core asks the gateway again, the
+   same start for the same session, for up to 20 hours; the gateway makes the charge idempotent by the session's id,
+   so the processor answers with the first charge if there was one. Do not charge again while one is pending.
 3. **Forget it.** `Payments.ForgetSavedMethod` — when the last subscription on it ends and the pre-order is paid.
    Core asks the gateway to let go at the processor (`payment.saved.forget`) and drops the token; it charges nothing
    again. Forgetting twice is no error.

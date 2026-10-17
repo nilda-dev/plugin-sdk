@@ -90,12 +90,15 @@ func (p *Payments) chargeSaved(ctx context.Context, consumer string, params nild
 	if !strings.EqualFold(kept.Mandate.Currency, currency) {
 		return nilda.PaymentSession{}, invalid("the payer agreed to charges in %s, not %s", kept.Mandate.Currency, currency)
 	}
+	if err := p.insideMandate(kept, params.AmountMinor); err != nil {
+		return nilda.PaymentSession{}, err
+	}
 	// The method must still be offered: a gateway switched off charges nothing, as Core refuses it.
 	offered, err := p.method(ctx, kept.Gateway, kept.Method, currency)
 	if err != nil {
 		return nilda.PaymentSession{}, err
 	}
-	now := time.Now().UTC()
+	now := p.clock().UTC()
 	expires := now.Add(sessionLifetime)
 	s := &nilda.PaymentSession{
 		ID: newID(), Consumer: consumer, Gateway: kept.Gateway, Method: kept.Method, Reference: params.Reference,
@@ -117,13 +120,14 @@ func (p *Payments) chargeSaved(ctx context.Context, consumer string, params nild
 		return *s, nil
 	}
 	if err != nil {
-		s.FailureCode, s.FailureMessage = nilda.PaymentFailProviderUnavailable, ""
-		p.move(s, nilda.PaymentRejected)
+		// The charge may have been made before its answer was lost: held pending and looked up (Sync), as Core does —
+		// never closed as "nothing was charged", which would send the consumer to charge again.
+		p.move(s, nilda.PaymentPending)
 		return *s, nil
 	}
 	if res.Status == nilda.PaymentRedirected {
-		// The payer is not there: a gateway that answers with a page has nothing Core can send anyone to.
-		s.FailureCode, s.FailureMessage = nilda.PaymentFailProviderUnavailable, ""
+		// The payer is not there: a gateway that answers with a page started no charge.
+		s.FailureCode, s.FailureMessage = nilda.PaymentFailInvalidRequest, "the gateway asked for the payer, who is not here; nothing was charged"
 		p.move(s, nilda.PaymentRejected)
 		return *s, nil
 	}
@@ -231,6 +235,102 @@ func (p *Payments) savedRoutes(w http.ResponseWriter, r *http.Request, caller st
 func mayKeep(m nilda.PaymentMethod, params nilda.PaymentSessionParams) error {
 	if params.Save != nil && !slices.Contains(nilda.SupportsOf(m), nilda.SupportSaveForLater) {
 		return invalid("%q of %q does not keep a payment method for later", params.Method, params.Gateway)
+	}
+	return nil
+}
+
+// mandateGrace is how much sooner than its interval a subscription's next charge may come: a month that ends on the
+// 31st renews on the 28th of February. Core's own figure.
+const mandateGrace = 48 * time.Hour
+
+// insideMandate refuses a charge the payer did not agree to, as Core does: above the mandate's amount (or its most), a
+// pre-order's charge after its one, a subscription's sooner than its interval after the last.
+func (p *Payments) insideMandate(kept savedMethod, amount int64) error {
+	m := kept.Mandate
+	limit := m.AmountMinor
+	if limit == 0 {
+		limit = m.MaxAmountMinor
+	}
+	if amount > limit {
+		return invalid("the payer agreed to at most %d a charge, not %d", limit, amount)
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	var last time.Time
+	charges := 0
+	for _, id := range p.order {
+		s := p.sessions[id]
+		if s.ChargedSaved != kept.ID || s.Status == nilda.PaymentRejected || s.Status == nilda.PaymentExpired {
+			continue
+		}
+		charges++
+		if s.CreatedAt.After(last) {
+			last = s.CreatedAt
+		}
+	}
+	if kept.Mandate.Purpose == nilda.MandatePreOrder && charges > 0 {
+		return invalid("a pre-order's agreement is one charge, and it was made")
+	}
+	if m.Interval != "" {
+		if first := p.sessions[kept.Session]; last.IsZero() && first != nil && first.AmountMinor > 0 {
+			last = first.CreatedAt // the payment the method was kept at is the first charge
+		}
+		if !last.IsZero() && p.clock().Before(nextCharge(last, m).Add(-mandateGrace)) {
+			return invalid("the payer agreed to a charge every %d %s; the next is not due yet", m.IntervalCount, m.Interval)
+		}
+	}
+	return nil
+}
+
+// nextCharge is when a subscription's next charge is due after one at t.
+func nextCharge(t time.Time, m nilda.PaymentMandate) time.Time {
+	n := m.IntervalCount
+	switch m.Interval {
+	case nilda.IntervalDay:
+		return t.AddDate(0, 0, n)
+	case nilda.IntervalWeek:
+		return t.AddDate(0, 0, 7*n)
+	case nilda.IntervalMonth:
+		return t.AddDate(0, n, 0)
+	}
+	return t.AddDate(n, 0, 0)
+}
+
+// clock is Now, or the wall clock.
+func (p *Payments) clock() time.Time {
+	if p.Now != nil {
+		return p.Now()
+	}
+	return time.Now()
+}
+
+// restartCharge asks a kept method's gateway again about a charge it never answered — the same start for the same
+// session, which a gateway makes idempotent by the session's id — and records the answer, as Core's sync does.
+func (p *Payments) restartCharge(ctx context.Context, sessionID string) error {
+	p.mu.Lock()
+	s := p.sessions[sessionID]
+	m, ok := p.saved[s.ChargedSaved]
+	snapshot := *s
+	p.mu.Unlock()
+	if !ok || m.token == "" {
+		return nil
+	}
+	res, err := p.startSaved(ctx, snapshot, m.token)
+	if err != nil {
+		return nil // still no answer: asked again later
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if s.Status != nilda.PaymentPending {
+		return nil
+	}
+	s.ProviderRef = res.ProviderRef
+	switch res.Status {
+	case nilda.PaymentResolved:
+		p.move(s, nilda.PaymentResolved)
+	case nilda.PaymentRejected:
+		s.FailureCode, s.FailureMessage = res.FailureCode, res.FailureMessage
+		p.move(s, nilda.PaymentRejected)
 	}
 	return nil
 }

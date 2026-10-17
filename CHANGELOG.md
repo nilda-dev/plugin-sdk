@@ -14,8 +14,11 @@ A consumer sends `PaymentSessionParams.Save`, a `PaymentMandate` — what the pa
 the session carries `ChargedSaved`) and forgets it (`ForgetSavedMethod`). A gateway that keeps methods implements
 `SavedMethodPayer`: its token arrives inside the start request (`PaymentStartRequest.Saved`, a `PaymentSavedToken`),
 and the release as `payment.saved.forget` (`PaymentForgetRequest`). A sixth gateway failure code,
-`authentication_required`: the payer's bank wants them present. `nildatest.Payments` keeps, charges and forgets methods
-as Core does (`SavedMethod`, `SavedToken`, `ChargeSaved`, `ForgetSavedMethod`; `StubGateway.SavedStart`, `SavedCharged`, `Forgotten`).
+`authentication_required`: the payer's bank wants them present. Core holds every charge inside its mandate — at
+most its amount (`MaxAmountMinor` for an amount a rule sets), a pre-order's one charge once, a subscription's no
+sooner than its interval — and a charge whose answer was lost is held pending and asked again for the same session,
+which a gateway makes idempotent by the session's id: never a second charge. `nildatest.Payments` keeps, charges and forgets methods
+as Core does, with the same mandate checks (`SavedMethod`, `SavedToken`, `ChargeSaved`, `ForgetSavedMethod`, and `Now` to move a renewal's clock; `StubGateway.SavedStart`, `SavedCharged`, `Forgotten`).
 Additions only.
 
 ## v0.29.0 — 2026-10-17 (a product's photos)
