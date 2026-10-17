@@ -179,6 +179,22 @@ type CommerceVariation struct {
 	Selected string `json:"selected,omitempty"`
 }
 
+// CommerceImage is one photo of a product's gallery.
+type CommerceImage struct {
+	// URL is the photo, already resolved, as Image is.
+	URL string `json:"url"`
+	// Alt describes the photo for somebody who cannot see it; empty takes the media library's own words.
+	Alt string `json:"alt,omitempty"`
+	// MediaID is the photo's id in the site's media library, when it is one: Core then draws it at every
+	// size the library keeps — a phone fetches a phone-sized file — with its own alt text and its box
+	// reserved before it loads, exactly as its own image widget does. A photo from elsewhere leaves it empty.
+	MediaID string `json:"media_id,omitempty"`
+	// Selection is the choice this photo shows, as Variations name it (a variation's Key → one of its
+	// Options): {"Colour": "Black"}. Picking that choice turns the gallery to this photo; the gallery never
+	// changes the choice. Empty for a photo of the product as a whole.
+	Selection map[string]string `json:"selection,omitempty"`
+}
+
 // CommerceProduct is a product as a WIDGET DRAWS IT.
 type CommerceProduct struct {
 	// ID is your own id for the item, and what comes back to you on Product and on add-to-cart.
@@ -190,8 +206,12 @@ type CommerceProduct struct {
 	// the full description belongs to the product page.
 	Excerpt string `json:"excerpt,omitempty"`
 	// Image is an already-resolved URL. You know your own media; a second lookup here would be Core
-	// guessing at somebody else's storage.
+	// guessing at somebody else's storage. It is the product's MAIN photo — the one a tile shows; the
+	// product page's gallery shows Images.
 	Image string `json:"image,omitempty"`
+	// Images are the product's photos in the order its page's gallery shows them, Image's first. Leave it
+	// empty and the gallery shows Image alone, as a product with one photo.
+	Images []CommerceImage `json:"images,omitempty"`
 	// Price and OldPrice are FORMATTED BY YOU, symbol and all. An empty OldPrice strikes nothing through.
 	Price    string `json:"price,omitempty"`
 	OldPrice string `json:"old_price,omitempty"`

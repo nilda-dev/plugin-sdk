@@ -550,11 +550,16 @@ field CommerceEndpoints.Checkout string json:checkout
 field CommerceEndpoints.Reviews string json:reviews
 field CommerceEndpoints.StockAlert string json:stock_alert
 field CommerceEndpoints.StockAlertConsent string json:stock_alert_consent
+field CommerceImage.Alt string json:alt
+field CommerceImage.MediaID string json:media_id
+field CommerceImage.Selection map[string]string json:selection
+field CommerceImage.URL string json:url
 field CommerceProduct.Badge string json:badge
 field CommerceProduct.Excerpt string json:excerpt
 field CommerceProduct.Extra map[string]string json:extra
 field CommerceProduct.ID string json:id
 field CommerceProduct.Image string json:image
+field CommerceProduct.Images []CommerceImage json:images
 field CommerceProduct.InStock bool json:in_stock
 field CommerceProduct.OldPrice string json:old_price
 field CommerceProduct.Price string json:price
@@ -1511,6 +1516,7 @@ type Class
 type Commerce
 type CommerceCounter
 type CommerceEndpoints
+type CommerceImage
 type CommercePriceGroups
 type CommerceProduct
 type CommerceQuery

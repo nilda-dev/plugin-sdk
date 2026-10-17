@@ -4,6 +4,13 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## Unreleased
+
+**A product's photos** (`CommerceProduct.Images`, `CommerceImage`): every photo in the order the product page's gallery
+shows them, each with its media-library id (Core draws it at every size it keeps) and the choice it shows
+(`Selection`), so picking a colour turns the gallery to that colour's photo. `Image` stays the main photo a tile
+shows. Additions only; `surface.txt` grows by 6.
+
 ## v0.28.1 — 2026-10-17 (a secret form field; renamed SKUs)
 
 **A form field may be `secret`** (`FormField.Secret`): a text or long-text value written and never shown back —

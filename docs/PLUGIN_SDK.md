@@ -1520,6 +1520,11 @@ archive URL its chip links to; `Variations` are `nilda.CommerceVariation`s — o
 the item can be added ("Size" and its options, as strings). A per-combination price stays in your pricing
 rules: Core asks the question and hands the answer back to your add-to-cart endpoint.
 
+**And its photos.** `Image` is the main photo a tile shows; `Images` are `nilda.CommerceImage`s — every photo, in the
+order the product page's gallery shows them. Give a photo's `MediaID` when it is in the site's media library and
+Core draws it at every size the library keeps, with its alt text; give it a `Selection` (`{"Colour": "Black"}`) and
+picking that choice turns the gallery to it — the gallery never changes the shopper's choice.
+
 **Tell Nilda when your catalogue changes — this one is not optional.** Nilda caches a rendered page for an
 hour and drops it when something it depends on changes, but your catalogue is the one dependency it cannot
 see: a merchant fixing a price in YOUR admin touches nothing in Nilda, so the storefront keeps the old price
