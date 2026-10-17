@@ -181,13 +181,16 @@ type CommerceVariation struct {
 
 // CommerceImage is one photo of a product's gallery.
 type CommerceImage struct {
-	// URL is the photo, already resolved, as Image is.
-	URL string `json:"url"`
+	// URL is the photo, already resolved, as Image is — for a photo that is not in the site's media library.
+	// A library photo needs only MediaID: Core knows its own files, and a URL per photo would cost you a lookup
+	// per photo per page.
+	URL string `json:"url,omitempty"`
 	// Alt describes the photo for somebody who cannot see it; empty takes the media library's own words.
 	Alt string `json:"alt,omitempty"`
 	// MediaID is the photo's id in the site's media library, when it is one: Core then draws it at every
 	// size the library keeps — a phone fetches a phone-sized file — with its own alt text and its box
-	// reserved before it loads, exactly as its own image widget does. A photo from elsewhere leaves it empty.
+	// reserved before it loads, exactly as its own image widget does. A photo from elsewhere leaves it empty
+	// and gives URL. One of the two is required; a photo with neither is skipped.
 	MediaID string `json:"media_id,omitempty"`
 	// Selection is the choice this photo shows, as Variations name it (a variation's Key → one of its
 	// Options): {"Colour": "Black"}. Picking that choice turns the gallery to this photo; the gallery never
