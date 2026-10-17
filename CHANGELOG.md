@@ -4,6 +4,13 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## v0.31.0 — unreleased (a form that edits your own content type)
+
+- `AdminPage.Edits` (`"edits"` on a list page with a form): the content type whose items the form edits. Core shows
+  that type nowhere else — no sidebar row of its own, its taxonomies in your section — and opens your form for every
+  link to one of its items, with the item's content id as the row id. Core refuses at install an `edits` naming a
+  type you do not declare, a page whose form does not edit, or a type two pages claim.
+
 ## v0.30.0 — 2026-10-17 (a payment method kept for later)
 
 **A payer's method kept for later** (PAYMENTS.md §5): a subscription's next charge, a pre-order charged when it ships.

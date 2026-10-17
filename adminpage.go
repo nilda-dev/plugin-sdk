@@ -159,6 +159,13 @@ type AdminPage struct {
 	// Form lets the owner create and edit this list's rows in a form you declare and save yourself (adminform.go).
 	// Nil keeps the list read-only.
 	Form *PageForm `json:"form,omitempty"`
+	// Edits names one of YOUR content types (the manifest's content_types) whose items this page's Form edits — a
+	// shop's products page edits its product content type, the item that gives each product its address, search
+	// and sitemap entry (v0.31.0). Core then offers that type nowhere else: it is not its own row in the sidebar
+	// (its taxonomies move into your section), and every way into one of its items — the content list, "Add
+	// new", the search — opens this form instead, a new row for "Add new" and the item's CONTENT id as the row id
+	// for an item. So your form loads a row by its own id OR by the content id it mirrors. Needs Form with Edit.
+	Edits string `json:"edits,omitempty"`
 
 	// --- kind: "report" ---
 

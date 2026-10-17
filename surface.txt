@@ -312,6 +312,7 @@ field AdminFormResult.Version string json:version
 field AdminFormResult.Warnings []FormError json:warnings
 field AdminPage.Actions []RowAction json:actions
 field AdminPage.Columns []ListColumn json:columns
+field AdminPage.Edits string json:edits
 field AdminPage.Fields []SettingField json:fields
 field AdminPage.Form *PageForm json:form
 field AdminPage.Help string json:help

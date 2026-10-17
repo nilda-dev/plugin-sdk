@@ -1124,6 +1124,15 @@ The Go types are `nilda.PageForm` (the block), `nilda.FormSection`, `nilda.FormF
 hooks, with `nilda.FormError` (one field's error or warning) and `nilda.FormConflict` (the row as somebody else left
 it).
 
+**A form that edits your own content type** (`edits`, v0.31.0). A plugin whose rows each have a Core content item —
+a shop's products, each with its own address, search entry and sitemap line — names that content type on the list
+page whose form edits them: `"edits": "my_plugin_product"`. Core then offers the type nowhere else. It is not its
+own row in the sidebar (its taxonomies — the product categories — move into your section), and every way into one
+of its items opens your form: the content list and "Add new" open your list and a new row, and an item opens your
+form with **the item's content id as the row id** — so your load finds a row by its own id or by the content id it
+mirrors. Without it the owner meets the same product twice: once in your form with its price and photos, and once
+as a plain page with neither.
+
 **What Core refuses at install** (and `nilda plugin check` on your machine):
 
 - `admin_pages` without the `admin_page` capability, and the capability without a page.
@@ -1134,6 +1143,8 @@ it).
   lists, a `shown_when` naming no field of the form, or more than 80 fields, 12 sections or 16 fields in a repeater;
   a label, help, placeholder, unit or choice holding an invisible or direction-changing character (the zero-width
   joiners Persian and Arabic spell with aside); `secret` on anything but a text or long-text field, or with a default.
+- `edits` naming a content type this manifest does not declare, on a page with no form that edits, or one type
+  edited by two pages.
 - More than 20 pages, 48 fields on a settings page, 20 filters on a report page, 20 columns or 20 search
   columns on a list page, 8 row actions, or 100 choices on a field; or a name or label longer than 120
   characters — and so is a placeholder, a choice or a page's icon — or help longer than 500 characters,
