@@ -257,12 +257,13 @@ func TestTheSiteThePaymentsAreHeldToIsCores(t *testing.T) {
 		"payments: then APP_BASE_URL":           {service, "return s.appURL }"},
 		"main.go: the setting is site.base_url": {main, "SiteURL: a.settingsSvc.SiteBaseURL"},
 		"main.go: the fallback is the env":      {main, "AppBaseURL: a.cfg.AppBaseURL"},
-		"main.go: GET /site reads the setting": {main, `stableAPI := stable.NewService(a.store, func(ctx context.Context) stable.Site { ` +
+		"main.go: GET /site reads the setting": {main, `func (a *app) stableSite(ctx context.Context) stable.Site { ` +
 			`return stable.Site{ Title: a.settingsSvc.GetString(ctx, "site.title"), ` +
 			`Description: a.settingsSvc.GetString(ctx, "site.description"), BaseURL: a.settingsSvc.GetString(ctx, "site.base_url"),`},
-		"main.go: that is the REST API's": {main, "a.srv.Mount(rest.PathV1, stable.NewHandlers(stableAPI,"},
-		"settings: SiteBaseURL's key":     {flat("internal", "settings", "browser.go"), `const keySiteBaseURL = "site.base_url"`},
-		"stable: the field is base_url":   {flat("internal", "api", "stable", "contract.go"), "BaseURL string `json:\"base_url\"`"},
+		"main.go: the REST API is built from it": {main, "stableAPI := stable.NewService(a.store, a.stableSite, a.log)"},
+		"main.go: that is the REST API's":        {main, "a.srv.Mount(rest.PathV1, stable.NewHandlers(stableAPI,"},
+		"settings: SiteBaseURL's key":            {flat("internal", "settings", "browser.go"), `const keySiteBaseURL = "site.base_url"`},
+		"stable: the field is base_url":          {flat("internal", "api", "stable", "contract.go"), "BaseURL string `json:\"base_url\"`"},
 	} {
 		if !strings.Contains(want.src, want.text) {
 			t.Errorf("%s: core no longer has %q — re-read PAYMENTS.md's \"this site\"", where, want.text)
