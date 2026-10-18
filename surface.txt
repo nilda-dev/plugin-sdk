@@ -3,8 +3,10 @@ const AccountFinishHook
 const AccountStartHook
 const AccountStatusHook
 const AdminActionHook
+const AdminCalendarHook
 const AdminFormLoadHook
 const AdminFormSaveHook
+const AdminPageCalendar
 const AdminPageList
 const AdminPageReport
 const AdminPageSettings
@@ -300,6 +302,13 @@ field AdminAction.Action string json:action
 field AdminAction.ID string json:id
 field AdminAction.Page string json:page
 field AdminActionResult.Message string json:message
+field AdminCalendarRequest.From string json:from
+field AdminCalendarRequest.Page string json:page
+field AdminCalendarRequest.Params map[string]string json:params
+field AdminCalendarRequest.To string json:to
+field AdminCalendarResult.Events []CalendarEvent json:events
+field AdminCalendarResult.Shaded []CalendarShade json:shaded
+field AdminCalendarResult.Truncated bool json:truncated
 field AdminFormRequest.ID string json:id
 field AdminFormRequest.Page string json:page
 field AdminFormRequest.Values map[string]any json:values
@@ -313,6 +322,7 @@ field AdminFormResult.Version string json:version
 field AdminFormResult.Warnings []FormError json:warnings
 field AdminPage.Actions []RowAction json:actions
 field AdminPage.Columns []ListColumn json:columns
+field AdminPage.DefaultView string json:default_view
 field AdminPage.Edits string json:edits
 field AdminPage.Fields []SettingField json:fields
 field AdminPage.Form *PageForm json:form
@@ -326,6 +336,7 @@ field AdminPage.Metrics []ReportMetric json:metrics
 field AdminPage.Mobile *PageMobile json:mobile
 field AdminPage.Order string json:order
 field AdminPage.OrderBy string json:order_by
+field AdminPage.RowsPage string json:rows_page
 field AdminPage.Search []string json:search
 field AdminPage.Table string json:table
 field AdminReportRequest.Page string json:page
@@ -376,6 +387,21 @@ field BuyerTerms.Prices []BuyerPrice json:prices
 field BuyerTerms.Quotes bool json:quotes
 field BuyerTermsRequest.SKUs []string json:skus
 field BuyerTermsRequest.UserID string json:user_id
+field CalendarEvent.End string json:end
+field CalendarEvent.EndDate string json:end_date
+field CalendarEvent.ID string json:id
+field CalendarEvent.Lane string json:lane
+field CalendarEvent.Start string json:start
+field CalendarEvent.StartDate string json:start_date
+field CalendarEvent.Subtitle string json:subtitle
+field CalendarEvent.Title string json:title
+field CalendarEvent.Tone string json:tone
+field CalendarShade.End string json:end
+field CalendarShade.EndDate string json:end_date
+field CalendarShade.Label string json:label
+field CalendarShade.Lane string json:lane
+field CalendarShade.Start string json:start
+field CalendarShade.StartDate string json:start_date
 field CallInfo.Caller string
 field CallInfo.Contract string
 field CallInfo.IdempotencyKey string
@@ -1221,6 +1247,7 @@ func CurrentUser(*http.Request) (Viewer, bool)
 func DeliverablesMethods(DeliverablesProvider) ([]ServiceMethod)
 func DispatchAccount(context.Context, string, []byte, AccountHandler) ([]byte, bool, error)
 func DispatchAdminAction(context.Context, string, []byte, func(context.Context, AdminAction) (AdminActionResult, error)) ([]byte, bool, error)
+func DispatchAdminCalendar(context.Context, string, []byte, func(context.Context, AdminCalendarRequest) (AdminCalendarResult, error)) ([]byte, bool, error)
 func DispatchAdminForm(context.Context, string, []byte, func(context.Context, AdminFormRequest) (AdminFormResult, error), func(context.Context, AdminFormRequest) (AdminFormResult, error)) ([]byte, bool, error)
 func DispatchAdminReport(context.Context, string, []byte, func(context.Context, AdminReportRequest) (AdminReportResult, error)) ([]byte, bool, error)
 func DispatchAuthHook(context.Context, *Core, AuthProvider, string, []byte) ([]byte, bool, error)
@@ -1532,6 +1559,8 @@ type AccountStartResult
 type AccountStatus
 type AdminAction
 type AdminActionResult
+type AdminCalendarRequest
+type AdminCalendarResult
 type AdminFormRequest
 type AdminFormResult
 type AdminPage
@@ -1550,6 +1579,8 @@ type BuyerPrice
 type BuyerTerms
 type BuyerTermsRequest
 type BuyersProvider
+type CalendarEvent
+type CalendarShade
 type CallInfo
 type Carrier
 type CarrierDescription

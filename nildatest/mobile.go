@@ -123,13 +123,15 @@ type phoneMetric struct{ label, format, currency string }
 
 type phonePage struct {
 	key, label, block, help, mode string
-	fields                        []phoneField
-	columns                       []phoneColumn
-	row                           *nilda.MobileRow
-	actions                       []phoneAction
-	searchable, pin               bool
-	metrics                       []phoneMetric
-	form                          *phoneForm
+	// rowsLabel is the label of the page a calendar page's events open (its RowsPage).
+	rowsLabel       string
+	fields          []phoneField
+	columns         []phoneColumn
+	row             *nilda.MobileRow
+	actions         []phoneAction
+	searchable, pin bool
+	metrics         []phoneMetric
+	form            *phoneForm
 }
 
 // phoneForm is a list page's form as the app draws it: New, and its cards in the app's one-column order.
@@ -307,6 +309,24 @@ func resolvePage(m previewManifest, pg nilda.AdminPage, tr func(string, int) str
 			out.metrics = append(out.metrics, phoneMetric{label: tr(mt.Label, shownLabel), format: format,
 				currency: mt.Currency})
 		}
+	case nilda.AdminPageCalendar:
+		out.mode = "full"
+		for _, f := range pg.Fields {
+			f.Secret = false // a calendar's fields are filter inputs
+			out.fields = append(out.fields, field(f))
+		}
+		// The events are rows of the RowsPage page; Core requires it to name a list page of this manifest,
+		// so a drawing that cannot name it draws nothing.
+		found := false
+		for _, rows := range m.AdminPages {
+			if rows.Key == pg.RowsPage {
+				out.rowsLabel = tr(rows.Label, shownLabel)
+				found = true
+			}
+		}
+		if !found {
+			return out, false
+		}
 	case nilda.AdminPageList:
 		var t *previewTable
 		for i := range m.Tables {
@@ -476,6 +496,8 @@ func drawPhone(p phonePlugin) string {
 			drawList(&b, pg)
 		case nilda.AdminPageReport:
 			drawReport(&b, pg)
+		case nilda.AdminPageCalendar:
+			drawCalendar(&b, pg)
 		}
 		b.rule()
 	}
@@ -605,6 +627,13 @@ func drawReport(b *phone, pg phonePage) {
 	}
 	b.blank()
 	b.line("<the rows the report returns>")
+}
+
+func drawCalendar(b *phone, pg phonePage) {
+	for _, f := range pg.fields {
+		b.wrap("[ "+f.label+" ]", "")
+	}
+	b.wrap("Events open rows of: "+pg.rowsLabel, "")
 }
 
 type phone struct{ strings.Builder }

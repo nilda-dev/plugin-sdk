@@ -142,3 +142,70 @@ func TestAMalformedAdminReportPayloadIsAnErrorNotAPanic(t *testing.T) {
 		t.Errorf("handled=%v err=%v", handled, err)
 	}
 }
+
+// A plugin with a report page AND a calendar page routes the two opens with their own dispatchers in one
+// HandleHook, so each must pass the other's hook through untouched.
+func TestDispatchAdminCalendarIgnoresOtherHooks(t *testing.T) {
+	if _, handled, err := DispatchAdminCalendar(context.Background(), AdminReportHook, nil, nil); handled || err != nil {
+		t.Errorf("a report open reached the calendar dispatcher: handled=%v err=%v", handled, err)
+	}
+}
+
+// A calendar page declared with no handler must SAY so rather than drawing an empty grid — an owner
+// opening the calendar and seeing nothing is worse than an error naming a plugin bug.
+func TestDispatchAdminCalendarNeedsAHandler(t *testing.T) {
+	_, handled, err := DispatchAdminCalendar(context.Background(), AdminCalendarHook, []byte(`{}`), nil)
+	if !handled || err == nil || !strings.Contains(err.Error(), "no handler") {
+		t.Errorf("handled=%v err=%v", handled, err)
+	}
+}
+
+// TestDispatchAdminCalendarRoundTrip mirrors the report round-trip: the open's range and filters arrive
+// intact, and the answer crosses in exactly the JSON keys §19.1 pins — asserted against a literal, not
+// through the struct, because what Core and the app read is the wire.
+func TestDispatchAdminCalendarRoundTrip(t *testing.T) {
+	var got AdminCalendarRequest
+	out, handled, err := DispatchAdminCalendar(context.Background(), AdminCalendarHook,
+		[]byte(`{"page":"calendar","from":"2026-10-19T00:00:00Z","to":"2026-10-26T00:00:00Z","params":{"show":"Active"}}`),
+		func(_ context.Context, req AdminCalendarRequest) (AdminCalendarResult, error) {
+			got = req
+			return AdminCalendarResult{
+				Events: []CalendarEvent{
+					{ID: "bk_7", Title: "Dinner · 2 guests", Subtitle: "Table 4",
+						Start: "2026-10-19T19:00:00+02:00", End: "2026-10-19T21:00:00+02:00",
+						Lane: "Table 4", Tone: "blue"},
+					{ID: "stay_2", Title: "Stay · 2 guests", StartDate: "2026-10-20", EndDate: "2026-10-23",
+						Tone: "green"},
+				},
+				Shaded: []CalendarShade{{StartDate: "2026-10-25", EndDate: "2026-10-26", Label: "Closed"}},
+			}, nil
+		})
+	if !handled || err != nil {
+		t.Fatalf("handled=%v err=%v", handled, err)
+	}
+	if got.Page != "calendar" || got.From != "2026-10-19T00:00:00Z" || got.To != "2026-10-26T00:00:00Z" ||
+		got.Params["show"] != "Active" {
+		t.Errorf("the open arrived as %+v", got)
+	}
+	want := `{"events":[{"id":"bk_7","title":"Dinner · 2 guests","subtitle":"Table 4","start":"2026-10-19T19:00:00+02:00","end":"2026-10-19T21:00:00+02:00","lane":"Table 4","tone":"blue"},` +
+		`{"id":"stay_2","title":"Stay · 2 guests","start_date":"2026-10-20","end_date":"2026-10-23","tone":"green"}],` +
+		`"shaded":[{"start_date":"2026-10-25","end_date":"2026-10-26","label":"Closed"}]}`
+	if string(out) != want {
+		t.Errorf("the answer crosses as\n%s\nwant\n%s", out, want)
+	}
+}
+
+// The kind's name is the wire word Core and the app switch on, and a calendar page's rows_page crosses
+// in the key they read it from.
+func TestCalendarKindIsAKind(t *testing.T) {
+	if AdminPageCalendar != "calendar" {
+		t.Fatalf("AdminPageCalendar is %q, not \"calendar\"", AdminPageCalendar)
+	}
+	b, err := json.Marshal(AdminPage{Key: "calendar", Label: "Calendar", Kind: AdminPageCalendar, RowsPage: "bookings"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"rows_page":"bookings"`) {
+		t.Errorf("a calendar page's manifest crosses as %s", b)
+	}
+}

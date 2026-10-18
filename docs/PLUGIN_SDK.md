@@ -1059,8 +1059,22 @@ with your tables.
 answer a `nilda.AdminReportResult` — columns in the same vocabulary a list page uses, the rows, and optional
 headline numbers above them. Subscribe it the way actions are subscribed — `nilda.AdminReportHook` in
 `InitResult.Hooks`, under the same `admin_page` grant — and route it the way actions are routed, with
-`nilda.DispatchAdminReport(ctx, hook, payload, p.onReport)`. A plugin with both kinds of page lists both
-hooks: `Hooks: []string{nilda.AdminActionHook, nilda.AdminReportHook}`.
+`nilda.DispatchAdminReport(ctx, hook, payload, p.onReport)`. A plugin with all three kinds of page lists all
+three hooks: `Hooks: []string{nilda.AdminActionHook, nilda.AdminReportHook, nilda.AdminCalendarHook}`.
+
+**A `calendar` page is answered too** (v0.33.0). It is `"kind": "calendar"` with `"rows_page"` — the key of
+one of your own `list` pages: each event's id is a row id of that page, and its label is what the grid names
+— and `"default_view"`: `"day"`, `"week"` or `"month"` (empty is week). Its fields are filters, exactly as a
+report's. Each open calls your hook with a `nilda.AdminCalendarRequest` — the page, the range Core is
+drawing as `from` (inclusive) and `to` (exclusive), both RFC 3339 instants and at most 42 days, and every
+filter's current value in `Params` — and you answer a `nilda.AdminCalendarResult`: `events`, each a
+`nilda.CalendarEvent` — a timed event (`start`/`end`) or a bar over days (`start_date`, `end_date`
+exclusive) with a `title`, optional `subtitle`, a day-view `lane` ("Table 4") and a Badge `tone`; optional
+`shaded` stretches, each a `nilda.CalendarShade`; and `truncated` when you left events out. Core caps a
+reply at 2000 events, 500 shades and 512 KiB, cleans every string, and drops an event with neither a start
+nor a start_date. Subscribe `nilda.AdminCalendarHook` under the same `admin_page` grant and route it with
+`nilda.DispatchAdminCalendar(ctx, hook, payload, p.onCalendar)`. A Nilda older than this release drops a
+page whose kind it does not know — your other pages stay.
 
 The shapes a manifest declares here are Go types too — `nilda.AdminPage`, `nilda.SettingField`,
 `nilda.ListColumn`, `nilda.RowAction` — and their comments are the reference for every field.

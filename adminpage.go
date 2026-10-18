@@ -135,9 +135,10 @@ type AdminPage struct {
 	// Fields means two different things depending on Kind. On a "settings" page they are STORED
 	// configuration, read back at your next Init. On a "report" page they are FILTER INPUTS — a date
 	// range, a choice of which report to show — sent to you fresh on every request and never stored at
-	// all; there is nothing to persist about "which report am I looking at right now." Same vocabulary
-	// either way, so an author learns one set of controls for both — except Secret, which only a settings
-	// page can hold (see SettingField.Secret).
+	// all; there is nothing to persist about "which report am I looking at right now." A "calendar"
+	// page's fields are filters in exactly the same way. Same vocabulary in every case, so an author
+	// learns one set of controls — except Secret, which only a settings page can hold (see
+	// SettingField.Secret).
 	Fields []SettingField `json:"fields,omitempty"`
 	// Help is shown at the top of the page — one or two sentences on what this page is for.
 	Help string `json:"help,omitempty"`
@@ -178,6 +179,15 @@ type AdminPage struct {
 	// and says how to show it. Summary alone is a map of whatever you put in it, so a screen can only print it
 	// as text — a total in cents reads "12900". Declared here, the panel and the Nilda app show money as money.
 	Metrics []ReportMetric `json:"metrics,omitempty"`
+
+	// --- kind: "calendar" ---
+
+	// RowsPage is the key of one of YOUR "list" pages: each event's ID is a row id of that page, opening
+	// an event offers that page's row actions and form, and its label is what the grid names as the rows
+	// the events open. Core refuses a calendar page whose rows_page is not a list page of your manifest.
+	RowsPage string `json:"rows_page,omitempty"`
+	// DefaultView is the grid a calendar page opens on: "day", "week" or "month"; empty is "week".
+	DefaultView string `json:"default_view,omitempty"`
 
 	// --- any kind ---
 
@@ -320,6 +330,9 @@ const (
 	AdminPageList = "list"
 	// AdminPageReport shows rows YOU compute and hand back fresh on every open — see AdminReportHook.
 	AdminPageReport = "report"
+	// AdminPageCalendar shows dated rows YOU compute (v0.33.0), drawn on a day/week/month grid; each event
+	// opens a row of RowsPage, with that page's row actions — see AdminCalendarHook.
+	AdminPageCalendar = "calendar"
 )
 
 // ListColumn is one column of a list page. Key names a column of the page's table; Type is how to RENDER it
@@ -505,6 +518,98 @@ func DispatchAdminReport(ctx context.Context, hook string, payload []byte, fn fu
 	var req AdminReportRequest
 	if err := json.Unmarshal(payload, &req); err != nil {
 		return nil, true, fmt.Errorf("nilda: admin.report payload: %w", err)
+	}
+	res, err := fn(ctx, req)
+	if err != nil {
+		return nil, true, err
+	}
+	b, err := json.Marshal(res)
+	return b, true, err
+}
+
+// AdminCalendarHook is the hook Core calls to fetch a "calendar" page's events for the range it is
+// drawing, fresh, every time the page is opened or its filters change — the dated counterpart of
+// AdminReportHook.
+//
+// SUBSCRIBE IT, the same way and for the same reason:
+//
+//	return nilda.InitResult{Hooks: []string{nilda.AdminCalendarHook}}, nil
+//
+// The grant is `admin_page`, not `hooks`.
+const AdminCalendarHook = "admin.calendar"
+
+// AdminCalendarRequest is one open of a calendar page: the range Core is drawing and the CURRENT value of
+// every field the page declared. From is inclusive and To exclusive, both RFC 3339 instants; Core asks at
+// most 42 days at a time. Params works exactly as on a report page (see AdminPage.Fields): a field the
+// owner left blank is simply absent from it, and default what an absent one means yourself.
+type AdminCalendarRequest struct {
+	Page   string            `json:"page"`
+	From   string            `json:"from"`             // RFC 3339 instant, inclusive
+	To     string            `json:"to"`               // RFC 3339 instant, exclusive; Core asks at most 42 days
+	Params map[string]string `json:"params,omitempty"` // the page's Fields as filters, as on a report page
+}
+
+// AdminCalendarResult is a calendar's answer: the events to draw in the range, optional shades behind
+// them, and whether you had to leave events out. Core caps a reply at 2000 events, 500 shades and
+// 512 KiB, and strings pass through PlainText like every other label you send.
+type AdminCalendarResult struct {
+	Events    []CalendarEvent `json:"events"`
+	Shaded    []CalendarShade `json:"shaded,omitempty"`
+	Truncated bool            `json:"truncated,omitempty"`
+}
+
+// CalendarEvent is one event on the grid — timed (Start and End) or a bar over whole days (StartDate and
+// EndDate, exclusive); an event with neither is dropped. ID is a row id of the page's RowsPage: opening
+// the event shows that row's sheet, with that page's row actions and its form when the page has one.
+type CalendarEvent struct {
+	ID        string `json:"id"` // a row id of RowsPage
+	Title     string `json:"title"`
+	Subtitle  string `json:"subtitle,omitempty"`
+	Start     string `json:"start,omitempty"` // RFC 3339: a timed event …
+	End       string `json:"end,omitempty"`
+	StartDate string `json:"start_date,omitempty"` // … or "2006-01-02" days, EndDate exclusive: a bar over days
+	EndDate   string `json:"end_date,omitempty"`
+	Lane      string `json:"lane,omitempty"` // the day view's column: "Table 4"
+	Tone      string `json:"tone,omitempty"` // a Badge* tone
+}
+
+// CalendarShade is a stretch shaded behind the events — the hours you take bookings, a closed day.
+type CalendarShade struct {
+	Start     string `json:"start,omitempty"`
+	End       string `json:"end,omitempty"`
+	StartDate string `json:"start_date,omitempty"`
+	EndDate   string `json:"end_date,omitempty"`
+	Label     string `json:"label,omitempty"`
+	Lane      string `json:"lane,omitempty"`
+}
+
+// DispatchAdminCalendar routes a calendar-page open to your handler, the same shape DispatchAdminReport
+// uses:
+//
+//	func (p *Plugin) HandleHook(ctx context.Context, hook string, payload []byte) ([]byte, error) {
+//		if out, handled, err := nilda.DispatchAdminCalendar(ctx, hook, payload, p.onCalendar); handled {
+//			return out, err
+//		}
+//		// … your own hooks
+//	}
+//
+//	func (p *Plugin) onCalendar(ctx context.Context, req nilda.AdminCalendarRequest) (nilda.AdminCalendarResult, error) {
+//		events, shades, more := p.between(ctx, req.From, req.To)
+//		return nilda.AdminCalendarResult{Events: events, Shaded: shades, Truncated: more}, nil
+//	}
+//
+// handled=false means the hook was not a calendar open, so a plugin with hooks of its own passes it on.
+func DispatchAdminCalendar(ctx context.Context, hook string, payload []byte,
+	fn func(context.Context, AdminCalendarRequest) (AdminCalendarResult, error)) (out []byte, handled bool, err error) {
+	if hook != AdminCalendarHook {
+		return nil, false, nil
+	}
+	if fn == nil {
+		return nil, true, fmt.Errorf("nilda: a calendar page was opened and this plugin registered no handler")
+	}
+	var req AdminCalendarRequest
+	if err := json.Unmarshal(payload, &req); err != nil {
+		return nil, true, fmt.Errorf("nilda: admin.calendar payload: %w", err)
 	}
 	res, err := fn(ctx, req)
 	if err != nil {

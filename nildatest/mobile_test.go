@@ -80,6 +80,29 @@ func TestMobilePreviewWritesThenHoldsTheGolden(t *testing.T) {
 	}
 }
 
+// A `calendar` page draws its filter fields and names the page its events open — the bytes Core's own
+// drawing must match (architecture §19.1).
+func TestMobilePreviewDrawsACalendarPage(t *testing.T) {
+	got, err := renderPhone([]byte(`{
+		"key": "booking", "name": "Booking", "capabilities": ["admin_page"],
+		"tables": [{"name": "bookings", "columns": [{"name": "id", "primary_key": true}, {"name": "guest"}]}],
+		"admin_pages": [
+			{"key": "bookings", "label": "Bookings", "kind": "list", "table": "bookings",
+			 "columns": [{"key": "id", "label": "Booking"}, {"key": "guest", "label": "Guest"}]},
+			{"key": "calendar", "label": "Calendar", "kind": "calendar", "rows_page": "bookings",
+			 "default_view": "week",
+			 "fields": [{"key": "area", "label": "Area", "type": "select", "choices": ["Main"]}]}
+		]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"> Calendar", "[full]", "[ Area ]", "Events open rows of: Bookings"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("the drawing has no %q:\n%s", want, got)
+		}
+	}
+}
+
 func TestMobilePreviewDrawsOnlyPlainText(t *testing.T) {
 	got, err := renderPhone([]byte(`{"key":"x","name":"\u202eShop\u001b[31m","description":"one\u200bword"}`))
 	if err != nil {

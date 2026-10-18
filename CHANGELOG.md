@@ -4,6 +4,12 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## v0.33.0 (unreleased)
+
+- The `calendar` admin page kind: `AdminPageCalendar`, `AdminCalendarHook`, `AdminCalendarRequest` /
+  `AdminCalendarResult`, `CalendarEvent`, `CalendarShade`, `DispatchAdminCalendar`; `AdminPage.RowsPage` and
+  `DefaultView`. Needs the Core release built on it; an older Core drops the page.
+
 ## v0.32.0 — 2026-10-18 (sidebar groups; columns that read as words)
 
 - `ListColumn.Labels`: what each stored value reads as — `"labels": {"fixed_amount": "Fixed amount"}` — translated
