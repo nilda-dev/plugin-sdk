@@ -183,6 +183,9 @@ const IntervalYear
 const LabelPending
 const LabelPurchased
 const LabelRejected
+const LinkParamNumber
+const LinkParamSelect
+const LinkTargetsHook
 const MandatePreOrder
 const MandateSubscription
 const MandateUpdate
@@ -744,6 +747,9 @@ field FormField.Section string json:section
 field FormField.ShownWhen *FieldCondition json:shown_when
 field FormField.Type string json:type
 field FormField.Unit string json:unit
+field FormReplacement.Config map[string]any json:config
+field FormReplacement.FormSlugs []string json:form_slugs
+field FormReplacement.Widget string json:widget
 field FormSection.Folded bool json:folded
 field FormSection.Help string json:help
 field FormSection.Key string json:key
@@ -781,6 +787,20 @@ field LabelResult.Service string json:service
 field LabelResult.Status string json:status
 field LabelResult.TrackingNumber string json:tracking_number
 field LabelResult.TrackingURL string json:tracking_url
+field LinkChoice.Label string json:label
+field LinkChoice.Value string json:value
+field LinkParam.Choices []LinkChoice json:choices
+field LinkParam.Key string json:key
+field LinkParam.Label string json:label
+field LinkParam.Max *float64 json:max
+field LinkParam.Min *float64 json:min
+field LinkParam.Type string json:type
+field LinkTarget.Group string json:group
+field LinkTarget.Key string json:key
+field LinkTarget.Label string json:label
+field LinkTarget.Params []LinkParam json:params
+field LinkTarget.Path string json:path
+field LinkTargetsRequest.Locale string json:locale
 field ListColumn.Badges map[string]string json:badges
 field ListColumn.Currency string json:currency
 field ListColumn.CurrencyColumn string json:currency_column
@@ -1225,6 +1245,7 @@ field WidgetField.Type string json:type
 field WidgetRenderRequest.Config map[string]any json:config
 field WidgetRenderRequest.Kind string json:kind
 field WidgetRenderRequest.Locale string json:locale
+field WidgetRenderRequest.Preview bool json:preview
 field WidgetRenderRequest.RTL bool json:rtl
 field WidgetRenderRequest.SiteURL string json:site_url
 field WidgetRenderRequest.Title string json:title
@@ -1253,6 +1274,7 @@ func DispatchAdminReport(context.Context, string, []byte, func(context.Context, 
 func DispatchAuthHook(context.Context, *Core, AuthProvider, string, []byte) ([]byte, bool, error)
 func DispatchCommerceHook(context.Context, *Core, Commerce, string, []byte) ([]byte, bool, error)
 func DispatchFieldHook(context.Context, *Core, FieldProvider, string, []byte) ([]byte, bool, error)
+func DispatchLinkTargets(context.Context, string, []byte, func(context.Context, LinkTargetsRequest) ([]LinkTarget, error)) ([]byte, bool, error)
 func DispatchPaymentConsumerHook(context.Context, *Core, PaymentConsumer, string, []byte) ([]byte, bool, error)
 func DispatchPaymentGatewayHook(context.Context, *Core, PaymentGateway, string, []byte) ([]byte, bool, error)
 func DispatchSearchHook(context.Context, *Core, SearchProvider, string, []byte) ([]byte, bool, error)
@@ -1344,6 +1366,7 @@ imethod FieldProvider.Validate(context.Context, *Core, FieldValidateRequest) (st
 imethod Handler.HandleEvent(context.Context, string, []byte) (error)
 imethod Handler.HandleHook(context.Context, string, []byte) ([]byte, error)
 imethod Handler.Init(context.Context, *Core) (InitResult, error)
+imethod LinkTargetProvider.LinkTargets(context.Context, LinkTargetsRequest) ([]LinkTarget, error)
 imethod OffersProvider.ConfirmOffers(context.Context, OffersConfirmRequest) (OffersConfirmResult, error)
 imethod OffersProvider.OffersFor(context.Context, OffersRequest) (OffersResult, error)
 imethod OrdersProvider.ShopOrder(context.Context, ShopOrderRequest) (ShopOrderResult, error)
@@ -1502,6 +1525,7 @@ method (EUVATRateSet) Reduced(string, string) ([]EUVATRate)
 method (EUVATRateSet) Standard(string) (int, bool)
 method (LabelRequest) Validate() (error)
 method (LabelResult) Validate() (error)
+method (LinkTarget) Validate(string) (error)
 method (Offer) Validate() (error)
 method (OffersConfirmRequest) Validate() (error)
 method (OffersConfirmResult) Validate() (error)
@@ -1655,6 +1679,7 @@ type FieldValidateResponse
 type FormConflict
 type FormError
 type FormField
+type FormReplacement
 type FormSection
 type GRPCPlugin
 type Handler
@@ -1662,6 +1687,11 @@ type HeadlineMetric
 type InitResult
 type LabelRequest
 type LabelResult
+type LinkChoice
+type LinkParam
+type LinkTarget
+type LinkTargetProvider
+type LinkTargetsRequest
 type ListColumn
 type MobileRow
 type OIDCClient

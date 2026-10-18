@@ -9,6 +9,14 @@ here.
 - The `calendar` admin page kind: `AdminPageCalendar`, `AdminCalendarHook`, `AdminCalendarRequest` /
   `AdminCalendarResult`, `CalendarEvent`, `CalendarShade`, `DispatchAdminCalendar`; `AdminPage.RowsPage` and
   `DefaultView`. Needs the Core release built on it; an older Core drops the page.
+- Link targets — where a site's links, menus and the assistant may lead into your plugin: `LinkTargetsHook`
+  (`"link.targets"`), `LinkTargetsRequest`, `LinkTarget` / `LinkParam` / `LinkChoice` / `LinkTargetProvider`,
+  `LinkParamSelect` / `LinkParamNumber`, `DispatchLinkTargets`, and `LinkTarget.Validate` for the same rules
+  at Init. Needs the Core release built on it; an older Core never asks.
+- `WidgetRenderRequest.Preview` (`"preview"`): true on the page builder's canvas and share-link previews of a
+  draft, which a widget that records where it lives must skip. And `FormReplacement` — the manifest's
+  `form_replacements`, the template forms one of your widgets replaces, at build time and on the plugin's
+  first enable (a release the owner publishes).
 
 ## v0.32.0 — 2026-10-18 (sidebar groups; columns that read as words)
 

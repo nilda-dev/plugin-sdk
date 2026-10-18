@@ -222,6 +222,63 @@ func TestTheAssetSubscriptionIsAddedForYou(t *testing.T) {
 	}
 }
 
+// TestFormReplacementJSON holds the declaration to the manifest's keys: "form_slugs", "widget" and an
+// optional "config". Core reads plugin.json by those names, and a renamed Go field would send neither it nor
+// its own mirror anything.
+func TestFormReplacementJSON(t *testing.T) {
+	t.Parallel()
+	b, err := json.Marshal(FormReplacement{
+		FormSlugs: []string{"ask-for-a-table", "ask-for-an-appointment"},
+		Widget:    "booking",
+		Config:    map[string]any{"heading": ""},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = `{"form_slugs":["ask-for-a-table","ask-for-an-appointment"],"widget":"booking","config":{"heading":""}}`
+	if string(b) != want {
+		t.Fatalf("the declaration marshals as\n  %s\nwant\n  %s", b, want)
+	}
+	// No config: the key is absent, not null.
+	b, err = json.Marshal(FormReplacement{FormSlugs: []string{"ask-for-a-table"}, Widget: "booking"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const noConfig = `{"form_slugs":["ask-for-a-table"],"widget":"booking"}`
+	if string(b) != noConfig {
+		t.Fatalf("a declaration with no config marshals as\n  %s\nwant\n  %s", b, noConfig)
+	}
+}
+
+// TestWidgetRenderRequestCarriesPreview — F32: the builder's canvas and a share-link preview render a draft
+// page through the same hook as a visitor's page, and a widget that records where it lives must be able to
+// tell them apart. Core sends "preview", and a plain render omits it.
+func TestWidgetRenderRequestCarriesPreview(t *testing.T) {
+	t.Parallel()
+	b, err := json.Marshal(WidgetRenderRequest{Type: "booking", Kind: "home", Preview: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"preview":true`) {
+		t.Fatalf("a preview render marshals as %s; Core's mirror reads no flag", b)
+	}
+	b, err = json.Marshal(WidgetRenderRequest{Type: "booking", Kind: "home"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), "preview") {
+		t.Fatalf("a visitor's render marshals as %s; the flag must be omitted when false", b)
+	}
+	// And Core's payload reaches the field.
+	var req WidgetRenderRequest
+	if err := json.Unmarshal([]byte(`{"type":"booking","kind":"home","url":"/draft","preview":true}`), &req); err != nil {
+		t.Fatal(err)
+	}
+	if !req.Preview {
+		t.Fatalf("the payload's preview flag did not reach the request: %+v", req)
+	}
+}
+
 // TestANumericWidgetFieldKeepsItsBOUNDS.
 //
 // `Min, Max, Step *float64 ` + "`json:\"min,omitempty\"`" + “ gave all three fields the tag "min", and Go's

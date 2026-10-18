@@ -471,7 +471,44 @@ refuses a manifest that declares `render.assets` without it, because a plugin th
 none. An absolute URL or someone else's prefix is dropped — the page renders without it, and Core's log
 names the path it rejected.
 
-Core delivers only a hook a plugin subscribed to, for these two as for every other. You do not list them in
+**Being a link destination (`link.targets`).** A button, a menu item, a call to action or the site's
+assistant can lead into what you offer, and the person building the page picks it from a list instead of
+typing a URL. Implement `nilda.LinkTargetProvider`:
+
+```go
+func (b *Booking) LinkTargets(ctx context.Context, req nilda.LinkTargetsRequest) ([]nilda.LinkTarget, error) {
+	min, max := 1.0, 50.0
+	return []nilda.LinkTarget{{
+		Key:   "book",        // stable within your plugin
+		Label: "Book",        // what the picker shows
+		Group: "Booking",     // an optional heading in the picker
+		Path:  "/booking/go", // under your own route prefix
+		Params: []nilda.LinkParam{
+			{Key: "setup", Label: "What to book", Type: nilda.LinkParamSelect,
+				Choices: []nilda.LinkChoice{{Value: "dinner", Label: "Dinner"}}},
+			{Key: "party", Label: "Guests", Type: nilda.LinkParamNumber, Min: &min, Max: &max},
+		},
+	}}, nil
+}
+```
+
+The picker writes your `Path` plus the chosen params as a query string — `/booking/go?setup=dinner&party=4` —
+and that is all that is ever stored: a plain path on the site. A link to a plugin that is later removed 404s
+like a link to any deleted page, and nothing has to be rewritten.
+
+`req.Locale` is the language of the person picking the link; translate your labels through your own
+plugin.json translations when you can. What Core keeps: **at most 20 targets a plugin, 4 params and 100
+choices in one target**, a key (and a param key) matching `^[a-z][a-z0-9_]{1,30}$`, and a path at or under
+your route prefix holding no `?`, `#`, `//` or `..` — anything past a bound is dropped and logged on Core's
+side, and never offered to a person. `nilda.LinkTarget.Validate(prefix)` applies the same rules, so you can
+hear them in your own log at Init: `t.Validate(core.RoutePrefix)`.
+
+The hook is subscribed for you, like the widgets: implementing `LinkTargetProvider` subscribes
+`nilda.LinkTargetsHook` (`"link.targets"`, which needs `route` — the paths are your own) and `Serve` answers
+it. An author who handles `link.targets` by hand lists the hook themselves and routes it with
+`nilda.DispatchLinkTargets`.
+
+Core delivers only a hook a plugin subscribed to, for these as for every other. You do not list them in
 `InitResult`, because `Serve` does it for you: implementing `AssetProvider` subscribes `render.assets`, and
 implementing `WidgetProvider` subscribes `widget.describe` and `widget.render`. A plugin that handles the
 widget hooks by hand in `HandleHook`, without implementing `WidgetProvider`, has to list them itself.
@@ -583,6 +620,27 @@ res, err := client.Get("https://api.stripe.com/v1/charges")
 is refused with a 503 rather than queued — and a tunnel nothing crosses, in either direction, for 10 minutes
 is closed. A pooled client stays far inside both; a plugin that opens a connection per request and never
 closes it does not.
+
+**Forms your widget replaces (`form_replacements`).** A booking-request form in the site's template — a
+visitor fills in a date, a party size, a name, and the site mails it — can become your widget when your
+plugin arrives, with no page edit. Declare which forms, by slug, and which of YOUR widgets replaces them
+(`nilda.FormReplacement`):
+
+```json
+"form_replacements": [
+  { "form_slugs": ["ask-for-a-table", "ask-for-an-appointment"], "widget": "booking",
+    "config": { "heading": "", "intro": "" } }
+]
+```
+
+At most 4 entries, at most 8 slugs each, a slug matching `^[a-z0-9][a-z0-9-]{1,58}$`, and `widget` is one of
+your own widget types — the declaration needs the `widget` capability. Core acts on it twice, and never edits
+a live page behind the owner's back: on a page Core BUILDs for the site (the hosted build) your widget is
+written where the form was; and on the plugin's FIRST enable on an existing site — the first time it
+completes an Init — Core copies each matching page, swaps the form for your widget, and offers the result as
+a release named after your plugin for the owner to review and publish. The live page, its working version and
+its live tree are untouched until they do; on a plan without releases nothing is created, and the owner is
+told to add the widget by hand.
 
 ### What you do with personal data (`processing`)
 

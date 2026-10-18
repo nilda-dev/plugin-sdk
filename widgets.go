@@ -188,6 +188,30 @@ type WidgetDef struct {
 	Fields   []WidgetField `json:"fields,omitempty"`
 }
 
+// FormReplacement declares that one of YOUR widgets replaces a form the site's template ships — the
+// booking-request form a visitor fills in today, becoming the plugin's own widget with no page edit.
+//
+// It is the manifest's "form_replacements" (at most 4 entries, at most 8 slugs each; a slug matches
+// ^[a-z0-9][a-z0-9-]{1,58}$; declaring it needs the `widget` capability). FormSlugs names the form widgets
+// by their slug — the template's "ask-for-a-table", "ask-for-an-appointment" — and Widget is one of the
+// plugin's OWN widget types: the local name of WidgetDef, not "<key>.<type>". Config is the widget's
+// settings, written the way the page builder stores them.
+//
+// Core acts on it in two places, and never edits a live page behind the owner's back:
+//
+//   - at BUILD time, on a page Core builds for the site (the hosted build), the widget is written where the
+//     form was;
+//   - on an EXISTING site, on the plugin's FIRST enable — the first time it completes an Init — Core copies
+//     each page whose layout holds a matching form widget, swaps the form for yours, and offers the result
+//     as a release for the OWNER to review and publish: the page, its working version and its live tree are
+//     untouched until they do, and on a plan without releases nothing is created — the owner is told to add
+//     the widget by hand instead.
+type FormReplacement struct {
+	FormSlugs []string       `json:"form_slugs"`
+	Widget    string         `json:"widget"`
+	Config    map[string]any `json:"config,omitempty"`
+}
+
 // WidgetRenderRequest is what Core sends for one widget render.
 //
 // Deliberately PAGE-level: there is no user, session or request here, and that is not an oversight. Rendered
@@ -202,6 +226,9 @@ type WidgetRenderRequest struct {
 	Title   string         `json:"title,omitempty"`
 	URL     string         `json:"url,omitempty"`
 	SiteURL string         `json:"site_url,omitempty"`
+	// Preview is true when this render is the page builder's canvas or a share-link preview of a draft, not
+	// a visitor's page; a widget that records where it lives must skip it.
+	Preview bool `json:"preview,omitempty"`
 }
 
 // RenderAssetsRequest is what Core sends once per public page render to each `render.assets` subscriber.
@@ -322,6 +349,15 @@ func dispatchProvided(ctx context.Context, h Handler, hook string, payload []byt
 		raw, err := json.Marshal(renderAssetsResponse{FooterScripts: ap.FooterScripts(ctx, req)})
 		return raw, true, err
 
+	// Link targets are answered here for the same reason the widgets are: a picker asking a subscribed
+	// plugin that answers nothing shows a person an empty menu.
+	case LinkTargetsHook:
+		lp, is := h.(LinkTargetProvider)
+		if !is {
+			return nil, false, nil
+		}
+		return DispatchLinkTargets(ctx, hook, payload, lp.LinkTargets)
+
 	// The payment hooks are answered here too, and for the reason WidgetProvider's are: a gateway that is
 	// subscribed and then fails every payment.start is a checkout that fails, silently, for every payer.
 	case HookPaymentDescribe, HookPaymentStart, HookPaymentRefund, HookPaymentSync, HookPaymentForget:
@@ -400,6 +436,9 @@ var providerHooks = []struct {
 		[]string{HookRenderAssets}},
 	{"WidgetProvider", func(h Handler) bool { _, is := h.(WidgetProvider); return is },
 		[]string{HookWidgetDescribe, HookWidgetRender}},
+	// link.targets needs `route`, not `hooks`: the paths a target may name are the plugin's own.
+	{"LinkTargetProvider", func(h Handler) bool { _, is := h.(LinkTargetProvider); return is },
+		[]string{LinkTargetsHook}},
 	{"AccountHandler", func(h Handler) bool { _, is := h.(AccountHandler); return is },
 		[]string{AccountStartHook, AccountFinishHook, AccountStatusHook, AccountDisconnectHook}},
 	{"AuthProvider", func(h Handler) bool { _, is := h.(AuthProvider); return is },
