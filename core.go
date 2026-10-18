@@ -68,7 +68,7 @@ func (c *Core) HasCapability(key string) bool { return slices.Contains(c.Granted
 // A plugin now calls Core's own API with a scoped token, which is the same surface every first-party
 // feature and external integration uses. What replaced each of them:
 //
-//	Site()          -> api.Get(ctx, "/site", nil, &out)
+//	Site()          -> api.Get(ctx, "/site", nil, &out) (title, description, base_url, locale, timezone)
 //	PageBySlug(s)   -> api.Get(ctx, "/pages/"+url.PathEscape(s), nil, &out)
 //	ContentList(t)  -> api.Get(ctx, "/content/"+t, url.Values{"page": {"1"}}, &out)
 //	UserByID(id)    -> api.Get(ctx, "/users/"+id, nil, &out)
