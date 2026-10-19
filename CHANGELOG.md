@@ -17,6 +17,11 @@ here.
   draft, which a widget that records where it lives must skip. And `FormReplacement` — the manifest's
   `form_replacements`, the template forms one of your widgets replaces, at build time and on the plugin's
   first enable (a release the owner publishes).
+- `LinkTarget.Validate` and `DispatchLinkTargets` now apply Core's full link-target rules: keys are trimmed,
+  an empty label, a duplicate param key, a number with `Min` above `Max`, a select with no choice, a choice
+  value outside `[A-Za-z0-9_.-]{0,64}` and a path character outside `[A-Za-z0-9/_.~-]` are refused, and the
+  dispatch drops a duplicate target key and any target past the twentieth. `InitResult.Hooks` now says
+  `link.targets` is admitted by `route`.
 
 ## v0.32.0 — 2026-10-18 (sidebar groups; columns that read as words)
 

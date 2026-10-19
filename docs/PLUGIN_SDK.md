@@ -499,8 +499,10 @@ like a link to any deleted page, and nothing has to be rewritten.
 `req.Locale` is the language of the person picking the link; translate your labels through your own
 plugin.json translations when you can. What Core keeps: **at most 20 targets a plugin, 4 params and 100
 choices in one target**, a key (and a param key) matching `^[a-z][a-z0-9_]{1,30}$`, and a path at or under
-your route prefix holding no `?`, `#`, `//` or `..` — anything past a bound is dropped and logged on Core's
-side, and never offered to a person. `nilda.LinkTarget.Validate(prefix)` applies the same rules, so you can
+your route prefix holding no `?`, `#`, `//` or `..` and only the characters `[A-Za-z0-9/_.~-]`, a non-empty
+label, no two targets (or two params of one target) with the same key, a number whose `Min` is not above its
+`Max`, and a select with at least one choice whose values are only `[A-Za-z0-9_.-]`, at most 64 long (an empty
+value is allowed) — anything past a bound is dropped and logged on Core's side, and never offered to a person. `nilda.LinkTarget.Validate(prefix)` applies the same rules, so you can
 hear them in your own log at Init: `t.Validate(core.RoutePrefix)`.
 
 The hook is subscribed for you, like the widgets: implementing `LinkTargetProvider` subscribes

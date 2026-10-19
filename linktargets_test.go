@@ -18,7 +18,8 @@ func TestLinkTargetValidateMatchesTheRules(t *testing.T) {
 	params := func(n int) []LinkParam {
 		out := make([]LinkParam, 0, n)
 		for i := range n {
-			out = append(out, LinkParam{Key: "p" + strconv.Itoa(i), Label: "P", Type: LinkParamSelect})
+			out = append(out, LinkParam{Key: "p" + strconv.Itoa(i), Label: "P", Type: LinkParamSelect,
+				Choices: []LinkChoice{{Value: "v", Label: "V"}}})
 		}
 		return out
 	}
@@ -29,6 +30,7 @@ func TestLinkTargetValidateMatchesTheRules(t *testing.T) {
 		}
 		return out
 	}
+	one, ten := 1.0, 10.0
 	good := LinkTarget{
 		Key: "book", Label: "Book", Group: "Booking", Path: "/booking/go",
 		Params: []LinkParam{
@@ -63,6 +65,43 @@ func TestLinkTargetValidateMatchesTheRules(t *testing.T) {
 			Params: []LinkParam{{Key: "Party", Label: "Guests", Type: LinkParamNumber}}}, "/booking", "key"},
 		{"a bad param type", LinkTarget{Key: "book", Label: "Book", Path: "/booking/go",
 			Params: []LinkParam{{Key: "party", Label: "Guests", Type: "text"}}}, "/booking", "type"},
+		// Core's cleanLinkTarget rules, one by one (T07 S2).
+		{"keys are trimmed, as Core trims them", LinkTarget{Key: " book ", Label: "Book", Path: "/booking/go",
+			Params: []LinkParam{{Key: " party ", Label: "Guests", Type: LinkParamNumber}}}, "/booking", ""},
+		{"an empty label", LinkTarget{Key: "book", Label: "", Path: "/booking/go"}, "/booking", "label"},
+		{"a blank label", LinkTarget{Key: "book", Label: "  \t ", Path: "/booking/go"}, "/booking", "label"},
+		{"a duplicate param key", LinkTarget{Key: "book", Label: "Book", Path: "/booking/go",
+			Params: []LinkParam{
+				{Key: "party", Label: "Guests", Type: LinkParamNumber},
+				{Key: " party", Label: "Again", Type: LinkParamNumber}}}, "/booking", "duplicate"},
+		{"a number whose min is above its max", LinkTarget{Key: "book", Label: "Book", Path: "/booking/go",
+			Params: []LinkParam{{Key: "party", Label: "Guests", Type: LinkParamNumber, Min: &ten, Max: &one}}}, "/booking", "min"},
+		{"a number whose min equals its max", LinkTarget{Key: "book", Label: "Book", Path: "/booking/go",
+			Params: []LinkParam{{Key: "party", Label: "Guests", Type: LinkParamNumber, Min: &one, Max: &one}}}, "/booking", ""},
+		{"a select with no choice", LinkTarget{Key: "book", Label: "Book", Path: "/booking/go",
+			Params: []LinkParam{{Key: "setup", Label: "S", Type: LinkParamSelect}}}, "/booking", "choice"},
+		{"a choice value with a space", LinkTarget{Key: "book", Label: "Book", Path: "/booking/go",
+			Params: []LinkParam{{Key: "setup", Label: "S", Type: LinkParamSelect,
+				Choices: []LinkChoice{{Value: "a b", Label: "A"}}}}}, "/booking", "value"},
+		{"a choice value with an ampersand", LinkTarget{Key: "book", Label: "Book", Path: "/booking/go",
+			Params: []LinkParam{{Key: "setup", Label: "S", Type: LinkParamSelect,
+				Choices: []LinkChoice{{Value: "a&b=c", Label: "A"}}}}}, "/booking", "value"},
+		{"a choice value of 64 characters", LinkTarget{Key: "book", Label: "Book", Path: "/booking/go",
+			Params: []LinkParam{{Key: "setup", Label: "S", Type: LinkParamSelect,
+				Choices: []LinkChoice{{Value: strings.Repeat("a", 64), Label: "A"}}}}}, "/booking", ""},
+		{"a choice value of 65 characters", LinkTarget{Key: "book", Label: "Book", Path: "/booking/go",
+			Params: []LinkParam{{Key: "setup", Label: "S", Type: LinkParamSelect,
+				Choices: []LinkChoice{{Value: strings.Repeat("a", 65), Label: "A"}}}}}, "/booking", "value"},
+		{"a choice value with every allowed punctuation", LinkTarget{Key: "book", Label: "Book", Path: "/booking/go",
+			Params: []LinkParam{{Key: "setup", Label: "S", Type: LinkParamSelect,
+				Choices: []LinkChoice{{Value: "A_b-c.9", Label: "A"}}}}}, "/booking", ""},
+		{"a percent sign in the path", LinkTarget{Key: "book", Label: "Book", Path: "/booking/%2e%2e/go"}, "/booking", "character"},
+		{"a quote in the path", LinkTarget{Key: "book", Label: "Book", Path: `/booking/"go`}, "/booking", "character"},
+		{"a space in the path", LinkTarget{Key: "book", Label: "Book", Path: "/booking/go now"}, "/booking", "character"},
+		{"a backslash in the path", LinkTarget{Key: "book", Label: "Book", Path: `/booking/go\x`}, "/booking", "character"},
+		{"a less-than sign in the path", LinkTarget{Key: "book", Label: "Book", Path: "/booking/<go"}, "/booking", "character"},
+		{"a path with every allowed punctuation", LinkTarget{Key: "book", Label: "Book", Path: "/booking/Go_it-2.0~x"}, "/booking", ""},
+		{"the charset is checked with no prefix too", LinkTarget{Key: "book", Label: "Book", Path: "/booking/go%20"}, "", "character"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			err := c.target.Validate(c.prefix)
@@ -165,5 +204,39 @@ func TestDispatchLinkTargetsRoundTrip(t *testing.T) {
 	}
 	if res.Targets == nil || len(res.Targets) != 0 {
 		t.Fatalf("a provider offering nothing must answer [], got %s", out)
+	}
+}
+
+// TestDispatchLinkTargetsHoldsCoresCountsAndDuplicates — the rules that span targets live in the dispatch,
+// since Validate sees one target: Core keeps at most 20 targets and refuses a second target with a key it
+// already has. The SDK drops the same ones, and logs, so the author hears it in their own log.
+func TestDispatchLinkTargetsHoldsCoresCountsAndDuplicates(t *testing.T) {
+	t.Parallel()
+	answer := func(targets []LinkTarget) []LinkTarget {
+		t.Helper()
+		out, _, err := DispatchLinkTargets(context.Background(), LinkTargetsHook, []byte(`{}`),
+			func(context.Context, LinkTargetsRequest) ([]LinkTarget, error) { return targets, nil })
+		if err != nil {
+			t.Fatal(err)
+		}
+		var res linkTargetsResponse
+		if err := json.Unmarshal(out, &res); err != nil {
+			t.Fatal(err)
+		}
+		return res.Targets
+	}
+	mk := func(key, label string) LinkTarget { return LinkTarget{Key: key, Label: label, Path: "/booking/go"} }
+
+	got := answer([]LinkTarget{mk("book", "First"), mk("hub", "Hub"), mk(" book ", "Second")})
+	if len(got) != 2 || got[0].Label != "First" || got[1].Key != "hub" {
+		t.Fatalf("a duplicate target key must be dropped, the first kept: %+v", got)
+	}
+
+	var many []LinkTarget
+	for i := range 25 {
+		many = append(many, mk("t"+strconv.Itoa(i), "T"))
+	}
+	if got := answer(many); len(got) != 20 || got[19].Key != "t19" {
+		t.Fatalf("at most 20 targets: got %d", len(got))
 	}
 }

@@ -85,6 +85,7 @@ type linkTargetsResponse struct {
 // The bounds Core enforces on one target. Validate states them here as well so an author hears them at Init
 // rather than through a target Core silently dropped — the same numbers, in the same words.
 const (
+	maxLinkTargets = 20  // targets in one answer
 	maxLinkParams  = 4   // params in one target
 	maxLinkChoices = 100 // choices in one param
 )
@@ -93,9 +94,23 @@ const (
 // characters, and stable — a key identifies a destination the site has stored.
 var linkKeyPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{1,30}$`)
 
+// linkChoiceValuePattern is what a select choice's value may be: it is written into a stored link's query
+// string, so it is a short token, never markup or a separator. Empty is allowed — "let the visitor choose".
+var linkChoiceValuePattern = regexp.MustCompile(`^[A-Za-z0-9_.-]{0,64}$`)
+
+// linkPathPattern is the characters a target's path may hold: letters, digits and `/ _ - . ~`. No `%` (so no
+// `%2e%2e`), no quote, space or backslash — the path is written into an href.
+var linkPathPattern = regexp.MustCompile(`^[A-Za-z0-9/_.~-]+$`)
+
 // Validate reports whether Core would offer this target, under the rules it applies before it does: the key
-// pattern, the counts (at most 4 params, 100 choices a param), and the path — at or under the plugin's
-// route prefix, and holding no `?`, `#`, `//` or `..`.
+// pattern (keys are trimmed first, as Core trims them), a non-empty label, the counts (at most 4 params, 100
+// choices a param), no two params with one key, a number whose Min is not above its Max, a select with at
+// least one choice whose values are only `[A-Za-z0-9_.-]` and at most 64 long (an empty value is allowed),
+// and the path — at or under the plugin's route prefix, holding no `?`, `#`, `//` or `..`, and only the
+// characters `[A-Za-z0-9/_.~-]` (no `%`, quote, space or backslash).
+//
+// Two rules span targets and so cannot be checked on one: at most 20 targets in an answer, and no two with
+// the same key. DispatchLinkTargets holds them — it drops the extra target and logs it.
 //
 // Call it at Init, with the prefix Core gave you, so a mistake is a sentence in your own log instead of a
 // target dropped from a site owner's picker:
@@ -113,30 +128,61 @@ var linkKeyPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{1,30}$`)
 // prefix checks every rule but that one: the SDK's own dispatch cannot know the prefix — Core sends it at
 // Init, not with every call — and Core itself checks the prefix before it offers a target.
 func (t LinkTarget) Validate(prefix string) error {
-	if !linkKeyPattern.MatchString(t.Key) {
-		return fmt.Errorf("nilda: link target key %q is not %s", t.Key, linkKeyPattern)
+	key := strings.TrimSpace(t.Key)
+	if !linkKeyPattern.MatchString(key) {
+		return fmt.Errorf("nilda: link target key %q is not %s", key, linkKeyPattern)
+	}
+	if strings.TrimSpace(t.Label) == "" {
+		return fmt.Errorf("nilda: link target %q: its label is empty", key)
 	}
 	if err := validateLinkPath(t.Path, prefix); err != nil {
-		return fmt.Errorf("nilda: link target %q: %w", t.Key, err)
+		return fmt.Errorf("nilda: link target %q: %w", key, err)
 	}
 	if len(t.Params) > maxLinkParams {
 		return fmt.Errorf("nilda: link target %q has %d params; the bound is %d",
-			t.Key, len(t.Params), maxLinkParams)
+			key, len(t.Params), maxLinkParams)
 	}
+	seen := make(map[string]bool, len(t.Params))
 	for _, p := range t.Params {
-		if !linkKeyPattern.MatchString(p.Key) {
-			return fmt.Errorf("nilda: link target %q: param key %q is not %s", t.Key, p.Key, linkKeyPattern)
+		pk := strings.TrimSpace(p.Key)
+		if !linkKeyPattern.MatchString(pk) {
+			return fmt.Errorf("nilda: link target %q: param key %q is not %s", key, pk, linkKeyPattern)
 		}
-		switch p.Type {
-		case LinkParamSelect, LinkParamNumber:
-		default:
-			return fmt.Errorf("nilda: link target %q: param %q has type %q; it is %q or %q",
-				t.Key, p.Key, p.Type, LinkParamSelect, LinkParamNumber)
+		if seen[pk] {
+			return fmt.Errorf("nilda: link target %q: param key %q is duplicate", key, pk)
+		}
+		seen[pk] = true
+		if err := validateLinkParam(p); err != nil {
+			return fmt.Errorf("nilda: link target %q: param %q %w", key, pk, err)
+		}
+	}
+	return nil
+}
+
+// validateLinkParam holds one param's type and its type's own rules; the key is the caller's.
+func validateLinkParam(p LinkParam) error {
+	switch p.Type {
+	case LinkParamSelect:
+		if len(p.Choices) == 0 {
+			return fmt.Errorf("is a select with no choice; offer at least one")
 		}
 		if len(p.Choices) > maxLinkChoices {
-			return fmt.Errorf("nilda: link target %q: param %q has %d choices; the bound is %d",
-				t.Key, p.Key, len(p.Choices), maxLinkChoices)
+			return fmt.Errorf("has %d choices; the bound is %d", len(p.Choices), maxLinkChoices)
 		}
+		for _, c := range p.Choices {
+			if !linkChoiceValuePattern.MatchString(c.Value) {
+				return fmt.Errorf("has a choice value %q that is not %s", c.Value, linkChoiceValuePattern)
+			}
+		}
+	case LinkParamNumber:
+		if len(p.Choices) > maxLinkChoices {
+			return fmt.Errorf("has %d choices; the bound is %d", len(p.Choices), maxLinkChoices)
+		}
+		if p.Min != nil && p.Max != nil && *p.Min > *p.Max {
+			return fmt.Errorf("has a min (%v) above its max (%v)", *p.Min, *p.Max)
+		}
+	default:
+		return fmt.Errorf("has type %q; it is %q or %q", p.Type, LinkParamSelect, LinkParamNumber)
 	}
 	return nil
 }
@@ -161,6 +207,9 @@ func validateLinkPath(path, prefix string) error {
 	}
 	if prefix = strings.TrimRight(prefix, "/"); prefix != "" && path != prefix && !strings.HasPrefix(path, prefix+"/") {
 		return fmt.Errorf("its path %q is outside the plugin's route prefix %q", path, prefix)
+	}
+	if !linkPathPattern.MatchString(path) {
+		return fmt.Errorf("its path %q holds a character outside %s", path, linkPathPattern)
 	}
 	return nil
 }
@@ -204,11 +253,24 @@ func DispatchLinkTargets(ctx context.Context, hook string, payload []byte,
 		return nil, true, err
 	}
 	kept := make([]LinkTarget, 0, len(targets)) // an empty answer is [], never null
+	keys := make(map[string]bool, len(targets))
 	for _, t := range targets {
+		if len(kept) >= maxLinkTargets {
+			Log().Warn("dropping link targets past the limit Core offers; fix it and they will be offered",
+				"target", t.Key, "limit", maxLinkTargets)
+			continue
+		}
 		if err := t.Validate(""); err != nil {
 			Log().Warn("dropping a link target Core would refuse; fix it and it will be offered",
 				"target", t.Key, "error", err)
 			continue
+		}
+		if key := strings.TrimSpace(t.Key); keys[key] {
+			Log().Warn("dropping a link target whose key an earlier target already has",
+				"target", key)
+			continue
+		} else {
+			keys[key] = true
 		}
 		kept = append(kept, t)
 	}
