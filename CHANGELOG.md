@@ -4,7 +4,7 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
-## v0.34.0 — unreleased (the tax table beyond the EU)
+## v0.34.0 — 2026-10-19 (the tax table beyond the EU)
 
 - `Reference().TaxTable(ctx, day)`: the reference rows Nilda Central keeps for the places beyond the EU, applying on a
   day (Brussels time) — a `TaxTable` of `TaxReferenceRow`s, each with a stable key, a kind (`TaxRowRate`,
