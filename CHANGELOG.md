@@ -4,6 +4,17 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## v0.34.0 — unreleased (the tax table beyond the EU)
+
+- `Reference().TaxTable(ctx, day)`: the reference rows Nilda Central keeps for the places beyond the EU, applying on a
+  day (Brussels time) — a `TaxTable` of `TaxReferenceRow`s, each with a stable key, a kind (`TaxRowRate`,
+  `TaxRowThreshold`, `TaxRowImportRegime`, `TaxRowRegistration`, `TaxRowNotice`), its country and subdivision, the days
+  it applies, its official source and the day it was read, and a value announced for the next day (`TaxReferenceNext`).
+  Read a row's value with `Rate` (`TaxRateValue`), `Threshold` (`TaxThresholdValue`), `ImportRegime`
+  (`TaxImportRegimeValue`), `Registration` (`TaxRegistrationValue`) or `Notice` (`TaxNoticeValue`); `TaxTable.Of` is one
+  country's rows. Needs the Core release that serves `/api/rest/v1/reference/tax-table`; an older Core answers 404.
+  Additions only; `surface.txt` grows by 52.
+
 ## v0.33.0 — 2026-10-19 (calendar admin page; link targets; form replacements; widget preview flag)
 
 - The `calendar` admin page kind: `AdminPageCalendar`, `AdminCalendarHook`, `AdminCalendarRequest` /

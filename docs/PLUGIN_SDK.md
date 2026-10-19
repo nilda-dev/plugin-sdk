@@ -964,7 +964,7 @@ before setting its own, so a visitor cannot claim to be somebody by sending one.
 name — never a token or a session you could replay against Core. On a `webhook_paths` endpoint you get
 nothing, always: a machine's call carries no one's identity, which is what makes exempting it from CSRF safe.
 
-### Where a visitor is, the EU's VAT rates and the seller (`VisitorCountry`, `Reference`)
+### Where a visitor is, the tax tables and the seller (`VisitorCountry`, `Reference`)
 
 **The visitor's country.** `nilda.VisitorCountry(r)` reads the country Core placed a request in from its internet
 address — ISO 3166-1 alpha-2, the country and never the address, with any client-sent value stripped. It is one item of
@@ -981,6 +981,21 @@ Commission's Taxes in Europe Database and kept by Core through an outage. `set.S
 nationwide standard rate; `set.Reduced("AT", "FOODSTUFFS")` its reduced rates for a TEDB category. No capability is
 needed — it is public reference data — but the Commission's database is not the legal reference (the Official Journal
 is), so a shop shows the set's `Source` and `CheckedAt` where a rate decides a price.
+
+**The tax table beyond the EU** (from v0.34.0). `core.API().Reference().TaxTable(ctx, day)` returns a `TaxTable`: the
+reference rows Nilda Central keeps for the places beyond the EU that apply on that day (Brussels time) — VAT and GST
+rates, the lines at which a seller based elsewhere must register, low-value import lines, and notes where a country taxes
+sales another way (the United States: no federal VAT; state sales tax is the merchant's). Each `TaxReferenceRow` has a
+stable `Key` (`"GB:rate:standard"`, `"CA-QC:rate:qst"`), a `Kind` (`TaxRowRate`, `TaxRowThreshold`, `TaxRowImportRegime`,
+`TaxRowRegistration`, `TaxRowNotice`), the country and subdivision, a `Label`, the days it applies, and the official
+`SourceURL` with the day it was read — Central refuses a row without them. Read a row's value with `row.Rate()` (a
+`TaxRateValue`: the percent, the `Scheme` it is charged under, priority and compounding), `row.Threshold()`
+(`TaxThresholdValue`), `row.ImportRegime()` (`TaxImportRegimeValue`), `row.Registration()` (`TaxRegistrationValue`) or
+`row.Notice()` (`TaxNoticeValue`); each answers false for a row of another kind, and a kind your plugin does not know is
+skipped. `Next` (a `TaxReferenceNext`) is a value announced for the next day; `table.Of("CA")` is one country's rows.
+`Version` changes exactly when a row does. The rows are a starting point the merchant checks, not tax advice: copy them
+where the owner sees and can change them, and charge a country's rates only where the owner says they are registered for
+the row's `Scheme`. Needs the Core release built on it; an older Core answers 404.
 
 **The seller.** `core.API().Reference().Seller(ctx)` returns a `Seller`: who sells on the site — name, legal form,
 register, VAT ID, contact and address — read from its imprint, the supplier an invoice must name (Directive 2006/112/EC

@@ -259,6 +259,11 @@ const SupportPartialRefund
 const SupportRefund
 const SupportSaveForLater
 const SupportSync
+const TaxRowImportRegime
+const TaxRowNotice
+const TaxRowRate
+const TaxRowRegistration
+const TaxRowThreshold
 const TrackAttemptedDelivery
 const TrackAvailableForPickup
 const TrackCancelled
@@ -1196,6 +1201,38 @@ field StockAlertResult.Message string json:message
 field StockAlertResult.Status string json:status
 field StockAlertsDescription.Collecting bool json:collecting
 field StockAlertsDescription.ConsentText string json:consent_text
+field TaxImportRegimeValue.Basis string json:basis
+field TaxImportRegimeValue.Currency string json:currency
+field TaxImportRegimeValue.Scheme string json:scheme
+field TaxImportRegimeValue.ThresholdMinor int64 json:threshold_minor
+field TaxNoticeValue.Text string json:text
+field TaxRateValue.Compound bool json:compound
+field TaxRateValue.Priority int json:priority
+field TaxRateValue.RatePercent float64 json:rate_percent
+field TaxRateValue.Scheme string json:scheme
+field TaxReferenceNext.ValidFrom string json:valid_from
+field TaxReferenceNext.Value json.RawMessage json:value
+field TaxReferenceRow.Country string json:country
+field TaxReferenceRow.Key string json:key
+field TaxReferenceRow.Kind string json:kind
+field TaxReferenceRow.Label string json:label
+field TaxReferenceRow.Next *TaxReferenceNext json:next
+field TaxReferenceRow.SourceNote string json:source_note
+field TaxReferenceRow.SourceReadOn string json:source_read_on
+field TaxReferenceRow.SourceURL string json:source_url
+field TaxReferenceRow.Subdivision string json:subdivision
+field TaxReferenceRow.ValidFrom string json:valid_from
+field TaxReferenceRow.ValidTo string json:valid_to
+field TaxReferenceRow.Value json.RawMessage json:value
+field TaxRegistrationValue.Scheme string json:scheme
+field TaxTable.On string json:on
+field TaxTable.Rows []TaxReferenceRow json:rows
+field TaxTable.Version string json:version
+field TaxThresholdValue.AmountMinor int64 json:amount_minor
+field TaxThresholdValue.Counts string json:counts
+field TaxThresholdValue.Currency string json:currency
+field TaxThresholdValue.Period string json:period
+field TaxThresholdValue.Scheme string json:scheme
 field TrackEvent.At time.Time json:at
 field TrackEvent.Dedupe string json:dedupe
 field TrackEvent.Detail string json:detail
@@ -1465,6 +1502,7 @@ method (*Payments) ReverseRefund(context.Context, string, PaymentRejection) (Pay
 method (*Payments) SetSecret(context.Context, string, string) (error)
 method (*Reference) EUVATRates(context.Context, time.Time) (EUVATRateSet, error)
 method (*Reference) Seller(context.Context) (Seller, error)
+method (*Reference) TaxTable(context.Context, time.Time) (TaxTable, error)
 method (*Secrets) Delete(context.Context, string) (bool, error)
 method (*Secrets) Get(context.Context, string) (string, bool, error)
 method (*Secrets) Set(context.Context, string, string) (error)
@@ -1567,6 +1605,12 @@ method (ShopOrderResult) Validate() (error)
 method (StockAlertRequest) Validate() (error)
 method (StockAlertResult) Validate() (error)
 method (StockAlertsDescription) Validate() (error)
+method (TaxReferenceRow) ImportRegime() (TaxImportRegimeValue, bool)
+method (TaxReferenceRow) Notice() (TaxNoticeValue, bool)
+method (TaxReferenceRow) Rate() (TaxRateValue, bool)
+method (TaxReferenceRow) Registration() (TaxRegistrationValue, bool)
+method (TaxReferenceRow) Threshold() (TaxThresholdValue, bool)
+method (TaxTable) Of(string) ([]TaxReferenceRow)
 method (TrackRequest) Validate() (error)
 method (TrackResult) Validate() (error)
 method (VisitorTool) Validate() (error)
@@ -1785,6 +1829,14 @@ type StockAlertProvider
 type StockAlertRequest
 type StockAlertResult
 type StockAlertsDescription
+type TaxImportRegimeValue
+type TaxNoticeValue
+type TaxRateValue
+type TaxReferenceNext
+type TaxReferenceRow
+type TaxRegistrationValue
+type TaxTable
+type TaxThresholdValue
 type TrackEvent
 type TrackRequest
 type TrackResult
