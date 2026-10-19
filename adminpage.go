@@ -545,7 +545,7 @@ const AdminCalendarHook = "admin.calendar"
 type AdminCalendarRequest struct {
 	Page   string            `json:"page"`
 	From   string            `json:"from"`             // RFC 3339 instant, inclusive
-	To     string            `json:"to"`               // RFC 3339 instant, exclusive; Core asks at most 42 days
+	To     string            `json:"to"`               // RFC 3339 instant, exclusive; Core asks at most 42 calendar days
 	Params map[string]string `json:"params,omitempty"` // the page's Fields as filters, as on a report page
 }
 

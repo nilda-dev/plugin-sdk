@@ -1126,7 +1126,7 @@ three hooks: `Hooks: []string{nilda.AdminActionHook, nilda.AdminReportHook, nild
 one of your own `list` pages: each event's id is a row id of that page, and its label is what the grid names
 — and `"default_view"`: `"day"`, `"week"` or `"month"` (empty is week). Its fields are filters, exactly as a
 report's. Each open calls your hook with a `nilda.AdminCalendarRequest` — the page, the range Core is
-drawing as `from` (inclusive) and `to` (exclusive), both RFC 3339 instants and at most 42 days, and every
+drawing as `from` (inclusive) and `to` (exclusive), both RFC 3339 instants and at most 42 calendar days, and every
 filter's current value in `Params` — and you answer a `nilda.AdminCalendarResult`: `events`, each a
 `nilda.CalendarEvent` — a timed event (`start`/`end`) or a bar over days (`start_date`, `end_date`
 exclusive) with a `title`, optional `subtitle`, a day-view `lane` ("Table 4") and a Badge `tone`; optional

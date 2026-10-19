@@ -253,13 +253,12 @@ func TestTheSiteThePaymentsAreHeldToIsCores(t *testing.T) {
 	service := flat("internal", "payments", "service.go")
 	main := flat("cmd", "server", "main.go")
 	for where, want := range map[string]struct{ src, text string }{
-		"payments: the setting first":           {service, `if u := strings.TrimSpace(s.siteURL(ctx)); u != "" { return u }`},
-		"payments: then APP_BASE_URL":           {service, "return s.appURL }"},
-		"main.go: the setting is site.base_url": {main, "SiteURL: a.settingsSvc.SiteBaseURL"},
-		"main.go: the fallback is the env":      {main, "AppBaseURL: a.cfg.AppBaseURL"},
-		"main.go: GET /site reads the setting": {main, `func (a *app) stableSite(ctx context.Context) stable.Site { ` +
-			`return stable.Site{ Title: a.settingsSvc.GetString(ctx, "site.title"), ` +
-			`Description: a.settingsSvc.GetString(ctx, "site.description"), BaseURL: a.settingsSvc.GetString(ctx, "site.base_url"),`},
+		"payments: the setting first":            {service, `if u := strings.TrimSpace(s.siteURL(ctx)); u != "" { return u }`},
+		"payments: then APP_BASE_URL":            {service, "return s.appURL }"},
+		"main.go: the setting is site.base_url":  {main, "SiteURL: a.settingsSvc.SiteBaseURL"},
+		"main.go: the fallback is the env":       {main, "AppBaseURL: a.cfg.AppBaseURL"},
+		"main.go: GET /site reads the setting":   {main, "return stable.SiteFromSettings(ctx, a.settingsSvc, a.cfg.I18NDefault)"},
+		"stable: it reads site.base_url":         {flat("internal", "api", "stable", "site.go"), `BaseURL: settings.GetString(ctx, "site.base_url"),`},
 		"main.go: the REST API is built from it": {main, "stableAPI := stable.NewService(a.store, a.stableSite, a.log)"},
 		"main.go: that is the REST API's":        {main, "a.srv.Mount(rest.PathV1, stable.NewHandlers(stableAPI,"},
 		"settings: SiteBaseURL's key":            {flat("internal", "settings", "browser.go"), `const keySiteBaseURL = "site.base_url"`},
