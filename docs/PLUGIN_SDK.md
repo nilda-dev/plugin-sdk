@@ -1333,6 +1333,73 @@ func TestThePhone(t *testing.T) {
 }
 ```
 
+#### The step picker (`mobile.pick`)
+
+The owner app's step picker reaches your rows in steps: your plugin (its `mobile.label`), then a pin page
+(`pin: true`), then the page's groups, then the row the owner types to find. A pin page opts in with `pick`:
+
+```json
+"mobile": {
+  "row": {"title": "title", "subtitle": ["type"], "trailing": "updated_at", "badge": "status"},
+  "pin": true,
+  "pick": {
+    "group_by": {"taxonomy": "nilda_ecommerce_category", "content_column": "content_id"},
+    "photo": "image_media_id",
+    "tools": ["list_products", "set_stock", "set_product_categories", "get_product_categories", "delete_product"],
+    "actions": [
+      {"key": "price", "label": "Price", "field": "price", "ops": ["set", "add", "percent"], "currency_field": "currency",
+       "sentence": "Change the price of {title} (now {now}) to {blank}"},
+      {"key": "sale_price", "label": "Sale price", "field": "sale_price", "ops": ["set", "add", "percent"], "currency_field": "currency",
+       "sentence": "Change the sale price of {title} (now {now}) to {blank}"},
+      {"key": "stock", "label": "Stock", "field": "stock", "ops": ["set", "add"],
+       "sentence": "Change the stock of {title} (now {now}) to {blank}"},
+      {"key": "hide", "label": "Hide", "field": "status", "set_to": "Draft", "tone": "warning",
+       "sentence": "Hide {title} from the shop", "effect": "Visitors no longer see it in the shop; you can still edit it."}
+    ]
+  }
+}
+```
+
+- `label` is at most 40 characters and holds no invisible character: two or three words for what the plugin does.
+- `pick` belongs only to a `list` page.
+- `pick` needs `pin: true`, because a page offers its rows to pick only when they can be pinned.
+- `group_by` names exactly one of a `column` and a `taxonomy`.
+- A `column` is a column of the page's table.
+- That column is a text, whole-number (`int`, `bigint`) or true/false column, the only kinds the picker groups by.
+- A `taxonomy` is one of the plugin's taxonomies that applies to the content type the page `edits`.
+- With a taxonomy, `content_column` names a text or `uuid` column of the table holding each row's content id.
+- `photo` names a text or `uuid` column of the table holding a media id.
+- `tools` names at most twelve tools, because a pin brings a short list and the rest are found by search.
+- Each tool is one of the plugin's abilities and is listed once.
+- `actions` declares at most four chips, because the phone shows four and "Something else".
+- Each action's `key` is a short lowercase word, used once per page.
+- Each action's `label` is required, at most 24 characters, with no invisible characters.
+- An action does one thing — a field, a row action or an ability — or none, and then only writes its sentence.
+- A field action needs this page's form with `"edit": true`.
+- The field is a top-level field of that form.
+- The field is money, number, text, select, radio, boolean or date: a `<type>` field cannot be changed across a pick.
+- The field is neither read-only nor secret.
+- `set_to` is a value the field takes — one of the choices, a true/false, a number of zero or more, or a string —
+  and it belongs to a field action.
+- `ops` are `set`, `add` and `percent`; `add` and `percent` change a money or number field; a chip with `set_to`
+  takes no op.
+- A money field's action names the form field holding its ISO 4217 code (`currency_field`), unless the field
+  declares its currency.
+- `row_action` is one of the page's row actions.
+- `ability` is one of the plugin's abilities.
+- `sentence` is required, at most 120 characters, and uses only `{title}`, `{now}` and `{blank}`.
+- `{now}` is the field's value now: only a field action has one, inside one "( … )", and every `{now}` sits in it.
+- A field action that takes a value puts `{blank}` where the person types it; one with `set_to` takes none.
+- `effect` says what visitors will see change, at most 160 characters with no invisible characters.
+- A translation of `sentence` follows the same three rules as the sentence itself.
+
+`tone` is vocabulary: any short lowercase word installs, but only `warning` draws the chip differently — and never
+first.
+
+In Go these are a page's `nilda.PageMobile.Pick` (`*nilda.PagePick`, with `nilda.PickGroupBy` and
+`nilda.PickAction`) and the plugin's `nilda.PluginMobile.Label`; the limits and words are `nilda.MaxPickActions`,
+`nilda.MaxPickTools`, `nilda.PickOpSet`, `nilda.PickOpAdd`, `nilda.PickOpPercent` and `nilda.PickToneWarning`.
+
 #### The owner's account elsewhere
 
 When your plugin works on the owner's OWN account at another service — their Higgsfield credits, their Google

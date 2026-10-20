@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -192,6 +193,50 @@ func TestDispatchAdminCalendarRoundTrip(t *testing.T) {
 		`"shaded":[{"start_date":"2026-10-25","end_date":"2026-10-26","label":"Closed"}]}`
 	if string(out) != want {
 		t.Errorf("the answer crosses as\n%s\nwant\n%s", out, want)
+	}
+}
+
+// TestAPickRoundTripsItsJSON. C1.2 is the mobile object a shop sends for its products page, and it is the
+// whole contract with the step picker: every tag has to survive the trip through PageMobile and come back
+// as the same document. Compared as VALUES, because two encoders may order keys differently and the app
+// reads a JSON object, not a byte string.
+func TestAPickRoundTripsItsJSON(t *testing.T) {
+	const example = `{
+  "row": {"title": "title", "subtitle": ["type"], "trailing": "updated_at", "badge": "status"},
+  "pin": true,
+  "pick": {
+    "group_by": {"taxonomy": "nilda_ecommerce_category", "content_column": "content_id"},
+    "photo": "image_media_id",
+    "tools": ["list_products", "set_stock", "set_product_categories", "get_product_categories", "delete_product"],
+    "actions": [
+      {"key": "price", "label": "Price", "field": "price", "ops": ["set", "add", "percent"], "currency_field": "currency",
+       "sentence": "Change the price of {title} (now {now}) to {blank}"},
+      {"key": "sale_price", "label": "Sale price", "field": "sale_price", "ops": ["set", "add", "percent"], "currency_field": "currency",
+       "sentence": "Change the sale price of {title} (now {now}) to {blank}"},
+      {"key": "stock", "label": "Stock", "field": "stock", "ops": ["set", "add"],
+       "sentence": "Change the stock of {title} (now {now}) to {blank}"},
+      {"key": "hide", "label": "Hide", "field": "status", "set_to": "Draft", "tone": "warning",
+       "sentence": "Hide {title} from the shop", "effect": "Visitors no longer see it in the shop; you can still edit it."}
+    ]
+  }
+}`
+	var mobile PageMobile
+	if err := json.Unmarshal([]byte(example), &mobile); err != nil {
+		t.Fatalf("the example does not decode into PageMobile: %v", err)
+	}
+	out, err := json.Marshal(mobile)
+	if err != nil {
+		t.Fatalf("marshalling PageMobile: %v", err)
+	}
+	var want, got any
+	if err := json.Unmarshal([]byte(example), &want); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(out, &got); err != nil {
+		t.Fatalf("the answer is not JSON: %v (%s)", err, out)
+	}
+	if !reflect.DeepEqual(want, got) {
+		t.Errorf("the pick did not round-trip:\ngot  %s\nwant %s", out, example)
 	}
 }
 

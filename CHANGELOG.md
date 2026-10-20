@@ -7,6 +7,23 @@ here.
 How a release is cut (additive only, one tag per milestone, security and money fixes at once, an undated first
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
+## v0.36.0 — unreleased (the step picker)
+
+- `PluginMobile.Label` (`"label"` on a plugin's `mobile` block): what the plugin does in two or three plain words, the
+  row the owner app's step picker shows at its first level, translated through your translations; without it the
+  picker shows your `Name`.
+- `PageMobile.Pick` (`"pick"` on a pin page): makes the page a level of the step picker; needs `pin: true`.
+- `PagePick`: a pin page's `group_by`, `photo`, `tools` and `actions`.
+- `PickGroupBy`: one way to group a page's rows, by a column or a taxonomy through the column holding each row's
+  content id.
+- `PickAction`: one chip offered after a pick — a field, a row action, an ability, or only a sentence.
+- `PickOpSet`: a typed value sets the field.
+- `PickOpAdd`: a typed value is added to a money or number field.
+- `PickOpPercent`: a typed value changes a money or number field by a percentage.
+- `PickToneWarning`: draws the chip in the warning colour, and never first.
+- `MaxPickActions`: four chips per page.
+- `MaxPickTools`: twelve tools a pin of the page may bring.
+
 ## v0.35.0 — 2026-10-21 (a second value for pickers)
 
 - `AdminPage.Detail` (`"detail"`): on a `list` page, the key of a text column of its table that is shown after the

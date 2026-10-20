@@ -191,6 +191,8 @@ const MandateSubscription
 const MandateUpdate
 const MaxAssetsPerPlugin
 const MaxDisputesPerSession
+const MaxPickActions
+const MaxPickTools
 const MaxPriceGroupLength
 const MaxWidgetHTMLBytes
 const MaxWidgetsPerPlugin
@@ -225,6 +227,10 @@ const PaymentPending
 const PaymentRedirected
 const PaymentRejected
 const PaymentResolved
+const PickOpAdd
+const PickOpPercent
+const PickOpSet
+const PickToneWarning
 const PluginSetName
 const ProtocolVersion
 const QuoteOpen
@@ -847,8 +853,13 @@ field PageForm.Edit bool json:edit
 field PageForm.Fields []FormField json:fields
 field PageForm.Sections []FormSection json:sections
 field PageMobile.Hide bool json:hide
+field PageMobile.Pick *PagePick json:pick
 field PageMobile.Pin bool json:pin
 field PageMobile.Row *MobileRow json:row
+field PagePick.Actions []PickAction json:actions
+field PagePick.GroupBy *PickGroupBy json:group_by
+field PagePick.Photo string json:photo
+field PagePick.Tools []string json:tools
 field Parcel.HeightMM int64 json:height_mm
 field Parcel.LengthMM int64 json:length_mm
 field Parcel.WeightGrams int64 json:weight_grams
@@ -1024,12 +1035,27 @@ field PaymentStartResult.ProviderRef string json:provider_ref
 field PaymentStartResult.RedirectURL string json:redirect_url
 field PaymentStartResult.Status string json:status
 field PaymentSyncRequest.Session PaymentSession json:session
+field PickAction.Ability string json:ability
+field PickAction.CurrencyField string json:currency_field
+field PickAction.Effect string json:effect
+field PickAction.Field string json:field
+field PickAction.Key string json:key
+field PickAction.Label string json:label
+field PickAction.Ops []string json:ops
+field PickAction.RowAction string json:row_action
+field PickAction.Sentence string json:sentence
+field PickAction.SetTo any json:set_to
+field PickAction.Tone string json:tone
+field PickGroupBy.Column string json:column
+field PickGroupBy.ContentColumn string json:content_column
+field PickGroupBy.Taxonomy string json:taxonomy
 field PluginAccount.Host string json:host
 field PluginAccount.Name string json:name
 field PluginClient.Broker *plugin.GRPCBroker
 field PluginClient.Plugin contract.PluginServiceClient
 field PluginMobile.Headline []HeadlineMetric json:headline
 field PluginMobile.Icon string json:icon
+field PluginMobile.Label string json:label
 field Quote.Currency string json:currency
 field Quote.ExpiresAt time.Time json:expires_at
 field Quote.ID string json:id
@@ -1750,6 +1776,7 @@ type OffersResult
 type OrdersProvider
 type PageForm
 type PageMobile
+type PagePick
 type Parcel
 type PaymentAddress
 type PaymentChargeParams
@@ -1786,6 +1813,8 @@ type PaymentStartResult
 type PaymentSyncRequest
 type PaymentSyncer
 type Payments
+type PickAction
+type PickGroupBy
 type PluginAccount
 type PluginClient
 type PluginMobile

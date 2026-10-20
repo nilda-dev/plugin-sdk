@@ -291,6 +291,9 @@ type PageMobile struct {
 	// Pin lets the owner pin a row of this list page to a message in the site's chat ("Ask in Chat about this
 	// order"); the assistant then reads that row, as the owner may see it. Needs a table with a primary key.
 	Pin bool `json:"pin,omitempty"`
+	// Pick makes this pin page a level of the owner app's step picker: its groups, the photo its rows show,
+	// the tools a pin of it brings the assistant, and the action chips offered after a pick. Needs Pin.
+	Pick *PagePick `json:"pick,omitempty"`
 }
 
 // MobileRow names, by column key, what a list row shows on the phone. Every name is one of the page's
@@ -312,7 +315,64 @@ type PluginMobile struct {
 	// Headline are at most three numbers the app shows on the plugin's row and on top of its screen — "14
 	// orders today" — each a metric of one of your report pages.
 	Headline []HeadlineMetric `json:"headline,omitempty"`
+	// Label is what the plugin DOES in two or three plain words — "Shop", "Card payments", "Bookings" — the row
+	// the owner app's step picker shows at its first level. Translated through your translations. Optional:
+	// without it the picker shows your Name.
+	Label string `json:"label,omitempty"`
 }
+
+// PagePick is how one pin page appears in the owner app's step picker (v0.35.0).
+type PagePick struct {
+	// GroupBy splits the page's rows into groups the picker lists under the page.
+	GroupBy *PickGroupBy `json:"group_by,omitempty"`
+	// Photo is a column of the page's table holding a Core media id: the row's photo in the picker.
+	Photo string `json:"photo,omitempty"`
+	// Tools are at most MaxPickTools of YOUR abilities (their names, without your plugin's prefix) that a pin of
+	// this page brings the assistant before it searches. Core adds its own generic ones.
+	Tools []string `json:"tools,omitempty"`
+	// Actions are at most MaxPickActions chips offered after a pick.
+	Actions []PickAction `json:"actions,omitempty"`
+}
+
+// PickGroupBy names ONE way to group: a column, or a taxonomy through the column holding each row's content id.
+type PickGroupBy struct {
+	Column        string `json:"column,omitempty"`
+	Taxonomy      string `json:"taxonomy,omitempty"`
+	ContentColumn string `json:"content_column,omitempty"`
+}
+
+// PickAction is one chip. It does at most one of: change Field, press RowAction, run Ability. With none of
+// them it only writes its Sentence for the owner to finish.
+type PickAction struct {
+	Key   string `json:"key"`
+	Label string `json:"label"`
+	// Field is a field of the page's form (with "edit": true) that Core changes across a pick.
+	Field string `json:"field,omitempty"`
+	// SetTo is the value the chip always sets ("Draft" for Hide); without it the owner types the value.
+	SetTo any `json:"set_to,omitempty"`
+	// Ops are how a typed value may change a money or number field: PickOpSet, PickOpAdd, PickOpPercent.
+	// Default [PickOpSet].
+	Ops []string `json:"ops,omitempty"`
+	// CurrencyField is the form field holding a money field's ISO 4217 code, unless the field declares its currency.
+	CurrencyField string `json:"currency_field,omitempty"`
+	RowAction     string `json:"row_action,omitempty"`
+	Ability       string `json:"ability,omitempty"`
+	// Sentence is what the chip writes in the chat box: {title}, {now} (only inside one "( … )"), {blank}.
+	Sentence string `json:"sentence"`
+	// Tone PickToneWarning draws the chip in the warning colour and never first.
+	Tone string `json:"tone,omitempty"`
+	// Effect says what visitors will see change, on the confirm card ("Visitors no longer see it in the shop").
+	Effect string `json:"effect,omitempty"`
+}
+
+const (
+	PickOpSet       = "set"
+	PickOpAdd       = "add"
+	PickOpPercent   = "percent"
+	PickToneWarning = "warning"
+	MaxPickActions  = 4
+	MaxPickTools    = 12
+)
 
 // HeadlineMetric points at one declared ReportMetric.
 type HeadlineMetric struct {
