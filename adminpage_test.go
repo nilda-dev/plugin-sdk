@@ -209,3 +209,29 @@ func TestCalendarKindIsAKind(t *testing.T) {
 		t.Errorf("a calendar page's manifest crosses as %s", b)
 	}
 }
+
+// A list page's detail crosses in the key Core and the app read it from, and a page without one writes
+// nothing — an old Core reads the same manifest it always did.
+func TestListPageDetailCrossesAsDetailAndIsOmittedWhenEmpty(t *testing.T) {
+	b, err := json.Marshal(AdminPage{Key: "setups", Label: "Classes", Kind: AdminPageList, Table: "setups", Detail: "slug"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"detail":"slug"`) {
+		t.Errorf("a list page's detail crosses as %s", b)
+	}
+	b, err = json.Marshal(AdminPage{Key: "setups", Label: "Classes", Kind: AdminPageList, Table: "setups"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), "detail") {
+		t.Errorf("a page without a detail still writes one: %s", b)
+	}
+	var back AdminPage
+	if err := json.Unmarshal([]byte(`{"key":"setups","label":"Classes","kind":"list","table":"setups","detail":"slug"}`), &back); err != nil {
+		t.Fatal(err)
+	}
+	if back.Detail != "slug" {
+		t.Errorf("detail read back as %q", back.Detail)
+	}
+}

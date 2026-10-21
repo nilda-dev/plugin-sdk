@@ -1072,6 +1072,12 @@ Show your own rows with a `list` page:
 `table` must be one of YOUR declared tables — Core created it and owns it, so a list page can only ever show
 storage the owner already approved at install.
 
+`detail` (v0.35.0) is a second value for rows whose first column can repeat. Where this page's rows are picked or
+named elsewhere — a form's reference field, a list column with `reference` — Core shows `name · detail`, so two classes
+both titled "Yoga flow" read as "Yoga flow · yoga-flow" and "Yoga flow · yoga-flow-2". It is the key of a text column of
+`table` other than the first of `columns`; it need not be one of the displayed columns, and a row with no value there
+shows its name alone. Only a `list` page may set it.
+
 **It is read-only, and that is deliberate.** If Core let an administrator edit that row, it would set
 `status = 'refunded'` with no refund happening, no email going out and no stock coming back — your logic
 bypassed by your own admin screen. So Core shows the row and you change it. Pressing an action calls your

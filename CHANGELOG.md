@@ -4,6 +4,15 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+## v0.35.0 — unreleased (a second value for pickers)
+
+- `AdminPage.Detail` (`"detail"`): on a `list` page, the key of a text column of its table that is shown after the
+  name wherever the page's rows are picked (a form's reference field) or named (a list column with `Reference`) —
+  "Yoga flow · yoga-flow-2" — so two rows whose first column reads the same can be told apart. No value there shows
+  the name alone. It must be a column of `Table` other than the first of `Columns`, a text column, and only a
+  `list` page may set it; it need not be among the displayed columns. Needs the Core release built on it; an older
+  Core ignores the key and shows the name alone. Additions only; `surface.txt` grows by 1.
+
 ## v0.34.0 — 2026-10-19 (the tax table beyond the EU)
 
 - `Reference().TaxTable(ctx, day)`: the reference rows Nilda Central keeps for the places beyond the EU, applying on a

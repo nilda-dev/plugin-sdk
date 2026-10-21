@@ -155,6 +155,13 @@ type AdminPage struct {
 	// Search are the TEXT columns the search box looks in. Empty means no search box, which is better than
 	// one that silently matches nothing.
 	Search []string `json:"search,omitempty"`
+	// Detail is the key of a TEXT column of Table, shown after the name wherever rows of this page are PICKED (a
+	// form's reference field) or NAMED (a list column with Reference): "Yoga flow · yoga-flow-2". It tells apart
+	// two rows whose first column reads the same — a class's slug, a product's code. A row with no value there
+	// is shown by its name alone. Only a "list" page may set it; it must be a column of Table other than the
+	// first of Columns, and a text column (not money, not a number). It need NOT be among the displayed Columns:
+	// Core reads it for the rows it offers regardless (v0.35.0).
+	Detail string `json:"detail,omitempty"`
 	// Actions are buttons on each row, and they are why a list page is READ-ONLY.
 	//
 	// If Core let an administrator edit your orders row directly, it would set `status = 'refunded'` without

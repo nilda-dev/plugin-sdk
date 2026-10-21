@@ -331,6 +331,7 @@ field AdminFormResult.Warnings []FormError json:warnings
 field AdminPage.Actions []RowAction json:actions
 field AdminPage.Columns []ListColumn json:columns
 field AdminPage.DefaultView string json:default_view
+field AdminPage.Detail string json:detail
 field AdminPage.Edits string json:edits
 field AdminPage.Fields []SettingField json:fields
 field AdminPage.Form *PageForm json:form
