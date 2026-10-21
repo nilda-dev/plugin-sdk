@@ -4,7 +4,7 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
-## v0.35.0 — unreleased (a second value for pickers)
+## v0.35.0 — 2026-10-21 (a second value for pickers)
 
 - `AdminPage.Detail` (`"detail"`): on a `list` page, the key of a text column of its table that is shown after the
   name wherever the page's rows are picked (a form's reference field) or named (a list column with `Reference`) —
