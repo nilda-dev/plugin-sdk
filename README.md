@@ -178,8 +178,11 @@ GitHub CI is unpaid, so these are the gate (no Makefile here, so scripts):
 - **Full, per milestone / nightly when idle**: `GOWORK=off go test -count=1 ./...` (see "Tests that read Core").
 - `scripts/heavy-guard` runs first: refuses when free disk < 20 GB, load > 12 or another heavy job runs; cleans the Go
   build cache (`go clean -cache` only) above 25 GB. `--check-only` just reports.
-- Opt in to the pre-push gate once per clone: `sh scripts/install-hooks.sh` (skip once: `git push --no-verify`).
-- The scripts are mirrored from `core/scripts`; their tests: `sh scripts/test-fast_test.sh`, `sh scripts/heavy-guard_test.sh`.
+- Opt in to the two git gates once per clone: `sh scripts/install-hooks.sh` — pre-push runs the fast lane, commit-msg
+  refuses an AI trailer, signature or tool name (`scripts/commit-msg-check`). Skip once: `--no-verify`.
+- Known vulnerabilities (full lane): `GOWORK=off go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...`.
+- The scripts are mirrored from `core/scripts`; their tests: `sh scripts/test-fast_test.sh`, `sh scripts/heavy-guard_test.sh`,
+  `sh scripts/commit-msg-check_test.sh`.
 
 **MIT** — see [LICENSE](LICENSE). © Mohsen Khorrami.
 

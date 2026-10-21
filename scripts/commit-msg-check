@@ -1,0 +1,45 @@
+#!/bin/sh
+# commit-msg-check — refuse a commit message that carries an AI trailer or signature (BUILD_RULES → GIT AUTHORSHIP:
+# every commit is authored by the owner; core/docs/LESSONS.md L-1 is the story of why a written rule was not enough).
+#
+# CANONICAL COPY: nilda/core/scripts/commit-msg-check. Mirrored in plugin-sdk, plugin-booking and mobile; change
+# core's, then copy it. Test: scripts/commit-msg-check_test.sh. Installed as the commit-msg hook by
+# scripts/install-hooks.sh (opt-in, nothing installs it automatically).
+#
+# Usage: scripts/commit-msg-check <message file>     exit 0 = accepted, 1 = refused (the reason on stderr)
+#
+# Refused, case-insensitively, on any line of the message (comment lines and everything under git's scissors
+# line are ignored, as git ignores them):
+#   - a trailer line starting "Co-Authored-By:"
+#   - a line containing "Generated with" as words ("regenerated with" is allowed)
+#   - a line naming a tool: Claude, Codex or Copilot as a word. A path or file name that contains one
+#     (CLAUDE.md, .claude/commands, docs/claude-x.md) is not a tool name and is allowed, and so is
+#     "Anthropic's Claude", the AI service a product names to its users.
+
+file=${1:?usage: commit-msg-check <message file>}
+[ -r "$file" ] || { echo "commit-msg-check: cannot read $file" >&2; exit 2; }
+
+# The message as git keeps it: up to the scissors line, without comment lines.
+body=$(sed -e '/^# -* >8 -*$/,$d' -e '/^#/d' "$file")
+
+refuse() {
+  echo "commit-msg: refused — $1:" >&2
+  echo "    $2" >&2
+  echo "  Commits carry no AI trailer or signature (BUILD_RULES → GIT AUTHORSHIP). Edit the message and commit again." >&2
+  exit 1
+}
+
+line=$(printf '%s\n' "$body" | grep -i -m1 '^[[:space:]]*co-authored-by:')
+[ -n "$line" ] && refuse "a Co-Authored-By trailer" "$line"
+
+line=$(printf '%s\n' "$body" | grep -i -m1 -E '(^|[^A-Za-z])generated with')
+[ -n "$line" ] && refuse "a \"Generated with\" signature" "$line"
+
+# Drop path-like words (a dot or slash followed by a letter or digit) and the provider's product name
+# ("Anthropic's Claude", which the products name as the AI service they use) before looking for a tool name.
+line=$(printf '%s\n' "$body" | sed -E -e 's#[^[:space:]]*[./][A-Za-z0-9][^[:space:]]*##g' \
+  -e "s/[Aa]nthropic('s|’s)? [Cc]laude//g" |
+  grep -i -m1 -E '(^|[^A-Za-z0-9_])(claude|codex|copilot)([^A-Za-z0-9_]|$)')
+[ -n "$line" ] && refuse "a tool name" "$line"
+
+exit 0
