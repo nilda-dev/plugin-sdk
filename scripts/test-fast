@@ -1,0 +1,150 @@
+#!/bin/sh
+# test-fast — the FAST test lane: only what a change can break, in minutes, before every push.
+#
+# CANONICAL COPY: nilda/core/scripts/test-fast. Mirrored in plugin-sdk/scripts and plugin-booking/scripts (the
+# web lane below simply finds no web/admin there). Change core's, then copy it. Test: scripts/test-fast_test.sh.
+#
+# What it runs
+#   1. the Go packages that CHANGED against origin/main (committed + uncommitted + untracked),
+#   2. every package that depends on one of them, test imports included (reverse closure over `go list`),
+#   3. the repo's always-run guard packages, one import-path suffix per line in scripts/test-fast.always,
+#   4. `go vet` and `go test -count=1` on that list (-timeout 25m when internal/plugin or internal/pagebuilder
+#      is in it, else 10m),
+#   5. when web/admin changed: `npx tsc --noEmit` and the vitest files related to the changed files.
+# The FULL lane is `make test-full`: per milestone and nightly when the machine is idle, not per card.
+#
+# Usage: scripts/test-fast [--list] [--committed-only] [--no-guard] [--base REF]
+#   --list            print the package list and stop (nothing runs, no guard)
+#   --committed-only  ignore uncommitted and untracked files (what the pre-push hook uses)
+#   --no-guard        skip scripts/heavy-guard (emergency only)
+#   --base REF        compare against REF (default origin/main, or $TEST_FAST_BASE)
+# A go.mod / go.sum change makes every package "changed".
+# Exit 0 = everything green; non-zero = something failed or the guard refused. Verify by exit code.
+# Needs the same environment as the full suite (Postgres for core: `make up`). GOWORK is off unless
+# TEST_FAST_KEEP_GOWORK=1, so a lone clone is tested as a lone clone.
+
+list_only=0; committed_only=0; use_guard=1
+base=${TEST_FAST_BASE:-origin/main}
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --list) list_only=1 ;;
+    --committed-only) committed_only=1 ;;
+    --no-guard) use_guard=0 ;;
+    --base) shift; base=${1:?--base needs a ref} ;;
+    *) echo "usage: test-fast [--list] [--committed-only] [--no-guard] [--base REF]" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+here=$(cd "$(dirname "$0")" && pwd)
+root=$(git rev-parse --show-toplevel) || exit 2
+cd "$root" || exit 2
+start=$(date +%s)
+[ "${TEST_FAST_KEEP_GOWORK:-0}" = 1 ] || export GOWORK=off
+
+git rev-parse --verify -q "$base" >/dev/null || { echo "test-fast: base '$base' not found; run: git fetch" >&2; exit 2; }
+
+tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+changed="$tmp/changed"
+{
+  git diff --name-only "$base"...HEAD
+  if [ "$committed_only" = 0 ]; then
+    git diff --name-only HEAD
+    git ls-files --others --exclude-standard
+  fi
+} | sort -u > "$changed"
+nfiles=$(wc -l < "$changed" | tr -d ' ')
+
+# --- Go: changed packages + reverse dependencies ---------------------------------------------------------
+gopkgs=""
+if [ -f go.mod ]; then
+  go list -e -f '{{.ImportPath}}|{{.Dir}}|{{join .Deps " "}} {{join .TestImports " "}} {{join .XTestImports " "}}' ./... > "$tmp/graph" 2>"$tmp/golist.err" \
+    || { echo "test-fast: go list failed:" >&2; cat "$tmp/golist.err" >&2; exit 2; }
+  always=""
+  [ -f "$here/test-fast.always" ] && always=$(grep -v '^#' "$here/test-fast.always" | grep -v '^$' | tr '\n' ' ')
+  awk -v root="$root" -v always="$always" '
+    BEGIN { FS = "|"; na = split(always, al, " ") }
+    FNR == NR { ip = $1; edges[ip] = $3; pkgdir[$2] = ip; order[++n] = ip; next }
+    {
+      f = $0
+      if (f == "go.mod" || f == "go.sum") { all = 1; next }
+      if (f ~ /\.md$/ || f ~ /^(docs|scripts|\.github|\.claude|mobile)\//) next
+      d = root "/" f; sub("/[^/]*$", "", d)
+      while (!(d in pkgdir) && length(d) > length(root)) sub("/[^/]*$", "", d)
+      # A test file or a testdata fixture is only read by the tests of its OWN package: nothing that imports the
+      # package can see it, so it does not propagate to dependents. Everything else (code, embedded files) does.
+      if (d in pkgdir) { if (f ~ /_test\.go$/ || f ~ /(^|\/)testdata\//) own[pkgdir[d]] = 1; else changed[pkgdir[d]] = 1 }
+    }
+    END {
+      for (i = 1; i <= n; i++) if (all) changed[order[i]] = 1
+      for (p in changed) hit[p] = 1
+      do {
+        grew = 0
+        for (i = 1; i <= n; i++) {
+          p = order[i]
+          if (p in hit) continue
+          m = split(edges[p], e, " ")
+          for (j = 1; j <= m; j++) if (e[j] in hit) { hit[p] = 1; dep[p] = 1; grew = 1; break }
+        }
+      } while (grew)
+      anyhit = 0
+      for (p in hit) anyhit = 1
+      for (p in own) anyhit = 1
+      for (i = 1; i <= n; i++) {
+        p = order[i]
+        if (p in changed || p in own) print "changed " p
+        else if (p in dep) print "dependent " p
+        else if (anyhit) {
+          for (j = 1; j <= na; j++) { s = al[j]; if (substr(p, length(p) - length(s) + 1) == s) { print "guard " p; break } }
+        }
+      }
+    }' "$tmp/graph" "$changed" > "$tmp/pkgs"
+  gopkgs=$(awk '{print $2}' "$tmp/pkgs" | tr '\n' ' ')
+fi
+
+# --- web: changed admin files ----------------------------------------------------------------------------
+webfiles=$(grep -E '^web/admin/(src|index\.html|package\.json|tsconfig|vite|vitest)' "$changed" | grep -v '^web/admin/dist/')
+webrel=""
+for f in $webfiles; do [ -f "$f" ] && webrel="$webrel ${f#web/admin/}"; done
+
+echo "test-fast: base=$base, $nfiles changed file(s) (committed-only=$committed_only)"
+if [ -n "$gopkgs" ]; then
+  awk '{ printf "  go %-9s %s\n", $1, $2 }' "$tmp/pkgs"
+else
+  echo "  go: no package affected"
+fi
+[ -n "$webfiles" ] && echo "  web: tsc + vitest related to:$webrel"
+[ "$list_only" = 1 ] && exit 0
+
+if [ "$use_guard" = 1 ] && [ -n "$gopkgs$webfiles" ]; then
+  "$here/heavy-guard" || { echo "test-fast: heavy-guard refused; wait and run again" >&2; exit 3; }
+fi
+
+rc=0
+if [ -n "$gopkgs" ]; then
+  timeout=10m
+  case " $gopkgs " in *internal/plugin\ *|*internal/pagebuilder\ *) timeout=25m ;; esac
+  echo "test-fast: go vet ..."
+  # shellcheck disable=SC2086
+  go vet $gopkgs || { echo "test-fast: go vet FAILED" >&2; rc=1; }
+  echo "test-fast: go test -count=1 -timeout $timeout ..."
+  # shellcheck disable=SC2086
+  go test -count=1 -timeout "$timeout" $gopkgs || { echo "test-fast: go test FAILED" >&2; rc=1; }
+fi
+
+if [ -n "$webfiles" ]; then
+  if [ ! -d web/admin/node_modules ]; then
+    echo "test-fast: web/admin/node_modules is missing; run: (cd web/admin && npm ci)" >&2; rc=1
+  else
+    echo "test-fast: tsc --noEmit ..."
+    (cd web/admin && npx tsc --noEmit) || { echo "test-fast: tsc FAILED" >&2; rc=1; }
+    if [ -n "$webrel" ]; then
+      echo "test-fast: vitest related ..."
+      # shellcheck disable=SC2086
+      (cd web/admin && npx vitest related --run $webrel) || { echo "test-fast: vitest FAILED" >&2; rc=1; }
+    fi
+  fi
+fi
+
+echo "test-fast: elapsed $(( $(date +%s) - start ))s, exit $rc"
+exit $rc

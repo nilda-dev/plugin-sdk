@@ -164,6 +164,19 @@ Ecosystem-wide docs (architecture, roadmap, spec index) live in **core** (`docs/
 
 ## License
 
+## Test lanes
+
+GitHub CI is unpaid, so these are the gate (no Makefile here, so scripts):
+
+- **Fast, per card**: `sh scripts/test-fast` — `go vet` + `go test -count=1` on the packages changed against origin/main
+  (committed, uncommitted, untracked) and every package that imports them. `--list` shows the packages without running;
+  `--committed-only` is what the pre-push hook uses. Verify by exit code.
+- **Full, per milestone / nightly when idle**: `GOWORK=off go test -count=1 ./...` (see "Tests that read Core").
+- `scripts/heavy-guard` runs first: refuses when free disk < 20 GB, load > 12 or another heavy job runs; cleans the Go
+  build cache (`go clean -cache` only) above 25 GB. `--check-only` just reports.
+- Opt in to the pre-push gate once per clone: `sh scripts/install-hooks.sh` (skip once: `git push --no-verify`).
+- The scripts are mirrored from `core/scripts`; their tests: `sh scripts/test-fast_test.sh`, `sh scripts/heavy-guard_test.sh`.
+
 **MIT** — see [LICENSE](LICENSE). © Mohsen Khorrami.
 
 Inbound = outbound: a contribution is offered under the same terms. The NAME is not licensed with the
