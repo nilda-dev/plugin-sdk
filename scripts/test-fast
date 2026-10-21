@@ -68,11 +68,14 @@ if [ -f go.mod ]; then
     {
       f = $0
       if (f == "go.mod" || f == "go.sum") { all = 1; next }
-      if (f ~ /\.md$/ || f ~ /^(docs|scripts|\.github|\.claude|mobile)\//) next
+      if (f ~ /\.md$/) next
       d = root "/" f; sub("/[^/]*$", "", d)
       while (!(d in pkgdir) && length(d) > length(root)) sub("/[^/]*$", "", d)
       # A test file or a testdata fixture is only read by the tests of its OWN package: nothing that imports the
       # package can see it, so it does not propagate to dependents. Everything else (code, embedded files) does.
+      # Docs, scripts and tooling folders do not belong to the ROOT package (the walk-up would land there);
+      # a Go package of their own (scripts/metrics/) is still found above, before the walk reaches the root.
+      if (d == root && f ~ /^(docs|scripts|\.github|\.claude|mobile)\//) next
       if (d in pkgdir) { if (f ~ /_test\.go$/ || f ~ /(^|\/)testdata\//) own[pkgdir[d]] = 1; else changed[pkgdir[d]] = 1 }
     }
     END {

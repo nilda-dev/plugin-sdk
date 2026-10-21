@@ -64,6 +64,7 @@ func TestE(t *testing.T) {}
 X
 echo 'package archtest' > internal/archtest/a.go
 echo 'notes' > docs/n.md
+echo 'package m' > m.go
 git add -A && git commit -q -m base && git branch -q -M main && git update-ref refs/remotes/origin/main HEAD
 
 list() { out=$(sh scripts/test-fast --list "$@" 2>&1); }
@@ -84,6 +85,15 @@ git checkout -q -- .
 echo '// t' >> e/e_test.go
 list; expect "a test file selects only its own package" "e internal/archtest" "a b c d"
 git checkout -q -- . ; echo more >> docs/n.md
+echo '# s' >> scripts/helper.sh
+list; expect "a shell script under scripts/ selects nothing" "" "a b c d e"
+printf '%s\n' "$out" | grep -q ' example.com/m$' && bad "a shell script under scripts/ selected the ROOT package" || ok "the root package is not selected by scripts/ files"
+git checkout -q -- .; rm -f scripts/helper.sh
+mkdir -p scripts/tool; printf 'package main\nfunc main() {}\n' > scripts/tool/main.go; git add -A; git commit -q -m tool; git update-ref refs/remotes/origin/main HEAD
+echo '// t' >> scripts/tool/main.go
+list; expect "a Go package living under scripts/ is selected" "scripts/tool" "a b c d e"
+git checkout -q -- .; git reset -q --hard HEAD
+list; echo more >> docs/n.md
 list; expect "a markdown file selects nothing" "" "a b c d e"
 git checkout -q -- .
 echo 'package d
