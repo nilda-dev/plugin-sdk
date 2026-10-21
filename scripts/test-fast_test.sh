@@ -123,7 +123,7 @@ HEAVY_GUARD_MIN_FREE_GB=100000000 sh scripts/test-fast >"$tmp/run.out" 2>&1; rc=
 
 # --- install-hooks.sh ---------------------------------------------------------------------------------------
 git checkout -q -- . 2>/dev/null; git clean -fdq
-cp "$here/install-hooks.sh" scripts/
+cp "$here/install-hooks.sh" "$here/commit-msg-check" scripts/   # the hooks it writes call both
 sh scripts/install-hooks.sh >/dev/null 2>&1
 [ -x .git/hooks/pre-push ] && grep -q 'test-fast" --committed-only' .git/hooks/pre-push && ok "install-hooks writes an executable pre-push" || bad "install-hooks did not write the hook"
 sh scripts/install-hooks.sh >/dev/null 2>&1 && ok "install-hooks is idempotent" || bad "second install failed"
