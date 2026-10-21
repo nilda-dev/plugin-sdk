@@ -104,6 +104,9 @@ them; nobody keeps a list): the plugins and Core itself. Whether the tag is PUSH
 each plugin's own CI, which clones this repo at the pinned version (`git clone --branch "$SDK_VERSION"`) and
 fails loudly on a tag that exists on one disk only.
 
+The rules for what a release may contain, how often to tag and how a change reaches core, a plugin and the app are in
+`docs/RELEASE_TRAIN.md`.
+
 Cutting a release:
 
 1. tag the commit, `git push --tags`;
@@ -143,7 +146,8 @@ what Core guarantees and what it does not) · `PAYMENTS.md` (the payment contrac
 and whatever takes the money) · `SERVICES.md` (the service desk: one plugin asking another through Core, in a
 contract shipped here as data) · `SHIPPING.md` (shipping carriers: the first contract on the desk) · `EVENTS.md` (events: kept until delivered, CloudEvents) · `ANY_LANGUAGE.md` (the raw protocol, for a plugin
 written in something other than Go) · `CAPABILITY_PLAN.md` (which capabilities exist, which are
-deliberately missing, and why) · `PLUGINS.md` (plugin catalog).
+deliberately missing, and why) · `PLUGINS.md` (plugin catalog) · `RELEASE_TRAIN.md` (how a seam change travels: the
+release rules and the one command per repo).
 
 ## Nilda ecosystem
 This repo is one of several. How they fit together:

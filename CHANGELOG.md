@@ -4,6 +4,9 @@ What changed for a plugin author, per release. The Go API a release freezes is `
 `nildatest/surface.txt`); the git log has the reasons in full. Versions before v0.10.0 are not written up
 here.
 
+How a release is cut (additive only, one tag per milestone, security and money fixes at once, an undated first
+section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
+
 ## v0.35.0 — 2026-10-21 (a second value for pickers)
 
 - `AdminPage.Detail` (`"detail"`): on a `list` page, the key of a text column of its table that is shown after the

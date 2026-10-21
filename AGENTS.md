@@ -45,6 +45,9 @@ Read the README section before cutting anything. In short:
 3. `pins_test.go` checks every module checked out beside this one that requires it — it finds them
    itself — so a new plugin cannot slip past it by not being on a list.
 
+The rules for WHEN to tag and what a release may hold (additive only, one tag per milestone, security and money fixes at
+once) are `docs/RELEASE_TRAIN.md`; `release_train_test.go` enforces the dated CHANGELOG and the grow-only surface.
+
 So: prove a release from OUTSIDE the workspace (`GOWORK=off`, `go get …@<tag>`), not by building here.
 
 ## What "the plugin has an API" does not mean
