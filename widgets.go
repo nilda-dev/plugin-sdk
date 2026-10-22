@@ -373,6 +373,15 @@ func dispatchProvided(ctx context.Context, h Handler, hook string, payload []byt
 			return nil, false, nil
 		}
 		return DispatchPaymentConsumerHook(ctx, nil, c, hook, payload)
+
+	// The privacy hooks too: a holder subscribed and then failing every request is a site that cannot honour an
+	// access or erasure request and is told so only by the person who made it.
+	case HookPrivacyExport, HookPrivacyErase:
+		ph, is := h.(PersonalDataHolder)
+		if !is {
+			return nil, false, nil
+		}
+		return DispatchPrivacyHook(ctx, ph, hook, payload)
 	}
 	return nil, false, nil
 }
@@ -458,6 +467,9 @@ var providerHooks = []struct {
 		_, is := h.(CommercePriceGroups)
 		return shop && is
 	}, []string{HookCommercePriceGroup}},
+	// privacy.* needs `personal_data`: the owner agreed that this plugin is sent a requester's address.
+	{"PersonalDataHolder", func(h Handler) bool { _, is := h.(PersonalDataHolder); return is },
+		[]string{HookPrivacyExport, HookPrivacyErase}},
 	{"PaymentGateway", func(h Handler) bool { _, is := h.(PaymentGateway); return is },
 		[]string{HookPaymentDescribe, HookPaymentStart, HookPaymentRefund}},
 	{"PaymentConsumer", func(h Handler) bool { _, is := h.(PaymentConsumer); return is },

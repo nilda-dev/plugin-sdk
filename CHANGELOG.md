@@ -7,6 +7,24 @@ here.
 How a release is cut (additive only, one tag per milestone, security and money fixes at once, an undated first
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
+## v0.37.0 — unreleased (privacy requests about the people in a plugin's own tables)
+
+- The `personal_data` capability and its two hooks, `HookPrivacyExport` (`"privacy.export"`) and `HookPrivacyErase`
+  (`"privacy.erase"`), each within `PrivacyHookBudget` (15 s): a plugin that keeps data about people answers the site's
+  access and erasure requests (GDPR Art. 15, 17, 20; Art. 28(3)(e)) by email (Core D-103). Implement
+  `PersonalDataHolder` (`ExportPersonalData`, `ErasePersonalData`) and `Serve` subscribes and answers both;
+  `DispatchPrivacyHook` routes them by hand.
+- `PrivacyRequest` (`Emails`, `RequestID`, `Asked`), `NormalizePrivacyEmail`; `PrivacyExport` of `PrivacyRecord`s, each
+  naming the address it matched — one about an address Core did not ask about refuses the whole answer
+  (`PrivacyExport.Validate`); `PrivacyErasure` with `Erased`, `Kept` (`PrivacyKept`: anonymised, the fields kept and
+  why) and `Held` (`PrivacyHeld`: not erased, and why), each on `PrivacyBasisLegalObligation` (Art. 17(3)(b): the
+  accounting facts of a payment) or `PrivacyBasisLegalClaims` (Art. 17(3)(e): an open dispute)
+  (`PrivacyErasure.Validate`); `MaxPrivacyRecords` (5,000) per answer.
+- `nildatest.CheckPersonalDataHolder`: the round Core runs — export, erase, export again — and the rules the guide
+  states (everything found is accounted for, a held record is one export returned, erasing twice changes nothing).
+- Needs the Core release built on it; an older Core refuses `personal_data` as an unknown capability. Additions only;
+  `surface.txt` grows by 39, `nildatest/surface.txt` by 1.
+
 ## v0.36.0 — 2026-10-22 (the step picker)
 
 - `PluginMobile.Label` (`"label"` on a plugin's `mobile` block): what the plugin does in two or three plain words, the

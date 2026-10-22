@@ -39,6 +39,7 @@ field StubGateway.Refund nilda.PaymentRefundResult
 field StubGateway.SavedCharged []string
 field StubGateway.SavedStart nilda.PaymentStartResult
 field StubGateway.Start nilda.PaymentStartResult
+func CheckPersonalDataHolder(context.Context, nilda.PersonalDataHolder, string) (error)
 func ManifestAbilities(testing.TB, string, []nilda.Ability)
 func ManifestVisitorTools(testing.TB, string, []nilda.VisitorTool)
 func MobilePreview(testing.TB, string, string)

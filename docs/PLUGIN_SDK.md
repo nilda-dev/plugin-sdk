@@ -383,6 +383,7 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `service_consumer` | ask other plugins through Core's service desk, in the contracts the manifest `requires` or `uses` (the same release) |
 | `visitor_tools` | let visitors' own AI agents read and submit through your public actions — see "What a visitor's own AI agent may do" (Core from the release built on SDK v0.18.0) |
 | `site_files` | answer at `/agents.md` or `/.well-known/<name>` at the site's root — see "Files at the site's root" (the same release) |
+| `personal_data` | answer the site's privacy requests about the people in your own tables: hand over and erase a person's records by email — see "Answering privacy requests" (Core from the release built on the SDK version that carries `privacy.go`) |
 
 That is the whole list. Every entry is dispatched by Core and has a surface in this SDK; there is nothing
 to declare that does nothing. `admin.pages` and `payments` used to appear here and were removed in v0.3.0
@@ -1575,6 +1576,79 @@ backstop against a bug, not a substitute for the work.
 **Index what decides visibility.** Each `SearchDoc` carries `Status`, `Unlisted` and `EmbargoUntil` — an
 item can be published and still invisible, because it is unlisted or its publish date has not arrived.
 Store them, so a `PublicOnly` query can be answered inside your engine instead of over the wire.
+
+### Answering privacy requests (`personal_data`)
+
+The site owner is the controller of what your plugin keeps about a person — a guest's bookings, a waiting list, a
+blocklist — and Nilda is their processor, bound to help them answer that person (GDPR Art. 28(3)(e)). Core's Privacy
+screen hands a person their data (Art. 15, 20) and erases it (Art. 17) for everything Core keeps. It cannot read your
+tables, because it cannot know which column is a person, and it never guesses. So you answer for them:
+
+```json
+{ "capabilities": ["datastore", "personal_data"] }
+```
+
+The owner approves `personal_data` at install like any other capability: it means "this plugin is sent the address of
+somebody who asks the site about their data". Implement `nilda.PersonalDataHolder` on your Handler and `Serve`
+subscribes and answers both hooks — `privacy.export` and `privacy.erase`, each within `PrivacyHookBudget`
+(15 seconds):
+
+```go
+func (p *Plugin) ExportPersonalData(ctx context.Context, req nilda.PrivacyRequest) (nilda.PrivacyExport, error) {
+	// req.Emails are trimmed and lower-cased; match your rows the same way (nilda.NormalizePrivacyEmail).
+	return nilda.PrivacyExport{Records: []nilda.PrivacyRecord{{Kind: "booking", ID: "b-1042",
+		Email: "guest@example.com", Data: map[string]any{"name": "Lena Gruber"}}}}, nil
+}
+
+func (p *Plugin) ErasePersonalData(ctx context.Context, req nilda.PrivacyRequest) (nilda.PrivacyErasure, error) {
+	return nilda.PrivacyErasure{Erased: 1,
+		Kept: []nilda.PrivacyKept{{Kind: "booking", ID: "b-0977", Basis: nilda.PrivacyBasisLegalObligation,
+			Fields: []string{"amount", "currency", "paid_at"}, Note: "BAO §132: seven years"}},
+		Held: []nilda.PrivacyHeld{{Kind: "booking", ID: "b-1050", Basis: nilda.PrivacyBasisLegalClaims,
+			Note: "a chargeback is open"}}}, nil
+}
+```
+
+On the wire (a plugin in another language reads and writes exactly this):
+
+```json
+{ "emails": ["guest@example.com"], "request_id": "0b6a1d7e-3f7e-4a43-9d1c-2a1a7f0c9e11" }
+
+{ "records": [ { "kind": "booking", "id": "b-1042", "email": "guest@example.com",
+                 "data": { "name": "Lena Gruber", "starts_at": "2026-11-02T18:00:00Z" } } ] }
+
+{ "erased": 1,
+  "kept": [ { "kind": "booking", "id": "b-0977",
+              "fields": ["amount", "currency", "paid_at", "reference", "payment_status", "provider_reference"],
+              "basis": "legal_obligation", "note": "BAO §132: seven years" } ],
+  "held": [ { "kind": "booking", "id": "b-1050", "basis": "legal_claims", "note": "a chargeback is open" } ] }
+```
+
+The rules Core holds you to, and that `PrivacyExport.Validate` and `PrivacyErasure.Validate` (which `Serve` runs on
+your answer before sending it) hold you to first:
+
+- **Every record names the request address it matched** (`PrivacyRecord.Email`). One record about an address Core did
+  not ask about refuses your WHOLE answer: it is somebody else's data on its way into a stranger's archive.
+- **An erasure says why for everything it did not erase.** `Kept` is a record you anonymised and kept part of because
+  a law makes you (`PrivacyBasisLegalObligation`, Art. 17(3)(b) — the accounting facts of a payment: amount, currency,
+  date, reference, status, the processor's reference); the fields you name there must no longer identify the person.
+  `Held` is a record you did not erase at all because an open dispute keeps it (`PrivacyBasisLegalClaims`,
+  Art. 17(3)(e)). Nothing else is a reason.
+- **Core checks.** After `privacy.erase` it asks `privacy.export` again with the same request: anything still found
+  that you did not declare held is reported to the owner as NOT erased. A kept record is anonymised, so it is no
+  longer found by the address.
+- **Erasing twice changes nothing more.** The owner may press the button again.
+- At most `MaxPrivacyRecords` (5,000) records per answer; a kind is at most 64 characters, an id 128, a note 500.
+- A handler error is your answer "I could not": the owner is told this plugin did not answer, and it does not count
+  toward switching you off.
+
+Core sends only addresses it is entitled to send: a signed-in person's own **verified** addresses (their access
+request, or an operator erasing their account), or the one address an operator holding `privacy.manage` typed for a
+guest with no account. Never keep them for anything else. If your manifest declares `processing`, say there that you
+answer these requests. A blocklist kept as hashes is found the same way: hash the address you are sent and look it up.
+
+Routing by hand (a Handler that already answers other hooks itself): `nilda.DispatchPrivacyHook` answers
+`handled == false` for any other hook. Test the whole round with `nildatest.CheckPersonalDataHolder`.
 
 ### Being the site's shop (`commerce`)
 

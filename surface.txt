@@ -167,6 +167,8 @@ const HookPaymentRefundUpdated
 const HookPaymentSessionUpdated
 const HookPaymentStart
 const HookPaymentSync
+const HookPrivacyErase
+const HookPrivacyExport
 const HookRenderAssets
 const HookSearchConfigure
 const HookSearchHealthy
@@ -194,6 +196,7 @@ const MaxDisputesPerSession
 const MaxPickActions
 const MaxPickTools
 const MaxPriceGroupLength
+const MaxPrivacyRecords
 const MaxWidgetHTMLBytes
 const MaxWidgetsPerPlugin
 const MetricMoney
@@ -232,6 +235,9 @@ const PickOpPercent
 const PickOpSet
 const PickToneWarning
 const PluginSetName
+const PrivacyBasisLegalClaims
+const PrivacyBasisLegalObligation
+const PrivacyHookBudget
 const ProtocolVersion
 const QuoteOpen
 const QuoteRequest
@@ -1056,6 +1062,25 @@ field PluginClient.Plugin contract.PluginServiceClient
 field PluginMobile.Headline []HeadlineMetric json:headline
 field PluginMobile.Icon string json:icon
 field PluginMobile.Label string json:label
+field PrivacyErasure.Erased int json:erased
+field PrivacyErasure.Held []PrivacyHeld json:held
+field PrivacyErasure.Kept []PrivacyKept json:kept
+field PrivacyExport.Records []PrivacyRecord json:records
+field PrivacyHeld.Basis string json:basis
+field PrivacyHeld.ID string json:id
+field PrivacyHeld.Kind string json:kind
+field PrivacyHeld.Note string json:note
+field PrivacyKept.Basis string json:basis
+field PrivacyKept.Fields []string json:fields
+field PrivacyKept.ID string json:id
+field PrivacyKept.Kind string json:kind
+field PrivacyKept.Note string json:note
+field PrivacyRecord.Data map[string]any json:data
+field PrivacyRecord.Email string json:email
+field PrivacyRecord.ID string json:id
+field PrivacyRecord.Kind string json:kind
+field PrivacyRequest.Emails []string json:emails
+field PrivacyRequest.RequestID string json:request_id
 field Quote.Currency string json:currency
 field Quote.ExpiresAt time.Time json:expires_at
 field Quote.ID string json:id
@@ -1341,6 +1366,7 @@ func DispatchFieldHook(context.Context, *Core, FieldProvider, string, []byte) ([
 func DispatchLinkTargets(context.Context, string, []byte, func(context.Context, LinkTargetsRequest) ([]LinkTarget, error)) ([]byte, bool, error)
 func DispatchPaymentConsumerHook(context.Context, *Core, PaymentConsumer, string, []byte) ([]byte, bool, error)
 func DispatchPaymentGatewayHook(context.Context, *Core, PaymentGateway, string, []byte) ([]byte, bool, error)
+func DispatchPrivacyHook(context.Context, PersonalDataHolder, string, []byte) ([]byte, bool, error)
 func DispatchSearchHook(context.Context, *Core, SearchProvider, string, []byte) ([]byte, bool, error)
 func DispatchServiceHook(context.Context, ServiceProvider, string, []byte) ([]byte, bool, error)
 func DisputeCanMove(string, string) (bool)
@@ -1359,6 +1385,7 @@ func MobileIcons() ([]string)
 func NewCoreForTest(string, []string, contract.HostServiceClient, string, string, []string) (*Core)
 func NewOIDCClient(string, string, string, ...string) (*OIDCClient)
 func NewTransport(http.RoundTripper) (http.RoundTripper)
+func NormalizePrivacyEmail(string) (string)
 func ObjectSchema(map[string]any, ...string) (json.RawMessage)
 func OffersMethods(OffersProvider) ([]ServiceMethod)
 func OrdersMethods(OrdersProvider) ([]ServiceMethod)
@@ -1442,6 +1469,8 @@ imethod PaymentGateway.DescribePayments(context.Context) ([]PaymentMethod, error
 imethod PaymentGateway.RefundPayment(context.Context, PaymentRefund, PaymentSession) (PaymentRefundResult, error)
 imethod PaymentGateway.StartPayment(context.Context, PaymentSession) (PaymentStartResult, error)
 imethod PaymentSyncer.SyncPayment(context.Context, PaymentSession) (error)
+imethod PersonalDataHolder.ErasePersonalData(context.Context, PrivacyRequest) (PrivacyErasure, error)
+imethod PersonalDataHolder.ExportPersonalData(context.Context, PrivacyRequest) (PrivacyExport, error)
 imethod SavedMethodPayer.ForgetSaved(context.Context, string) (error)
 imethod SavedMethodPayer.StartPaymentWithSaved(context.Context, PaymentSession, string) (PaymentStartResult, error)
 imethod SearchProvider.Configure(context.Context) (error)
@@ -1616,6 +1645,9 @@ method (PaymentSaved) Validate() (error)
 method (PaymentSavedToken) GoString() (string)
 method (PaymentSavedToken) String() (string)
 method (PaymentSessionParams) Validate() (error)
+method (PrivacyErasure) Validate() (error)
+method (PrivacyExport) Validate(PrivacyRequest) (error)
+method (PrivacyRequest) Asked(string) (bool)
 method (QuoteOpenRequest) Validate() (error)
 method (QuoteOpenResult) Validate() (error)
 method (QuoteRequestInput) Validate() (error)
@@ -1813,11 +1845,18 @@ type PaymentStartResult
 type PaymentSyncRequest
 type PaymentSyncer
 type Payments
+type PersonalDataHolder
 type PickAction
 type PickGroupBy
 type PluginAccount
 type PluginClient
 type PluginMobile
+type PrivacyErasure
+type PrivacyExport
+type PrivacyHeld
+type PrivacyKept
+type PrivacyRecord
+type PrivacyRequest
 type Quote
 type QuoteLine
 type QuoteOpenRequest
