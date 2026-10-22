@@ -7,7 +7,7 @@ here.
 How a release is cut (additive only, one tag per milestone, security and money fixes at once, an undated first
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
-## v0.36.0 — unreleased (the step picker)
+## v0.36.0 — 2026-10-22 (the step picker)
 
 - `PluginMobile.Label` (`"label"` on a plugin's `mobile` block): what the plugin does in two or three plain words, the
   row the owner app's step picker shows at its first level, translated through your translations; without it the
