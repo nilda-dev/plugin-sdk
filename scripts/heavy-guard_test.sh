@@ -76,18 +76,18 @@ run "load 112 refused" 1 "REFUSED"
 unset STUB_UPTIME
 
 STUB_PS_EXTRA="4242 1 /usr/local/go/bin/go test -count=1 ./internal/pagebuilder/"; export STUB_PS_EXTRA
-run "other go test refused" 1 "another heavy job"
+run "other go test does not block (owner override of ART-15)" 0 "heavy-guard: ok"
 STUB_PS_EXTRA="4243 1 /opt/homebrew/bin/staticcheck ./..."; export STUB_PS_EXTRA
-run "staticcheck refused" 1 "staticcheck"
+run "staticcheck does not block (owner override of ART-15)" 0 "heavy-guard: ok"
 STUB_PS_EXTRA="4244 1 flutter test test/x_test.dart"; export STUB_PS_EXTRA
-run "flutter test refused" 1 "flutter"
+run "flutter test does not block (owner override of ART-15)" 0 "heavy-guard: ok"
 STUB_PS_EXTRA="4250 1 /opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart --packages=/x/package_config.json /x/flutter_tools.snapshot test test/a_test.dart"; export STUB_PS_EXTRA
-run "flutter tool snapshot test refused" 1 "bin/dart"
+run "flutter tool snapshot test does not block (owner override of ART-15)" 0 "heavy-guard: ok"
 STUB_PS_EXTRA="4251 1 /opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart language-server --protocol=lsp
 4252 1 /opt/homebrew/share/flutter/bin/cache/dart-sdk/bin/dart devtools --machine"; export STUB_PS_EXTRA
 run "IDE dart language server and devtools are not heavy" 0 "heavy-guard: ok"
 STUB_PS_EXTRA="4245 1 opencode run --standalone --auto build it"; export STUB_PS_EXTRA
-run "opencode run refused" 1 "opencode"
+run "opencode run does not block (owner override of ART-15)" 0 "heavy-guard: ok"
 STUB_PS_EXTRA="4246 1 /opt/homebrew/lib/node_modules/@opencode/cli/bin/opencode.exe serve --stdio --port 0"; export STUB_PS_EXTRA
 run "opencode serve is not a heavy job" 0 "heavy-guard: ok"
 STUB_PS_EXTRA="4247 1 tail -Fn0 /var/folders/opencode/m1-walk.log

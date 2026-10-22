@@ -17,8 +17,7 @@
 # Refuses when
 #   (a) free disk on the current directory's volume is below HEAVY_GUARD_MIN_FREE_GB (default 20),
 #   (b) the 1-minute load average is above HEAVY_GUARD_MAX_LOAD (default 12),
-#   (c) another heavy job is running: staticcheck, deadcode, `go test`, `go build`, flutter test|analyze|build
-#       (also as its dart snapshot), opencode `run` (not its idle `serve`; not IDE dart language servers). The guard's own process and its parents are ignored.
+#   (c) (removed 2026-10-22, owner override of ART-15: several heavy jobs may run together while the load stays <= 12)
 # Cleans the Go build cache (`go clean -cache` and NOTHING else — never docker, never volumes) when the cache
 # directory is larger than HEAVY_GUARD_CACHE_MAX_GB (default 25). The cache regenerates; it just costs time.
 # --check-only reports every finding and changes nothing (no clean).
@@ -73,38 +72,10 @@ elif awk -v l="$load1" -v max="$max_load" 'BEGIN { exit !(l + 0 > max + 0) }'; t
   refuse "1-minute load average is $load1, above $max_load. The machine is busy; wait and run again"
 fi
 
-# --- (c) another heavy job ----------------------------------------------------------------------------------
-# One ps snapshot; awk finds the chain of parents of this shell (to ignore) and then lists matching jobs.
-others=$(ps -Ao pid=,ppid=,args= 2>/dev/null | awk -v self="$$" '
-  { pid = $1; ppid[pid] = $2; line[pid] = $0 }
-  END {
-    for (p = self; p != "" && p != 0 && !(p in skip); p = ppid[p]) skip[p] = 1
-    for (pid in line) {
-      if (pid in skip) continue
-      n = split(line[pid], f, " ")
-      cmd = f[3]; sub(".*/", "", cmd)
-      sub2 = f[4]
-      heavy = 0
-      if (cmd == "staticcheck" || cmd == "deadcode") heavy = 1
-      else if (cmd == "flutter" && (sub2 == "test" || sub2 == "analyze" || sub2 == "build")) heavy = 1
-      else if (cmd == "dart" && (sub2 == "test" || sub2 == "analyze" || sub2 == "compile" ||
-               (line[pid] ~ /flutter_tools\.snapshot (test|analyze|build)/))) heavy = 1
-      else if (cmd == "go" && (sub2 == "test" || sub2 == "build")) heavy = 1
-      else if ((cmd == "opencode" || cmd == "opencode.exe") && sub2 == "run") heavy = 1
-      if (heavy) {
-        out = line[pid]
-        if (length(out) > 110) out = substr(out, 1, 110) "..."
-        print out
-      }
-    }
-  }')
-if [ -n "$others" ]; then
-  refuse "another heavy job is running (one heavy job at a time on this Mac); wait for it, never kill it:
-$others"
-fi
+# --- (c) other heavy jobs: NOT checked (owner override of ART-15, 2026-10-22: only load and disk decide) -----
 
 if [ "$fail" = 0 ]; then
-  echo "heavy-guard: ok (free disk $((free_kb / 1048576)) GB, load $load1, no other heavy job)"
+  echo "heavy-guard: ok (free disk $((free_kb / 1048576)) GB, load $load1)"
   exit 0
 fi
 exit 1
