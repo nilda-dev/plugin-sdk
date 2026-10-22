@@ -7,7 +7,7 @@ here.
 How a release is cut (additive only, one tag per milestone, security and money fixes at once, an undated first
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
-## v0.37.0 — unreleased (privacy requests about the people in a plugin's own tables)
+## v0.37.0 — 2026-10-22 (privacy requests about the people in a plugin's own tables)
 
 - The `personal_data` capability and its two hooks, `HookPrivacyExport` (`"privacy.export"`) and `HookPrivacyErase`
   (`"privacy.erase"`), each within `PrivacyHookBudget` (15 s): a plugin that keeps data about people answers the site's
