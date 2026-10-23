@@ -1812,6 +1812,14 @@ most `nilda.MaxPriceGroupLength` printable ASCII characters, no space; a name ou
 is the public price, never a guess. `nilda.CommerceViewer` is what arrives: the user id, to look the group's terms up,
 and the group.
 
+**Which product a page is (v0.39.0).** Implement `ProductForContent(ctx, contentID)` (the `nilda.CommerceProductPages`
+interface; the hook is `nilda.HookCommerceProductForContent`, `"commerce.product_for_content"`, which `Serve` subscribes
+only for a shop that implements it) and a product widget placed on a product's own page with no product chosen draws that
+product: Core asks once per page it renders, with the page's content id, and you answer the same product, priced the same
+way, that `Product(ctx, sku)` gives. `found=false` is a page that is no product's, and the widget draws nothing; an empty
+content id is not asked. A product the author named still wins. Needs the Core release built on it; an older Core never
+asks, and the widget draws nothing there, as before.
+
 **A product carries its categories and its choices.** `Terms` are `nilda.CommerceTerm`s — a label and the
 archive URL its chip links to; `Variations` are `nilda.CommerceVariation`s — one axis a shopper answers before
 the item can be added ("Size" and its options, as strings). A per-combination price stays in your pricing

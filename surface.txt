@@ -157,6 +157,7 @@ const HookCommerceCount
 const HookCommerceEndpoints
 const HookCommercePriceGroup
 const HookCommerceProduct
+const HookCommerceProductForContent
 const HookCommerceProducts
 const HookFieldChoices
 const HookFieldValidate
@@ -1481,6 +1482,7 @@ imethod Commerce.Product(context.Context, string) (CommerceProduct, bool)
 imethod Commerce.Products(context.Context, CommerceQuery) ([]CommerceProduct, error)
 imethod CommerceCounter.CountProducts(context.Context, CommerceQuery) (int, bool)
 imethod CommercePriceGroups.PriceGroup(context.Context, string) (string, error)
+imethod CommerceProductPages.ProductForContent(context.Context, string) (CommerceProduct, bool)
 imethod CredentialPayer.StartPaymentWithCredential(context.Context, PaymentSession, PaymentCredential) (PaymentStartResult, error)
 imethod DeliverablesProvider.DescribeDeliverables(context.Context) (DeliverablesDescription, error)
 imethod DeliverablesProvider.OrderDeliverables(context.Context, DeliverablesRequest) (DeliverablesResult, error)
@@ -1786,6 +1788,7 @@ type CommerceImage
 type CommercePreOrder
 type CommercePriceGroups
 type CommerceProduct
+type CommerceProductPages
 type CommerceQuery
 type CommerceTerm
 type CommerceVariation

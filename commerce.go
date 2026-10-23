@@ -123,6 +123,9 @@ const (
 	HookCommerceCount     = "commerce.count"
 	// HookCommercePriceGroup asks which price group a signed-in visitor is in — see CommercePriceGroups.
 	HookCommercePriceGroup = "commerce.price_group"
+	// HookCommerceProductForContent asks which product a content item (a product's own page) is — see
+	// CommerceProductPages.
+	HookCommerceProductForContent = "commerce.product_for_content"
 )
 
 // EventCommerceCatalogChanged is what you EMIT when your catalogue moves, and you must.
@@ -417,6 +420,15 @@ type CommerceCounter interface {
 	CountProducts(ctx context.Context, q CommerceQuery) (total int, ok bool)
 }
 
+// CommerceProductPages is an OPTIONAL extra: the product a content item — a product's own page — is, so a product widget
+// placed on that page with no product chosen draws it. Core asks with the page's content id; the answer is the same
+// product, priced the same way, that Product(ctx, sku) would give. found=false means the page is no product's, and the
+// widget draws nothing. Answered by the hook commerce.product_for_content, which Serve subscribes only for a shop that
+// implements this.
+type CommerceProductPages interface {
+	ProductForContent(ctx context.Context, contentID string) (p CommerceProduct, found bool)
+}
+
 // grossPricesKey carries Core's price-display decision to a hook whose Go signature cannot take it.
 //
 // THE PAYLOAD IS THE WIRE TRUTH and this is only the Go surface of it. Every commerce hook receives
@@ -488,6 +500,9 @@ func (h *commerceOnlyHandler) Init(ctx context.Context, core *Core) (InitResult,
 	}}
 	if _, ok := h.c.(CommercePriceGroups); ok {
 		res.Hooks = append(res.Hooks, HookCommercePriceGroup)
+	}
+	if _, ok := h.c.(CommerceProductPages); ok {
+		res.Hooks = append(res.Hooks, HookCommerceProductForContent)
 	}
 	if routes, ok := h.c.(http.Handler); ok {
 		addr, err := StartHTTP(routes)
@@ -568,6 +583,29 @@ func DispatchCommerceHook(ctx context.Context, _ *Core, c Commerce, hook string,
 			return []byte(`{}`), true, nil
 		}
 		b, err := json.Marshal(map[string]any{"total": total})
+		return b, true, err
+
+	case HookCommerceProductForContent:
+		pages, ok := c.(CommerceProductPages)
+		if !ok {
+			return []byte(`{"product":null}`), true, nil
+		}
+		var in struct {
+			ContentID              string          `json:"content_id"`
+			ShowPricesIncludingTax bool            `json:"show_prices_including_tax,omitempty"`
+			Viewer                 *CommerceViewer `json:"viewer,omitempty"`
+		}
+		if err := json.Unmarshal(payload, &in); err != nil {
+			return nil, true, fmt.Errorf("nilda: commerce.product_for_content payload: %w", err)
+		}
+		if in.ContentID == "" {
+			return []byte(`{"product":null}`), true, nil
+		}
+		p, found := pages.ProductForContent(withCommerceViewer(withGrossPrices(ctx, in.ShowPricesIncludingTax), in.Viewer), in.ContentID)
+		if !found {
+			return []byte(`{"product":null}`), true, nil
+		}
+		b, err := json.Marshal(map[string]any{"product": p})
 		return b, true, err
 
 	case HookCommercePriceGroup:

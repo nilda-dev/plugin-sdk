@@ -14,6 +14,10 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
   strings; `ExchangeRateSet.Rate(from, to)` is the exact cross rate through the euro (a `*big.Rat`). For an invoice in a
   currency other than the seller's national one, which states its VAT in the seller's currency (Directive 2006/112/EC
   Art. 91(2), 230). Needs the Core release built on it; an older Core answers 404. Additions only; `surface.txt` grows by 8.
+- `CommerceProductPages` (`ProductForContent`) and `HookCommerceProductForContent` (`"commerce.product_for_content"`): an
+  optional extra of a shop — which product a content item, a product's own page, is — so a product widget on that page with
+  no product chosen draws it. `Serve` subscribes the hook only for a shop that implements it. Needs the Core release built
+  on it; an older Core never asks. Additions only; `surface.txt` grows by 3.
 
 ## v0.38.0 — 2026-10-23 (a row's buttons that fit it, and filters above the rows)
 
