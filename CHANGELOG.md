@@ -7,6 +7,14 @@ here.
 How a release is cut (additive only, one tag per milestone, security and money fixes at once, an undated first
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
+## v0.39.0 — unreleased (the ECB's euro rates, with exact cross rates)
+
+- `Reference().ExchangeRates(ctx, at)` and `ExchangeRateSet` (`Day`, `PublishedAt`, `Rates`, `Source`, `FetchedAt`): the
+  European Central Bank's euro reference rates in force at an instant, from Nilda Central through Core, as decimal
+  strings; `ExchangeRateSet.Rate(from, to)` is the exact cross rate through the euro (a `*big.Rat`). For an invoice in a
+  currency other than the seller's national one, which states its VAT in the seller's currency (Directive 2006/112/EC
+  Art. 91(2), 230). Needs the Core release built on it; an older Core answers 404. Additions only; `surface.txt` grows by 8.
+
 ## v0.38.0 — 2026-10-23 (a row's buttons that fit it, and filters above the rows)
 
 - `RowAction.ShownWhen` (`"shown_when"`) and `RowCondition` (`Column`, `In`, `NotIn`): a list page's button is drawn

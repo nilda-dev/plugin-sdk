@@ -2,6 +2,7 @@ package nilda
 
 import (
 	"context"
+	"math/big"
 	"net/url"
 	"strings"
 	"time"
@@ -87,6 +88,70 @@ func (r *Reference) EUVATRates(ctx context.Context, day time.Time) (EUVATRateSet
 	q := url.Values{"date": {day.In(brussels).Format(time.DateOnly)}}
 	if err := r.api.Get(ctx, "/reference/eu-vat-rates", q, &out); err != nil {
 		return EUVATRateSet{}, err
+	}
+	return out.Data, nil
+}
+
+// ExchangeRateSet is the European Central Bank's euro reference rates published at or before an instant — the rates an
+// invoice in a currency other than the seller's national one states its VAT in the seller's currency at (Directive
+// 2006/112/EC Art. 91(2), 230). Rates are written as the ECB writes them: units of the currency per 1 EUR, as decimal
+// strings, never floats, so no cent is lost to a binary fraction. Day is the ECB's day (yyyy-mm-dd), PublishedAt the
+// moment it was published (16:00 Central European Time), Source and FetchedAt where and when Central read it.
+type ExchangeRateSet struct {
+	Day         string            `json:"day"`
+	PublishedAt time.Time         `json:"published_at"`
+	Rates       map[string]string `json:"rates"`
+	Source      string            `json:"source"`
+	FetchedAt   time.Time         `json:"fetched_at"`
+}
+
+// Rate is how many units of to one unit of from buys, through the euro: rates[to] / rates[from], with EUR = 1. Exact
+// (a *big.Rat): round it only once, at the amount. ok is false when either currency has no rate in the set; a currency to
+// itself is 1.
+func (s ExchangeRateSet) Rate(from, to string) (*big.Rat, bool) {
+	from, to = strings.ToUpper(strings.TrimSpace(from)), strings.ToUpper(strings.TrimSpace(to))
+	per := func(cur string) (*big.Rat, bool) {
+		if cur == "EUR" {
+			return big.NewRat(1, 1), true
+		}
+		v, ok := s.Rates[cur]
+		if !ok {
+			return nil, false
+		}
+		r, ok := new(big.Rat).SetString(v)
+		if !ok || r.Sign() <= 0 {
+			return nil, false
+		}
+		return r, true
+	}
+	if from == to {
+		if _, ok := per(from); !ok {
+			return nil, false
+		}
+		return big.NewRat(1, 1), true
+	}
+	f, ok := per(from)
+	if !ok {
+		return nil, false
+	}
+	t, ok := per(to)
+	if !ok {
+		return nil, false
+	}
+	return new(big.Rat).Quo(t, f), true
+}
+
+// ExchangeRates reads the ECB's euro reference rates in force at an instant: the newest set published at or before it
+// (a weekend or a bank holiday reads the working day before). No capability is needed — it is public reference data
+// Core reads from Nilda Central, holds by the hour and keeps through an outage; with no Central it is an error, and an
+// invoice that needs a rate says so rather than guessing one.
+func (r *Reference) ExchangeRates(ctx context.Context, at time.Time) (ExchangeRateSet, error) {
+	var out struct {
+		Data ExchangeRateSet `json:"data"`
+	}
+	q := url.Values{"at": {at.UTC().Format(time.RFC3339)}}
+	if err := r.api.Get(ctx, "/reference/exchange-rates", q, &out); err != nil {
+		return ExchangeRateSet{}, err
 	}
 	return out.Data, nil
 }

@@ -737,6 +737,11 @@ field EventInfo.ID string
 field EventInfo.Source string
 field EventInfo.Subject string
 field EventInfo.Time time.Time
+field ExchangeRateSet.Day string json:day
+field ExchangeRateSet.FetchedAt time.Time json:fetched_at
+field ExchangeRateSet.PublishedAt time.Time json:published_at
+field ExchangeRateSet.Rates map[string]string json:rates
+field ExchangeRateSet.Source string json:source
 field FieldChoice.Label string json:label
 field FieldChoice.Value string json:value
 field FieldChoicesRequest.Field string json:field
@@ -1584,6 +1589,7 @@ method (*Payments) ResolveRefund(context.Context, string, string) (PaymentRefund
 method (*Payments) ReverseRefund(context.Context, string, PaymentRejection) (PaymentRefund, error)
 method (*Payments) SetSecret(context.Context, string, string) (error)
 method (*Reference) EUVATRates(context.Context, time.Time) (EUVATRateSet, error)
+method (*Reference) ExchangeRates(context.Context, time.Time) (ExchangeRateSet, error)
 method (*Reference) Seller(context.Context) (Seller, error)
 method (*Reference) TaxTable(context.Context, time.Time) (TaxTable, error)
 method (*Secrets) Delete(context.Context, string) (bool, error)
@@ -1644,6 +1650,7 @@ method (DocumentsRequest) Validate() (error)
 method (DocumentsResult) Validate() (error)
 method (EUVATRateSet) Reduced(string, string) ([]EUVATRate)
 method (EUVATRateSet) Standard(string) (int, bool)
+method (ExchangeRateSet) Rate(string, string) (*big.Rat, bool)
 method (LabelRequest) Validate() (error)
 method (LabelResult) Validate() (error)
 method (LinkTarget) Validate(string) (error)
@@ -1799,6 +1806,7 @@ type DocumentsResult
 type EUVATRate
 type EUVATRateSet
 type EventInfo
+type ExchangeRateSet
 type FieldChoice
 type FieldChoicesRequest
 type FieldChoicesResponse

@@ -3,6 +3,7 @@ package nilda
 import (
 	"context"
 	"encoding/json"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -76,5 +77,47 @@ func TestTheSellerIsReadFromTheImprint(t *testing.T) {
 	s, err := core.API().Reference().Seller(context.Background())
 	if err != nil || s.Name != "Kari Shop e.U." || s.VATID != "ATU12345678" || s.Postcode != "1010" || s.Country != "AT" {
 		t.Fatalf("%+v %v", s, err)
+	}
+}
+
+// The ECB's euro rates are read for an instant, and a cross rate goes through the euro exactly (math/big, never a float):
+// USD per EUR 1.0850 and PLN per EUR 4.2800 make PLN per USD 4.2800/1.0850.
+func TestTheEuroRatesAreReadForAnInstantAndCrossRatesAreExact(t *testing.T) {
+	var asked string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/reference/exchange-rates" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		asked = r.URL.Query().Get("at")
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": ExchangeRateSet{Day: "2026-10-16",
+			PublishedAt: time.Date(2026, 10, 16, 14, 0, 0, 0, time.UTC), Source: "ECB",
+			Rates: map[string]string{"USD": "1.0850", "PLN": "4.2800", "JPY": "177.82"}}})
+	}))
+	defer srv.Close()
+	core := NewCoreForTest("shop", nil, nil, srv.URL, "t", nil)
+	at := time.Date(2026, 10, 16, 14, 5, 0, 0, time.UTC)
+	set, err := core.API().Reference().ExchangeRates(context.Background(), at)
+	if err != nil || asked != "2026-10-16T14:05:00Z" || set.Day != "2026-10-16" {
+		t.Fatalf("asked %q (%v): %+v", asked, err, set)
+	}
+	pln, ok := set.Rate("USD", "PLN")
+	if !ok || pln.Cmp(big.NewRat(42800, 10850)) != 0 {
+		t.Fatalf("PLN per USD = %v %v, want 4.2800/1.0850 exactly", pln, ok)
+	}
+	if usd, ok := set.Rate("EUR", "USD"); !ok || usd.Cmp(big.NewRat(10850, 10000)) != 0 {
+		t.Fatalf("USD per EUR = %v %v", usd, ok)
+	}
+	if eur, ok := set.Rate("USD", "EUR"); !ok || eur.Cmp(big.NewRat(10000, 10850)) != 0 {
+		t.Fatalf("EUR per USD = %v %v", eur, ok)
+	}
+	if one, ok := set.Rate("usd", "USD"); !ok || one.Cmp(big.NewRat(1, 1)) != 0 {
+		t.Fatalf("a currency to itself = %v %v", one, ok)
+	}
+	if _, ok := set.Rate("USD", "XXX"); ok {
+		t.Fatal("an unknown currency has a rate")
+	}
+	if _, ok := set.Rate("EUR", "EUR"); !ok {
+		t.Fatal("EUR to EUR is 1")
 	}
 }

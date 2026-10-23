@@ -998,6 +998,17 @@ skipped. `Next` (a `TaxReferenceNext`) is a value announced for the next day; `t
 where the owner sees and can change them, and charge a country's rates only where the owner says they are registered for
 the row's `Scheme`. Needs the Core release built on it; an older Core answers 404.
 
+**The ECB's euro reference rates** (from v0.39.0). `core.API().Reference().ExchangeRates(ctx, at)` returns an
+`ExchangeRateSet`: the European Central Bank's rates in force at an instant — the newest set published at or before it,
+so a weekend reads the working day before — each as units of the currency per 1 EUR, a decimal string (`Rates["USD"]`
+is `"1.1253"`), with the `Day` and `PublishedAt` (16:00 Central European Time), and the `Source` and `FetchedAt` where Core
+read it. `set.Rate("USD", "PLN")` is how many zloty one dollar buys through the euro, an exact `*big.Rat` — round once,
+at the amount, never the rate; it is `false` when either currency has no rate, and 1 for a currency to itself. It is what
+an invoice in a currency other than the seller's national one states its VAT in the seller's currency at (Directive
+2006/112/EC Art. 91(2), 230), at the tax point's instant. No capability is needed. Core holds the answer by the hour and
+keeps the last one through an outage; with no Central, or none held, the call is an error — say so on the invoice's
+blockers rather than guess a rate. Needs the Core release built on it; an older Core answers 404.
+
 **The seller.** `core.API().Reference().Seller(ctx)` returns a `Seller`: who sells on the site — name, legal form,
 register, VAT ID, contact and address — read from its imprint, the supplier an invoice must name (Directive 2006/112/EC
 Art. 226(5)). Read it when the invoice is made and do not keep a copy, so an invoice and the published imprint never
