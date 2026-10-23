@@ -716,8 +716,10 @@ func TestTheAdminPageRulesTheDocsNameAreCores(t *testing.T) {
 			"the call budget (`PLUGIN_CALL_TIMEOUT`) ran out, or your process stopped mid-call"},
 		{flat(list), regexp.MustCompile(regexp.QuoteMeta(`if pk := primaryKeyOf(table); pk != "" && pk != page.OrderBy { ` +
 			`order = append(order, pgx.Identifier{pk}.Sanitize()+" "+dir) }`)), "then by the table's primary key"},
+		// Core now stamps the datastore with the plugin's version on this call (WithDatastoreVersion); the sentence the
+		// guard protects — Core creates the table from your declaration, indexes included — is unchanged.
 		{flat(service), regexp.MustCompile(regexp.QuoteMeta("man.Tables = TablesWithListIndexes(man.Tables, man.AdminPages)") +
-			`.*` + regexp.QuoteMeta("ProvisionDatastore(ctx, p.Key, p.Publisher, man.Tables,")), "Core creates one with your tables"},
+			`.*` + regexp.QuoteMeta("ProvisionDatastore(WithDatastoreVersion(ctx, p.Version), p.Key, p.Publisher, man.Tables,")), "Core creates one with your tables"},
 	} {
 		if !c.marker.MatchString(c.src) {
 			t.Errorf("core no longer has %s — re-read the admin_page section's sentence %q", c.marker, c.says)

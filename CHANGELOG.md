@@ -7,7 +7,7 @@ here.
 How a release is cut (additive only, one tag per milestone, security and money fixes at once, an undated first
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
-## v0.38.0 — unreleased (a row's buttons that fit it, and filters above the rows)
+## v0.38.0 — 2026-10-23 (a row's buttons that fit it, and filters above the rows)
 
 - `RowAction.ShownWhen` (`"shown_when"`) and `RowCondition` (`Column`, `In`, `NotIn`): a list page's button is drawn
   only on the rows whose cell fits — "Approve" on a request, "End the hold" on a held booking — instead of on every row,
