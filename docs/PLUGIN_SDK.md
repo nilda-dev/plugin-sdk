@@ -1161,6 +1161,29 @@ page whose kind it does not know — your other pages stay.
 The shapes a manifest declares here are Go types too — `nilda.AdminPage`, `nilda.SettingField`,
 `nilda.ListColumn`, `nilda.RowAction` — and their comments are the reference for every field.
 
+**A row's buttons can fit the row, and a list can be filtered** (v0.38.0). A list page draws every action on every
+row unless one says when: `shown_when` on a `nilda.RowAction` is a `nilda.RowCondition` — a `column` of the page's
+table and the values it must hold (`in`) or must not (`not_in`); a null cell reads as `""`, so `"in": [""]` means
+"nothing there". "Approve" shows on a request and not on a confirmed booking; "End the dispute hold" shows only where
+a hold is set. It is a convenience of the screen and not a lock — your `admin.action` hook still checks the row,
+because the assistant presses the same buttons and a row may have changed a second ago.
+
+```json
+{ "key": "bookings", "kind": "list", "table": "nb_bookings", "columns": [ … ],
+  "actions": [ { "key": "approve", "label": "Approve", "shown_when": { "column": "status", "in": ["requested"] } } ],
+  "filters": [
+    { "key": "status", "label": "Status", "column": "status", "choices": ["requested", "confirmed", "cancelled"] },
+    { "key": "day", "label": "Day", "kind": "period", "column": "starts_at", "also_column": "arrival" } ] }
+```
+
+`filters` (a `nilda.ListFilter`, at most `nilda.MaxListFilters`) put drop-downs above the rows. A `choice` filter
+(the default) matches one stored value of its `column` — the owner reads each as the column's `labels` say. A `period`
+filter matches a date or timestamp `column` against a stretch of days counted in the site's own time zone; the
+periods are `nilda.FilterPeriods()` (today, tomorrow, this/next/last week and month, the next and last 30 days), a
+subset of them can be named in `periods`, and with `also_column` a row matches when either column falls in it — a
+booking's start time or a stay's arrival day. Core builds the query from the declaration and binds what the owner
+picked, so nothing they choose becomes SQL; an older Core ignores both keys and draws every button and no filter.
+
 **A list page can also create and edit its rows — in a form you declare and save yourself** (`form`, v0.28.0,
 `adminform.go`). The list stays read-only to Core: what the owner types goes to YOUR `admin.form.save` hook, and
 nothing is written until you answer. Declare the form on the list page:
@@ -1249,7 +1272,7 @@ as a plain page with neither.
 - `edits` naming a content type this manifest does not declare, on a page with no form that edits, or one type
   edited by two pages.
 - More than 20 pages, 48 fields on a settings page, 20 filters on a report page, 20 columns or 20 search
-  columns on a list page, 8 row actions, or 100 choices on a field; or a name or label longer than 120
+  columns on a list page, 8 row actions, 4 filters on a list page, or 100 choices on a field; or a name or label longer than 120
   characters — and so is a placeholder, a choice or a page's icon — or help longer than 500 characters,
   or a row action's `confirm` longer than 300.
 

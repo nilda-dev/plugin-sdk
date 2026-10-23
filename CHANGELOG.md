@@ -7,6 +7,20 @@ here.
 How a release is cut (additive only, one tag per milestone, security and money fixes at once, an undated first
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
+## v0.38.0 — unreleased (a row's buttons that fit it, and filters above the rows)
+
+- `RowAction.ShownWhen` (`"shown_when"`) and `RowCondition` (`Column`, `In`, `NotIn`): a list page's button is drawn
+  only on the rows whose cell fits — "Approve" on a request, "End the hold" on a held booking — instead of on every row,
+  where pressing the wrong one was the owner's only way to learn it did not fit. A null cell reads as `""`. A
+  convenience of the screen, not a lock: your hook still checks the row.
+- `AdminPage.Filters` (`"filters"`) and `ListFilter` (`Key`, `Label`, `Column`, `Kind`, `Choices`, `AlsoColumn`,
+  `Periods`): drop-downs above a list page's rows. `FilterChoice` matches one stored value of a column;
+  `FilterPeriod` matches a date or timestamp column against a stretch of days in the site's time zone (`PeriodToday`
+  … `PeriodLast30`, listed by `FilterPeriods()`), and with `AlsoColumn` matches when either column falls in it.
+  `MaxListFilters` is four per page.
+- Needs the Core release built on it; an older Core ignores both keys and draws every button and no filter, so a plugin
+  built on this still installs there. Additions only; `surface.txt` grows by 29.
+
 ## v0.37.0 — 2026-10-22 (privacy requests about the people in a plugin's own tables)
 
 - The `personal_data` capability and its two hooks, `HookPrivacyExport` (`"privacy.export"`) and `HookPrivacyErase`

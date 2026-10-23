@@ -136,6 +136,8 @@ const FieldText
 const FieldTextarea
 const FieldTime
 const FieldURL
+const FilterChoice
+const FilterPeriod
 const FormDate
 const FormDateTime
 const FormGallery
@@ -193,6 +195,7 @@ const MandateSubscription
 const MandateUpdate
 const MaxAssetsPerPlugin
 const MaxDisputesPerSession
+const MaxListFilters
 const MaxPickActions
 const MaxPickTools
 const MaxPriceGroupLength
@@ -230,6 +233,17 @@ const PaymentPending
 const PaymentRedirected
 const PaymentRejected
 const PaymentResolved
+const PeriodLast30
+const PeriodLastMonth
+const PeriodLastWeek
+const PeriodNext30
+const PeriodNextMonth
+const PeriodNextWeek
+const PeriodThisMonth
+const PeriodThisWeek
+const PeriodToday
+const PeriodTomorrow
+const PeriodYesterday
 const PickOpAdd
 const PickOpPercent
 const PickOpSet
@@ -346,6 +360,7 @@ field AdminPage.DefaultView string json:default_view
 field AdminPage.Detail string json:detail
 field AdminPage.Edits string json:edits
 field AdminPage.Fields []SettingField json:fields
+field AdminPage.Filters []ListFilter json:filters
 field AdminPage.Form *PageForm json:form
 field AdminPage.Group string json:group
 field AdminPage.Help string json:help
@@ -829,6 +844,13 @@ field ListColumn.Reference string json:reference
 field ListColumn.Type string json:type
 field ListColumn.TypeBy string json:type_by
 field ListColumn.Types map[string]string json:types
+field ListFilter.AlsoColumn string json:also_column
+field ListFilter.Choices []string json:choices
+field ListFilter.Column string json:column
+field ListFilter.Key string json:key
+field ListFilter.Kind string json:kind
+field ListFilter.Label string json:label
+field ListFilter.Periods []string json:periods
 field MobileRow.Badge string json:badge
 field MobileRow.Subtitle []string json:subtitle
 field MobileRow.Title string json:title
@@ -1126,6 +1148,10 @@ field ReportMetric.Label string json:label
 field RowAction.Confirm string json:confirm
 field RowAction.Key string json:key
 field RowAction.Label string json:label
+field RowAction.ShownWhen *RowCondition json:shown_when
+field RowCondition.Column string json:column
+field RowCondition.In []string json:in
+field RowCondition.NotIn []string json:not_in
 field SavedPaymentMethod.Consumer string json:consumer
 field SavedPaymentMethod.CreatedAt time.Time json:created_at
 field SavedPaymentMethod.Email string json:email
@@ -1374,6 +1400,7 @@ func DisputeFinal(string) (bool)
 func DocumentData(string, string, []byte) (DocumentRef)
 func EventOf(context.Context) (EventInfo)
 func FieldTypes() ([]string)
+func FilterPeriods() ([]string)
 func FormFieldTypes() ([]string)
 func FormatMinor(int64, string) (string, bool)
 func HTTPClient(time.Duration) (*http.Client)
@@ -1796,6 +1823,7 @@ type LinkTarget
 type LinkTargetProvider
 type LinkTargetsRequest
 type ListColumn
+type ListFilter
 type MobileRow
 type OIDCClient
 type Offer
@@ -1869,6 +1897,7 @@ type Reference
 type RenderAssetsRequest
 type ReportMetric
 type RowAction
+type RowCondition
 type SavedMethodPayer
 type SavedPaymentMethod
 type Schedule

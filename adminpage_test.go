@@ -280,3 +280,52 @@ func TestListPageDetailCrossesAsDetailAndIsOmittedWhenEmpty(t *testing.T) {
 		t.Errorf("detail read back as %q", back.Detail)
 	}
 }
+
+// A row action's condition and a page's filters are optional, and a manifest that has neither stays byte-for-byte
+// what it was: an older Core, and the goldens built from older plugins, must not see a new key.
+func TestTheNewListKeysAreAbsentUntilUsed(t *testing.T) {
+	plain, err := json.Marshal(AdminPage{Key: "bookings", Label: "Bookings", Kind: AdminPageList,
+		Actions: []RowAction{{Key: "approve", Label: "Approve"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"filters", "shown_when"} {
+		if strings.Contains(string(plain), key) {
+			t.Errorf("a page that declares no %s still writes it: %s", key, plain)
+		}
+	}
+
+	full := AdminPage{Key: "bookings", Label: "Bookings", Kind: AdminPageList,
+		Actions: []RowAction{{Key: "approve", Label: "Approve", ShownWhen: &RowCondition{Column: "status", In: []string{"requested"}}}},
+		Filters: []ListFilter{
+			{Key: "status", Label: "Status", Column: "status", Choices: []string{"confirmed", "requested"}},
+			{Key: "day", Label: "Day", Column: "starts_at", Kind: FilterPeriod, AlsoColumn: "arrival", Periods: []string{PeriodToday}},
+		}}
+	raw, err := json.Marshal(full)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var back AdminPage
+	if err := json.Unmarshal(raw, &back); err != nil {
+		t.Fatal(err)
+	}
+	if back.Actions[0].ShownWhen == nil || back.Actions[0].ShownWhen.Column != "status" || back.Actions[0].ShownWhen.In[0] != "requested" {
+		t.Errorf("the condition did not survive the manifest: %+v", back.Actions[0])
+	}
+	if len(back.Filters) != 2 || back.Filters[1].Kind != FilterPeriod || back.Filters[1].AlsoColumn != "arrival" {
+		t.Errorf("the filters did not survive the manifest: %+v", back.Filters)
+	}
+}
+
+func TestEveryPeriodIsNamedOnceAndTheListFitsTheCap(t *testing.T) {
+	seen := map[string]bool{}
+	for _, period := range FilterPeriods() {
+		if period == "" || seen[period] {
+			t.Errorf("period %q is empty or listed twice", period)
+		}
+		seen[period] = true
+	}
+	if len(seen) != 11 || MaxListFilters != 4 {
+		t.Errorf("periods = %d, cap = %d: a change here is a change to what Core and the app draw", len(seen), MaxListFilters)
+	}
+}

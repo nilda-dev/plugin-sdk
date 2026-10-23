@@ -155,6 +155,10 @@ type AdminPage struct {
 	// Search are the TEXT columns the search box looks in. Empty means no search box, which is better than
 	// one that silently matches nothing.
 	Search []string `json:"search,omitempty"`
+	// Filters are drop-downs above the rows that narrow them (v0.38.0): by one value of a column — a booking's
+	// status — or by a stretch of days — today, this week, next month. At most MaxListFilters. Core builds the
+	// query from the declaration and binds what the owner chose; nothing they type becomes SQL.
+	Filters []ListFilter `json:"filters,omitempty"`
 	// Detail is the key of a TEXT column of Table, shown after the name wherever rows of this page are PICKED (a
 	// form's reference field) or NAMED (a list column with Reference): "Yoga flow · yoga-flow-2". It tells apart
 	// two rows whose first column reads the same — a class's slug, a product's code. A row with no value there
@@ -438,6 +442,74 @@ type RowAction struct {
 	// Confirm is the question asked first. Set it for anything the owner cannot undo. At most 300 characters:
 	// Core asks it in its own sheet, which names your plugin and quotes you.
 	Confirm string `json:"confirm,omitempty"`
+	// ShownWhen draws the button only on the rows that fit it (v0.38.0): "Approve" on a request, not on a
+	// booking that is already confirmed. Without it the button shows on every row, and pressing it where it does
+	// not fit is the owner's only way to find out. It is a convenience of the screen, not a lock: the hook still
+	// checks the row, because a press can arrive from a row that changed a second ago, or from the assistant.
+	ShownWhen *RowCondition `json:"shown_when,omitempty"`
+}
+
+// RowCondition is a test on one cell of a row. Column is a column of the page's table; a null cell reads as the
+// empty string, so In: [""] means "nothing there" and NotIn: [""] means "something there". Exactly one of In and
+// NotIn is set.
+type RowCondition struct {
+	Column string   `json:"column"`
+	In     []string `json:"in,omitempty"`
+	NotIn  []string `json:"not_in,omitempty"`
+}
+
+// Filter kinds a list page may declare.
+const (
+	// FilterChoice narrows the rows to one value of Column; the owner picks from Choices.
+	FilterChoice = "choice"
+	// FilterPeriod narrows the rows to those whose Column (a date or a timestamp) falls in a stretch of days the
+	// owner picks from Periods, counted in the site's own time zone.
+	FilterPeriod = "period"
+)
+
+// The stretches of days a FilterPeriod offers, in the site's time zone. A week runs Monday to Sunday.
+const (
+	PeriodToday     = "today"
+	PeriodTomorrow  = "tomorrow"
+	PeriodYesterday = "yesterday"
+	PeriodThisWeek  = "this_week"
+	PeriodNextWeek  = "next_week"
+	PeriodLastWeek  = "last_week"
+	PeriodThisMonth = "this_month"
+	PeriodNextMonth = "next_month"
+	PeriodLastMonth = "last_month"
+	PeriodNext30    = "next_30_days"
+	PeriodLast30    = "last_30_days"
+)
+
+// FilterPeriods returns every period a FilterPeriod may offer, in the order a screen lists them.
+func FilterPeriods() []string {
+	return []string{PeriodToday, PeriodTomorrow, PeriodYesterday, PeriodThisWeek, PeriodNextWeek, PeriodLastWeek,
+		PeriodThisMonth, PeriodNextMonth, PeriodLastMonth, PeriodNext30, PeriodLast30}
+}
+
+// MaxListFilters is how many filters one list page may declare.
+const MaxListFilters = 4
+
+// ListFilter is one drop-down above a list page's rows (v0.38.0).
+type ListFilter struct {
+	// Key names the filter in the screen's address and in Core's request; lowercase, stable, unique on the page.
+	Key string `json:"key"`
+	// Label is what the drop-down is called ("Status", "Day"); translated through your translations.
+	Label string `json:"label"`
+	// Column is a column of the page's table: for FilterChoice the one whose value is matched, for FilterPeriod a
+	// date or timestamp column.
+	Column string `json:"column"`
+	// Kind is FilterChoice (the default) or FilterPeriod.
+	Kind string `json:"kind,omitempty"`
+	// Choices are the values a FilterChoice offers, as the column stores them; the owner reads each as the
+	// column's Labels say. At least one, at most 20.
+	Choices []string `json:"choices,omitempty"`
+	// AlsoColumn is a FilterPeriod's second date column: a row matches when EITHER falls in the period — a
+	// booking's start time, or a stay's arrival day.
+	AlsoColumn string `json:"also_column,omitempty"`
+	// Periods are the periods a FilterPeriod offers, in this order; empty offers them all.
+	Periods []string `json:"periods,omitempty"`
 }
 
 // AdminActionHook is the hook Core calls when somebody presses a row action.
