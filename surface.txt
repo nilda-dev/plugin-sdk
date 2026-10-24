@@ -781,6 +781,11 @@ field EmailVariable.Kind string json:kind
 field EmailVariable.Name string json:name
 field EmailVariable.Required bool json:required
 field EmailVariable.Sample any json:sample
+field EventDecl.Fields []EventField json:fields
+field EventDecl.Title string json:title
+field EventDecl.Type string json:type
+field EventField.Description string json:description
+field EventField.Name string json:name
 field EventInfo.DataSchema string
 field EventInfo.ID string
 field EventInfo.Source string
@@ -1903,6 +1908,8 @@ type EUVATRateSet
 type EmailTemplateDecl
 type EmailTemplateText
 type EmailVariable
+type EventDecl
+type EventField
 type EventInfo
 type ExchangeRateSet
 type FieldChoice

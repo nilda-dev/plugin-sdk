@@ -7,6 +7,25 @@ here.
 How a release is cut (additive only, one tag per milestone, security and money fixes at once, an undated first
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
+## v0.43.0 — unreleased (the mail door: mail a plugin declares and the owner edits; the visitor's language; events the site can listen for)
+
+- `EmailTemplateDecl`, `EmailVariable`, `EmailTemplateText` and the manifest's `email_templates`: a plugin declares each
+  mail it sends — words per language in Core's Liquid, recipient (`EmailToPerson`, `EmailToOwner`, `EmailToOther`),
+  lane (`EmailTransactional`, `EmailMarketing`), required, variables (kinds `EmailText`, `EmailHTML`, `EmailURL`,
+  `EmailNumber`, `EmailDate`, `EmailList`, `EmailObject`) — and Core keeps it as `<plugin key>.<key>` in its template
+  store, where the owner and the assistant edit it. At most 64 templates; English required; a key is never reused.
+- `Core.SendTemplatedEmail(ctx, TemplatedEmail{Key, To, Locale, Data, ReplyTo, Ref, IdempotencyKey})` and
+  `ErrTemplateOff`: send a declared template by key; Core renders the owner's words in the site's mail layout, takes
+  the lane from the template, adds the owner's copies, logs it with `Ref`, and sends the same idempotency key once in
+  24 hours. A switched-off template answers `ErrTemplateOff` (not a failure). The contract gains
+  `SendTemplatedEmail`.
+- `nildatest`: `Host.UseEmailTemplates`, `ManifestEmailTemplates`, `Host.SwitchOffTemplate`; a templated mail is
+  recorded with `Key`, `Ref`, `Locale`, `Data`, `ReplyTo`, `IdempotencyKey` and the default's words rendered.
+- `VisitorLocale(r)`: the language the visitor is reading — always one of the site's languages, from the page's
+  address or the browser's preference.
+- `EventDecl`, `EventField` and the manifest's `emits`: a declared event joins Core's catalogue — automations start on
+  it, webhooks subscribe to it ("Shop: Order paid"). At most 32. An undeclared event still reaches plugins only.
+
 ## v0.42.0 — 2026-10-24 (report rows that link and act; a setup page and what goes well with a plugin; why a site cannot take a payment yet; whether a site publishes a privacy policy)
 
 - `ColumnLink` (`"link"`, a `ReportLink` cell: `{label, page}` an own declared page, `{label, screen}` one of

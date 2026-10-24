@@ -209,3 +209,15 @@ func TestTheMailTemplateBoundsTheDocsNameAreCores(t *testing.T) {
 		}
 	}
 }
+
+// v0.43.0 (Core's M3 card A9): the bound the guide gives a plugin's "emits" is the one Core's validator holds.
+func TestTheEmitsBoundTheDocsNameIsCores(t *testing.T) {
+	schema := coreSource(t, "internal", "plugin", "schema_emits.go")
+	doc := strings.Join(strings.Fields(readText(t, "docs/PLUGIN_SDK.md")), " ")
+	if !strings.Contains(schema, "maxEmitDecls = 32") {
+		t.Error("core no longer bounds emits at 32 — re-read the guide")
+	}
+	if !strings.Contains(doc, "at most 32 events") {
+		t.Error("PLUGIN_SDK.md does not say a plugin declares at most 32 events, which is Core's bound")
+	}
+}

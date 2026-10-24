@@ -1043,6 +1043,25 @@ mail := host.Emails()[0] // Key, Ref, Locale, Data, and Subject/Body/HTML render
 `host.SwitchOffTemplate(key)` makes the fake answer `ErrTemplateOff` for one template, as Core does when the owner
 switches it off. The fake reads the same Liquid subset; Core's engine stays the authority on a site.
 
+### Events the site can listen for (`emits`, v0.43.0)
+
+An event your plugin emits reaches the plugins that subscribe to it. Declare it in plugin.json's `emits` and it also
+joins Core's own catalogue: the owner can start an automation on it and an outside system can subscribe a webhook to
+it, signed and retried as Core's own events are.
+
+```json
+"emits": [
+  {"type": "nilda_shop.order_paid", "title": "Order paid",
+   "fields": [{"name": "order_number", "description": "the order's number"}, {"name": "total"}]}
+]
+```
+
+Each entry is an `EventDecl` with its payload's `EventField`s. Needs the `events` capability; at most 32 events, each a
+type your plugin may emit (your key's namespace, or a capability's such as `ecommerce.*`), once, with a title the owner
+reads after your plugin's name ("Shop: Order paid"). The payload an automation or a webhook receives is your event's
+fields plus `event_id` and `plugin`, which you cannot redefine. A disabled plugin's events leave the catalogue with it,
+and an event you emit without declaring it stays between the plugins.
+
 ### Serving your own pages (`route`)
 
 ```go
