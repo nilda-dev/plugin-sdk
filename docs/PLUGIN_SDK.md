@@ -805,6 +805,14 @@ Core asks the person before every call, whatever the class and whatever a connec
 and the app the person answers Core's card; over MCP the client asks them (elicitation); a connection that can do
 neither is refused. Keep it for these: an ability that asks every time for nothing teaches people to tap yes unread.
 
+**The same act on an admin screen asks too (v0.41.0).** The assistant can press a list page's buttons, save its forms
+and change its settings (Core's generic admin tools), so a Refund button is a second door to what `refund_order`
+does. Mark such a button `RowAction.AlwaysAsk`, such a form `PageForm.AlwaysAsk` and such a setting
+`SettingField.AlwaysAsk` (`"always_ask": true` in plugin.json): Core asks the person before the assistant presses or
+saves it, whatever a connector was granted; a person's own press in the panel is not asked twice. And
+`CallOf(ctx).ViaAssistant` says when the assistant asked for a hook call, so your own limits (a daily refund count,
+say) hold on the screen's door as they do on the ability's.
+
 **Declare the truest `Class`, not the most convenient one.** The class is what Core's guardrails run on:
 each connector has a risk ceiling the owner sets, and an ability above it is refused before your plugin is
 ever reached. A lower class does not make your action safer — it makes it reachable by connectors the
@@ -836,8 +844,8 @@ Editor who holds `content.edit` and nothing of yours is refused, and the site's 
 action at all. You declare nothing for this: it is the same list your admin screens use, so a button your
 screen refuses someone is an action the chat refuses them too. What you are NOT told is who that person was:
 the call carries the hook's name, its input and what `nilda.CallOf(ctx)` reads — the request's id, and for a
-call relayed by Core's service desk the contract, the asking plugin and an idempotency key — and nothing about
-the person (a limit Core records in its known issues).
+call relayed by Core's service desk the contract, the asking plugin and an idempotency key, and whether the
+assistant asked (`ViaAssistant`, v0.41.0) — and nothing about the person (a limit Core records in its known issues).
 
 `InputSchema` is required and must be a JSON Schema **object** — an agent that cannot see the shape of
 your input will call you with the wrong thing. `ObjectSchema` builds one so you do not hand-write JSON.

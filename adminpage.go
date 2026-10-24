@@ -105,6 +105,9 @@ type SettingField struct {
 	// the owner is not reading while looking at the box.
 	Placeholder string `json:"placeholder,omitempty"`
 	Help        string `json:"help,omitempty"`
+	// AlwaysAsk makes the assistant ask the person before it saves a change to this field, whatever a connector was
+	// granted (v0.41.0) — for a setting that sends the site's data somewhere, such as where order alerts are mailed.
+	AlwaysAsk bool `json:"always_ask,omitempty"`
 }
 
 // AdminPage is one page inside your plugin's section of the sidebar.
@@ -447,6 +450,10 @@ type RowAction struct {
 	// not fit is the owner's only way to find out. It is a convenience of the screen, not a lock: the hook still
 	// checks the row, because a press can arrive from a row that changed a second ago, or from the assistant.
 	ShownWhen *RowCondition `json:"shown_when,omitempty"`
+	// AlwaysAsk makes the assistant ask the person before every press of this button, whatever a connector was
+	// granted (v0.41.0) — for a button that moves money or lets data out, as the ability that does the same is
+	// declared (Ability.AlwaysAsk). A person's own press in the panel is not asked twice: Confirm already asks them.
+	AlwaysAsk bool `json:"always_ask,omitempty"`
 }
 
 // RowCondition is a test on one cell of a row. Column is a column of the page's table; a null cell reads as the

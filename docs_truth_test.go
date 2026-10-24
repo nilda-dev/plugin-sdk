@@ -174,7 +174,8 @@ func TestAKeyHoldsAcrossARestartOnlyUnderTheSameScopes(t *testing.T) {
 
 // TestTheGuideSaysAnAbilityIsNotToldWhoAsked holds the other half of C10 (Core's 2026-09-24 whole-plan review,
 // I-8): the call carries the hook's name, its input and CallOf's context — a request id, and for a service-desk
-// call the contract, the asking PLUGIN and an idempotency key — and nothing about the person. The wire's own shape:
+// call the contract, the asking PLUGIN and an idempotency key, and whether the assistant asked (v0.41.0) — and nothing
+// about the person. The wire's own shape:
 // a field added to carry the person turns this red until the sentence is rewritten.
 func TestTheGuideSaysAnAbilityIsNotToldWhoAsked(t *testing.T) {
 	var fields []string
@@ -184,7 +185,7 @@ func TestTheGuideSaysAnAbilityIsNotToldWhoAsked(t *testing.T) {
 			fields = append(fields, f.Name)
 		}
 	}
-	if strings.Join(fields, ",") != "Hook,Payload,RequestId,Contract,IdempotencyKey,Caller" {
+	if strings.Join(fields, ",") != "Hook,Payload,RequestId,Contract,IdempotencyKey,Caller,ViaAssistant" {
 		t.Fatalf("contract.HookRequest carries %v now, not only the hook and its input — re-read the guide's "+
 			"\"What you are NOT told is who that person was\"", fields)
 	}
@@ -193,8 +194,10 @@ func TestTheGuideSaysAnAbilityIsNotToldWhoAsked(t *testing.T) {
 	hostGo := coreSource(t, "internal", "plugin", "host.go")
 	for _, want := range []string{
 		"return h.Call(ctx, key, AbilityHookPrefix+name, args)",
-		// The request id rides it too (PC6): the REQUEST that led here, never the person.
-		"handle.Plugin.HandleHook(callCtx, &contract.HookRequest{Hook: hook, Payload: payload,\n\t\tRequestId: logger.RequestIDFromContext(ctx)})",
+		// The request id rides it too (PC6): the REQUEST that led here, never the person; and whether the assistant
+		// asked (v0.41.0), a yes or no, never who.
+		"handle.Plugin.HandleHook(callCtx, &contract.HookRequest{Hook: hook, Payload: payload,",
+		"RequestId: logger.RequestIDFromContext(ctx)",
 	} {
 		if !strings.Contains(hostGo, want) {
 			t.Errorf("core's host.go no longer has %q — re-read the guide's \"What you are NOT told is who that person was\"", want)
@@ -205,8 +208,8 @@ func TestTheGuideSaysAnAbilityIsNotToldWhoAsked(t *testing.T) {
 	}
 	if doc := strings.Join(strings.Fields(readText(t, "docs/PLUGIN_SDK.md")), " "); !strings.Contains(doc,
 		"What you are NOT told is who that person was: the call carries the hook's name, its input and what `nilda.CallOf(ctx)` reads — "+
-			"the request's id, and for a call relayed by Core's service desk the contract, the asking plugin and an idempotency key — "+
-			"and nothing about the person") {
+			"the request's id, and for a call relayed by Core's service desk the contract, the asking plugin and an idempotency key, "+
+			"and whether the assistant asked (`ViaAssistant`, v0.41.0) — and nothing about the person") {
 		t.Error("the guide no longer says an ability is not told who asked, which contract.HookRequest makes true")
 	}
 }

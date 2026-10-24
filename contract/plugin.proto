@@ -194,6 +194,7 @@ message HookRequest {
   string contract = 4;        // a service-desk call's contract, e.g. "shipping.carrier/v1"; empty for Core's own hooks
   string idempotency_key = 5; // the caller's key for this operation: a call repeated with it must have the effect of one
   string caller = 6;          // a service-desk call's asking plugin, by key; empty when Core itself asked
+  bool via_assistant = 7;     // the site's assistant asked for this call, not a person's own press (v0.41.0)
 }
 
 message HookResponse {

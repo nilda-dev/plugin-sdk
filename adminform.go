@@ -64,6 +64,9 @@ type PageForm struct {
 	// Sections group the fields, in order. A form with none is one section.
 	Sections []FormSection `json:"sections,omitempty"`
 	Fields   []FormField   `json:"fields"`
+	// AlwaysAsk makes the assistant ask the person before every save of this form, whatever a connector was granted
+	// (v0.41.0) — for a form that moves money, such as one that issues a gift card.
+	AlwaysAsk bool `json:"always_ask,omitempty"`
 }
 
 // FormSection is one card of the form.

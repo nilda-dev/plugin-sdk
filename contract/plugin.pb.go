@@ -563,6 +563,7 @@ type HookRequest struct {
 	Contract       string `protobuf:"bytes,4,opt,name=contract,proto3" json:"contract,omitempty"`                                   // a service-desk call's contract, e.g. "shipping.carrier/v1"; empty for Core's own hooks
 	IdempotencyKey string `protobuf:"bytes,5,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"` // the caller's key for this operation: a call repeated with it must have the effect of one
 	Caller         string `protobuf:"bytes,6,opt,name=caller,proto3" json:"caller,omitempty"`                                       // a service-desk call's asking plugin, by key; empty when Core itself asked
+	ViaAssistant   bool   `protobuf:"varint,7,opt,name=via_assistant,json=viaAssistant,proto3" json:"via_assistant,omitempty"`      // the site's assistant asked for this call, not a person's own press (v0.41.0)
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -637,6 +638,13 @@ func (x *HookRequest) GetCaller() string {
 		return x.Caller
 	}
 	return ""
+}
+
+func (x *HookRequest) GetViaAssistant() bool {
+	if x != nil {
+		return x.ViaAssistant
+	}
+	return false
 }
 
 type HookResponse struct {
@@ -1633,7 +1641,7 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"always_ask\x18\a \x01(\bR\talwaysAsk\"2\n" +
 	"\bSchedule\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
-	"\x04cron\x18\x02 \x01(\tR\x04cron\"\xb7\x01\n" +
+	"\x04cron\x18\x02 \x01(\tR\x04cron\"\xdc\x01\n" +
 	"\vHookRequest\x12\x12\n" +
 	"\x04hook\x18\x01 \x01(\tR\x04hook\x12\x18\n" +
 	"\apayload\x18\x02 \x01(\fR\apayload\x12\x1d\n" +
@@ -1641,7 +1649,8 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"request_id\x18\x03 \x01(\tR\trequestId\x12\x1a\n" +
 	"\bcontract\x18\x04 \x01(\tR\bcontract\x12'\n" +
 	"\x0fidempotency_key\x18\x05 \x01(\tR\x0eidempotencyKey\x12\x16\n" +
-	"\x06caller\x18\x06 \x01(\tR\x06caller\"(\n" +
+	"\x06caller\x18\x06 \x01(\tR\x06caller\x12#\n" +
+	"\rvia_assistant\x18\a \x01(\bR\fviaAssistant\"(\n" +
 	"\fHookResponse\x12\x18\n" +
 	"\apayload\x18\x01 \x01(\fR\apayload\"\xb5\x01\n" +
 	"\fEventRequest\x12\x12\n" +

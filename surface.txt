@@ -449,6 +449,7 @@ field CallInfo.Caller string
 field CallInfo.Contract string
 field CallInfo.IdempotencyKey string
 field CallInfo.RequestID string
+field CallInfo.ViaAssistant bool
 field CarrierDescription.Name string json:name
 field CarrierDescription.Services []CarrierService json:services
 field CarrierRate.AmountMinor int64 json:amount_minor
@@ -887,6 +888,7 @@ field OffersRequest.OrderID string json:order_id
 field OffersRequest.Stage string json:stage
 field OffersRequest.SubtotalMinor int64 json:subtotal_minor
 field OffersResult.Offers []Offer json:offers
+field PageForm.AlwaysAsk bool json:always_ask
 field PageForm.Create bool json:create
 field PageForm.CreateLabel string json:create_label
 field PageForm.Edit bool json:edit
@@ -1160,6 +1162,7 @@ field ReportMetric.CurrencyKey string json:currency_key
 field ReportMetric.Format string json:format
 field ReportMetric.Key string json:key
 field ReportMetric.Label string json:label
+field RowAction.AlwaysAsk bool json:always_ask
 field RowAction.Confirm string json:confirm
 field RowAction.Key string json:key
 field RowAction.Label string json:label
@@ -1242,6 +1245,7 @@ field ServiceResult.Fallback string json:fallback
 field ServiceResult.Method string json:method
 field ServiceResult.Missed []ServiceMiss json:missed
 field ServiceResult.RequestID string json:request_id
+field SettingField.AlwaysAsk bool json:always_ask
 field SettingField.Choices []string json:choices
 field SettingField.Default any json:default
 field SettingField.Help string json:help

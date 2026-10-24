@@ -22,6 +22,10 @@ type CallInfo struct {
 	// IdempotencyKey is the caller's key for this operation: a call repeated with the same key must have the effect
 	// of one — the second label purchase, the second refund, must not happen.
 	IdempotencyKey string
+	// ViaAssistant is true when the site's assistant — the panel's chat, the app's, or a connected AI app — asked for
+	// this call rather than a person's own press (v0.41.0): hold the assistant to your own limits on every door it
+	// can reach, an admin screen's button as much as an ability.
+	ViaAssistant bool
 }
 
 // EventInfo is the CloudEvents 1.0 context of the event being handled (Core owner decision D13): the type and data
@@ -65,7 +69,7 @@ func EventOf(ctx context.Context) EventInfo {
 // withCall puts a hook request's call context where CallOf finds it.
 func withCall(ctx context.Context, req *contract.HookRequest) context.Context {
 	ci := CallInfo{RequestID: req.GetRequestId(), Contract: req.GetContract(), Caller: req.GetCaller(),
-		IdempotencyKey: req.GetIdempotencyKey()}
+		IdempotencyKey: req.GetIdempotencyKey(), ViaAssistant: req.GetViaAssistant()}
 	if ci == (CallInfo{}) {
 		return ctx
 	}
