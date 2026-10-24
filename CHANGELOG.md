@@ -7,7 +7,12 @@ here.
 How a release is cut (additive only, one tag per milestone, security and money fixes at once, an undated first
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
-## v0.40.0 — unreleased (the test host refuses a refund that would pay twice)
+## v0.40.0 — unreleased (an ability that always asks; the test host refuses a refund that would pay twice)
+
+- `Ability.AlwaysAsk` (and `always_ask` on the wire, `contract.Ability` field 7, and in plugin.json, which
+  `nildatest.ManifestAbilities` writes): Core asks the person before every call of such an ability, whatever a connector
+  was granted — for money moving and data leaving the site. Needs the Core release built on it; an older Core ignores
+  the field and gates the ability by its class as before. Additions only; `surface.txt` grows by 1.
 
 - `nildatest`'s payments refuse a refund while a chargeback on the session is open (409) and count a lost chargeback's
   amount as already given back (422 past the rest; one in another currency counts as the whole payment), as Core does

@@ -22,6 +22,8 @@ type manifestAbility struct {
 	Label       string `json:"label"`
 	Description string `json:"description"`
 	Class       string `json:"class"`
+	// AlwaysAsk: Core asks the person before every call (nilda.Ability.AlwaysAsk, v0.40.0).
+	AlwaysAsk bool `json:"always_ask,omitempty"`
 }
 
 // ManifestAbilities holds plugin.json's "abilities" to the abilities your Init returns.
@@ -43,7 +45,8 @@ func ManifestAbilities(t testing.TB, manifestPath string, abilities []nilda.Abil
 	t.Helper()
 	want := make([]manifestAbility, 0, len(abilities))
 	for _, a := range abilities {
-		want = append(want, manifestAbility{Name: a.Name, Label: a.Label, Description: a.Description, Class: string(a.Class)})
+		want = append(want, manifestAbility{Name: a.Name, Label: a.Label, Description: a.Description, Class: string(a.Class),
+			AlwaysAsk: a.AlwaysAsk})
 	}
 	raw, err := os.ReadFile(manifestPath)
 	if err != nil {

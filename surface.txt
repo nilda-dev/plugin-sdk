@@ -317,6 +317,7 @@ field APIError.Method string
 field APIError.Path string
 field APIError.RetryAfter time.Duration
 field APIError.Status int
+field Ability.AlwaysAsk bool
 field Ability.Class Class
 field Ability.Description string
 field Ability.InputSchema json.RawMessage

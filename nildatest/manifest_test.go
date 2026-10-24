@@ -115,3 +115,27 @@ func TestManifestVisitorToolsWritesThenHolds(t *testing.T) {
 		t.Fatal("a changed effect passed")
 	}
 }
+
+// An ALWAYS ASK ability is declared so in plugin.json too — Core offers only an ability declared exactly as Init returns
+// it, and the marketplace review reads which ones ask.
+func TestManifestAbilitiesWritesAlwaysAsk(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plugin.json")
+	if err := os.WriteFile(path, []byte(`{"key":"shop"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	list := []nilda.Ability{
+		{Name: "refund_order", Label: "Refund", Description: "Give the money back.", Class: nilda.ClassDestructive, AlwaysAsk: true},
+		{Name: "list_orders", Label: "Orders", Description: "List them.", Class: nilda.ClassRead},
+	}
+	t.Setenv(WriteManifestEnv, "1")
+	ManifestAbilities(t, path, list)
+	raw, _ := os.ReadFile(path)
+	if !strings.Contains(string(raw), `"always_ask": true`) || strings.Count(string(raw), "always_ask") != 1 {
+		t.Fatalf("the written manifest:\n%s", raw)
+	}
+	t.Setenv(WriteManifestEnv, "")
+	list[0].AlwaysAsk = false
+	if failed := run(t, path, list); failed == "" {
+		t.Error("a manifest that says always_ask while Init does not was accepted")
+	}
+}

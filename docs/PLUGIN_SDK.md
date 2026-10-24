@@ -797,6 +797,14 @@ steps: the first call answers with a preview — your plugin's name, the ability
 nothing; the person's yes runs exactly the arguments they saw. Your plugin is called once, after the yes, and never
 sees the confirmation token. `read`, `analyze` and `additive` run on the first call.
 
+**Money and data leaving the site always ask (`AlwaysAsk`, v0.40.0).** A connector the owner granted a risk level
+runs every ability at or below it without asking again — that is what the grant means. For the few actions no grant
+should answer — a refund, store credit, a gift card, marking an order paid, an export, a webhook to an outside
+address — set `AlwaysAsk: true` (and `"always_ask": true` in plugin.json; `nildatest.ManifestAbilities` writes it):
+Core asks the person before every call, whatever the class and whatever a connector was granted. In the panel's chat
+and the app the person answers Core's card; over MCP the client asks them (elicitation); a connection that can do
+neither is refused. Keep it for these: an ability that asks every time for nothing teaches people to tap yes unread.
+
 **Declare the truest `Class`, not the most convenient one.** The class is what Core's guardrails run on:
 each connector has a risk ceiling the owner sets, and an ability above it is refused before your plugin is
 ever reached. A lower class does not make your action safer — it makes it reachable by connectors the

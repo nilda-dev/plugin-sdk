@@ -88,6 +88,13 @@ type Ability struct {
 	InputSchema json.RawMessage
 	// ReadOnly is an advisory hint to MCP clients. It changes no gate; Class does that.
 	ReadOnly bool
+	// AlwaysAsk makes Core ask the person before EVERY call, whatever a connector was granted (v0.40.0): for an
+	// ability that moves money (a refund, store credit, a gift card, marking an order paid) or lets data out of the
+	// site (an export, a webhook to an outside address). In the panel's chat and the app the person answers Core's
+	// card; over MCP the client asks them (elicitation); a connection that can do neither is refused. A grant
+	// answers every other ability — this is for the few no setting should answer. Declare it in plugin.json too
+	// (nildatest.ManifestAbilities writes it).
+	AlwaysAsk bool
 	// Run executes the ability. Optional — leave it nil to handle the dispatch yourself in HandleHook,
 	// where the hook name is AbilityHook(Name).
 	//

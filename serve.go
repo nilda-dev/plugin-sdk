@@ -200,12 +200,7 @@ func (s *pluginServer) wire(res InitResult) (*contract.InitResponse, error) {
 	for _, sc := range res.Schedules {
 		out.Schedules = append(out.Schedules, &contract.Schedule{Name: sc.Name, Cron: sc.Cron})
 	}
-	for _, ab := range res.Abilities {
-		out.Abilities = append(out.Abilities, &contract.Ability{
-			Name: ab.Name, Label: ab.Label, Description: ab.Description,
-			Class: string(ab.Class), InputSchema: string(ab.InputSchema), ReadOnly: ab.ReadOnly,
-		})
-	}
+	out.Abilities = abilitiesToContract(res.Abilities)
 	// Remember the ones that brought their own Run so HandleHook can dispatch them without the author
 	// wiring anything: declaring an ability and then forgetting to route its hook is a plugin that
 	// advertises an action and fails every time an agent tries it.
@@ -344,6 +339,18 @@ func decodeSettings(raw []byte, key string) map[string]any {
 	if err := json.Unmarshal(raw, &out); err != nil {
 		newLogger(os.Stderr, key).Warn("this plugin's settings did not parse; starting with none", "error", err)
 		return map[string]any{}
+	}
+	return out
+}
+
+// abilitiesToContract is the abilities as the Init answer carries them to Core.
+func abilitiesToContract(list []Ability) []*contract.Ability {
+	out := make([]*contract.Ability, 0, len(list))
+	for _, ab := range list {
+		out = append(out, &contract.Ability{
+			Name: ab.Name, Label: ab.Label, Description: ab.Description,
+			Class: string(ab.Class), InputSchema: string(ab.InputSchema), ReadOnly: ab.ReadOnly, AlwaysAsk: ab.AlwaysAsk,
+		})
 	}
 	return out
 }

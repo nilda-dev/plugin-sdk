@@ -413,9 +413,11 @@ type Ability struct {
 	// Risk class, matching Core's agent guardrails: read | additive | write | publish | structural |
 	// destructive | access | infra. A class Core does not recognise is treated as the MOST restricted one,
 	// never the least — so a typo costs an owner one permission click, not an unguarded action.
-	Class         string `protobuf:"bytes,4,opt,name=class,proto3" json:"class,omitempty"`
-	InputSchema   string `protobuf:"bytes,5,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"` // JSON Schema object describing the arguments; required
-	ReadOnly      bool   `protobuf:"varint,6,opt,name=read_only,json=readOnly,proto3" json:"read_only,omitempty"`         // advisory MCP annotation; the gates are driven by `class`, not by this
+	Class       string `protobuf:"bytes,4,opt,name=class,proto3" json:"class,omitempty"`
+	InputSchema string `protobuf:"bytes,5,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"` // JSON Schema object describing the arguments; required
+	ReadOnly    bool   `protobuf:"varint,6,opt,name=read_only,json=readOnly,proto3" json:"read_only,omitempty"`         // advisory MCP annotation; the gates are driven by `class`, not by this
+	// Core asks the person before every call, whatever a connector was granted (v0.40.0): money moving, data leaving.
+	AlwaysAsk     bool `protobuf:"varint,7,opt,name=always_ask,json=alwaysAsk,proto3" json:"always_ask,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -488,6 +490,13 @@ func (x *Ability) GetInputSchema() string {
 func (x *Ability) GetReadOnly() bool {
 	if x != nil {
 		return x.ReadOnly
+	}
+	return false
+}
+
+func (x *Ability) GetAlwaysAsk() bool {
+	if x != nil {
+		return x.AlwaysAsk
 	}
 	return false
 }
@@ -1612,14 +1621,16 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x16\n" +
 	"\x06effect\x18\x03 \x01(\tR\x06effect\x12!\n" +
 	"\finput_schema\x18\x04 \x01(\tR\vinputSchema\x12\x14\n" +
-	"\x05paths\x18\x05 \x03(\tR\x05paths\"\xab\x01\n" +
+	"\x05paths\x18\x05 \x03(\tR\x05paths\"\xca\x01\n" +
 	"\aAbility\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12 \n" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x14\n" +
 	"\x05class\x18\x04 \x01(\tR\x05class\x12!\n" +
 	"\finput_schema\x18\x05 \x01(\tR\vinputSchema\x12\x1b\n" +
-	"\tread_only\x18\x06 \x01(\bR\breadOnly\"2\n" +
+	"\tread_only\x18\x06 \x01(\bR\breadOnly\x12\x1d\n" +
+	"\n" +
+	"always_ask\x18\a \x01(\bR\talwaysAsk\"2\n" +
 	"\bSchedule\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04cron\x18\x02 \x01(\tR\x04cron\"\xb7\x01\n" +

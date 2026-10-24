@@ -297,3 +297,25 @@ func declaredClasses(t *testing.T) []string {
 	}
 	return out
 }
+
+// ALWAYS ASK (v0.40.0, commerce DR-15): an ability that moves money or lets data out of the site is declared so, and the
+// flag reaches Core in the Init answer — Core then asks the person before every call, whatever a connector was granted.
+func TestAnAlwaysAskAbilityTravelsToCore(t *testing.T) {
+	out := abilitiesToContract([]Ability{
+		{Name: "refund_order", Label: "Refund", Description: "Give the money back.", Class: ClassDestructive, AlwaysAsk: true},
+		{Name: "list_orders", Label: "Orders", Description: "List them.", Class: ClassRead},
+	})
+	if len(out) != 2 || !out[0].GetAlwaysAsk() || out[1].GetAlwaysAsk() {
+		t.Fatalf("the Init answer's abilities: %+v", out)
+	}
+	if out[0].GetClass() != "destructive" || out[0].GetName() != "refund_order" {
+		t.Errorf("the rest of the declaration did not travel: %+v", out[0])
+	}
+	src, err := os.ReadFile("serve.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(src), "abilitiesToContract(res.Abilities)") {
+		t.Fatal("serve.go's Init no longer sends the abilities through abilitiesToContract")
+	}
+}

@@ -176,6 +176,8 @@ message Ability {
   string class = 4;
   string input_schema = 5; // JSON Schema object describing the arguments; required
   bool read_only = 6;      // advisory MCP annotation; the gates are driven by `class`, not by this
+  // Core asks the person before every call, whatever a connector was granted (v0.40.0): money moving, data leaving.
+  bool always_ask = 7;
 }
 
 message Schedule {
