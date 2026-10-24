@@ -1089,9 +1089,28 @@ func (p *Payments) refundFits(s *nilda.PaymentSession, amount int64) error {
 			committed += rf.AmountMinor
 		}
 	}
-	if committed+amount > s.AmountMinor {
-		return invalid("a refund of %d would take this payment's refunds to %d, past the %d paid",
-			amount, committed+amount, s.AmountMinor)
+	// What the payer's bank has taken or is taking back, as Core counts it (v0.40.0): an open chargeback refuses any
+	// refund, a lost one's amount is already given back — one in another currency counts as the whole payment.
+	var lost int64
+	for _, d := range p.disputes {
+		if d.Session != s.ID || d.Stage != nilda.DisputeChargeback {
+			continue
+		}
+		switch d.Status {
+		case nilda.DisputeNeedsResponse, nilda.DisputeUnderReview:
+			return &apiError{http.StatusConflict, "CONFLICT",
+				"the payer's bank is taking this payment back (an open chargeback), so a refund now could pay it twice"}
+		case nilda.DisputeLost:
+			if d.Currency != s.Currency {
+				lost += s.AmountMinor
+			} else {
+				lost += d.AmountMinor
+			}
+		}
+	}
+	if committed+lost+amount > s.AmountMinor {
+		return invalid("a refund of %d would take this payment's refunds to %d, past the %d paid less the %d a lost chargeback returned",
+			amount, committed+amount, s.AmountMinor, lost)
 	}
 	return nil
 }

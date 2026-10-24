@@ -243,3 +243,27 @@ func TestTheSiteAddressReachesThePlugin(t *testing.T) {
 		t.Fatalf("SiteURL = %q", core.SiteURL)
 	}
 }
+
+// As Core (v0.40.0): no refund while the payer's bank is taking the money back, and a lost chargeback's amount counts as
+// already given back — a refund beside either pays twice.
+func TestTheFakeRefusesARefundThatWouldPayTwice(t *testing.T) {
+	w, s := paidWorld(t) // 12.34 EUR
+	ctx := context.Background()
+	if _, err := w.gwAPI.ReportDispute(ctx, s.ID, report(nilda.DisputeNeedsResponse, nilda.DisputeChargeback, true)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.shopAPI.CreateRefund(ctx, "r1", s.ID, nilda.PaymentRefundParams{AmountMinor: 100}); httpStatus(t, err) != http.StatusConflict {
+		t.Fatalf("a refund beside an open chargeback: %v, want 409", err)
+	}
+	lost := report(nilda.DisputeLost, nilda.DisputeChargeback, false)
+	lost.AmountMinor = 400
+	if _, err := w.gwAPI.ReportDispute(ctx, s.ID, lost); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.shopAPI.CreateRefund(ctx, "r2", s.ID, nilda.PaymentRefundParams{AmountMinor: 835}); httpStatus(t, err) != http.StatusUnprocessableEntity {
+		t.Fatalf("a refund past what the lost chargeback left: %v, want 422", err)
+	}
+	if _, err := w.shopAPI.CreateRefund(ctx, "r3", s.ID, nilda.PaymentRefundParams{AmountMinor: 834}); err != nil {
+		t.Fatalf("the 8.34 left: %v", err)
+	}
+}

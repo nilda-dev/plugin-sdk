@@ -7,6 +7,12 @@ here.
 How a release is cut (additive only, one tag per milestone, security and money fixes at once, an undated first
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
+## v0.40.0 — unreleased (the test host refuses a refund that would pay twice)
+
+- `nildatest`'s payments refuse a refund while a chargeback on the session is open (409) and count a lost chargeback's
+  amount as already given back (422 past the rest; one in another currency counts as the whole payment), as Core does
+  since the release that keeps `PaymentSession.Instrument`. No new names; `surface.txt` does not change.
+
 ## v0.39.0 — 2026-10-24 (the ECB's euro rates, with exact cross rates; what a payment was paid with)
 
 - `Reference().ExchangeRates(ctx, at)` and `ExchangeRateSet` (`Day`, `PublishedAt`, `Rates`, `Source`, `FetchedAt`): the
