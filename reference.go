@@ -187,3 +187,23 @@ func (r *Reference) Seller(ctx context.Context) (Seller, error) {
 	}
 	return out.Data, nil
 }
+
+// PrivacyPolicy is whether this site publishes a privacy policy, and where (v0.42.0): Core's own written policy at
+// "/privacy", or a published page the owner wrote at the slug "privacy" (its own path). Published false and Path ""
+// when it has neither — a shop's "Ready to sell" check says so rather than guessing (GDPR Art. 13).
+type PrivacyPolicy struct {
+	Published bool   `json:"published"`
+	Path      string `json:"path"`
+}
+
+// PrivacyPolicy reads whether the site publishes a privacy policy. Needs the Core release built on it; an older Core
+// answers 404.
+func (r *Reference) PrivacyPolicy(ctx context.Context) (PrivacyPolicy, error) {
+	var out struct {
+		Data PrivacyPolicy `json:"data"`
+	}
+	if err := r.api.Get(ctx, "/reference/privacy-policy", nil, &out); err != nil {
+		return PrivacyPolicy{}, err
+	}
+	return out.Data, nil
+}

@@ -25,9 +25,12 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
   Enabled}`, `MethodsOn`, `Test`), `GET /payments/readiness`: "no gateway installed", "installed and switched off" and
   "none takes this currency" told apart. `nildatest` answers it, and `nildatest.Payments.SwitchGateway` switches a
   gateway off.
+- `Reference().PrivacyPolicy(ctx)` and `PrivacyPolicy` (`Published`, `Path`), `GET /reference/privacy-policy`: whether the
+  site publishes a privacy policy — Core's written one at `/privacy`, or a published page at the slug `privacy`.
+  `nildatest.NewReference` (`SetSeller`, `SetPrivacyPolicy`, `Core`) answers it and `Seller`.
 - Needs the Core release built on it; an older Core ignores `setup_page`, `recommends` and report `actions` and draws
-  link and action cells as text, and answers `Readiness` 404. Additions only; `surface.txt` grows by 43,
-  `nildatest/surface.txt` by 1.
+  link and action cells as text, and answers `Readiness` and `PrivacyPolicy` 404. Additions only; `surface.txt` grows by 47,
+  `nildatest/surface.txt` by 6.
 
 ## v0.41.0 — 2026-10-24 (an admin button, form or setting that always asks; Core says when the assistant asked)
 

@@ -48,6 +48,7 @@ func ManifestVisitorTools(testing.TB, string, []nilda.VisitorTool)
 func MobilePreview(testing.TB, string, string)
 func New(string, ...string) (*nilda.Core, *Host)
 func NewPayments() (*Payments)
+func NewReference() (*Reference)
 func NewSecrets() (*Secrets)
 func NewServices() (*Services)
 func NewStubCarrier(string, ...nilda.CarrierRate) (*StubCarrier)
@@ -90,6 +91,9 @@ method (*Payments) Secret(string, string) (string, bool)
 method (*Payments) Sessions() ([]nilda.PaymentSession)
 method (*Payments) SwitchGateway(string, bool)
 method (*Payments) Sync(context.Context, string) (error)
+method (*Reference) Core(string, ...string) (*nilda.Core, *Host, *httptest.Server)
+method (*Reference) SetPrivacyPolicy(nilda.PrivacyPolicy)
+method (*Reference) SetSeller(nilda.Seller)
 method (*Secrets) Core(string, ...string) (*nilda.Core, *Host, *httptest.Server)
 method (*Secrets) Get(string, string) (string, bool)
 method (*Secrets) Names(string) ([]string)
@@ -118,6 +122,7 @@ type Email
 type Event
 type Host
 type Payments
+type Reference
 type Revocation
 type Secrets
 type ServiceCallLog

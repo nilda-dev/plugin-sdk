@@ -1134,6 +1134,8 @@ field PrivacyKept.Fields []string json:fields
 field PrivacyKept.ID string json:id
 field PrivacyKept.Kind string json:kind
 field PrivacyKept.Note string json:note
+field PrivacyPolicy.Path string json:path
+field PrivacyPolicy.Published bool json:published
 field PrivacyRecord.Data map[string]any json:data
 field PrivacyRecord.Email string json:email
 field PrivacyRecord.ID string json:id
@@ -1641,6 +1643,7 @@ method (*Payments) ReverseRefund(context.Context, string, PaymentRejection) (Pay
 method (*Payments) SetSecret(context.Context, string, string) (error)
 method (*Reference) EUVATRates(context.Context, time.Time) (EUVATRateSet, error)
 method (*Reference) ExchangeRates(context.Context, time.Time) (ExchangeRateSet, error)
+method (*Reference) PrivacyPolicy(context.Context) (PrivacyPolicy, error)
 method (*Reference) Seller(context.Context) (Seller, error)
 method (*Reference) TaxTable(context.Context, time.Time) (TaxTable, error)
 method (*Secrets) Delete(context.Context, string) (bool, error)
@@ -1949,6 +1952,7 @@ type PrivacyErasure
 type PrivacyExport
 type PrivacyHeld
 type PrivacyKept
+type PrivacyPolicy
 type PrivacyRecord
 type PrivacyRequest
 type Quote

@@ -1041,6 +1041,11 @@ register, VAT ID, contact and address — read from its imprint, the supplier an
 Art. 226(5)). Read it when the invoice is made and do not keep a copy, so an invoice and the published imprint never
 disagree; a field the owner left empty is "", and a shop says what is missing rather than invoicing without it.
 
+**The privacy policy** (v0.42.0). `core.API().Reference().PrivacyPolicy(ctx)` returns a `PrivacyPolicy`: `published`
+and `path` — Core's own written policy at `/privacy`, or a published page at the slug `privacy` — or `published: false`
+with no path when the site has neither. `nildatest.NewReference()` answers it and `Seller` with what a test sets
+(`SetPrivacyPolicy`, `SetSeller`).
+
 ### Your own section of the admin (`admin_page`)
 
 Declare it in `plugin.json`:
