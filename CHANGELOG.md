@@ -7,7 +7,7 @@ here.
 How a release is cut (additive only, one tag per milestone, security and money fixes at once, an undated first
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
-## v0.42.0 — unreleased (report rows that link and act; a setup page and what goes well with a plugin; why a site cannot take a payment yet)
+## v0.42.0 — 2026-10-24 (report rows that link and act; a setup page and what goes well with a plugin; why a site cannot take a payment yet; whether a site publishes a privacy policy)
 
 - `ColumnLink` (`"link"`, a `ReportLink` cell: `{label, page}` an own declared page, `{label, screen}` one of
   `ReportScreens()`'s Core screens, `{label, install}` one of the manifest's `recommends`) and `ColumnAction`
