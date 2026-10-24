@@ -187,3 +187,25 @@ func TestTheManifestRulesTheDocsNameAreCores(t *testing.T) {
 		}
 	}
 }
+
+// v0.43.0 (Core's M3 "The mail door"): the bounds the guide gives a plugin's "email_templates" are the ones Core's
+// validator and mail store hold it to.
+func TestTheMailTemplateBoundsTheDocsNameAreCores(t *testing.T) {
+	schema := coreSource(t, "internal", "plugin", "schema_emailtemplates.go")
+	check := coreSource(t, "internal", "email", "check.go")
+	for _, c := range []struct{ src, core, doc string }{
+		{schema, "maxEmailTemplates = 64", "at most 64 templates"},
+		{schema, "maxEmailVariables = 64", "at most 64 variables a template"},
+		{check, "MaxSubjectRunes = 200", "a subject at most 200 characters"},
+		{check, "MaxBodyBytes    = 32 << 10", "a text or HTML part at most 32 KB"},
+		{schema, "`^[a-z][a-z0-9_]{0,47}$`", "lowercase letters, digits and underscores, at most 48 characters"},
+	} {
+		doc := strings.Join(strings.Fields(readText(t, "docs/PLUGIN_SDK.md")), " ")
+		if !strings.Contains(c.src, c.core) {
+			t.Errorf("core no longer says %q — re-read the guide's mail template bounds", c.core)
+		}
+		if !strings.Contains(doc, c.doc) {
+			t.Errorf("PLUGIN_SDK.md does not say %q, which is Core's bound", c.doc)
+		}
+	}
+}

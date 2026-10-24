@@ -952,6 +952,63 @@ will retry. In tests, set `host.EmailRefusal` to `nildatest.MailBlockedError()` 
 and the fake refuses exactly as Core does, recording nothing. Needs the Core release built on it; an older Core answers a
 refusal as a plain error, and `MailDeferred` reads the per-plugin rate limit either way.
 
+### Mail the owner can edit (`email_templates`, v0.43.0)
+
+A mail your plugin assembles from strings is a mail the site's owner cannot read before a buyer does, cannot change,
+cannot switch off and never sees in the site's look. Declare each mail you send in plugin.json instead, and Core keeps
+it in the same store as its own mail — the Email screen and the assistant edit it — and sends it in the site's layout:
+
+```json
+"email_templates": [
+  {
+    "key": "order_confirmation",
+    "recipient": "person",
+    "lane": "transactional",
+    "required": true,
+    "title": "Order confirmation",
+    "description": "Sent to the buyer when an order is placed.",
+    "variables": [
+      {"name": "order_number", "required": true, "sample": "1042"},
+      {"name": "lines", "kind": "list"},
+      {"name": "contract", "kind": "html", "required": true}
+    ],
+    "defaults": {
+      "en": {"subject": "Order {{ order_number }}",
+             "text": "Thank you for order {{ order_number }}.\n{% for line in lines %}{{ line.qty }} × {{ line.name }}\n{% endfor %}\n{{ contract }}",
+             "html": "<p>Thank you for order {{ order_number }}.</p>{{ contract }}"},
+      "de": {"subject": "Bestellung {{ order_number }}", "text": "Danke für Ihre Bestellung {{ order_number }}.\n{{ contract }}"}
+    }
+  }
+]
+```
+
+Each entry is an `EmailTemplateDecl`; its `variables` are `EmailVariable`s and each language's words an
+`EmailTemplateText`. Needs the `email` capability. Core stores the key as `<plugin key>.<key>`, so it is yours alone
+— lowercase letters, digits and underscores, at most 48 characters, and never reused for another mail once
+published (a key a newer version drops is deleted, or kept as retired when the owner had edited it, and a later
+version naming it again is refused). Bounds: at most 64 templates, at most 64 variables a template, a subject at
+most 200 characters, a text or HTML part at most 32 KB, and English (`en`) in every template — the language the
+others fall back to.
+
+- **`recipient`** is `person` (the default: the buyer, the member), `owner` (an alert to the site's owner) or `other`;
+  the Email screen groups by it.
+- **`lane`** is `transactional` (the default: a receipt, the urgent lane, no unsubscribe line) or `marketing` (the
+  unsubscribe line, held back from anybody who unsubscribed). The lane is the template's, never the sender's.
+- **`required`** keeps the owner from switching the mail off — a legal acknowledgement, a withdrawal confirmation.
+  A marketing mail is never required.
+- **The words are Core's Liquid**: `{{ order_number }}`, `{{ line.name }}`, `{% for line in lines %}…{% endfor %}`,
+  `{% if note %}…{% endif %}`. Every value is escaped where it is printed. A default may read only the declared
+  variables and must read every `required` one; an owner's edit that drops a required variable is refused in words.
+- **`html` is optional.** Without it Core writes the text as paragraphs (a blank line starts one, a line break stays,
+  an `https://` address becomes a link) inside the site's mail layout, with the subject as its headline — the right
+  shape for an owner alert. A variable of kind `html` is passed as `{"html": "…", "text": "…"}`: the HTML part prints
+  the `html` half, kept to Core's mail allow-list (paragraphs, headings, lists, tables, links, images), and the text
+  part and the subject print the `text` half.
+- **A button** is `<a class="nilda-button" href="{{ pay_link }}">Pay now</a>` in the HTML part: the layout draws it in
+  the site's accent colour, full width on a phone, with its address written out under it.
+- **An update** refreshes every language's default; the live words follow only while the owner has not edited them.
+  Uninstalling keeps the templates while the plugin's data is kept, and purging the data removes them.
+
 ### Serving your own pages (`route`)
 
 ```go

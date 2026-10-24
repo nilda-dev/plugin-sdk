@@ -108,6 +108,18 @@ const DisputeLost
 const DisputeNeedsResponse
 const DisputeUnderReview
 const DisputeWon
+const EmailDate
+const EmailHTML
+const EmailList
+const EmailMarketing
+const EmailNumber
+const EmailObject
+const EmailText
+const EmailToOther
+const EmailToOwner
+const EmailToPerson
+const EmailTransactional
+const EmailURL
 const EventCommerceCatalogChanged
 const EventCommerceSKURenamed
 const FieldBoolean
@@ -754,6 +766,21 @@ field EUVATRateSet.FetchedAt time.Time json:fetched_at
 field EUVATRateSet.Rates []EUVATRate json:rates
 field EUVATRateSet.SituationOn string json:situation_on
 field EUVATRateSet.Source string json:source
+field EmailTemplateDecl.Defaults map[string]EmailTemplateText json:defaults
+field EmailTemplateDecl.Description string json:description
+field EmailTemplateDecl.Key string json:key
+field EmailTemplateDecl.Lane string json:lane
+field EmailTemplateDecl.Recipient string json:recipient
+field EmailTemplateDecl.Required bool json:required
+field EmailTemplateDecl.Title string json:title
+field EmailTemplateDecl.Variables []EmailVariable json:variables
+field EmailTemplateText.HTML string json:html
+field EmailTemplateText.Subject string json:subject
+field EmailTemplateText.Text string json:text
+field EmailVariable.Kind string json:kind
+field EmailVariable.Name string json:name
+field EmailVariable.Required bool json:required
+field EmailVariable.Sample any json:sample
 field EventInfo.DataSchema string
 field EventInfo.ID string
 field EventInfo.Source string
@@ -1864,6 +1891,9 @@ type DocumentsRequest
 type DocumentsResult
 type EUVATRate
 type EUVATRateSet
+type EmailTemplateDecl
+type EmailTemplateText
+type EmailVariable
 type EventInfo
 type ExchangeRateSet
 type FieldChoice
