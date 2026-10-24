@@ -61,7 +61,7 @@ part of the Go API — see below.
 
 **Covered by the promise from v1.0.** Everything in `surface.txt`, except what the next paragraph names.
 That file is generated from the AST and checked on every run: exported funcs, types, consts, vars, and the
-exported methods and fields of exported types — 2055 entries today. Adding to it is a normal change and
+exported methods and fields of exported types — 2065 entries today. Adding to it is a normal change and
 stays cheap. Removing from it after v1.0 is a breaking change for somebody, and the guard says so in those
 words.
 
@@ -78,11 +78,11 @@ words.
 - **`RegisterContractForTest`** — plumbing for a test of a contract this module does not ship yet. Core never reads
   it.
 
-**`nildatest` has a ledger of its own**, `nildatest/surface.txt` (134 entries), checked on every run the same
-way. The promise covers it on the same terms as the SDK's, with the same exception: seven of its `*Host`
-methods — `KVGet`, `KVSet`, `KVDel`, `KVIncr`, `EmitEvent`, `SendEmail`, `RevokeIdentity` — name `contract.*`
+**`nildatest` has a ledger of its own**, `nildatest/surface.txt` (142 entries), checked on every run the same
+way. The promise covers it on the same terms as the SDK's, with the same exception: eight of its `*Host`
+methods — `KVGet`, `KVSet`, `KVDel`, `KVIncr`, `EmitEvent`, `SendEmail`, `SendTemplatedEmail`, `RevokeIdentity` — name `contract.*`
 and `grpc.*` types, because a `*Host` IS the fake `HostService` client `NewCoreForTest` is handed. Those
-seven move with `ProtocolVersion`, like `contract/`. A test reaches them through the `*nilda.Core` that
+eight move with `ProtocolVersion`, like `contract/`. A test reaches them through the `*nilda.Core` that
 `nildatest.New` returns — `core.KVSet`, `core.Emit`, `core.SendEmail` — and never needs to call them.
 - **`_examples/`** — not a package of this module (the underscore keeps the Go tool out), so it is not
   importable and not frozen. It changes whenever the thing it teaches changes. CI still builds and runs it.

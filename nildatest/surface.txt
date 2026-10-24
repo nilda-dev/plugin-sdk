@@ -7,8 +7,12 @@ field Delivery.Hook string
 field Delivery.Refund nilda.PaymentRefund
 field Delivery.Session nilda.PaymentSession
 field Email.Body string
+field Email.Data map[string]any
 field Email.HTML string
+field Email.Key string
 field Email.Lang string
+field Email.Locale string
+field Email.Ref string
 field Email.Subject string
 field Email.To string
 field Email.Transactional bool
@@ -44,6 +48,7 @@ func CheckPersonalDataHolder(context.Context, nilda.PersonalDataHolder, string) 
 func MailBlockedError() (error)
 func MailDeferredError(time.Duration) (error)
 func ManifestAbilities(testing.TB, string, []nilda.Ability)
+func ManifestEmailTemplates(testing.TB, string) ([]nilda.EmailTemplateDecl)
 func ManifestVisitorTools(testing.TB, string, []nilda.VisitorTool)
 func MobilePreview(testing.TB, string, string)
 func New(string, ...string) (*nilda.Core, *Host)
@@ -70,7 +75,10 @@ method (*Host) Revocations() ([]Revocation)
 method (*Host) Revoke(string)
 method (*Host) RevokeIdentity(context.Context, *contract.RevokeIdentityRequest, ...grpc.CallOption) (*contract.RevokeIdentityResponse, error)
 method (*Host) SendEmail(context.Context, *contract.SendEmailRequest, ...grpc.CallOption) (*contract.SendEmailResponse, error)
+method (*Host) SendTemplatedEmail(context.Context, *contract.SendTemplatedEmailRequest, ...grpc.CallOption) (*contract.SendTemplatedEmailResponse, error)
 method (*Host) SetSessionsPerIdentity(int)
+method (*Host) SwitchOffTemplate(string)
+method (*Host) UseEmailTemplates([]nilda.EmailTemplateDecl)
 method (*Payments) ChargeSaved(context.Context, string, nilda.PaymentChargeParams) (nilda.PaymentSession, error)
 method (*Payments) Consumer(string, nilda.PaymentConsumer)
 method (*Payments) Core(string, ...string) (*nilda.Core, *Host, *httptest.Server)

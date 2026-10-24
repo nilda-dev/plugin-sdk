@@ -27,7 +27,7 @@
 // versions:
 // 	protoc-gen-go v1.36.8
 // 	protoc        v5.29.3
-// source: contract/plugin.proto
+// source: plugin.proto
 
 package contract
 
@@ -110,7 +110,7 @@ type InitRequest struct {
 
 func (x *InitRequest) Reset() {
 	*x = InitRequest{}
-	mi := &file_contract_plugin_proto_msgTypes[0]
+	mi := &file_plugin_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -122,7 +122,7 @@ func (x *InitRequest) String() string {
 func (*InitRequest) ProtoMessage() {}
 
 func (x *InitRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[0]
+	mi := &file_plugin_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -135,7 +135,7 @@ func (x *InitRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InitRequest.ProtoReflect.Descriptor instead.
 func (*InitRequest) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{0}
+	return file_plugin_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *InitRequest) GetPluginKey() string {
@@ -256,7 +256,7 @@ type InitResponse struct {
 
 func (x *InitResponse) Reset() {
 	*x = InitResponse{}
-	mi := &file_contract_plugin_proto_msgTypes[1]
+	mi := &file_plugin_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -268,7 +268,7 @@ func (x *InitResponse) String() string {
 func (*InitResponse) ProtoMessage() {}
 
 func (x *InitResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[1]
+	mi := &file_plugin_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -281,7 +281,7 @@ func (x *InitResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InitResponse.ProtoReflect.Descriptor instead.
 func (*InitResponse) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{1}
+	return file_plugin_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *InitResponse) GetRouteAddr() string {
@@ -341,7 +341,7 @@ type VisitorTool struct {
 
 func (x *VisitorTool) Reset() {
 	*x = VisitorTool{}
-	mi := &file_contract_plugin_proto_msgTypes[2]
+	mi := &file_plugin_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -353,7 +353,7 @@ func (x *VisitorTool) String() string {
 func (*VisitorTool) ProtoMessage() {}
 
 func (x *VisitorTool) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[2]
+	mi := &file_plugin_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -366,7 +366,7 @@ func (x *VisitorTool) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VisitorTool.ProtoReflect.Descriptor instead.
 func (*VisitorTool) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{2}
+	return file_plugin_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *VisitorTool) GetName() string {
@@ -424,7 +424,7 @@ type Ability struct {
 
 func (x *Ability) Reset() {
 	*x = Ability{}
-	mi := &file_contract_plugin_proto_msgTypes[3]
+	mi := &file_plugin_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -436,7 +436,7 @@ func (x *Ability) String() string {
 func (*Ability) ProtoMessage() {}
 
 func (x *Ability) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[3]
+	mi := &file_plugin_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -449,7 +449,7 @@ func (x *Ability) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Ability.ProtoReflect.Descriptor instead.
 func (*Ability) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{3}
+	return file_plugin_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Ability) GetName() string {
@@ -511,7 +511,7 @@ type Schedule struct {
 
 func (x *Schedule) Reset() {
 	*x = Schedule{}
-	mi := &file_contract_plugin_proto_msgTypes[4]
+	mi := &file_plugin_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -523,7 +523,7 @@ func (x *Schedule) String() string {
 func (*Schedule) ProtoMessage() {}
 
 func (x *Schedule) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[4]
+	mi := &file_plugin_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -536,7 +536,7 @@ func (x *Schedule) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Schedule.ProtoReflect.Descriptor instead.
 func (*Schedule) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{4}
+	return file_plugin_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Schedule) GetName() string {
@@ -570,7 +570,7 @@ type HookRequest struct {
 
 func (x *HookRequest) Reset() {
 	*x = HookRequest{}
-	mi := &file_contract_plugin_proto_msgTypes[5]
+	mi := &file_plugin_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -582,7 +582,7 @@ func (x *HookRequest) String() string {
 func (*HookRequest) ProtoMessage() {}
 
 func (x *HookRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[5]
+	mi := &file_plugin_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -595,7 +595,7 @@ func (x *HookRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HookRequest.ProtoReflect.Descriptor instead.
 func (*HookRequest) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{5}
+	return file_plugin_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *HookRequest) GetHook() string {
@@ -656,7 +656,7 @@ type HookResponse struct {
 
 func (x *HookResponse) Reset() {
 	*x = HookResponse{}
-	mi := &file_contract_plugin_proto_msgTypes[6]
+	mi := &file_plugin_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -668,7 +668,7 @@ func (x *HookResponse) String() string {
 func (*HookResponse) ProtoMessage() {}
 
 func (x *HookResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[6]
+	mi := &file_plugin_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -681,7 +681,7 @@ func (x *HookResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HookResponse.ProtoReflect.Descriptor instead.
 func (*HookResponse) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{6}
+	return file_plugin_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *HookResponse) GetPayload() []byte {
@@ -709,7 +709,7 @@ type EventRequest struct {
 
 func (x *EventRequest) Reset() {
 	*x = EventRequest{}
-	mi := &file_contract_plugin_proto_msgTypes[7]
+	mi := &file_plugin_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -721,7 +721,7 @@ func (x *EventRequest) String() string {
 func (*EventRequest) ProtoMessage() {}
 
 func (x *EventRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[7]
+	mi := &file_plugin_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -734,7 +734,7 @@ func (x *EventRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EventRequest.ProtoReflect.Descriptor instead.
 func (*EventRequest) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{7}
+	return file_plugin_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *EventRequest) GetType() string {
@@ -794,7 +794,7 @@ type EventResponse struct {
 
 func (x *EventResponse) Reset() {
 	*x = EventResponse{}
-	mi := &file_contract_plugin_proto_msgTypes[8]
+	mi := &file_plugin_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -806,7 +806,7 @@ func (x *EventResponse) String() string {
 func (*EventResponse) ProtoMessage() {}
 
 func (x *EventResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[8]
+	mi := &file_plugin_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -819,7 +819,7 @@ func (x *EventResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EventResponse.ProtoReflect.Descriptor instead.
 func (*EventResponse) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{8}
+	return file_plugin_proto_rawDescGZIP(), []int{8}
 }
 
 type HealthRequest struct {
@@ -830,7 +830,7 @@ type HealthRequest struct {
 
 func (x *HealthRequest) Reset() {
 	*x = HealthRequest{}
-	mi := &file_contract_plugin_proto_msgTypes[9]
+	mi := &file_plugin_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -842,7 +842,7 @@ func (x *HealthRequest) String() string {
 func (*HealthRequest) ProtoMessage() {}
 
 func (x *HealthRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[9]
+	mi := &file_plugin_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -855,7 +855,7 @@ func (x *HealthRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthRequest.ProtoReflect.Descriptor instead.
 func (*HealthRequest) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{9}
+	return file_plugin_proto_rawDescGZIP(), []int{9}
 }
 
 type HealthResponse struct {
@@ -867,7 +867,7 @@ type HealthResponse struct {
 
 func (x *HealthResponse) Reset() {
 	*x = HealthResponse{}
-	mi := &file_contract_plugin_proto_msgTypes[10]
+	mi := &file_plugin_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -879,7 +879,7 @@ func (x *HealthResponse) String() string {
 func (*HealthResponse) ProtoMessage() {}
 
 func (x *HealthResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[10]
+	mi := &file_plugin_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -892,7 +892,7 @@ func (x *HealthResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthResponse.ProtoReflect.Descriptor instead.
 func (*HealthResponse) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{10}
+	return file_plugin_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *HealthResponse) GetOk() bool {
@@ -917,7 +917,7 @@ type RevokeIdentityRequest struct {
 
 func (x *RevokeIdentityRequest) Reset() {
 	*x = RevokeIdentityRequest{}
-	mi := &file_contract_plugin_proto_msgTypes[11]
+	mi := &file_plugin_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -929,7 +929,7 @@ func (x *RevokeIdentityRequest) String() string {
 func (*RevokeIdentityRequest) ProtoMessage() {}
 
 func (x *RevokeIdentityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[11]
+	mi := &file_plugin_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -942,7 +942,7 @@ func (x *RevokeIdentityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeIdentityRequest.ProtoReflect.Descriptor instead.
 func (*RevokeIdentityRequest) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{11}
+	return file_plugin_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *RevokeIdentityRequest) GetProvider() string {
@@ -977,7 +977,7 @@ type RevokeIdentityResponse struct {
 
 func (x *RevokeIdentityResponse) Reset() {
 	*x = RevokeIdentityResponse{}
-	mi := &file_contract_plugin_proto_msgTypes[12]
+	mi := &file_plugin_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -989,7 +989,7 @@ func (x *RevokeIdentityResponse) String() string {
 func (*RevokeIdentityResponse) ProtoMessage() {}
 
 func (x *RevokeIdentityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[12]
+	mi := &file_plugin_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1002,7 +1002,7 @@ func (x *RevokeIdentityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeIdentityResponse.ProtoReflect.Descriptor instead.
 func (*RevokeIdentityResponse) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{12}
+	return file_plugin_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *RevokeIdentityResponse) GetSessionsEnded() int32 {
@@ -1039,7 +1039,7 @@ type SendEmailRequest struct {
 
 func (x *SendEmailRequest) Reset() {
 	*x = SendEmailRequest{}
-	mi := &file_contract_plugin_proto_msgTypes[13]
+	mi := &file_plugin_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1051,7 +1051,7 @@ func (x *SendEmailRequest) String() string {
 func (*SendEmailRequest) ProtoMessage() {}
 
 func (x *SendEmailRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[13]
+	mi := &file_plugin_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1064,7 +1064,7 @@ func (x *SendEmailRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendEmailRequest.ProtoReflect.Descriptor instead.
 func (*SendEmailRequest) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{13}
+	return file_plugin_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *SendEmailRequest) GetTo() string {
@@ -1117,7 +1117,7 @@ type SendEmailResponse struct {
 
 func (x *SendEmailResponse) Reset() {
 	*x = SendEmailResponse{}
-	mi := &file_contract_plugin_proto_msgTypes[14]
+	mi := &file_plugin_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1129,7 +1129,7 @@ func (x *SendEmailResponse) String() string {
 func (*SendEmailResponse) ProtoMessage() {}
 
 func (x *SendEmailResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[14]
+	mi := &file_plugin_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1142,7 +1142,142 @@ func (x *SendEmailResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendEmailResponse.ProtoReflect.Descriptor instead.
 func (*SendEmailResponse) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{14}
+	return file_plugin_proto_rawDescGZIP(), []int{14}
+}
+
+type SendTemplatedEmailRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the template's key as the manifest declares it — never prefixed: Core adds the calling plugin's key.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	To  string `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
+	// locale is the recipient's language when the plugin knows it (the buyer's); empty lets Core choose — the
+	// recipient's own Core language, then the site's mail language, then English.
+	Locale string `protobuf:"bytes,3,opt,name=locale,proto3" json:"locale,omitempty"`
+	// data_json is a JSON object: the template's variables. A variable of kind html is {"html": "...", "text": "..."}.
+	DataJson []byte `protobuf:"bytes,4,opt,name=data_json,json=dataJson,proto3" json:"data_json,omitempty"`
+	// reply_to is where a reply goes when the owner set none on the template; empty is the sender's address.
+	ReplyTo string `protobuf:"bytes,5,opt,name=reply_to,json=replyTo,proto3" json:"reply_to,omitempty"`
+	// ref names what the mail is about ("order:1042"): the email log keeps it.
+	Ref string `protobuf:"bytes,6,opt,name=ref,proto3" json:"ref,omitempty"`
+	// idempotency_key: the same key within 24 hours sends once (a retried job does not mail twice).
+	IdempotencyKey string `protobuf:"bytes,7,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *SendTemplatedEmailRequest) Reset() {
+	*x = SendTemplatedEmailRequest{}
+	mi := &file_plugin_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SendTemplatedEmailRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SendTemplatedEmailRequest) ProtoMessage() {}
+
+func (x *SendTemplatedEmailRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SendTemplatedEmailRequest.ProtoReflect.Descriptor instead.
+func (*SendTemplatedEmailRequest) Descriptor() ([]byte, []int) {
+	return file_plugin_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *SendTemplatedEmailRequest) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *SendTemplatedEmailRequest) GetTo() string {
+	if x != nil {
+		return x.To
+	}
+	return ""
+}
+
+func (x *SendTemplatedEmailRequest) GetLocale() string {
+	if x != nil {
+		return x.Locale
+	}
+	return ""
+}
+
+func (x *SendTemplatedEmailRequest) GetDataJson() []byte {
+	if x != nil {
+		return x.DataJson
+	}
+	return nil
+}
+
+func (x *SendTemplatedEmailRequest) GetReplyTo() string {
+	if x != nil {
+		return x.ReplyTo
+	}
+	return ""
+}
+
+func (x *SendTemplatedEmailRequest) GetRef() string {
+	if x != nil {
+		return x.Ref
+	}
+	return ""
+}
+
+func (x *SendTemplatedEmailRequest) GetIdempotencyKey() string {
+	if x != nil {
+		return x.IdempotencyKey
+	}
+	return ""
+}
+
+type SendTemplatedEmailResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SendTemplatedEmailResponse) Reset() {
+	*x = SendTemplatedEmailResponse{}
+	mi := &file_plugin_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SendTemplatedEmailResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SendTemplatedEmailResponse) ProtoMessage() {}
+
+func (x *SendTemplatedEmailResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_plugin_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SendTemplatedEmailResponse.ProtoReflect.Descriptor instead.
+func (*SendTemplatedEmailResponse) Descriptor() ([]byte, []int) {
+	return file_plugin_proto_rawDescGZIP(), []int{16}
 }
 
 type KVGetRequest struct {
@@ -1154,7 +1289,7 @@ type KVGetRequest struct {
 
 func (x *KVGetRequest) Reset() {
 	*x = KVGetRequest{}
-	mi := &file_contract_plugin_proto_msgTypes[15]
+	mi := &file_plugin_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1166,7 +1301,7 @@ func (x *KVGetRequest) String() string {
 func (*KVGetRequest) ProtoMessage() {}
 
 func (x *KVGetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[15]
+	mi := &file_plugin_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1179,7 +1314,7 @@ func (x *KVGetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KVGetRequest.ProtoReflect.Descriptor instead.
 func (*KVGetRequest) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{15}
+	return file_plugin_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *KVGetRequest) GetKey() string {
@@ -1199,7 +1334,7 @@ type KVGetResponse struct {
 
 func (x *KVGetResponse) Reset() {
 	*x = KVGetResponse{}
-	mi := &file_contract_plugin_proto_msgTypes[16]
+	mi := &file_plugin_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1211,7 +1346,7 @@ func (x *KVGetResponse) String() string {
 func (*KVGetResponse) ProtoMessage() {}
 
 func (x *KVGetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[16]
+	mi := &file_plugin_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1224,7 +1359,7 @@ func (x *KVGetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KVGetResponse.ProtoReflect.Descriptor instead.
 func (*KVGetResponse) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{16}
+	return file_plugin_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *KVGetResponse) GetValue() string {
@@ -1252,7 +1387,7 @@ type KVSetRequest struct {
 
 func (x *KVSetRequest) Reset() {
 	*x = KVSetRequest{}
-	mi := &file_contract_plugin_proto_msgTypes[17]
+	mi := &file_plugin_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1264,7 +1399,7 @@ func (x *KVSetRequest) String() string {
 func (*KVSetRequest) ProtoMessage() {}
 
 func (x *KVSetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[17]
+	mi := &file_plugin_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1277,7 +1412,7 @@ func (x *KVSetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KVSetRequest.ProtoReflect.Descriptor instead.
 func (*KVSetRequest) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{17}
+	return file_plugin_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *KVSetRequest) GetKey() string {
@@ -1309,7 +1444,7 @@ type KVSetResponse struct {
 
 func (x *KVSetResponse) Reset() {
 	*x = KVSetResponse{}
-	mi := &file_contract_plugin_proto_msgTypes[18]
+	mi := &file_plugin_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1321,7 +1456,7 @@ func (x *KVSetResponse) String() string {
 func (*KVSetResponse) ProtoMessage() {}
 
 func (x *KVSetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[18]
+	mi := &file_plugin_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1334,7 +1469,7 @@ func (x *KVSetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KVSetResponse.ProtoReflect.Descriptor instead.
 func (*KVSetResponse) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{18}
+	return file_plugin_proto_rawDescGZIP(), []int{20}
 }
 
 type KVDelRequest struct {
@@ -1346,7 +1481,7 @@ type KVDelRequest struct {
 
 func (x *KVDelRequest) Reset() {
 	*x = KVDelRequest{}
-	mi := &file_contract_plugin_proto_msgTypes[19]
+	mi := &file_plugin_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1358,7 +1493,7 @@ func (x *KVDelRequest) String() string {
 func (*KVDelRequest) ProtoMessage() {}
 
 func (x *KVDelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[19]
+	mi := &file_plugin_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1371,7 +1506,7 @@ func (x *KVDelRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KVDelRequest.ProtoReflect.Descriptor instead.
 func (*KVDelRequest) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{19}
+	return file_plugin_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *KVDelRequest) GetKey() string {
@@ -1389,7 +1524,7 @@ type KVDelResponse struct {
 
 func (x *KVDelResponse) Reset() {
 	*x = KVDelResponse{}
-	mi := &file_contract_plugin_proto_msgTypes[20]
+	mi := &file_plugin_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1401,7 +1536,7 @@ func (x *KVDelResponse) String() string {
 func (*KVDelResponse) ProtoMessage() {}
 
 func (x *KVDelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[20]
+	mi := &file_plugin_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1414,7 +1549,7 @@ func (x *KVDelResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KVDelResponse.ProtoReflect.Descriptor instead.
 func (*KVDelResponse) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{20}
+	return file_plugin_proto_rawDescGZIP(), []int{22}
 }
 
 type KVIncrRequest struct {
@@ -1426,7 +1561,7 @@ type KVIncrRequest struct {
 
 func (x *KVIncrRequest) Reset() {
 	*x = KVIncrRequest{}
-	mi := &file_contract_plugin_proto_msgTypes[21]
+	mi := &file_plugin_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1438,7 +1573,7 @@ func (x *KVIncrRequest) String() string {
 func (*KVIncrRequest) ProtoMessage() {}
 
 func (x *KVIncrRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[21]
+	mi := &file_plugin_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1451,7 +1586,7 @@ func (x *KVIncrRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KVIncrRequest.ProtoReflect.Descriptor instead.
 func (*KVIncrRequest) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{21}
+	return file_plugin_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *KVIncrRequest) GetKey() string {
@@ -1470,7 +1605,7 @@ type KVIncrResponse struct {
 
 func (x *KVIncrResponse) Reset() {
 	*x = KVIncrResponse{}
-	mi := &file_contract_plugin_proto_msgTypes[22]
+	mi := &file_plugin_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1482,7 +1617,7 @@ func (x *KVIncrResponse) String() string {
 func (*KVIncrResponse) ProtoMessage() {}
 
 func (x *KVIncrResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[22]
+	mi := &file_plugin_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1495,7 +1630,7 @@ func (x *KVIncrResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use KVIncrResponse.ProtoReflect.Descriptor instead.
 func (*KVIncrResponse) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{22}
+	return file_plugin_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *KVIncrResponse) GetValue() int64 {
@@ -1515,7 +1650,7 @@ type EmitEventRequest struct {
 
 func (x *EmitEventRequest) Reset() {
 	*x = EmitEventRequest{}
-	mi := &file_contract_plugin_proto_msgTypes[23]
+	mi := &file_plugin_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1527,7 +1662,7 @@ func (x *EmitEventRequest) String() string {
 func (*EmitEventRequest) ProtoMessage() {}
 
 func (x *EmitEventRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[23]
+	mi := &file_plugin_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1540,7 +1675,7 @@ func (x *EmitEventRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmitEventRequest.ProtoReflect.Descriptor instead.
 func (*EmitEventRequest) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{23}
+	return file_plugin_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *EmitEventRequest) GetType() string {
@@ -1565,7 +1700,7 @@ type EmitEventResponse struct {
 
 func (x *EmitEventResponse) Reset() {
 	*x = EmitEventResponse{}
-	mi := &file_contract_plugin_proto_msgTypes[24]
+	mi := &file_plugin_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1577,7 +1712,7 @@ func (x *EmitEventResponse) String() string {
 func (*EmitEventResponse) ProtoMessage() {}
 
 func (x *EmitEventResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_contract_plugin_proto_msgTypes[24]
+	mi := &file_plugin_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1590,14 +1725,14 @@ func (x *EmitEventResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmitEventResponse.ProtoReflect.Descriptor instead.
 func (*EmitEventResponse) Descriptor() ([]byte, []int) {
-	return file_contract_plugin_proto_rawDescGZIP(), []int{24}
+	return file_plugin_proto_rawDescGZIP(), []int{26}
 }
 
-var File_contract_plugin_proto protoreflect.FileDescriptor
+var File_plugin_proto protoreflect.FileDescriptor
 
-const file_contract_plugin_proto_rawDesc = "" +
+const file_plugin_proto_rawDesc = "" +
 	"\n" +
-	"\x15contract/plugin.proto\x12\x0fnilda.plugin.v2\"\xde\x03\n" +
+	"\fplugin.proto\x12\x0fnilda.plugin.v2\"\xde\x03\n" +
 	"\vInitRequest\x12\x1d\n" +
 	"\n" +
 	"plugin_key\x18\x01 \x01(\tR\tpluginKey\x12#\n" +
@@ -1680,7 +1815,16 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"\x04lang\x18\x04 \x01(\tR\x04lang\x12\x12\n" +
 	"\x04html\x18\x05 \x01(\tR\x04html\x12$\n" +
 	"\rtransactional\x18\x06 \x01(\bR\rtransactional\"\x13\n" +
-	"\x11SendEmailResponse\" \n" +
+	"\x11SendEmailResponse\"\xc8\x01\n" +
+	"\x19SendTemplatedEmailRequest\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x0e\n" +
+	"\x02to\x18\x02 \x01(\tR\x02to\x12\x16\n" +
+	"\x06locale\x18\x03 \x01(\tR\x06locale\x12\x1b\n" +
+	"\tdata_json\x18\x04 \x01(\fR\bdataJson\x12\x19\n" +
+	"\breply_to\x18\x05 \x01(\tR\areplyTo\x12\x10\n" +
+	"\x03ref\x18\x06 \x01(\tR\x03ref\x12'\n" +
+	"\x0fidempotency_key\x18\a \x01(\tR\x0eidempotencyKey\"\x1c\n" +
+	"\x1aSendTemplatedEmailResponse\" \n" +
 	"\fKVGetRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\";\n" +
 	"\rKVGetResponse\x12\x14\n" +
@@ -1708,57 +1852,60 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"\n" +
 	"HandleHook\x12\x1c.nilda.plugin.v2.HookRequest\x1a\x1d.nilda.plugin.v2.HookResponse\x12L\n" +
 	"\vHandleEvent\x12\x1d.nilda.plugin.v2.EventRequest\x1a\x1e.nilda.plugin.v2.EventResponse\x12I\n" +
-	"\x06Health\x12\x1e.nilda.plugin.v2.HealthRequest\x1a\x1f.nilda.plugin.v2.HealthResponse2\xbb\x04\n" +
+	"\x06Health\x12\x1e.nilda.plugin.v2.HealthRequest\x1a\x1f.nilda.plugin.v2.HealthResponse2\xaa\x05\n" +
 	"\vHostService\x12F\n" +
 	"\x05KVGet\x12\x1d.nilda.plugin.v2.KVGetRequest\x1a\x1e.nilda.plugin.v2.KVGetResponse\x12F\n" +
 	"\x05KVSet\x12\x1d.nilda.plugin.v2.KVSetRequest\x1a\x1e.nilda.plugin.v2.KVSetResponse\x12F\n" +
 	"\x05KVDel\x12\x1d.nilda.plugin.v2.KVDelRequest\x1a\x1e.nilda.plugin.v2.KVDelResponse\x12I\n" +
 	"\x06KVIncr\x12\x1e.nilda.plugin.v2.KVIncrRequest\x1a\x1f.nilda.plugin.v2.KVIncrResponse\x12R\n" +
 	"\tEmitEvent\x12!.nilda.plugin.v2.EmitEventRequest\x1a\".nilda.plugin.v2.EmitEventResponse\x12R\n" +
-	"\tSendEmail\x12!.nilda.plugin.v2.SendEmailRequest\x1a\".nilda.plugin.v2.SendEmailResponse\x12a\n" +
+	"\tSendEmail\x12!.nilda.plugin.v2.SendEmailRequest\x1a\".nilda.plugin.v2.SendEmailResponse\x12m\n" +
+	"\x12SendTemplatedEmail\x12*.nilda.plugin.v2.SendTemplatedEmailRequest\x1a+.nilda.plugin.v2.SendTemplatedEmailResponse\x12a\n" +
 	"\x0eRevokeIdentity\x12&.nilda.plugin.v2.RevokeIdentityRequest\x1a'.nilda.plugin.v2.RevokeIdentityResponseB*Z(github.com/nilda-dev/plugin-sdk/contractb\x06proto3"
 
 var (
-	file_contract_plugin_proto_rawDescOnce sync.Once
-	file_contract_plugin_proto_rawDescData []byte
+	file_plugin_proto_rawDescOnce sync.Once
+	file_plugin_proto_rawDescData []byte
 )
 
-func file_contract_plugin_proto_rawDescGZIP() []byte {
-	file_contract_plugin_proto_rawDescOnce.Do(func() {
-		file_contract_plugin_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_contract_plugin_proto_rawDesc), len(file_contract_plugin_proto_rawDesc)))
+func file_plugin_proto_rawDescGZIP() []byte {
+	file_plugin_proto_rawDescOnce.Do(func() {
+		file_plugin_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_plugin_proto_rawDesc), len(file_plugin_proto_rawDesc)))
 	})
-	return file_contract_plugin_proto_rawDescData
+	return file_plugin_proto_rawDescData
 }
 
-var file_contract_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
-var file_contract_plugin_proto_goTypes = []any{
-	(*InitRequest)(nil),            // 0: nilda.plugin.v2.InitRequest
-	(*InitResponse)(nil),           // 1: nilda.plugin.v2.InitResponse
-	(*VisitorTool)(nil),            // 2: nilda.plugin.v2.VisitorTool
-	(*Ability)(nil),                // 3: nilda.plugin.v2.Ability
-	(*Schedule)(nil),               // 4: nilda.plugin.v2.Schedule
-	(*HookRequest)(nil),            // 5: nilda.plugin.v2.HookRequest
-	(*HookResponse)(nil),           // 6: nilda.plugin.v2.HookResponse
-	(*EventRequest)(nil),           // 7: nilda.plugin.v2.EventRequest
-	(*EventResponse)(nil),          // 8: nilda.plugin.v2.EventResponse
-	(*HealthRequest)(nil),          // 9: nilda.plugin.v2.HealthRequest
-	(*HealthResponse)(nil),         // 10: nilda.plugin.v2.HealthResponse
-	(*RevokeIdentityRequest)(nil),  // 11: nilda.plugin.v2.RevokeIdentityRequest
-	(*RevokeIdentityResponse)(nil), // 12: nilda.plugin.v2.RevokeIdentityResponse
-	(*SendEmailRequest)(nil),       // 13: nilda.plugin.v2.SendEmailRequest
-	(*SendEmailResponse)(nil),      // 14: nilda.plugin.v2.SendEmailResponse
-	(*KVGetRequest)(nil),           // 15: nilda.plugin.v2.KVGetRequest
-	(*KVGetResponse)(nil),          // 16: nilda.plugin.v2.KVGetResponse
-	(*KVSetRequest)(nil),           // 17: nilda.plugin.v2.KVSetRequest
-	(*KVSetResponse)(nil),          // 18: nilda.plugin.v2.KVSetResponse
-	(*KVDelRequest)(nil),           // 19: nilda.plugin.v2.KVDelRequest
-	(*KVDelResponse)(nil),          // 20: nilda.plugin.v2.KVDelResponse
-	(*KVIncrRequest)(nil),          // 21: nilda.plugin.v2.KVIncrRequest
-	(*KVIncrResponse)(nil),         // 22: nilda.plugin.v2.KVIncrResponse
-	(*EmitEventRequest)(nil),       // 23: nilda.plugin.v2.EmitEventRequest
-	(*EmitEventResponse)(nil),      // 24: nilda.plugin.v2.EmitEventResponse
+var file_plugin_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_plugin_proto_goTypes = []any{
+	(*InitRequest)(nil),                // 0: nilda.plugin.v2.InitRequest
+	(*InitResponse)(nil),               // 1: nilda.plugin.v2.InitResponse
+	(*VisitorTool)(nil),                // 2: nilda.plugin.v2.VisitorTool
+	(*Ability)(nil),                    // 3: nilda.plugin.v2.Ability
+	(*Schedule)(nil),                   // 4: nilda.plugin.v2.Schedule
+	(*HookRequest)(nil),                // 5: nilda.plugin.v2.HookRequest
+	(*HookResponse)(nil),               // 6: nilda.plugin.v2.HookResponse
+	(*EventRequest)(nil),               // 7: nilda.plugin.v2.EventRequest
+	(*EventResponse)(nil),              // 8: nilda.plugin.v2.EventResponse
+	(*HealthRequest)(nil),              // 9: nilda.plugin.v2.HealthRequest
+	(*HealthResponse)(nil),             // 10: nilda.plugin.v2.HealthResponse
+	(*RevokeIdentityRequest)(nil),      // 11: nilda.plugin.v2.RevokeIdentityRequest
+	(*RevokeIdentityResponse)(nil),     // 12: nilda.plugin.v2.RevokeIdentityResponse
+	(*SendEmailRequest)(nil),           // 13: nilda.plugin.v2.SendEmailRequest
+	(*SendEmailResponse)(nil),          // 14: nilda.plugin.v2.SendEmailResponse
+	(*SendTemplatedEmailRequest)(nil),  // 15: nilda.plugin.v2.SendTemplatedEmailRequest
+	(*SendTemplatedEmailResponse)(nil), // 16: nilda.plugin.v2.SendTemplatedEmailResponse
+	(*KVGetRequest)(nil),               // 17: nilda.plugin.v2.KVGetRequest
+	(*KVGetResponse)(nil),              // 18: nilda.plugin.v2.KVGetResponse
+	(*KVSetRequest)(nil),               // 19: nilda.plugin.v2.KVSetRequest
+	(*KVSetResponse)(nil),              // 20: nilda.plugin.v2.KVSetResponse
+	(*KVDelRequest)(nil),               // 21: nilda.plugin.v2.KVDelRequest
+	(*KVDelResponse)(nil),              // 22: nilda.plugin.v2.KVDelResponse
+	(*KVIncrRequest)(nil),              // 23: nilda.plugin.v2.KVIncrRequest
+	(*KVIncrResponse)(nil),             // 24: nilda.plugin.v2.KVIncrResponse
+	(*EmitEventRequest)(nil),           // 25: nilda.plugin.v2.EmitEventRequest
+	(*EmitEventResponse)(nil),          // 26: nilda.plugin.v2.EmitEventResponse
 }
-var file_contract_plugin_proto_depIdxs = []int32{
+var file_plugin_proto_depIdxs = []int32{
 	4,  // 0: nilda.plugin.v2.InitResponse.schedules:type_name -> nilda.plugin.v2.Schedule
 	3,  // 1: nilda.plugin.v2.InitResponse.abilities:type_name -> nilda.plugin.v2.Ability
 	2,  // 2: nilda.plugin.v2.InitResponse.visitor_tools:type_name -> nilda.plugin.v2.VisitorTool
@@ -1766,51 +1913,53 @@ var file_contract_plugin_proto_depIdxs = []int32{
 	5,  // 4: nilda.plugin.v2.PluginService.HandleHook:input_type -> nilda.plugin.v2.HookRequest
 	7,  // 5: nilda.plugin.v2.PluginService.HandleEvent:input_type -> nilda.plugin.v2.EventRequest
 	9,  // 6: nilda.plugin.v2.PluginService.Health:input_type -> nilda.plugin.v2.HealthRequest
-	15, // 7: nilda.plugin.v2.HostService.KVGet:input_type -> nilda.plugin.v2.KVGetRequest
-	17, // 8: nilda.plugin.v2.HostService.KVSet:input_type -> nilda.plugin.v2.KVSetRequest
-	19, // 9: nilda.plugin.v2.HostService.KVDel:input_type -> nilda.plugin.v2.KVDelRequest
-	21, // 10: nilda.plugin.v2.HostService.KVIncr:input_type -> nilda.plugin.v2.KVIncrRequest
-	23, // 11: nilda.plugin.v2.HostService.EmitEvent:input_type -> nilda.plugin.v2.EmitEventRequest
+	17, // 7: nilda.plugin.v2.HostService.KVGet:input_type -> nilda.plugin.v2.KVGetRequest
+	19, // 8: nilda.plugin.v2.HostService.KVSet:input_type -> nilda.plugin.v2.KVSetRequest
+	21, // 9: nilda.plugin.v2.HostService.KVDel:input_type -> nilda.plugin.v2.KVDelRequest
+	23, // 10: nilda.plugin.v2.HostService.KVIncr:input_type -> nilda.plugin.v2.KVIncrRequest
+	25, // 11: nilda.plugin.v2.HostService.EmitEvent:input_type -> nilda.plugin.v2.EmitEventRequest
 	13, // 12: nilda.plugin.v2.HostService.SendEmail:input_type -> nilda.plugin.v2.SendEmailRequest
-	11, // 13: nilda.plugin.v2.HostService.RevokeIdentity:input_type -> nilda.plugin.v2.RevokeIdentityRequest
-	1,  // 14: nilda.plugin.v2.PluginService.Init:output_type -> nilda.plugin.v2.InitResponse
-	6,  // 15: nilda.plugin.v2.PluginService.HandleHook:output_type -> nilda.plugin.v2.HookResponse
-	8,  // 16: nilda.plugin.v2.PluginService.HandleEvent:output_type -> nilda.plugin.v2.EventResponse
-	10, // 17: nilda.plugin.v2.PluginService.Health:output_type -> nilda.plugin.v2.HealthResponse
-	16, // 18: nilda.plugin.v2.HostService.KVGet:output_type -> nilda.plugin.v2.KVGetResponse
-	18, // 19: nilda.plugin.v2.HostService.KVSet:output_type -> nilda.plugin.v2.KVSetResponse
-	20, // 20: nilda.plugin.v2.HostService.KVDel:output_type -> nilda.plugin.v2.KVDelResponse
-	22, // 21: nilda.plugin.v2.HostService.KVIncr:output_type -> nilda.plugin.v2.KVIncrResponse
-	24, // 22: nilda.plugin.v2.HostService.EmitEvent:output_type -> nilda.plugin.v2.EmitEventResponse
-	14, // 23: nilda.plugin.v2.HostService.SendEmail:output_type -> nilda.plugin.v2.SendEmailResponse
-	12, // 24: nilda.plugin.v2.HostService.RevokeIdentity:output_type -> nilda.plugin.v2.RevokeIdentityResponse
-	14, // [14:25] is the sub-list for method output_type
-	3,  // [3:14] is the sub-list for method input_type
+	15, // 13: nilda.plugin.v2.HostService.SendTemplatedEmail:input_type -> nilda.plugin.v2.SendTemplatedEmailRequest
+	11, // 14: nilda.plugin.v2.HostService.RevokeIdentity:input_type -> nilda.plugin.v2.RevokeIdentityRequest
+	1,  // 15: nilda.plugin.v2.PluginService.Init:output_type -> nilda.plugin.v2.InitResponse
+	6,  // 16: nilda.plugin.v2.PluginService.HandleHook:output_type -> nilda.plugin.v2.HookResponse
+	8,  // 17: nilda.plugin.v2.PluginService.HandleEvent:output_type -> nilda.plugin.v2.EventResponse
+	10, // 18: nilda.plugin.v2.PluginService.Health:output_type -> nilda.plugin.v2.HealthResponse
+	18, // 19: nilda.plugin.v2.HostService.KVGet:output_type -> nilda.plugin.v2.KVGetResponse
+	20, // 20: nilda.plugin.v2.HostService.KVSet:output_type -> nilda.plugin.v2.KVSetResponse
+	22, // 21: nilda.plugin.v2.HostService.KVDel:output_type -> nilda.plugin.v2.KVDelResponse
+	24, // 22: nilda.plugin.v2.HostService.KVIncr:output_type -> nilda.plugin.v2.KVIncrResponse
+	26, // 23: nilda.plugin.v2.HostService.EmitEvent:output_type -> nilda.plugin.v2.EmitEventResponse
+	14, // 24: nilda.plugin.v2.HostService.SendEmail:output_type -> nilda.plugin.v2.SendEmailResponse
+	16, // 25: nilda.plugin.v2.HostService.SendTemplatedEmail:output_type -> nilda.plugin.v2.SendTemplatedEmailResponse
+	12, // 26: nilda.plugin.v2.HostService.RevokeIdentity:output_type -> nilda.plugin.v2.RevokeIdentityResponse
+	15, // [15:27] is the sub-list for method output_type
+	3,  // [3:15] is the sub-list for method input_type
 	3,  // [3:3] is the sub-list for extension type_name
 	3,  // [3:3] is the sub-list for extension extendee
 	0,  // [0:3] is the sub-list for field type_name
 }
 
-func init() { file_contract_plugin_proto_init() }
-func file_contract_plugin_proto_init() {
-	if File_contract_plugin_proto != nil {
+func init() { file_plugin_proto_init() }
+func file_plugin_proto_init() {
+	if File_plugin_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_contract_plugin_proto_rawDesc), len(file_contract_plugin_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_plugin_proto_rawDesc), len(file_plugin_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   25,
+			NumMessages:   27,
 			NumExtensions: 0,
 			NumServices:   2,
 		},
-		GoTypes:           file_contract_plugin_proto_goTypes,
-		DependencyIndexes: file_contract_plugin_proto_depIdxs,
-		MessageInfos:      file_contract_plugin_proto_msgTypes,
+		GoTypes:           file_plugin_proto_goTypes,
+		DependencyIndexes: file_plugin_proto_depIdxs,
+		MessageInfos:      file_plugin_proto_msgTypes,
 	}.Build()
-	File_contract_plugin_proto = out.File
-	file_contract_plugin_proto_goTypes = nil
-	file_contract_plugin_proto_depIdxs = nil
+	File_plugin_proto = out.File
+	file_plugin_proto_goTypes = nil
+	file_plugin_proto_depIdxs = nil
 }

@@ -55,6 +55,13 @@ type Email struct {
 	// HTML and Transactional are what SendTransactionalEmail passed (the other two leave them empty and false).
 	HTML          string
 	Transactional bool
+	// Key, Ref, Locale and Data are what SendTemplatedEmail passed (v0.43.0): the template's key, what the mail is
+	// about, the language the fake rendered it in and the data. Subject, Body and HTML are then the declared
+	// default's words, rendered — UseEmailTemplates loads them.
+	Key    string
+	Ref    string
+	Locale string
+	Data   map[string]any
 }
 
 // Event is one event a plugin emitted.
@@ -85,6 +92,9 @@ type Host struct {
 	// MailBlockedError or MailDeferredError, which carry exactly the statuses Core answers, so nilda.MailAddressBlocked
 	// and nilda.MailDeferred read them as they read Core's.
 	EmailRefusal error
+	// templates are the plugin's declared mail (UseEmailTemplates), off the keys the owner switched off.
+	templates map[string]nilda.EmailTemplateDecl
+	off       map[string]bool
 }
 
 // kvEntry is one stored value and when it expires (zero: never), as Core's KV keeps it.

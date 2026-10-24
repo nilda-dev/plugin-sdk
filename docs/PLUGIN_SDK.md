@@ -1009,6 +1009,40 @@ others fall back to.
 - **An update** refreshes every language's default; the live words follow only while the owner has not edited them.
   Uninstalling keeps the templates while the plugin's data is kept, and purging the data removes them.
 
+**Sending one.** `core.SendTemplatedEmail(ctx, nilda.TemplatedEmail{...})` names the template, the recipient and the
+data; Core renders the owner's words in the site's layout and answers as `SendTransactionalEmail` does:
+
+```go
+err := core.SendTemplatedEmail(ctx, nilda.TemplatedEmail{
+	Key: "order_confirmation", To: order.Email, Locale: order.Locale, Ref: "order:" + order.Number,
+	IdempotencyKey: "order:" + order.Number + ":confirmation",
+	Data: map[string]any{"order_number": order.Number, "contract": map[string]any{"html": terms, "text": termsText}},
+})
+switch {
+case errors.Is(err, nilda.ErrTemplateOff): // not sent: switched off by the owner — not a failure
+case nilda.MailAddressBlocked(err):        // the address takes no mail
+case err != nil:                           // deferred or failed: keep it and try again
+}
+```
+
+A `TemplatedEmail` reaches only your own templates. `Locale` is the reader's language when you know it (the buyer's);
+leave it empty for a mail to the site's owner and Core uses the owner's own language on the site, then the site's mail
+language, then English — and of the languages the template is written in, the closest (`de-AT` reads `de`). `Ref`
+names what the mail is about in Core's email log, and the same `IdempotencyKey` within 24 hours sends once.
+`ReplyTo` is used when the owner set none on the template. The owner's copies (BCC) are added by Core.
+
+In tests, load your declarations into the fake and assert the real words:
+
+```go
+core, host := nildatest.New("shop", "email")
+host.UseEmailTemplates(nildatest.ManifestEmailTemplates(t, "plugin.json"))
+// … run the code that sends …
+mail := host.Emails()[0] // Key, Ref, Locale, Data, and Subject/Body/HTML rendered from your default
+```
+
+`host.SwitchOffTemplate(key)` makes the fake answer `ErrTemplateOff` for one template, as Core does when the owner
+switches it off. The fake reads the same Liquid subset; Core's engine stays the authority on a site.
+
 ### Serving your own pages (`route`)
 
 ```go

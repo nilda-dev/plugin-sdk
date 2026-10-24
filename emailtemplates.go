@@ -1,5 +1,16 @@
 package nilda
 
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+
+	"google.golang.org/grpc/codes"
+
+	"github.com/nilda-dev/plugin-sdk/contract"
+)
+
 // MAIL TEMPLATES A PLUGIN OWNS (v0.43.0, Core's M3 "The mail door").
 //
 // A plugin's mail used to be words the plugin assembled and handed to SendTransactionalEmail: the site's owner could
@@ -79,3 +90,65 @@ type EmailTemplateText struct {
 	Text    string `json:"text"`
 	HTML    string `json:"html,omitempty"`
 }
+
+// TemplatedEmail is one send of a declared template (Core.SendTemplatedEmail).
+type TemplatedEmail struct {
+	// Key is the template's key as plugin.json declares it, never prefixed.
+	Key string
+	To  string
+	// Locale is the recipient's language when you know it (the buyer's). Empty lets Core choose: the recipient's own
+	// language on the site, then the site's mail language, then English — which is how an owner alert reaches the
+	// owner in the language their panel is set to. Core then takes the closest language the template is written in.
+	Locale string
+	// Data is the template's variables, JSON-shaped. A variable of kind EmailHTML is map[string]any{"html": …,
+	// "text": …}.
+	Data map[string]any
+	// ReplyTo is where a reply goes when the owner set none on the template; empty is the sender's address.
+	ReplyTo string
+	// Ref names what the mail is about ("order:1042"); the email log keeps it.
+	Ref string
+	// IdempotencyKey makes a retry safe: the same key within 24 hours sends once.
+	IdempotencyKey string
+}
+
+// ErrTemplateOff is the answer for a template the owner switched off: nothing was sent, on purpose. It is not a
+// failure — record "not sent: switched off by the owner" and go on.
+var ErrTemplateOff = errors.New("nilda: the owner switched this mail off, so nothing was sent")
+
+// mailReasonTemplateOff is the reason Core gives a switched-off template (core internal/plugin/mailstatus.go).
+const mailReasonTemplateOff = "TEMPLATE_OFF"
+
+// SendTemplatedEmail sends one of your declared templates (plugin.json "email_templates"; requires `email`). Core
+// renders the owner's words for it — what they edited on the Email screen, or your default — in the site's mail
+// layout, takes the lane from the template, adds the copies the owner asked for, and logs it with Ref.
+//
+// It answers as SendTransactionalEmail does — nil when a transactional mail was handed to the provider (a marketing
+// one: queued), MailAddressBlocked and MailDeferred for a refusal — and ErrTemplateOff (errors.Is) when the owner
+// switched the template off.
+//
+//	err := core.SendTemplatedEmail(ctx, nilda.TemplatedEmail{Key: "order_confirmation", To: order.Email,
+//		Locale: order.Locale, Ref: "order:" + order.Number, Data: map[string]any{"order_number": order.Number}})
+//	if errors.Is(err, nilda.ErrTemplateOff) { /* not sent: switched off by the owner */ }
+func (c *Core) SendTemplatedEmail(ctx context.Context, m TemplatedEmail) error {
+	data := m.Data
+	if data == nil {
+		data = map[string]any{}
+	}
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("nilda: the mail's data is not JSON: %w", err)
+	}
+	_, err = c.host.SendTemplatedEmail(ctx, &contract.SendTemplatedEmailRequest{Key: m.Key, To: m.To, Locale: m.Locale,
+		DataJson: raw, ReplyTo: m.ReplyTo, Ref: m.Ref, IdempotencyKey: m.IdempotencyKey})
+	if st, ok := mailStatusOf(err); ok && st.Code() == codes.FailedPrecondition && mailReason(st) == mailReasonTemplateOff {
+		return templateOff{err}
+	}
+	return err
+}
+
+// templateOff is Core's refusal read as ErrTemplateOff, keeping the status for anything that reads it.
+type templateOff struct{ err error }
+
+func (t templateOff) Error() string        { return ErrTemplateOff.Error() + ": " + t.err.Error() }
+func (t templateOff) Unwrap() error        { return t.err }
+func (t templateOff) Is(target error) bool { return target == ErrTemplateOff }

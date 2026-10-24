@@ -252,6 +252,12 @@ service HostService {
   // needing SMTP credentials of its own, and without the owner configuring mail twice.
   rpc SendEmail(SendEmailRequest) returns (SendEmailResponse);
 
+  // email by key — send one of the plugin's DECLARED mail templates (manifest email_templates; requires `email`,
+  // plugin-sdk v0.43.0). The words are the owner's, kept in Core's template store; the plugin names the template,
+  // the recipient and the data. Core resolves only "<calling plugin>.<key>", takes the lane from the template,
+  // renders it in the site's layout and answers a switched-off template with FAILED_PRECONDITION / TEMPLATE_OFF.
+  rpc SendTemplatedEmail(SendTemplatedEmailRequest) returns (SendTemplatedEmailResponse);
+
   // auth — end every session of somebody an identity provider has deprovisioned (requires
   // `auth_provider`).
   //
@@ -310,6 +316,25 @@ message SendEmailRequest {
 }
 
 message SendEmailResponse {}
+
+message SendTemplatedEmailRequest {
+  // key is the template's key as the manifest declares it — never prefixed: Core adds the calling plugin's key.
+  string key = 1;
+  string to = 2;
+  // locale is the recipient's language when the plugin knows it (the buyer's); empty lets Core choose — the
+  // recipient's own Core language, then the site's mail language, then English.
+  string locale = 3;
+  // data_json is a JSON object: the template's variables. A variable of kind html is {"html": "...", "text": "..."}.
+  bytes data_json = 4;
+  // reply_to is where a reply goes when the owner set none on the template; empty is the sender's address.
+  string reply_to = 5;
+  // ref names what the mail is about ("order:1042"): the email log keeps it.
+  string ref = 6;
+  // idempotency_key: the same key within 24 hours sends once (a retried job does not mail twice).
+  string idempotency_key = 7;
+}
+
+message SendTemplatedEmailResponse {}
 
 message KVGetRequest {
   string key = 1;

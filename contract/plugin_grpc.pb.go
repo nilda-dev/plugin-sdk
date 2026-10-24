@@ -27,7 +27,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v5.29.3
-// source: contract/plugin.proto
+// source: plugin.proto
 
 package contract
 
@@ -276,17 +276,18 @@ var PluginService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "contract/plugin.proto",
+	Metadata: "plugin.proto",
 }
 
 const (
-	HostService_KVGet_FullMethodName          = "/nilda.plugin.v2.HostService/KVGet"
-	HostService_KVSet_FullMethodName          = "/nilda.plugin.v2.HostService/KVSet"
-	HostService_KVDel_FullMethodName          = "/nilda.plugin.v2.HostService/KVDel"
-	HostService_KVIncr_FullMethodName         = "/nilda.plugin.v2.HostService/KVIncr"
-	HostService_EmitEvent_FullMethodName      = "/nilda.plugin.v2.HostService/EmitEvent"
-	HostService_SendEmail_FullMethodName      = "/nilda.plugin.v2.HostService/SendEmail"
-	HostService_RevokeIdentity_FullMethodName = "/nilda.plugin.v2.HostService/RevokeIdentity"
+	HostService_KVGet_FullMethodName              = "/nilda.plugin.v2.HostService/KVGet"
+	HostService_KVSet_FullMethodName              = "/nilda.plugin.v2.HostService/KVSet"
+	HostService_KVDel_FullMethodName              = "/nilda.plugin.v2.HostService/KVDel"
+	HostService_KVIncr_FullMethodName             = "/nilda.plugin.v2.HostService/KVIncr"
+	HostService_EmitEvent_FullMethodName          = "/nilda.plugin.v2.HostService/EmitEvent"
+	HostService_SendEmail_FullMethodName          = "/nilda.plugin.v2.HostService/SendEmail"
+	HostService_SendTemplatedEmail_FullMethodName = "/nilda.plugin.v2.HostService/SendTemplatedEmail"
+	HostService_RevokeIdentity_FullMethodName     = "/nilda.plugin.v2.HostService/RevokeIdentity"
 )
 
 // HostServiceClient is the client API for HostService service.
@@ -304,6 +305,11 @@ type HostServiceClient interface {
 	// plugin can never forge the site's address; a booking plugin sends its own confirmations without
 	// needing SMTP credentials of its own, and without the owner configuring mail twice.
 	SendEmail(ctx context.Context, in *SendEmailRequest, opts ...grpc.CallOption) (*SendEmailResponse, error)
+	// email by key — send one of the plugin's DECLARED mail templates (manifest email_templates; requires `email`,
+	// plugin-sdk v0.43.0). The words are the owner's, kept in Core's template store; the plugin names the template,
+	// the recipient and the data. Core resolves only "<calling plugin>.<key>", takes the lane from the template,
+	// renders it in the site's layout and answers a switched-off template with FAILED_PRECONDITION / TEMPLATE_OFF.
+	SendTemplatedEmail(ctx context.Context, in *SendTemplatedEmailRequest, opts ...grpc.CallOption) (*SendTemplatedEmailResponse, error)
 	// auth — end every session of somebody an identity provider has deprovisioned (requires
 	// `auth_provider`).
 	//
@@ -391,6 +397,16 @@ func (c *hostServiceClient) SendEmail(ctx context.Context, in *SendEmailRequest,
 	return out, nil
 }
 
+func (c *hostServiceClient) SendTemplatedEmail(ctx context.Context, in *SendTemplatedEmailRequest, opts ...grpc.CallOption) (*SendTemplatedEmailResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SendTemplatedEmailResponse)
+	err := c.cc.Invoke(ctx, HostService_SendTemplatedEmail_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *hostServiceClient) RevokeIdentity(ctx context.Context, in *RevokeIdentityRequest, opts ...grpc.CallOption) (*RevokeIdentityResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RevokeIdentityResponse)
@@ -416,6 +432,11 @@ type HostServiceServer interface {
 	// plugin can never forge the site's address; a booking plugin sends its own confirmations without
 	// needing SMTP credentials of its own, and without the owner configuring mail twice.
 	SendEmail(context.Context, *SendEmailRequest) (*SendEmailResponse, error)
+	// email by key — send one of the plugin's DECLARED mail templates (manifest email_templates; requires `email`,
+	// plugin-sdk v0.43.0). The words are the owner's, kept in Core's template store; the plugin names the template,
+	// the recipient and the data. Core resolves only "<calling plugin>.<key>", takes the lane from the template,
+	// renders it in the site's layout and answers a switched-off template with FAILED_PRECONDITION / TEMPLATE_OFF.
+	SendTemplatedEmail(context.Context, *SendTemplatedEmailRequest) (*SendTemplatedEmailResponse, error)
 	// auth — end every session of somebody an identity provider has deprovisioned (requires
 	// `auth_provider`).
 	//
@@ -460,6 +481,9 @@ func (UnimplementedHostServiceServer) EmitEvent(context.Context, *EmitEventReque
 }
 func (UnimplementedHostServiceServer) SendEmail(context.Context, *SendEmailRequest) (*SendEmailResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendEmail not implemented")
+}
+func (UnimplementedHostServiceServer) SendTemplatedEmail(context.Context, *SendTemplatedEmailRequest) (*SendTemplatedEmailResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendTemplatedEmail not implemented")
 }
 func (UnimplementedHostServiceServer) RevokeIdentity(context.Context, *RevokeIdentityRequest) (*RevokeIdentityResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RevokeIdentity not implemented")
@@ -593,6 +617,24 @@ func _HostService_SendEmail_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HostService_SendTemplatedEmail_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SendTemplatedEmailRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HostServiceServer).SendTemplatedEmail(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: HostService_SendTemplatedEmail_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HostServiceServer).SendTemplatedEmail(ctx, req.(*SendTemplatedEmailRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _HostService_RevokeIdentity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RevokeIdentityRequest)
 	if err := dec(in); err != nil {
@@ -643,10 +685,14 @@ var HostService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _HostService_SendEmail_Handler,
 		},
 		{
+			MethodName: "SendTemplatedEmail",
+			Handler:    _HostService_SendTemplatedEmail_Handler,
+		},
+		{
 			MethodName: "RevokeIdentity",
 			Handler:    _HostService_RevokeIdentity_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "contract/plugin.proto",
+	Metadata: "plugin.proto",
 }
