@@ -7,7 +7,7 @@ here.
 How a release is cut (additive only, one tag per milestone, security and money fixes at once, an undated first
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
-## v0.40.0 — unreleased (an ability that always asks; the test host refuses a refund that would pay twice)
+## v0.40.0 — 2026-10-24 (an ability that always asks; the test host refuses a refund that would pay twice)
 
 - `Ability.AlwaysAsk` (and `always_ask` on the wire, `contract.Ability` field 7, and in plugin.json, which
   `nildatest.ManifestAbilities` writes): Core asks the person before every call of such an ability, whatever a connector
