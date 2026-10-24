@@ -881,6 +881,10 @@ func (p *Payments) report(ctx context.Context, caller, id, verb string, body []b
 			return *s, nil
 		}
 		p.keep(s, r.Saved)
+		// What the payer paid with and when the money arrived: kept from the first resolution, as Core does.
+		s.Instrument = r.Instrument
+		now := time.Now().UTC()
+		s.ResolvedAt = &now
 		return p.apply(s, nilda.PaymentResolved)
 
 	case "reject":

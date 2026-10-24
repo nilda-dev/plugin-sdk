@@ -489,3 +489,34 @@ func TestATestHintFallsBackToEnglish(t *testing.T) {
 		t.Errorf("no hint at all gave %q", got)
 	}
 }
+
+// A payment says what it was paid with: a bank debit can be claimed back for eight weeks, a card for about four
+// months, and a shop that cannot tell them apart warns its owner of neither.
+func TestAResolutionCarriesItsInstrument(t *testing.T) {
+	r := PaymentResolution{AmountMinor: 1234, Currency: "EUR", ProviderRef: "pi_1", Instrument: InstrumentSEPADebit}
+	raw, err := json.Marshal(r)
+	if err != nil || !strings.Contains(string(raw), `"instrument":"sepa_debit"`) {
+		t.Fatalf("the wire form: %s %v", raw, err)
+	}
+	var back PaymentResolution
+	if err := json.Unmarshal(raw, &back); err != nil || back.Instrument != InstrumentSEPADebit {
+		t.Fatalf("round trip: %+v %v", back, err)
+	}
+	for _, ok := range []string{"", InstrumentCard, InstrumentSEPADebit, InstrumentBankTransfer, InstrumentWallet, InstrumentOther} {
+		r.Instrument = ok
+		if err := r.Validate(); err != nil {
+			t.Errorf("instrument %q refused: %v", ok, err)
+		}
+	}
+	r.Instrument = "iban"
+	if err := r.Validate(); err == nil || !strings.Contains(err.Error(), "instrument") {
+		t.Errorf("an unknown instrument was accepted: %v", err)
+	}
+	// An older gateway sends none, and that stays valid.
+	if err := (PaymentResolution{AmountMinor: 1, Currency: "EUR"}).Validate(); err != nil {
+		t.Errorf("a resolution with no instrument: %v", err)
+	}
+	if b, _ := json.Marshal(PaymentResolution{AmountMinor: 1, Currency: "EUR"}); strings.Contains(string(b), "instrument") {
+		t.Errorf("an empty instrument is sent anyway: %s", b)
+	}
+}

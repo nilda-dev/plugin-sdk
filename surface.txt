@@ -181,6 +181,11 @@ const HookSearchRemove
 const HookSearchTruncate
 const HookWidgetDescribe
 const HookWidgetRender
+const InstrumentBankTransfer
+const InstrumentCard
+const InstrumentOther
+const InstrumentSEPADebit
+const InstrumentWallet
 const IntervalDay
 const IntervalMonth
 const IntervalWeek
@@ -1008,6 +1013,7 @@ field PaymentRejection.FailureMessage string json:failure_message
 field PaymentRejection.ProviderRef string json:provider_ref
 field PaymentResolution.AmountMinor int64 json:amount_minor
 field PaymentResolution.Currency string json:currency
+field PaymentResolution.Instrument string json:instrument
 field PaymentResolution.ProviderRef string json:provider_ref
 field PaymentResolution.Saved *PaymentSaved json:saved
 field PaymentSaved.ExpiresAt *time.Time json:expires_at
@@ -1029,12 +1035,14 @@ field PaymentSession.FailureMessage string json:failure_message
 field PaymentSession.Fulfilment string json:fulfilment
 field PaymentSession.Gateway string json:gateway
 field PaymentSession.ID string json:id
+field PaymentSession.Instrument string json:instrument
 field PaymentSession.Locale string json:locale
 field PaymentSession.Method string json:method
 field PaymentSession.ProviderRef string json:provider_ref
 field PaymentSession.RedirectURL string json:redirect_url
 field PaymentSession.Reference string json:reference
 field PaymentSession.RefundedMinor int64 json:refunded_minor
+field PaymentSession.ResolvedAt *time.Time json:resolved_at
 field PaymentSession.ReturnURL string json:return_url
 field PaymentSession.Save *PaymentMandate json:save
 field PaymentSession.SavedMethod string json:saved_method

@@ -250,6 +250,11 @@ type PaymentSession struct {
 	Save         *PaymentMandate `json:"save,omitempty"`
 	SavedMethod  string          `json:"saved_method,omitempty"`
 	ChargedSaved string          `json:"charged_saved,omitempty"`
+	// Instrument is what the payer paid with (the Instrument constants), as the gateway reported it with the
+	// resolution; "" until resolved or when the gateway did not say. ResolvedAt is when the session first resolved —
+	// set once, never moved by a repeated report. v0.39.0.
+	Instrument string     `json:"instrument,omitempty"`
+	ResolvedAt *time.Time `json:"resolved_at,omitempty"`
 	// RefundedMinor is the sum of the session's RESOLVED refunds.
 	RefundedMinor int64     `json:"refunded_minor"`
 	CreatedAt     time.Time `json:"created_at"`
@@ -404,6 +409,28 @@ type PaymentResolution struct {
 	// Saved is the method the processor kept, for a session with Save (v0.30.0): Core keeps its token and gives the
 	// session its SavedMethod. A Save session resolved without it keeps nothing, and its consumer is told so.
 	Saved *PaymentSaved `json:"saved,omitempty"`
+	// Instrument is what the payer paid with, one of the five Instrument constants, or "" when the gateway does not
+	// know (v0.39.0). A shop reads it for how long the money can still be claimed back: a bank debit for eight
+	// weeks, a card for about four months.
+	Instrument string `json:"instrument,omitempty"`
+}
+
+// The five instruments a gateway can name (PaymentResolution.Instrument).
+const (
+	InstrumentCard         = "card"
+	InstrumentSEPADebit    = "sepa_debit"
+	InstrumentBankTransfer = "bank_transfer"
+	InstrumentWallet       = "wallet"
+	InstrumentOther        = "other"
+)
+
+// validInstrument accepts "" and the five constants.
+func validInstrument(v string) error {
+	switch v {
+	case "", InstrumentCard, InstrumentSEPADebit, InstrumentBankTransfer, InstrumentWallet, InstrumentOther:
+		return nil
+	}
+	return fmt.Errorf("payment resolution: instrument %q is not one of card, sepa_debit, bank_transfer, wallet, other", v)
 }
 
 // Validate refuses a resolution with no currency ISO 4217 knows, or no positive amount — 0 only beside a kept method
@@ -416,6 +443,9 @@ func (r PaymentResolution) Validate() error {
 		if err := r.Saved.Validate(); err != nil {
 			return err
 		}
+	}
+	if err := validInstrument(r.Instrument); err != nil {
+		return err
 	}
 	return validProviderRef(r.ProviderRef)
 }

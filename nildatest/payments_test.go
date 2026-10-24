@@ -846,3 +846,25 @@ func TestAWebhookArrivesAsCoresProxySendsIt(t *testing.T) {
 		t.Fatalf("headers: the caller's kept, every X-Nilda-* dropped — got %v", gotHeader)
 	}
 }
+
+// The fake keeps what the gateway said the payer paid with, and when the money arrived — once: a later report of the
+// same payment moves neither, as Core does, so the shop's eight-week clock starts at the first.
+func TestTheFakeCopiesTheInstrumentAndTheResolveMoment(t *testing.T) {
+	w := newWorld(t)
+	ctx := context.Background()
+	s, _ := w.shopAPI.CreateSession(ctx, "k1", params())
+	got, err := w.gwAPI.Resolve(ctx, s.ID, nilda.PaymentResolution{AmountMinor: 1234, Currency: "EUR", ProviderRef: "pi_1", Instrument: nilda.InstrumentSEPADebit})
+	if err != nil || got.Instrument != nilda.InstrumentSEPADebit || got.ResolvedAt == nil {
+		t.Fatalf("resolve: %+v %v", got, err)
+	}
+	first := *got.ResolvedAt
+	again, err := w.gwAPI.Resolve(ctx, s.ID, nilda.PaymentResolution{AmountMinor: 1234, Currency: "EUR", ProviderRef: "pi_1", Instrument: nilda.InstrumentCard})
+	if err != nil || again.Instrument != nilda.InstrumentSEPADebit || !again.ResolvedAt.Equal(first) {
+		t.Errorf("a repeated report moved the instrument or the moment: %+v %v", again, err)
+	}
+	// Unresolved sessions have neither.
+	other, _ := w.shopAPI.CreateSession(ctx, "k2", params())
+	if other.Instrument != "" || other.ResolvedAt != nil {
+		t.Errorf("a session nobody paid has an instrument or a moment: %+v", other)
+	}
+}

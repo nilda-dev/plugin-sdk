@@ -7,7 +7,7 @@ here.
 How a release is cut (additive only, one tag per milestone, security and money fixes at once, an undated first
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
-## v0.39.0 — unreleased (the ECB's euro rates, with exact cross rates)
+## v0.39.0 — unreleased (the ECB's euro rates, with exact cross rates; what a payment was paid with)
 
 - `Reference().ExchangeRates(ctx, at)` and `ExchangeRateSet` (`Day`, `PublishedAt`, `Rates`, `Source`, `FetchedAt`): the
   European Central Bank's euro reference rates in force at an instant, from Nilda Central through Core, as decimal
@@ -24,6 +24,13 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
   optional extra of a shop — which product a content item, a product's own page, is — so a product widget on that page with
   no product chosen draws it. `Serve` subscribes the hook only for a shop that implements it. Needs the Core release built
   on it; an older Core never asks. Additions only; `surface.txt` grows by 3.
+
+- `PaymentResolution.Instrument` (`"instrument"`) with `InstrumentCard`, `InstrumentSEPADebit`, `InstrumentBankTransfer`,
+  `InstrumentWallet`, `InstrumentOther`, and `PaymentSession.Instrument` and `PaymentSession.ResolvedAt`: a gateway says what
+  the payer paid with, and a session keeps it and the moment it first resolved. A shop reads them for how long the money can
+  still be claimed back — a bank debit for eight weeks, a card for about four months. `Validate` refuses any other value; an
+  older gateway sends none and stays valid. `nildatest` copies the instrument and stamps `ResolvedAt` once. Needs the Core
+  release built on it. Additions only; `surface.txt` grows by 8 (three fields, five constants).
 
 ## v0.38.0 — 2026-10-23 (a row's buttons that fit it, and filters above the rows)
 

@@ -1895,7 +1895,9 @@ whose parameter type, `PaymentGatewayPlugin`, is both. Its three methods take an
 `nilda.PaymentStartResult`, and `RefundPayment(ctx, nilda.PaymentRefund, nilda.PaymentSession)` a
 `nilda.PaymentRefundResult`. From its webhook it reports through `core.API().Payments()`: `Resolve` with a
 `nilda.PaymentResolution`, `Reject` with a `nilda.PaymentRejection`, `MarkPending`, `Confirm`,
-`ResolveRefund`, `RejectRefund`.
+`ResolveRefund`, `RejectRefund`. A resolution may name what the payer paid with (`Instrument`, one of the
+`nilda.Instrument…` constants: card, sepa_debit, bank_transfer, wallet, other); the session keeps it with `ResolvedAt`,
+the moment it first resolved (v0.39.0).
 
 A **consumer** implements `nilda.PaymentConsumer` — `ConfirmPayment(ctx, nilda.PaymentSession)` answering a
 `nilda.PaymentConfirmResult`, `PaymentUpdated(ctx, nilda.PaymentSession)` and

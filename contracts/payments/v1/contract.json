@@ -276,6 +276,15 @@
               "charged_saved": {
                 "type": "string"
               },
+              "instrument": {
+                "type": "string"
+              },
+              "resolved_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
               "refunded_minor": {
                 "type": "integer"
               },
@@ -614,6 +623,15 @@
               "charged_saved": {
                 "type": "string"
               },
+              "instrument": {
+                "type": "string"
+              },
+              "resolved_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
               "refunded_minor": {
                 "type": "integer"
               },
@@ -855,6 +873,15 @@
               },
               "charged_saved": {
                 "type": "string"
+              },
+              "instrument": {
+                "type": "string"
+              },
+              "resolved_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
               },
               "refunded_minor": {
                 "type": "integer"
@@ -1104,6 +1131,15 @@
               "charged_saved": {
                 "type": "string"
               },
+              "instrument": {
+                "type": "string"
+              },
+              "resolved_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
               "refunded_minor": {
                 "type": "integer"
               },
@@ -1337,6 +1373,15 @@
               },
               "charged_saved": {
                 "type": "string"
+              },
+              "instrument": {
+                "type": "string"
+              },
+              "resolved_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
               },
               "refunded_minor": {
                 "type": "integer"
@@ -1616,6 +1661,15 @@
               },
               "charged_saved": {
                 "type": "string"
+              },
+              "instrument": {
+                "type": "string"
+              },
+              "resolved_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
               },
               "refunded_minor": {
                 "type": "integer"
@@ -1921,6 +1975,15 @@
               },
               "charged_saved": {
                 "type": "string"
+              },
+              "instrument": {
+                "type": "string"
+              },
+              "resolved_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
               },
               "refunded_minor": {
                 "type": "integer"
