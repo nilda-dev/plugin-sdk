@@ -53,6 +53,7 @@ type Payments struct {
 	mu        sync.Mutex
 	hosts     map[string]*Host // plugin key → the fake Core it was given, for its grants
 	gateways  []string         // registration order: the order Methods lists them in
+	off       map[string]bool  // gateways switched off, as the owner switches a plugin off in Plugins
 	gateway   map[string]nilda.PaymentGateway
 	consumer  map[string]nilda.PaymentConsumer
 	sessions  map[string]*nilda.PaymentSession
@@ -118,6 +119,7 @@ func runes(s string, max int) string {
 func NewPayments() *Payments {
 	return &Payments{
 		hosts:     map[string]*Host{},
+		off:       map[string]bool{},
 		gateway:   map[string]nilda.PaymentGateway{},
 		consumer:  map[string]nilda.PaymentConsumer{},
 		sessions:  map[string]*nilda.PaymentSession{},
@@ -163,6 +165,14 @@ func (p *Payments) Gateway(key string, g nilda.PaymentGateway) {
 		p.gateways = append(p.gateways, key)
 	}
 	p.gateway[key] = g
+}
+
+// SwitchGateway switches an installed gateway plugin off or on again, as the owner does in Plugins: a gateway that
+// is off offers no method and starts no payment, and Readiness lists it with Enabled false.
+func (p *Payments) SwitchGateway(key string, on bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.off[key] = !on
 }
 
 // Consumer installs c as the consumer plugin key: the one Core asks to confirm, and tells about its sessions.
@@ -353,6 +363,14 @@ func (p *Payments) routes(caller string) http.Handler {
 			opts, err := p.methods(ctx, r.URL.Query().Get("currency"))
 			answer(w, http.StatusOK, opts, err)
 
+		case r.Method == http.MethodGet && len(parts) == 2 && parts[1] == "readiness":
+			if err := p.may(caller, "payment_session"); err != nil {
+				writeError(w, err)
+				return
+			}
+			ready, err := p.readiness(ctx, r.URL.Query().Get("currency"))
+			answer(w, http.StatusOK, ready, err)
+
 		case r.Method == http.MethodPost && len(parts) == 2 && parts[1] == "sessions":
 			p.keyed(w, r, caller, body, func() (int, any, error) {
 				var params nilda.PaymentSessionParams
@@ -505,8 +523,9 @@ func (p *Payments) may(caller, capability string) error {
 func (p *Payments) installedGateway(key string) (nilda.PaymentGateway, bool) {
 	p.mu.Lock()
 	g, ok := p.gateway[key]
+	off := p.off[key]
 	p.mu.Unlock()
-	if !ok || p.may(key, "payment_gateway") != nil {
+	if !ok || off || p.may(key, "payment_gateway") != nil {
 		return nil, false
 	}
 	return g, true
@@ -565,6 +584,35 @@ func (p *Payments) methods(ctx context.Context, currency string) ([]nilda.Paymen
 		}
 	}
 	return opts, nil
+}
+
+// readiness is Core's answer to Payments.Readiness: every gateway registered (a plugin holding payment_gateway),
+// in registration order, with its switch; and the switched-on methods that take the currency.
+func (p *Payments) readiness(ctx context.Context, currency string) (nilda.PaymentsReadiness, error) {
+	opts, err := p.methods(ctx, currency)
+	if err != nil {
+		return nilda.PaymentsReadiness{}, err
+	}
+	p.mu.Lock()
+	keys := append([]string(nil), p.gateways...)
+	off := make(map[string]bool, len(p.off))
+	for k, v := range p.off {
+		off[k] = v
+	}
+	p.mu.Unlock()
+	out := nilda.PaymentsReadiness{Gateways: []nilda.PaymentGatewayState{}, MethodsOn: len(opts)}
+	for _, key := range keys {
+		if p.may(key, "payment_gateway") != nil {
+			continue
+		}
+		out.Gateways = append(out.Gateways, nilda.PaymentGatewayState{Key: key, Name: key, Enabled: !off[key]})
+	}
+	for _, o := range opts {
+		if o.Test {
+			out.Test = true
+		}
+	}
+	return out, nil
 }
 
 func takes(m nilda.PaymentMethod, currency string) bool {

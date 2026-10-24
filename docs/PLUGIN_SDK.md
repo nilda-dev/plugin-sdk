@@ -1182,6 +1182,33 @@ headline numbers above them. Subscribe it the way actions are subscribed — `ni
 `nilda.DispatchAdminReport(ctx, hook, payload, p.onReport)`. A plugin with all three kinds of page lists all
 three hooks: `Hooks: []string{nilda.AdminActionHook, nilda.AdminReportHook, nilda.AdminCalendarHook}`.
 
+**A report row can link and act** (v0.42.0). Two column types are a report's alone: `nilda.ColumnLink`
+(`"link"`), whose cell is a `nilda.ReportLink` — `{label, page}` one of your own declared pages, `{label, screen}`
+one of Core's screens from the fixed list `nilda.ReportScreens()` (`payments`, `plugins`, `menus`, `pages`,
+`settings`, `privacy`, `email`), or `{label, install}` one of your manifest's `recommends` by its capability or
+contract, which Core draws as the marketplace's plugins for it with an Install button — and `nilda.ColumnAction`
+(`"action"`), whose cell is the key of one of the page's own `actions`, or `""` for no button on that row. A report
+page may declare `actions` (at most 8, like a list page; `shown_when` stays a list page's); a press calls your
+`admin.action` hook with `page` = the report's key and `id` = the row's `"key"` cell (`nilda.ReportRowKey`), and Core
+opens the report again after it ran. A link Core cannot follow — an unknown screen, a page you do not declare, an
+install of nothing you recommend — is drawn as its label alone, and an action cell naming an undeclared action draws
+no button. `AdminReportResult.Validate(page)` checks both in your tests.
+
+**Opened after install, until set up** (v0.42.0). `"setup_page"` at the top of plugin.json names one of your
+`report` pages — the checklist of what is left. Core opens it after your plugin is installed or switched on, and
+Core's onboarding list shows "Finish setting up <your plugin> (x of y)" from your answer to `nilda.SetupStatusHook`
+(`"setup.status"`, under the `admin_page` grant): a `nilda.SetupStatus` of `done`, `total` (at most 50) and
+`completed`, routed with `nilda.DispatchSetupStatus(ctx, hook, payload, p.setupStatus)`, which answers every step
+done as completed. The row goes when you say completed. An older Core ignores the key.
+
+**What goes well with your plugin** (v0.42.0). `"recommends"` at the top of plugin.json lists at most 8
+`nilda.Recommendation`s, each naming exactly one `capability` (`"payment_gateway"`) or `contract`
+(`"shipping.carrier/v1"`) another plugin would bring, with `why` — the line the owner reads ("Take card payments").
+Core refuses a capability it does not know and one your own plugin already satisfies, and shows the rest as "Goes
+well with" under the install result and on your row in Plugins: the marketplace's plugins for each with an Install
+button, "installed and switched off — Switch on" for one already there, and nothing once one is on.
+`nilda.ValidateRecommendations` holds the list to Core's shape in your tests. Advice, never a requirement.
+
 **A `calendar` page is answered too** (v0.33.0). It is `"kind": "calendar"` with `"rows_page"` — the key of
 one of your own `list` pages: each event's id is a row id of that page, and its label is what the grid names
 — and `"default_view"`: `"day"`, `"week"` or `"month"` (empty is week). Its fields are filters, exactly as a
@@ -1920,6 +1947,10 @@ A **consumer** implements `nilda.PaymentConsumer` — `ConfirmPayment(ctx, nilda
 `RefundUpdated(ctx, nilda.PaymentRefund, nilda.PaymentSession)` — and calls `Methods` (a list of
 `nilda.PaymentOption`), `CreateSession` (with `nilda.PaymentSessionParams`), `GetSession`, `CreateRefund`
 (with `nilda.PaymentRefundParams`) and `GetRefund` on the same `nilda.Payments` client.
+`Readiness(ctx, currency)` (v0.42.0) says why a site cannot take a payment yet — a `nilda.PaymentsReadiness` of
+every installed gateway as a `nilda.PaymentGatewayState` (`key`, `name`, `enabled`), how many switched-on methods
+take the currency (`methods_on`) and whether any of them is a test method (`test`); `nildatest.Payments.SwitchGateway`
+switches a gateway off in a test.
 
 The hooks' JSON is Go types too, for a plugin that handles a hook by hand or reads the wire:
 `nilda.PaymentDescribeResponse`, `nilda.PaymentStartRequest`, `nilda.PaymentRefundRequest`,

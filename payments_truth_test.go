@@ -403,7 +403,8 @@ func TestThePaymentRoutesAreCores(t *testing.T) {
 	pay := newAPI(srv.URL+mount[1], "tok", nil).Payments()
 	ctx := context.Background()
 	calls := map[string]func(){
-		"Methods": func() { _, _ = pay.Methods(ctx, "EUR") },
+		"Methods":   func() { _, _ = pay.Methods(ctx, "EUR") },
+		"Readiness": func() { _, _ = pay.Readiness(ctx, "EUR") },
 		"CreateSession": func() {
 			_, _ = pay.CreateSession(ctx, "k1", PaymentSessionParams{Gateway: "g", Method: "m", Reference: "r",
 				AmountMinor: 1, Currency: "EUR", ReturnURL: "https://site.test/x"})

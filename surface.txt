@@ -78,10 +78,12 @@ const ClassPublish
 const ClassRead
 const ClassStructural
 const ClassWrite
+const ColumnAction
 const ColumnBadge
 const ColumnBoolean
 const ColumnDate
 const ColumnDatetime
+const ColumnLink
 const ColumnMoney
 const ColumnNumber
 const ColumnPercent
@@ -206,6 +208,9 @@ const MaxPickActions
 const MaxPickTools
 const MaxPriceGroupLength
 const MaxPrivacyRecords
+const MaxRecommendationWhy
+const MaxRecommendations
+const MaxSetupSteps
 const MaxWidgetHTMLBytes
 const MaxWidgetsPerPlugin
 const MetricMoney
@@ -269,6 +274,14 @@ const RefundPending
 const RefundRejected
 const RefundRequested
 const RefundResolved
+const ReportRowKey
+const ScreenEmail
+const ScreenMenus
+const ScreenPages
+const ScreenPayments
+const ScreenPlugins
+const ScreenPrivacy
+const ScreenSettings
 const ServiceHookPrefix
 const SettingBoolean
 const SettingColor
@@ -281,6 +294,7 @@ const SettingSelect
 const SettingText
 const SettingTextarea
 const SettingURL
+const SetupStatusHook
 const StockAlertAlready
 const StockAlertRefused
 const StockAlertSubscribe
@@ -962,6 +976,9 @@ field PaymentExternalRefund.Currency string json:currency
 field PaymentExternalRefund.ProviderRef string json:provider_ref
 field PaymentExternalRefund.Reason string json:reason
 field PaymentForgetRequest.Token string json:token
+field PaymentGatewayState.Enabled bool json:enabled
+field PaymentGatewayState.Key string json:key
+field PaymentGatewayState.Name string json:name
 field PaymentMandate.AmountMinor int64 json:amount_minor
 field PaymentMandate.AmountRule string json:amount_rule
 field PaymentMandate.Currency string json:currency
@@ -1080,6 +1097,9 @@ field PaymentStartResult.ProviderRef string json:provider_ref
 field PaymentStartResult.RedirectURL string json:redirect_url
 field PaymentStartResult.Status string json:status
 field PaymentSyncRequest.Session PaymentSession json:session
+field PaymentsReadiness.Gateways []PaymentGatewayState json:gateways
+field PaymentsReadiness.MethodsOn int json:methods_on
+field PaymentsReadiness.Test bool json:test
 field PickAction.Ability string json:ability
 field PickAction.CurrencyField string json:currency_field
 field PickAction.Effect string json:effect
@@ -1155,8 +1175,15 @@ field RatesResult.FailureCode string json:failure_code
 field RatesResult.FailureMessage string json:failure_message
 field RatesResult.Rates []CarrierRate json:rates
 field RatesResult.Status string json:status
+field Recommendation.Capability string json:capability
+field Recommendation.Contract string json:contract
+field Recommendation.Why string json:why
 field RenderAssetsRequest.Locale string json:locale
 field RenderAssetsRequest.PageKind string json:page_kind
+field ReportLink.Install string json:install
+field ReportLink.Label string json:label
+field ReportLink.Page string json:page
+field ReportLink.Screen string json:screen
 field ReportMetric.Currency string json:currency
 field ReportMetric.CurrencyKey string json:currency_key
 field ReportMetric.Format string json:format
@@ -1255,6 +1282,9 @@ field SettingField.Placeholder string json:placeholder
 field SettingField.Required bool json:required
 field SettingField.Secret bool json:secret
 field SettingField.Type string json:type
+field SetupStatus.Completed bool json:completed
+field SetupStatus.Done int json:done
+field SetupStatus.Total int json:total
 field ShipAddress.City string json:city
 field ShipAddress.Company string json:company
 field ShipAddress.Country string json:country
@@ -1414,6 +1444,7 @@ func DispatchPaymentGatewayHook(context.Context, *Core, PaymentGateway, string, 
 func DispatchPrivacyHook(context.Context, PersonalDataHolder, string, []byte) ([]byte, bool, error)
 func DispatchSearchHook(context.Context, *Core, SearchProvider, string, []byte) ([]byte, bool, error)
 func DispatchServiceHook(context.Context, ServiceProvider, string, []byte) ([]byte, bool, error)
+func DispatchSetupStatus(context.Context, string, []byte, func(context.Context) (SetupStatus, error)) ([]byte, bool, error)
 func DisputeCanMove(string, string) (bool)
 func DisputeFinal(string) (bool)
 func DocumentData(string, string, []byte) (DocumentRef)
@@ -1443,6 +1474,7 @@ func PaymentCanMove(string, string) (bool)
 func ProtocolForSDK(string) (int, bool)
 func RefundCanMove(string, string) (bool)
 func RegisterContractForTest(ServiceContract) (func())
+func ReportScreens() ([]string)
 func ScheduleHook(string) (string)
 func Serve(Handler)
 func ServeAuthProvider(AuthProvider)
@@ -1462,6 +1494,7 @@ func Supports([]string, string) (bool)
 func SupportsOf(PaymentMethod) ([]string)
 func TestHintFor(map[string]string, string) (string)
 func ValidPriceGroup(string) (bool)
+func ValidateRecommendations([]Recommendation) (error)
 func VisitorCountry(*http.Request) (string, bool)
 func VisitorKey(*http.Request) (string)
 func VisitorToolHook(string) (string)
@@ -1597,6 +1630,7 @@ method (*Payments) GetSession(context.Context, string) (PaymentSession, error)
 method (*Payments) ListDisputes(context.Context, string) ([]PaymentDispute, error)
 method (*Payments) MarkPending(context.Context, string, string) (PaymentSession, error)
 method (*Payments) Methods(context.Context, string) ([]PaymentOption, error)
+method (*Payments) Readiness(context.Context, string) (PaymentsReadiness, error)
 method (*Payments) Reject(context.Context, string, PaymentRejection) (PaymentSession, error)
 method (*Payments) RejectRefund(context.Context, string, PaymentRejection) (PaymentRefund, error)
 method (*Payments) ReportDispute(context.Context, string, PaymentDisputeReport) (PaymentDispute, error)
@@ -1637,6 +1671,7 @@ method (*Services) SubscribeStockAlert(context.Context, StockAlertRequest) (Stoc
 method (*Services) TrackShipment(context.Context, string, TrackRequest) (TrackResult, error)
 method (*Services) UpdateCheckout(context.Context, CheckoutUpdateRequest, string) (CheckoutResult, error)
 method (*Services) VoidShippingLabel(context.Context, string, VoidRequest) (VoidResult, error)
+method (AdminReportResult) Validate(AdminPage) (error)
 method (BuyerTerms) Validate() (error)
 method (BuyerTermsRequest) Validate() (error)
 method (CarrierDescription) Validate() (error)
@@ -1705,9 +1740,12 @@ method (QuoteRequestInput) Validate() (error)
 method (QuoteRequestResult) Validate() (error)
 method (RatesRequest) Validate() (error)
 method (RatesResult) Validate() (error)
+method (Recommendation) Target() (string)
+method (ReportLink) Validate() (error)
 method (ServiceAnswer) Decode(any) (error)
 method (ServiceContract) AssistantTools() ([]string)
 method (ServiceContract) Method(string) (ContractMethod, bool)
+method (SetupStatus) Validate() (error)
 method (ShipAddress) Validate() (error)
 method (ShopOrder) Validate() (error)
 method (ShopOrderRequest) Validate() (error)
@@ -1879,6 +1917,7 @@ type PaymentExternalRefund
 type PaymentForgetRequest
 type PaymentGateway
 type PaymentGatewayPlugin
+type PaymentGatewayState
 type PaymentMandate
 type PaymentMethod
 type PaymentOption
@@ -1899,6 +1938,7 @@ type PaymentStartResult
 type PaymentSyncRequest
 type PaymentSyncer
 type Payments
+type PaymentsReadiness
 type PersonalDataHolder
 type PickAction
 type PickGroupBy
@@ -1919,8 +1959,10 @@ type QuoteRequestInput
 type QuoteRequestResult
 type RatesRequest
 type RatesResult
+type Recommendation
 type Reference
 type RenderAssetsRequest
+type ReportLink
 type ReportMetric
 type RowAction
 type RowCondition
@@ -1944,6 +1986,7 @@ type ServiceProvider
 type ServiceResult
 type Services
 type SettingField
+type SetupStatus
 type ShipAddress
 type ShopOrder
 type ShopOrderLine

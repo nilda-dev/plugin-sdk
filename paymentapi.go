@@ -48,6 +48,44 @@ func (p *Payments) Methods(ctx context.Context, currency string) ([]PaymentOptio
 	return out.Data, nil
 }
 
+// PaymentsReadiness is whether this site can take a payment in a currency, and why not (v0.42.0): every gateway
+// plugin installed, with whether it is switched on; how many methods the owner has switched on that take the
+// currency; and whether any of those is a test method, which takes no real money.
+type PaymentsReadiness struct {
+	Gateways  []PaymentGatewayState `json:"gateways"`
+	MethodsOn int                   `json:"methods_on"`
+	Test      bool                  `json:"test"`
+}
+
+// PaymentGatewayState is one installed gateway plugin: its key, the name the owner reads, and its switch.
+type PaymentGatewayState struct {
+	Key     string `json:"key"`
+	Name    string `json:"name"`
+	Enabled bool   `json:"enabled"`
+}
+
+// Readiness says whether the site can take a payment in currency (v0.42.0) — for a consumer's own "ready to sell"
+// check, which Methods alone cannot answer: an empty Methods is the same for "no gateway installed", "a gateway
+// installed and switched off" and "a gateway on and none of its methods takes this currency", and each needs a
+// different sentence to the owner. Consumers only (payment_session), like Methods. Needs the Core release built on
+// it; an older Core answers 404.
+func (p *Payments) Readiness(ctx context.Context, currency string) (PaymentsReadiness, error) {
+	code := strings.ToUpper(strings.TrimSpace(currency))
+	if _, ok := MinorUnits(code); !ok {
+		return PaymentsReadiness{}, fmt.Errorf("nilda: %q is not a currency ISO 4217 gives a minor unit to", currency)
+	}
+	var out struct {
+		Data PaymentsReadiness `json:"data"`
+	}
+	if err := p.api.Get(ctx, "/payments/readiness", url.Values{"currency": {code}}, &out); err != nil {
+		return PaymentsReadiness{}, err
+	}
+	if out.Data.Gateways == nil {
+		out.Data.Gateways = []PaymentGatewayState{}
+	}
+	return out.Data, nil
+}
+
 // CreateSession asks Core for a payment. Core checks that the gateway offers the method in that currency and
 // that the URLs are on this site, stores the session, asks the gateway to start it, and answers with the
 // session as the gateway left it: Status redirected means send the payer to RedirectURL; otherwise it is

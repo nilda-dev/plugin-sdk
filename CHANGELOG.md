@@ -7,6 +7,28 @@ here.
 How a release is cut (additive only, one tag per milestone, security and money fixes at once, an undated first
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
+## v0.42.0 — unreleased (report rows that link and act; a setup page and what goes well with a plugin; why a site cannot take a payment yet)
+
+- `ColumnLink` (`"link"`, a `ReportLink` cell: `{label, page}` an own declared page, `{label, screen}` one of
+  `ReportScreens()`'s Core screens, `{label, install}` one of the manifest's `recommends`) and `ColumnAction`
+  (`"action"`, a cell holding one of the page's declared action keys or `""`): a report row that says what to do
+  next opens it or does it. A report page may declare `actions`; a press sends the row's `ReportRowKey` cell as the id.
+  `AdminReportResult.Validate(page)` and `ReportLink.Validate` check both. `ColumnTypes()` does not grow: the two are a
+  report's cells alone.
+- `SetupStatusHook` (`"setup.status"`), `SetupStatus` (`Done`, `Total`, `Completed`), `MaxSetupSteps`,
+  `DispatchSetupStatus`, and the manifest's `setup_page`: Core opens the plugin's setup report after install and shows
+  "Finish setting up <plugin> (x of y)" in its onboarding list until the plugin says completed.
+- `Recommendation` (`Capability` or `Contract`, and `Why`), `MaxRecommendations` (8), `MaxRecommendationWhy`,
+  `ValidateRecommendations`, and the manifest's `recommends`: Core shows "Goes well with" with the marketplace's
+  plugins for each and an Install button.
+- `Payments.Readiness(ctx, currency)` and `PaymentsReadiness` (`Gateways` of `PaymentGatewayState{Key, Name,
+  Enabled}`, `MethodsOn`, `Test`), `GET /payments/readiness`: "no gateway installed", "installed and switched off" and
+  "none takes this currency" told apart. `nildatest` answers it, and `nildatest.Payments.SwitchGateway` switches a
+  gateway off.
+- Needs the Core release built on it; an older Core ignores `setup_page`, `recommends` and report `actions` and draws
+  link and action cells as text, and answers `Readiness` 404. Additions only; `surface.txt` grows by 43,
+  `nildatest/surface.txt` by 1.
+
 ## v0.41.0 — 2026-10-24 (an admin button, form or setting that always asks; Core says when the assistant asked)
 
 - `RowAction.AlwaysAsk`, `PageForm.AlwaysAsk`, `SettingField.AlwaysAsk` (`always_ask` in plugin.json): the assistant

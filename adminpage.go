@@ -175,6 +175,10 @@ type AdminPage struct {
 	// the refund happening, the email going out or the stock coming back — YOUR logic bypassed by YOUR admin
 	// screen, with nobody able to tell. So Core shows the row and you change it: pressing an action calls
 	// your `admin.action` hook with the row's primary key, and what happens next is yours.
+	//
+	// A REPORT page may declare Actions too (v0.42.0): its rows show them through a ColumnAction cell, and a press
+	// sends the row's ReportRowKey cell as the id (reportcells.go). ShownWhen is a list page's alone — on a report
+	// the cell itself says whether the row has the button.
 	Actions []RowAction `json:"actions,omitempty"`
 	// Form lets the owner create and edit this list's rows in a form you declare and save yourself (adminform.go).
 	// Nil keeps the list read-only.
@@ -233,9 +237,15 @@ const (
 	ColumnBadge = "badge"
 	// ColumnPercent is the number itself, not a fraction: 20 is 20 % (v0.32.0).
 	ColumnPercent = "percent"
+	// ColumnLink is a report's cell that opens somewhere: a ReportLink (v0.42.0, reportcells.go).
+	ColumnLink = "link"
+	// ColumnAction is a report's cell that is a button: the key of one of the page's Actions, or "" for none
+	// (v0.42.0, reportcells.go).
+	ColumnAction = "action"
 )
 
-// ColumnTypes returns every column type Core draws, sorted.
+// ColumnTypes returns every column type Core draws, sorted. ColumnLink and ColumnAction are not among them: they
+// are a report's cells alone, which a list page's table column and the Nilda app's row never hold.
 func ColumnTypes() []string {
 	out := []string{ColumnText, ColumnNumber, ColumnDate, ColumnDatetime, ColumnBoolean, ColumnMoney, ColumnBadge, ColumnPercent}
 	sort.Strings(out)

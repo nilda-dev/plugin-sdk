@@ -402,6 +402,9 @@ func (s *Shop) RefundUpdated(ctx context.Context, r nilda.PaymentRefund, p nilda
 ```go
 pay := core.API().Payments()
 opts, err := pay.Methods(ctx, "EUR")   // what the payer may choose — empty: this site cannot take EUR
+// Why it cannot, for the owner (v0.42.0): no gateway installed, one installed and switched off, or none of the
+// switched-on methods takes EUR — and Test when a switched-on method takes no real money.
+ready, err := pay.Readiness(ctx, "EUR")
 session, err := pay.CreateSession(ctx, order.ID+"#"+strconv.Itoa(order.Attempt), nilda.PaymentSessionParams{
 	Gateway: choice.Gateway, Method: choice.Method, Reference: order.ID,
 	AmountMinor: order.TotalMinor, Currency: "EUR", Description: "Order " + order.Number,
@@ -547,7 +550,7 @@ Hooks arrive over the plugin protocol (docs/ANY_LANGUAGE.md) with these JSON pay
 
 A session is `{"id","consumer","gateway","method","reference","amount_minor","currency","status","test",
 "description","return_url","cancel_url","redirect_url","provider_ref","failure_code","failure_message",
-"email","locale","supports","fulfilment","billing_address","shipping_address","expires_at","save","saved_method","charged_saved","refunded_minor",
+"email","locale","supports","fulfilment","billing_address","shipping_address","expires_at","save","saved_method","charged_saved","instrument","resolved_at","refunded_minor",
 "created_at","updated_at"}`; a refund is `{"id","session","amount_minor","currency","status","reason",
 "provider_ref","failure_code","failure_message","external","reversed_at","created_at","updated_at"}`; an address
 is `{"name","line1","line2","city","postal_code","region","country"}`; a dispute is `{"id","session",
@@ -560,6 +563,7 @@ Calls into Core, under `/api/rest/v1`, with the plugin's token; answers inside `
 | call | who | body | answer |
 |---|---|---|---|
 | `GET /payments/methods?currency=EUR` | consumer | — | `[{"gateway","method","label","description","refunds","test","test_hint","supports"}]` |
+| `GET /payments/readiness?currency=EUR` | consumer | — | `{"gateways":[{"key","name","enabled"}],"methods_on","test"}` (v0.42.0) |
 | `POST /payments/sessions` + `Idempotency-Key` | consumer | `{"gateway","method","reference","amount_minor","currency","description","return_url","cancel_url","email","locale","fulfilment","billing_address","shipping_address","credential","save"}` | 201, the session |
 | `GET /payments/sessions/{id}` | either side of it | — | the session |
 | `POST /payments/sessions/{id}/refunds` + `Idempotency-Key` | consumer | `{"amount_minor","reason"}` | 201, the refund |
