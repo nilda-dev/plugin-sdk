@@ -1090,6 +1090,11 @@ address — ISO 3166-1 alpha-2, the country and never the address, with any clie
 the evidence EU VAT law accepts for where a buyer of a digital service is (Regulation 282/2011 Art. 24f(b)); keep it
 with the sale.
 
+**The visitor's language.** `nilda.VisitorLocale(r)` (from v0.43.0) is the language the visitor is reading — always
+one of the site's languages: the page address's (`/fr/…`), else the first of the browser's preferences the site is
+published in, else the site's default. Core strips a client-sent value. Write an order in it and pass it as
+`TemplatedEmail.Locale`, so the buyer's mail arrives in the language they bought in.
+
 **A key to limit by.** `nilda.VisitorKey(r)` (from v0.23.0) is an opaque key for the request's internet address — a
 keyed hash Core makes of the whole IPv4 address or an IPv6 address's /64, changing every UTC day, never the address.
 Limit a public write by it (a form that mails whoever it is given); it identifies nobody. "" from an older Core.

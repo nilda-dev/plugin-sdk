@@ -30,6 +30,7 @@ const (
 	currentUserNameHeader = "X-Nilda-User-Name"
 	impersonatedByHeader  = "X-Nilda-Impersonated-By"
 	visitorCountryHeader  = "X-Nilda-Visitor-Country"
+	visitorLocaleHeader   = "X-Nilda-Visitor-Locale"
 	visitorKeyHeader      = "X-Nilda-Visitor-Key"
 )
 
@@ -67,6 +68,24 @@ func VisitorCountry(r *http.Request) (string, bool) {
 		return "", false
 	}
 	return c, true
+}
+
+// VisitorLocale is the language the visitor is reading, for a request your resident HTTP server received (v0.43.0):
+// always one of the languages the site is published in — the one the page's address is in (/fr/…), else the first
+// of the browser's preferred languages the site has, else the site's default — as a lowercase language code ("fr").
+// Core strips any value a client sent. Write an order in it, and pass it as TemplatedEmail.Locale so the buyer's mail
+// is in their language. ok is false from an older Core.
+func VisitorLocale(r *http.Request) (string, bool) {
+	l := r.Header.Get(visitorLocaleHeader)
+	if len(l) < 2 || len(l) > 3 {
+		return "", false
+	}
+	for _, c := range l {
+		if c < 'a' || c > 'z' {
+			return "", false
+		}
+	}
+	return l, true
 }
 
 // VisitorKey is an opaque key for the visitor's internet address, for a request your resident HTTP server received —
