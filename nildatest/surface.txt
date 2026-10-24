@@ -9,10 +9,12 @@ field Delivery.Session nilda.PaymentSession
 field Email.Body string
 field Email.Data map[string]any
 field Email.HTML string
+field Email.IdempotencyKey string
 field Email.Key string
 field Email.Lang string
 field Email.Locale string
 field Email.Ref string
+field Email.ReplyTo string
 field Email.Subject string
 field Email.To string
 field Email.Transactional bool

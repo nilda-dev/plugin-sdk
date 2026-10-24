@@ -102,7 +102,7 @@ func (h *Host) SendTemplatedEmail(_ context.Context, in *contract.SendTemplatedE
 	}
 	h.emails = append(h.emails, Email{To: in.To, Subject: strings.Join(strings.Fields(subject), " "),
 		Body: tidyText(body), HTML: page, Lang: locale, Transactional: d.Lane != nilda.EmailMarketing,
-		Key: in.Key, Ref: in.Ref, Locale: locale, Data: data})
+		Key: in.Key, Ref: in.Ref, Locale: locale, Data: data, ReplyTo: in.ReplyTo, IdempotencyKey: in.IdempotencyKey})
 	return &contract.SendTemplatedEmailResponse{}, nil
 }
 

@@ -31,7 +31,7 @@ func TestTheFakeRendersTheDeclaredDefault(t *testing.T) {
 	data := map[string]any{"order_number": "1042", "lines": []any{map[string]any{"qty": 2, "name": "Tea"}},
 		"contract": map[string]any{"html": "<p>Terms</p>", "text": "Terms."}}
 	if err := core.SendTemplatedEmail(ctx, nilda.TemplatedEmail{Key: "order_confirmation", To: "a@b.test",
-		Locale: "fr", Data: data, Ref: "order:1042"}); err != nil {
+		Locale: "fr", Data: data, Ref: "order:1042", ReplyTo: "shop@b.test", IdempotencyKey: "o1042"}); err != nil {
 		t.Fatal(err)
 	}
 	got := host.Emails()
@@ -39,7 +39,8 @@ func TestTheFakeRendersTheDeclaredDefault(t *testing.T) {
 		t.Fatalf("recorded %d mails", len(got))
 	}
 	e := got[0]
-	if e.Key != "order_confirmation" || e.Ref != "order:1042" || e.Locale != "en" || e.Data["order_number"] != "1042" {
+	if e.Key != "order_confirmation" || e.Ref != "order:1042" || e.Locale != "en" || e.Data["order_number"] != "1042" ||
+		e.ReplyTo != "shop@b.test" || e.IdempotencyKey != "o1042" {
 		t.Fatalf("recorded %+v", e)
 	}
 	if e.Subject != "Order 1042" || e.Body != "Thanks for order 1042.\n2 x Tea\nTerms." || e.HTML != "<p>Order 1042</p><p>Terms</p>" {

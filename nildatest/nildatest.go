@@ -62,6 +62,10 @@ type Email struct {
 	Ref    string
 	Locale string
 	Data   map[string]any
+	// ReplyTo and IdempotencyKey are what SendTemplatedEmail passed: where the plugin asked replies to go (Core uses it
+	// when the owner set none on the template) and its retry key.
+	ReplyTo        string
+	IdempotencyKey string
 }
 
 // Event is one event a plugin emitted.
