@@ -7,7 +7,7 @@ here.
 How a release is cut (additive only, one tag per milestone, security and money fixes at once, an undated first
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
-## v0.41.0 — unreleased (an admin button, form or setting that always asks; Core says when the assistant asked)
+## v0.41.0 — 2026-10-24 (an admin button, form or setting that always asks; Core says when the assistant asked)
 
 - `RowAction.AlwaysAsk`, `PageForm.AlwaysAsk`, `SettingField.AlwaysAsk` (`always_ask` in plugin.json): the assistant
   asks the person before pressing such a button, saving such a form or changing such a setting, whatever a connector
