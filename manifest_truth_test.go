@@ -54,7 +54,7 @@ func TestTheManifestRulesTheDocsNameAreCores(t *testing.T) {
 
 	// Bounds written as a literal where Core checks them.
 	for _, c := range []struct{ doc, core, file string }{
-		{"at most 64 tables, 64 columns a table", "len(tables) > 64", "schema_tables.go"},
+		{"at most 128 tables, 64 columns a table", "maxTablesPerPlugin = 128", "schema_tables.go"},
 		{"a taxonomy key at most 60", "len(s) > 60", "schema_contenttypes.go"},
 	} {
 		src := map[string]string{"schema_tables.go": tables, "schema_contenttypes.go": contentTypes}[c.file]

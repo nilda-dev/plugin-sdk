@@ -287,7 +287,7 @@ What that means for you day to day:
   `int`, `bigint` and `numeric` within its range (below); a quoted string must be a value of the column's type (`'42'` on an `int`,
   `'yes'` on a `bool`). A quoted date or time is left to Postgres, which reads too many spellings of one to
   restate — a wrong one still fails when the table is built.
-- **Limits**: at most 64 tables, 64 columns a table, 16 indexes a table and 32 columns an index (Postgres
+- **Limits**: at most 128 tables, 64 columns a table, 16 indexes a table and 32 columns an index (Postgres
   builds no wider). The 16 counts every index Core builds on the table — its unique columns, and the one a
   list page's `order_by` adds, as well as the ones you list. No column may take the name of a column Postgres
   keeps on every table (`tableoid`, `xmin`, `cmin`, `xmax`, `cmax`, `ctid`), and no table the name Postgres
