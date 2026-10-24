@@ -7,7 +7,7 @@ here.
 How a release is cut (additive only, one tag per milestone, security and money fixes at once, an undated first
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
-## v0.39.0 — unreleased (the ECB's euro rates, with exact cross rates; what a payment was paid with)
+## v0.39.0 — 2026-10-24 (the ECB's euro rates, with exact cross rates; what a payment was paid with)
 
 - `Reference().ExchangeRates(ctx, at)` and `ExchangeRateSet` (`Day`, `PublishedAt`, `Rates`, `Source`, `FetchedAt`): the
   European Central Bank's euro reference rates in force at an instant, from Nilda Central through Core, as decimal
