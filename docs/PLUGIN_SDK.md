@@ -925,6 +925,17 @@ Core keeps paragraphs, headings, lists, links, images and emphasis and drops eve
 picture — an image the law asks you to show, a product photo — but never run anything. Never send a newsletter or a
 reminder this way.
 
+**A mail that was not sent is never `nil` (v0.39.0).** For a transactional mail, `nil` means Core handed it to the mail
+provider; every refusal is an error, and two helpers tell the kinds apart. `nilda.MailAddressBlocked(err)` is an address
+that bounced or complained: nothing will ever be sent there, so stop mailing it and tell the owner. `nilda.MailDeferred(err)`
+is a mail Core did not send NOW — the site's email paused by the platform, its daily allowance spent, or your plugin over
+its sending rate — with how long to wait (`retryAfter`, 0 when Core named no time). Never treat a deferred mail as delivered:
+a gift card whose code was "mailed" but never was is switched on for a buyer who has no code. Ask again later, and say so
+where the owner looks. A marketing mail (`SendEmail`, `SendLocalizedEmail`) is queued by Core: `nil` means Core has it and
+will retry. In tests, set `host.EmailRefusal` to `nildatest.MailBlockedError()` or `nildatest.MailDeferredError(time.Hour)`
+and the fake refuses exactly as Core does, recording nothing. Needs the Core release built on it; an older Core answers a
+refusal as a plain error, and `MailDeferred` reads the per-plugin rate limit either way.
+
 ### Serving your own pages (`route`)
 
 ```go

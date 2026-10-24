@@ -116,6 +116,10 @@ func (c *Core) SendLocalizedEmail(ctx context.Context, to, subject, body, lang s
 // Do not use it for a newsletter, a basket reminder or anything a recipient could reasonably not want: those are
 // SendLocalizedEmail, which carries the unsubscribe link the law asks for.
 //
+// nil means the provider accepted it. A refusal is never nil: MailAddressBlocked says the address does not take mail,
+// MailDeferred that Core did not send it now (the site's email paused, its daily allowance spent, or too many sent too
+// fast) and when to ask again — act on those, never assume it went.
+//
 //	core.SendTransactionalEmail(ctx, order.CustomerEmail, subject, text, htmlPart, "de")
 func (c *Core) SendTransactionalEmail(ctx context.Context, to, subject, text, html, lang string) error {
 	_, err := c.host.SendEmail(ctx, &contract.SendEmailRequest{To: to, Subject: subject, Body: text, Html: html,

@@ -14,6 +14,12 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
   strings; `ExchangeRateSet.Rate(from, to)` is the exact cross rate through the euro (a `*big.Rat`). For an invoice in a
   currency other than the seller's national one, which states its VAT in the seller's currency (Directive 2006/112/EC
   Art. 91(2), 230). Needs the Core release built on it; an older Core answers 404. Additions only; `surface.txt` grows by 8.
+- `MailAddressBlocked(err)` and `MailDeferred(err)` (with how long to wait): read why Core did not send a mail — an address
+  that bounced or complained, or the site's email paused, its daily allowance spent, or this plugin over its sending rate.
+  A transactional mail is never answered `nil` when it was not sent (it was, for the pause and the allowance, before: a shop
+  switched a gift card on as mailed). `nildatest.Host.EmailRefusal`, `MailBlockedError()` and `MailDeferredError(retry)`: a
+  test host that refuses exactly as Core does. `google.golang.org/genproto/googleapis/rpc` becomes a direct requirement.
+  Needs the Core release built on it. Additions only; `surface.txt` grows by 2, `nildatest/surface.txt` by 3.
 - `CommerceProductPages` (`ProductForContent`) and `HookCommerceProductForContent` (`"commerce.product_for_content"`): an
   optional extra of a shop — which product a content item, a product's own page, is — so a product widget on that page with
   no product chosen draws it. `Serve` subscribes the hook only for a shop that implements it. Needs the Core release built

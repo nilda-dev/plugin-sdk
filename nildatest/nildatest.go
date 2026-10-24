@@ -34,9 +34,11 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	nilda "github.com/nilda-dev/plugin-sdk"
 	"github.com/nilda-dev/plugin-sdk/contract"
@@ -79,6 +81,10 @@ type Host struct {
 	// Fail, when set, makes every host call return it. For asserting what a plugin does when Core is having
 	// a bad day — a plugin that ignores a failed SendEmail loses a customer's receipt silently.
 	Fail error
+	// EmailRefusal, when set, makes every SendEmail answer it and record nothing — the mail was not sent. Build it with
+	// MailBlockedError or MailDeferredError, which carry exactly the statuses Core answers, so nilda.MailAddressBlocked
+	// and nilda.MailDeferred read them as they read Core's.
+	EmailRefusal error
 }
 
 // kvEntry is one stored value and when it expires (zero: never), as Core's KV keeps it.
@@ -473,7 +479,35 @@ func (h *Host) SendEmail(_ context.Context, in *contract.SendEmailRequest, _ ...
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.EmailRefusal != nil {
+		return nil, h.EmailRefusal
+	}
 	h.emails = append(h.emails, Email{To: in.To, Subject: in.Subject, Body: in.Body, Lang: in.Lang, HTML: in.Html,
 		Transactional: in.Transactional})
 	return &contract.SendEmailResponse{}, nil
+}
+
+// MailBlockedError is the refusal Core answers a transactional mail to an address that bounced or complained with —
+// nilda.MailAddressBlocked reads it. Set it as Host.EmailRefusal.
+func MailBlockedError() error {
+	return mailRefusal(codes.FailedPrecondition, "ADDRESS_BLOCKED", 0)
+}
+
+// MailDeferredError is the refusal Core answers a mail with while the site's email is paused or its daily allowance is
+// spent — nilda.MailDeferred reads it, with retry as the time to wait. Set it as Host.EmailRefusal.
+func MailDeferredError(retry time.Duration) error {
+	return mailRefusal(codes.Unavailable, "MAIL_DEFERRED", retry)
+}
+
+func mailRefusal(code codes.Code, reason string, retry time.Duration) error {
+	st := status.New(code, "email: not sent ("+reason+")")
+	if with, err := st.WithDetails(&errdetails.ErrorInfo{Reason: reason, Domain: "nilda.dev"}); err == nil {
+		st = with
+	}
+	if retry > 0 {
+		if with, err := st.WithDetails(&errdetails.RetryInfo{RetryDelay: durationpb.New(retry)}); err == nil {
+			st = with
+		}
+	}
+	return st.Err()
 }

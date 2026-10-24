@@ -345,3 +345,27 @@ func coreSource(t *testing.T, file string) string {
 	t.Fatalf("core is checked out beside plugin-sdk but has no %s — it moved or was renamed; repoint this guard", path)
 	return ""
 }
+
+// The fake refuses a mail the way Core does, so an author finds out in `go test` what their plugin does when a gift
+// card's mail did not go — and the refused mail is not recorded, because it was not sent.
+func TestTheFakeCanRefuseMailLikeCore(t *testing.T) {
+	ctx := context.Background()
+	core, h := New("shop", "email")
+	h.EmailRefusal = MailBlockedError()
+	err := core.SendTransactionalEmail(ctx, "a@b.test", "s", "t", "", "en")
+	if !nilda.MailAddressBlocked(err) {
+		t.Fatalf("a blocked refusal read as %v", err)
+	}
+	h.EmailRefusal = MailDeferredError(time.Hour)
+	err = core.SendTransactionalEmail(ctx, "a@b.test", "s", "t", "", "en")
+	if after, ok := nilda.MailDeferred(err); !ok || after != time.Hour {
+		t.Fatalf("a deferred refusal read as %v (%v %v)", err, after, ok)
+	}
+	if len(h.Emails()) != 0 {
+		t.Errorf("a refused mail was recorded as sent: %+v", h.Emails())
+	}
+	h.EmailRefusal = nil
+	if err := core.SendTransactionalEmail(ctx, "a@b.test", "s", "t", "", "en"); err != nil || len(h.Emails()) != 1 {
+		t.Errorf("with no refusal the mail goes: %v, %d recorded", err, len(h.Emails()))
+	}
+}
