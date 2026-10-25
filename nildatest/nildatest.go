@@ -27,6 +27,7 @@ package nildatest
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -499,6 +500,57 @@ func (h *Host) SendEmail(_ context.Context, in *contract.SendEmailRequest, _ ...
 	h.emails = append(h.emails, Email{To: in.To, Subject: in.Subject, Body: in.Body, Lang: in.Lang, HTML: in.Html,
 		Transactional: in.Transactional})
 	return &contract.SendEmailResponse{}, nil
+}
+
+// SendTemplatedEmail renders the declared default of a template loaded with UseEmailTemplates (templated.go) and records
+// it, refusing what Core refuses: no `email`, no key or recipient, a key the plugin never declared, a switched-off one.
+func (h *Host) SendTemplatedEmail(_ context.Context, in *contract.SendTemplatedEmailRequest, _ ...grpc.CallOption) (*contract.SendTemplatedEmailResponse, error) {
+	if err := h.enforce("email"); err != nil {
+		return nil, err
+	}
+	if in.Key == "" || in.To == "" {
+		return nil, status.Error(codes.InvalidArgument, "key and to are required")
+	}
+	data := map[string]any{}
+	if len(in.DataJson) > 0 {
+		if err := json.Unmarshal(in.DataJson, &data); err != nil {
+			return nil, status.Error(codes.InvalidArgument, "data_json is not a JSON object")
+		}
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	d, ok := h.templates[in.Key]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "no email template %q is declared — load them with host.UseEmailTemplates", in.Key)
+	}
+	if h.off[in.Key] {
+		return nil, mailRefusal(codes.FailedPrecondition, "TEMPLATE_OFF", 0)
+	}
+	if h.EmailRefusal != nil {
+		return nil, h.EmailRefusal
+	}
+	locale := bestTemplateLocale(d.Defaults, in.Locale)
+	w := d.Defaults[locale]
+	htmlVars, textVars := splitTemplateData(d.Variables, data)
+	subject, err := renderMailTemplate(w.Subject, textVars, false)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	body, err := renderMailTemplate(w.Text, textVars, false)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	page := ""
+	if w.HTML != "" {
+		if page, err = renderMailTemplate(w.HTML, htmlVars, true); err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		page = emptyParagraph.ReplaceAllString(page, "")
+	}
+	h.emails = append(h.emails, Email{To: in.To, Subject: strings.Join(strings.Fields(subject), " "),
+		Body: tidyText(body), HTML: page, Lang: locale, Transactional: d.Lane != nilda.EmailMarketing,
+		Key: in.Key, Ref: in.Ref, Locale: locale, Data: data, ReplyTo: in.ReplyTo, IdempotencyKey: in.IdempotencyKey})
+	return &contract.SendTemplatedEmailResponse{}, nil
 }
 
 // MailBlockedError is the refusal Core answers a transactional mail to an address that bounced or complained with —
