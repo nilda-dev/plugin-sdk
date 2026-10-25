@@ -46,6 +46,7 @@ field StubGateway.Refund nilda.PaymentRefundResult
 field StubGateway.SavedCharged []string
 field StubGateway.SavedStart nilda.PaymentStartResult
 field StubGateway.Start nilda.PaymentStartResult
+func AsksForSignIn(*http.Response) (bool)
 func CheckPersonalDataHolder(context.Context, nilda.PersonalDataHolder, string) (error)
 func MailBlockedError() (error)
 func MailDeferredError(time.Duration) (error)

@@ -1,5 +1,6 @@
 const AccountDisconnectHook
 const AccountFinishHook
+const AccountNavAttr
 const AccountStartHook
 const AccountStatusHook
 const AdminActionHook
@@ -88,6 +89,7 @@ const ColumnMoney
 const ColumnNumber
 const ColumnPercent
 const ColumnText
+const CommerceSignInHeader
 const ContractShippingCarrier
 const ContractShopBuyers
 const ContractShopCatalog
@@ -122,6 +124,7 @@ const EmailTransactional
 const EmailURL
 const EventCommerceCatalogChanged
 const EventCommerceSKURenamed
+const EventUserEmailVerified
 const FieldBoolean
 const FieldCheckbox
 const FieldColor
@@ -1465,6 +1468,7 @@ func CarrierMethods(Carrier) ([]ServiceMethod)
 func CatalogMethods(CatalogProvider) ([]ServiceMethod)
 func CheckoutMethods(CheckoutProvider) ([]ServiceMethod)
 func ColumnTypes() ([]string)
+func CommerceSignInRequired(http.ResponseWriter)
 func CommerceViewerOf(context.Context) (CommerceViewer, bool)
 func ContractNamed(string) (ServiceContract, bool)
 func ContractToolName(string, string) (string)
@@ -2068,6 +2072,7 @@ type WidgetDef
 type WidgetField
 type WidgetProvider
 type WidgetRenderRequest
+var AccountVocabulary
 var ErrTemplateOff
 var Handshake
 var SupportedProtocols

@@ -7,6 +7,19 @@ here.
 How a release is cut (additive only, one tag per milestone, security and money fixes at once, an undated first
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
+## v0.44.0 — unreleased (the buyer's account inside the site)
+
+- `CommerceSignInRequired(w)` and `CommerceSignInHeader`: a members-only account view answers a signed-out visitor
+  401 with `Nilda-Sign-In: required`, and Core's account shell draws Core's own sign-in panel in the mount, then asks
+  for the same view again once the buyer is signed in (`docs/COMMERCE.md`).
+- `AccountNavAttr` (`data-pb-nav`): a link in the account fragment Core's shell follows in place, the view kept in the
+  page's address as `?shop=<query>` and forwarded to the endpoint on first render.
+- `AccountVocabulary`: the classes a members area wears — the account widget's style parts, drawn by Core from the
+  site's design tokens.
+- `EventUserEmailVerified` (`user.email_verified`): a person confirmed their address (the confirmation link, or a
+  sign-in provider that verified it); never sent for a sign-up that proved nothing.
+- `nildatest.AsksForSignIn`: whether a response is the sign-in answer the shell listens for.
+
 ## v0.43.0 — 2026-10-25 (the mail door: mail a plugin declares and the owner edits; the visitor's language; events the site can listen for)
 
 - `EmailTemplateDecl`, `EmailVariable`, `EmailTemplateText` and the manifest's `email_templates`: a plugin declares each

@@ -2024,6 +2024,13 @@ There is no payload — Nilda answers by dropping every page that drew any of yo
 the plugin that is the shop — any other plugin's call is refused — because a purge any plugin could trigger
 is a cache stampede one bad plugin away.
 
+**The buyer's account lives inside the owner's page** ([COMMERCE.md](COMMERCE.md), v0.44.0). The My Account
+widget is a members area: a link in your account fragment marked `data-pb-nav` (`nilda.AccountNavAttr`) is
+followed in place, with the view kept in the page's address as `?shop=<your query>`; a members-only view answers
+a signed-out visitor with `nilda.CommerceSignInRequired(w)` and Core draws its own sign-in panel in the mount;
+your markup wears the classes in `nilda.AccountVocabulary`, which the owner styles from the page builder; and
+`nilda.EventUserEmailVerified` tells you when a person has proved their address.
+
 ### An AI agent that proved who it is (`AgentOf`, `VisitorCall.Agent`)
 
 An AI agent can sign its requests with a key its operator publishes (Web Bot Auth — ChatGPT's agent and Google's do).
