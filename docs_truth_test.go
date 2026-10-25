@@ -866,9 +866,10 @@ func TestTheAssistantSavesSettingsThroughTheSectionsOwnSave(t *testing.T) {
 			t.Errorf("core's plugin settings tools no longer have %q — re-read the guide's \"Who saves them\"", want)
 		}
 	}
-	// settingsTarget is the one gate, and both the preview and the apply ask it.
-	if n := strings.Count(src, "s.settingsTarget(ctx, v, in)"); n != 2 {
-		t.Errorf("core asks settingsTarget %d times, want the preview and the apply both", n)
+	// settingsTarget is the one gate: the preview and the apply ask it, and so does the always-ask check that decides
+	// whether a field marked always_ask makes the change ask the person (v0.41.0).
+	if n := strings.Count(src, "s.settingsTarget(ctx, v, in)"); n != 3 {
+		t.Errorf("core asks settingsTarget %d times, want the preview, the apply and the always-ask check", n)
 	}
 	guide := strings.Join(strings.Fields(readText(t, "docs/PLUGIN_SDK.md")), " ")
 	for _, want := range []string{
