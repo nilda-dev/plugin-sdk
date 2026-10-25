@@ -7,7 +7,7 @@ here.
 How a release is cut (additive only, one tag per milestone, security and money fixes at once, an undated first
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
-## v0.43.0 — unreleased (the mail door: mail a plugin declares and the owner edits; the visitor's language; events the site can listen for)
+## v0.43.0 — 2026-10-25 (the mail door: mail a plugin declares and the owner edits; the visitor's language; events the site can listen for)
 
 - `EmailTemplateDecl`, `EmailVariable`, `EmailTemplateText` and the manifest's `email_templates`: a plugin declares each
   mail it sends — words per language in Core's Liquid, recipient (`EmailToPerson`, `EmailToOwner`, `EmailToOther`),
