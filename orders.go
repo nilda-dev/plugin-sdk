@@ -114,11 +114,9 @@ type ShopOrderLine struct {
 	Quantity         int64 `json:"quantity"`
 	QuantityRefunded int64 `json:"quantity_refunded,omitempty"`
 	UnitPriceMinor   int64 `json:"unit_price_minor"`
-	// OfferID is the offer (shop.offers/v1) the line was bought through, "" for one the buyer added themselves — what
-	// an offers plugin counts its sales by.
+	// OfferID is the shop's offer the line was bought through, "" for one the buyer added themselves.
 	OfferID string `json:"offer_id,omitempty"`
-	// QuoteID is the quote (shop.buyers/v1) whose price the line was bought at, "" for none — what a B2B plugin marks a
-	// quote ordered by.
+	// QuoteID is the shop's wholesale quote whose price the line was bought at, "" for none.
 	QuoteID string `json:"quote_id,omitempty"`
 }
 

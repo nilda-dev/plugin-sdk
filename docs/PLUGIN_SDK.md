@@ -2639,20 +2639,14 @@ and reads the published products in a feed-grade shape. `docs/CATALOG.md` is the
   `Services.CatalogDescription`, `Services.CatalogPage` and `Services.CatalogProduct` (contract `ContractShopCatalog`,
   methods `CatalogDescribe`, `CatalogProductsPage`, `CatalogProductGet`).
 
-### Back-in-stock requests (`stock.alerts/v1`)
+### Back-in-stock requests (the shop's own)
 
-A plugin keeps them; the shop's product page takes them. `docs/STOCK_ALERTS.md` is the whole of it.
-
-- **The plugin** implements `StockAlertProvider` (`DescribeStockAlerts`, `SubscribeStockAlert`) and returns
-  `StockAlertMethods(p)` — or nothing: `Serve` finds it by itself. The shapes: `StockAlertsDescription` (collecting,
-  and the sentence under the email box), `StockAlertRequest` (the SKUs, title, page, email and language; from v0.23.0
-  the `ConsentText` the form showed, to keep as the record of what the shopper agreed to, and the `Requester` — the
-  shop's `VisitorKey` — to limit requests by; `Validate`) answered by `StockAlertResult` (`StockAlertSubscribed`,
-  `StockAlertAlready`, `StockAlertRefused`).
-- **The shop** declares `"uses": ["stock.alerts/v1"]` with `service_consumer`, asks `Services.StockAlertsDescription`
-  and sets `CommerceEndpoints.StockAlert` (and `StockAlertConsent`, the plugin's sentence) only while one is collecting,
-  and hands a request on with `Services.SubscribeStockAlert` (contract `ContractStockAlerts`, methods
-  `StockAlertsDescribe`, `StockAlertSubscribe`).
+The shop takes them on its product page and keeps them itself: it sets `CommerceEndpoints.StockAlert` (and
+`StockAlertConsent`, its sentence under the email box) while it takes requests, and Core's "notify me" form posts a
+`StockAlertRequest` there (the SKUs, title, page, email and language, the `ConsentText` the form showed — to keep as the
+record of what the shopper agreed to — and the `Requester`, the shop's `VisitorKey`, to limit requests by; `Validate`),
+answered by a `StockAlertResult` (`StockAlertSubscribed`, `StockAlertAlready`, `StockAlertRefused`). The
+`stock.alerts/v1` contract that handed them to a plugin of their own was removed in v0.47.0 (commerce DR-19).
 
 ### Orders, and what a plugin delivers for them (`shop.orders/v1`, `shop.deliverables/v1`; from v0.24.0)
 
@@ -2670,61 +2664,13 @@ back what it delivered. `docs/ORDERS.md` is the whole of it.
   `Serve` finds it by itself, or return `DeliverablesMethods(p)` (contracts `ContractShopOrders`,
   `ContractShopDeliverables`; methods `OrderGet`, `DeliverablesDescribe`, `DeliverablesOrderItems`).
 
-### Offers at the cart, the checkout and after the purchase (`shop.offers/v1`; from v0.24.0)
+### Retired in v0.47.0: offers, business buyers, back-in-stock and the shop's checkout for adapters
 
-A plugin keeps the owner's offers; the shop draws them and prices their discount through its own discounts.
-`docs/OFFERS.md` is the whole of it.
-
-- **The plugin** implements `OffersProvider` (`OffersFor` with an `OffersRequest` of `OfferLine`s at a stage —
-  `OfferStageCart`, `OfferStageCheckout`, `OfferStageAfterPurchase` — answered by an `OffersResult` of `Offer`s, each at
-  most `OfferPercentMax` off; `ConfirmOffers` with an `OffersConfirmRequest`, answered by an `OffersConfirmResult`) —
-  `Serve` finds it by itself, or return `OffersMethods(p)` (contract `ContractShopOffers`, methods `OffersFor`,
-  `OffersConfirm`). An order line bought through an offer names it: `ShopOrderLine.OfferID`.
-- **The shop** declares `"uses": ["shop.offers/v1"]` and asks `Services.Offers` for a page and `Services.ConfirmOffers`
-  whenever it prices a basket holding an offer's line.
-
-### Business buyers: prices, terms and quotes (`shop.buyers/v1`; from v0.24.0)
-
-A plugin keeps customer groups, their prices, minimums, payment terms and quotes; the shop applies a signed-in buyer's
-terms through its own pricing. `docs/BUYERS.md` is the whole of it.
-
-- **The plugin** implements `BuyersProvider` (`BuyerTerms` with a `BuyerTermsRequest`, answered by `BuyerTerms` with
-  `BuyerPrice`s and `BuyerMinimum`s; `RequestQuote` with a `QuoteRequestInput` of `QuoteLine`s, answered by a
-  `QuoteRequestResult`; `OpenQuote` with a `QuoteOpenRequest`, answered by a `QuoteOpenResult` holding a `Quote`) —
-  `Serve` finds it by itself, or return `BuyersMethods(p)` (contract `ContractShopBuyers`, methods `BuyerTermsGet`,
-  `QuoteRequest`, `QuoteOpen`).
-- **The shop** declares `"uses": ["shop.buyers/v1"]` and asks `Services.BuyerTerms` for a member's basket,
-  `Services.RequestQuote` and `Services.OpenQuote` for quotes.
-
-### The shop's checkout (`shop.checkout/v1`)
-
-The shop provides it; an agentic-commerce adapter — ACP, UCP — requires it and drives the shop's own checkout for an AI
-agent's basket. `docs/CHECKOUT.md` is the whole of it.
-
-- **The shop** implements `CheckoutProvider` (`DescribeCheckout`, `CreateCheckout`, `UpdateCheckout`, `GetCheckout`,
-  `CompleteCheckout`, `CancelCheckout`) and returns `CheckoutMethods(c)` — or nothing: `Serve` finds a
-  `CheckoutProvider` by itself. The shapes: `CheckoutDescription` (the shop, its legal pages, the credential types it
-  can charge); `CheckoutCreateRequest` of `CheckoutLineRequest`s (at most `CheckoutMaxLines`) with a `CheckoutBuyer`
-  and a `CheckoutAddress`; `CheckoutUpdateRequest`; `CheckoutRef`; `CheckoutCompleteRequest` with a
-  `PaymentCredential`. Each is answered by a `CheckoutResult`: a `CheckoutState` (status `CheckoutIncomplete`,
-  `CheckoutReadyForPayment`, `CheckoutRequiresEscalation`, `CheckoutCompleted`, `CheckoutCanceled`; `CheckoutLine`s,
-  `CheckoutTotals`, `CheckoutDeliveryOption`s, `CheckoutMessage`s, the `continue_url`, the `CheckoutOrder`) or a
-  `CheckoutRefusal` (`CheckoutRefusedNotFound`, `CheckoutRefusedInvalid`, `CheckoutRefusedNotAllowed`,
-  `CheckoutRefusedClosed`, `CheckoutRefusedNotCompleted`). Each has `Validate`.
-- **An adapter** declares `"requires": ["shop.checkout/v1"]` with `service_consumer` and calls
-  `Services.CheckoutDescription`, `Services.CreateCheckout`, `Services.UpdateCheckout`, `Services.GetCheckout`,
-  `Services.CompleteCheckout` and `Services.CancelCheckout` (contract `ContractShopCheckout`, methods
-  `CheckoutDescribe`, `CheckoutSessionCreate`, `CheckoutSessionUpdate`, `CheckoutSessionGet`,
-  `CheckoutSessionComplete`, `CheckoutSessionCancel`), passing the protocol request's idempotency key.
-- **Only an agent of tier `AgentBuy`** completes with a credential — the shop asks Core for the tier of the operator
-  a checkout names (`API().AgentTier`), never the calling plugin; every other checkout is finished by a person at
-  `continue_url`.
-- **What the buyer must be told before they are bound** rides every open state as `PreContract` — a
-  `CheckoutPreContract` with the `CheckoutSeller`, the withdrawal period, its text and form, the terms, privacy and
-  returns pages, and the final button's words — for the agent to show its buyer first (Directive 2011/83/EU Art. 6,
-  8(2)). A basket with a download carries `DigitalConsentText` (and marks each such `CheckoutLine.Digital`), which
-  complete sends back word for word with `DigitalConsent`; the shop keeps it as proof (Art. 16(m)). `CheckoutDescription.ReturnsURL` names the returns page.
-  From v0.23.0.
+`shop.offers/v1`, `shop.buyers/v1`, `shop.checkout/v1` and `stock.alerts/v1` (from v0.22.0-v0.24.0) are gone with their types, their
+`Services` methods and their documents. Offers, wholesale buyers and quotes, back-in-stock requests and the agentic checkout
+(ACP, UCP) are the shop's own features now (commerce DR-19), so no plugin provides or consumes them. An order line still says which of the
+shop's offers or quotes it was bought through (`ShopOrderLine.OfferID`, `ShopOrderLine.QuoteID`), and Core's
+"notify me" form still sends the shop a `StockAlertRequest` (above).
 
 ---
 

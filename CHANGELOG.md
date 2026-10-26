@@ -8,6 +8,23 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.47.0 — 2026-10-26 (four retired contracts removed: offers, business buyers, back-in-stock, the shop's checkout for adapters)
+
+- Removed `shop.offers/v1`, `shop.buyers/v1`, `stock.alerts/v1` and `shop.checkout/v1` — their contract files, their
+  types (`Offer*`, `OffersProvider`, `BuyerTerms*`, `Quote*`, `BuyersProvider`, `StockAlertsDescription`,
+  `StockAlertProvider`, `Checkout*`, `CheckoutProvider`), the `Services` methods that called them (`Offers`,
+  `ConfirmOffers`, `BuyerTerms`, `RequestQuote`, `OpenQuote`, `StockAlertsDescription`, `SubscribeStockAlert`,
+  `CheckoutDescription`, `CreateCheckout`, `UpdateCheckout`, `GetCheckout`, `CompleteCheckout`, `CancelCheckout`),
+  `OffersMethods`, `BuyersMethods`, `StockAlertMethods`, `CheckoutMethods`, and `docs/OFFERS.md`, `docs/BUYERS.md`,
+  `docs/STOCK_ALERTS.md`, `docs/CHECKOUT.md`. Offers, wholesale buyers and quotes, back-in-stock requests and the
+  agentic checkout (ACP, UCP) are the shop's own features since commerce DR-19 (Unit 12): nothing provides or consumes
+  these contracts any more, and dropping `shop.checkout/v1` also removes a provider that was handed every agent
+  checkout's payment credential. Breaking for a plugin that used them; the retired plugins (plugin-offers, plugin-b2b,
+  plugin-stock-alerts, plugin-acp, plugin-ucp) are not built any more. `TestContractsHaveNoRetiredOnes` keeps them gone.
+- Kept: `StockAlertRequest`, `StockAlertResult` and their three statuses — what Core's "notify me" form sends the shop's
+  `CommerceEndpoints.StockAlert` and reads back — and `CommerceEndpoints.StockAlert` / `StockAlertConsent`;
+  `ShopOrderLine.OfferID` and `QuoteID` (the shop writes them).
+
 ## v0.46.0 — 2026-10-26 (an Install line at the top of a page; the site's one recycle bin for a plugin's own records)
 
 - `AdminPage.Install`: on a `list` or `settings` page, the capability or contract of one of the manifest's `recommends`.

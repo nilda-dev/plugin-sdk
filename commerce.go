@@ -388,11 +388,11 @@ type CommerceEndpoints struct {
 	// StockAlert is a POST taking a sold-out item's back-in-stock request: the product id, the shopper's variation
 	// answers (as AddToCart receives them) and `email`; it answers JSON {"status", "message"} — subscribed, already
 	// or refused, and the sentence the shopper reads. Core's add-to-cart widget draws a "notify me" form beside a
-	// sold-out item's button only while it is set, so set it only while something keeps the requests
-	// (stock.alerts/v1, STOCK_ALERTS.md) and leave it empty otherwise. From v0.22.0.
+	// sold-out item's button only while it is set, so set it only while the shop takes requests and leave it empty
+	// otherwise. The request and the answer are StockAlertRequest and StockAlertResult. From v0.22.0.
 	StockAlert string `json:"stock_alert,omitempty"`
 	// StockAlertConsent is the sentence the form shows under the email box — how the address is used, in the
-	// shop's words (the stock-alerts plugin's StockAlertsDescription.ConsentText). Empty: Core's own sentence, in the
+	// shop's words. Empty: Core's own sentence, in the
 	// page's language. Either way Core links the site's privacy notice beside it, and the form sends the sentence it
 	// showed with the request (`consent_text`), so what the shopper agreed to can be kept. From v0.23.0.
 	StockAlertConsent string `json:"stock_alert_consent,omitempty"`

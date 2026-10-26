@@ -11,11 +11,11 @@ import (
 type askedBy struct{ caller string }
 
 func (a *askedBy) ServiceMethods() []nilda.ServiceMethod {
-	return []nilda.ServiceMethod{nilda.Serves(nilda.ContractShopCheckout, nilda.CheckoutDescribe,
-		func(ctx context.Context, _ struct{}) (nilda.CheckoutDescription, error) {
+	return []nilda.ServiceMethod{nilda.Serves(nilda.ContractShopCatalog, nilda.CatalogDescribe,
+		func(ctx context.Context, _ struct{}) (nilda.CatalogDescription, error) {
 			a.caller = nilda.CallOf(ctx).Caller
-			return nilda.CheckoutDescription{Name: "Kari", Origin: "https://kari.example", Currency: "EUR", Locale: "en",
-				CredentialTypes: []string{}}, nil
+			return nilda.CatalogDescription{Name: "Kari", Origin: "https://kari.example", Currency: "EUR", Locale: "en",
+				ShipsTo: []string{"*"}}, nil
 		})}
 }
 
@@ -28,7 +28,7 @@ func TestAPluginReadsAnOperatorsTierAndAProviderKnowsWhoAsked(t *testing.T) {
 	desk.SetAgentTier("bad.example", nilda.AgentBlocked)
 	shop := &askedBy{}
 	desk.Provider("shop", shop)
-	core, _, srv := desk.Core("acp", nilda.ContractShopCheckout)
+	core, _, srv := desk.Core("feed", nilda.ContractShopCatalog)
 	defer srv.Close()
 	for op, want := range map[string]nilda.AgentTier{"chatgpt.com": nilda.AgentBuy, "ChatGPT.com": nilda.AgentBuy,
 		"bad.example": nilda.AgentBlocked, "new.example": nilda.AgentBrowse} {
@@ -36,7 +36,7 @@ func TestAPluginReadsAnOperatorsTierAndAProviderKnowsWhoAsked(t *testing.T) {
 			t.Errorf("%s: %q %v", op, got, err)
 		}
 	}
-	if _, err := core.API().Services().CheckoutDescription(ctx); err != nil || shop.caller != "acp" {
+	if _, err := core.API().Services().CatalogDescription(ctx); err != nil || shop.caller != "feed" {
 		t.Errorf("the provider was told %q asked (%v)", shop.caller, err)
 	}
 }

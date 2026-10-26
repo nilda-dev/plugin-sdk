@@ -98,12 +98,8 @@ func TestEveryExportedProviderInterfaceIsInTheTable(t *testing.T) {
 		"CarrierTracker":       "rides on Carrier: CarrierMethods answers track with it, or \"unsupported\" without",
 		"CarrierDocuments":     "rides on Carrier: CarrierMethods answers documents with it, or \"unsupported\" without",
 		"CatalogProvider":      "Serve answers it through CatalogMethods; Core subscribes it from provides — CATALOG.md",
-		"CheckoutProvider":     "Serve answers it through CheckoutMethods; Core subscribes it from provides — CHECKOUT.md",
-		"StockAlertProvider":   "Serve answers it through StockAlertMethods; Core subscribes it from provides — STOCK_ALERTS.md",
 		"OrdersProvider":       "Serve answers it through OrdersMethods; Core subscribes it from provides — ORDERS.md",
 		"DeliverablesProvider": "Serve answers it through DeliverablesMethods; Core subscribes it from provides — ORDERS.md",
-		"OffersProvider":       "Serve answers it through OffersMethods; Core subscribes it from provides — OFFERS.md",
-		"BuyersProvider":       "Serve answers it through BuyersMethods; Core subscribes it from provides — BUYERS.md",
 		"CredentialPayer":      "rides on PaymentGateway: payment.start, which its row subscribes, carries the credential",
 	}
 	wired := map[string]bool{}

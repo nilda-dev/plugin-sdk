@@ -159,74 +159,6 @@ var shopCatalogV1 = contractDef{
 const catalogAgentReason = "the owner reads the catalogue through the shop's own abilities (list_products, " +
 	"get_product, list_variants); this is how a channel plugin reads it"
 
-// shopCheckoutV1 is the shop's checkout, driven by a protocol adapter (CHECKOUT.md). One shop answers, so a failure
-// blocks: a checkout nobody answered cannot be reported to an agent as anything but a failure. Nothing is cached — a
-// price or a stock level from earlier is not a checkout. Create, update and complete carry the adapter's idempotency
-// key, so a retried request is one checkout and one order.
-var shopCheckoutV1 = contractDef{
-	name: ContractShopCheckout,
-	description: "The shop's checkout for an agentic-commerce adapter (ACP, UCP): open a checkout for a basket, price " +
-		"it for an address with the shop's own delivery, tax and discounts, then place the order with a delegated " +
-		"payment credential where the merchant lets that agent pay, or hand it to a person by continue_url " +
-		"(CHECKOUT.md).",
-	methods: []methodDef{
-		{ContractMethod{Name: CheckoutDescribe, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
-			Idempotent: true, Agent: "none", AgentReason: checkoutAgentReason,
-			Description: "The shop as an adapter announces it: name, address, currency, its legal pages, and the delegated payment credentials it can charge."},
-			ordinary{}, CheckoutDescription{}},
-		{ContractMethod{Name: CheckoutSessionCreate, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
-			Idempotent: true, Agent: "none", AgentReason: checkoutAgentReason,
-			Description: "Open a checkout for a new basket, with the buyer and the address when known; answers the checkout as the shop priced it, or why it refused."},
-			CheckoutCreateRequest{}, CheckoutResult{}},
-		{ContractMethod{Name: CheckoutSessionUpdate, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
-			Idempotent: true, Agent: "none", AgentReason: checkoutAgentReason,
-			Description: "Change a checkout — the basket, the buyer, the address, the delivery option, the discount code — and price it again."},
-			CheckoutUpdateRequest{}, CheckoutResult{}},
-		{ContractMethod{Name: CheckoutSessionGet, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
-			Idempotent: true, Agent: "none", AgentReason: checkoutAgentReason,
-			Description: "A checkout as it stands, or the order it became."},
-			CheckoutRef{}, CheckoutResult{}},
-		{ContractMethod{Name: CheckoutSessionComplete, AnsweredBy: "provider", BudgetMS: 15000, RetryClass: "failure",
-			Fallback: "block", Idempotent: true, Agent: "none", AgentReason: checkoutAgentReason,
-			Description: "Place the order, paid with the delegated credential when the merchant lets this agent pay; asked again, the same order."},
-			CheckoutCompleteRequest{}, CheckoutResult{}},
-		{ContractMethod{Name: CheckoutSessionCancel, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
-			Idempotent: true, Agent: "none", AgentReason: checkoutAgentReason,
-			Description: "End a checkout without an order."},
-			CheckoutRef{}, CheckoutResult{}},
-	},
-}
-
-// checkoutAgentReason: a checkout is a visitor's, never the owner's; a visitor's own agent has the shop's visitor
-// tools, and the owner reads checkouts through the shop's abilities.
-const checkoutAgentReason = "a checkout is a buyer's: a visitor's agent reaches it through the shop's visitor tools " +
-	"(create_cart, quote, place_order), the owner through the shop's own abilities (list_saved_checkouts); this is " +
-	"how a protocol adapter drives it"
-
-// stockAlertsV1 is back-in-stock requests, kept by a plugin of their own (STOCK_ALERTS.md). Describe skips when nothing
-// answers — the shop then shows no form; a subscribe nobody answered fails, so the shopper is told it did not go.
-var stockAlertsV1 = contractDef{
-	name: ContractStockAlerts,
-	description: "Back-in-stock requests: the shop's product page hands a shopper's \"tell me when it is back\" for a " +
-		"sold-out item to the plugin that keeps the requests, confirms them and sends the news when the item can be " +
-		"bought again (STOCK_ALERTS.md).",
-	methods: []methodDef{
-		{ContractMethod{Name: StockAlertsDescribe, AnsweredBy: "provider", RetryClass: "failure", Fallback: "skip",
-			Idempotent: true, Agent: "none", AgentReason: stockAlertsAgentReason,
-			Description: "Whether requests are taken now, and the sentence the form shows beside the email box."},
-			ordinary{}, StockAlertsDescription{}},
-		{ContractMethod{Name: StockAlertSubscribe, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
-			Idempotent: true, Agent: "none", AgentReason: stockAlertsAgentReason,
-			Description: "Keep one shopper's request for one sold-out item, and confirm it to them; the same request again changes nothing."},
-			StockAlertRequest{}, StockAlertResult{}},
-	},
-}
-
-// stockAlertsAgentReason: a request is a shopper's, sent from the product page; the owner reads and removes them
-// through the stock-alerts plugin's own abilities.
-const stockAlertsAgentReason = "a back-in-stock request is a shopper's, sent from the shop's product page; the owner " +
-	"reads and removes them through the stock-alerts plugin's own abilities"
-
 // shopOrdersV1 is the shop's order reads, for a plugin that delivers what an order bought (ORDERS.md). One shop
 // answers; a read nobody answered fails, and the plugin tries again at its next pass.
 var shopOrdersV1 = contractDef{
@@ -269,61 +201,9 @@ var shopDeliverablesV1 = contractDef{
 const deliverablesAgentReason = "what was delivered is shown to its buyer; the owner reads, resends and disables it " +
 	"through the delivering plugin's own abilities"
 
-// shopOffersV1 is the owner's offers at the cart, the checkout and after the purchase (OFFERS.md). Several plugins may
-// answer; one that does not is left out (an offer is a suggestion), and an offer it does not confirm gives no discount.
-var shopOffersV1 = contractDef{
-	name: ContractShopOffers,
-	description: "Offers at the cart, the checkout (an order bump) and after the purchase: which to show for a basket, " +
-		"and which offers already on basket lines still stand, for the shop to price them through its own " +
-		"discounts (OFFERS.md).",
-	methods: []methodDef{
-		{ContractMethod{Name: OffersFor, AnsweredBy: "provider", RetryClass: "failure", Fallback: "skip",
-			Idempotent: true, Agent: "none", AgentReason: offersAgentReason,
-			Description: "The offers to show at one stage for one basket or the order just paid, the first first."},
-			OffersRequest{}, OffersResult{}},
-		{ContractMethod{Name: OffersConfirm, AnsweredBy: "provider", RetryClass: "failure", Fallback: "skip",
-			Idempotent: true, Agent: "none", AgentReason: offersAgentReason,
-			Description: "Which offers on the basket's lines still stand, with their discount now."},
-			OffersConfirmRequest{}, OffersConfirmResult{}},
-	},
-}
-
-// offersAgentReason: an offer is shown to a shopper; the owner sets offers through the offers plugin's own abilities.
-const offersAgentReason = "an offer is shown to a shopper on the shop's pages; the owner sets and reads offers " +
-	"through the offers plugin's own abilities"
-
-// shopBuyersV1 is business buyers' terms and quotes (BUYERS.md). One plugin answers. No plugin is an ordinary shopper
-// (terms skip); one that is there and did not answer is an error to the shop (Services.BuyerTerms) — a member's basket
-// priced as a stranger's would be the wrong price. A quote nobody keeps cannot be asked or opened (block).
-var shopBuyersV1 = contractDef{
-	name: ContractShopBuyers,
-	description: "Business buyers: a signed-in buyer's group, prices, minimums and payment terms for the shop to apply " +
-		"through its own pricing, and quotes — asked for from the basket, priced by the owner, opened by the buyer " +
-		"(BUYERS.md).",
-	methods: []methodDef{
-		{ContractMethod{Name: BuyerTermsGet, AnsweredBy: "provider", RetryClass: "failure", Fallback: "skip",
-			Idempotent: true, Agent: "none", AgentReason: buyersAgentReason,
-			Description: "A signed-in buyer's group, their prices for given items, minimum quantities and order, and whether they may pay by invoice and ask for quotes."},
-			BuyerTermsRequest{}, BuyerTerms{}},
-		{ContractMethod{Name: QuoteRequest, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
-			Idempotent: false, Agent: "none", AgentReason: buyersAgentReason,
-			Description: "Keep a buyer's request for a quote for their basket; the owner prices it and the buyer is emailed a link."},
-			QuoteRequestInput{}, QuoteRequestResult{}},
-		{ContractMethod{Name: QuoteOpen, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
-			Idempotent: true, Agent: "none", AgentReason: buyersAgentReason,
-			Description: "Open a priced quote by its link's token, for the signed-in buyer it was made for."},
-			QuoteOpenRequest{}, QuoteOpenResult{}},
-	},
-}
-
-// buyersAgentReason: a buyer's terms and quotes are theirs; the owner manages groups, prices and quotes through the
-// B2B plugin's own abilities.
-const buyersAgentReason = "a buyer's terms and quotes are read for that buyer on the shop's pages; the owner manages " +
-	"groups, prices and quotes through the B2B plugin's own abilities"
-
 // contractDefs is every contract this module defines.
-var contractDefs = []contractDef{paymentsV1, shippingCarrierV1, shopCatalogV1, shopCheckoutV1, stockAlertsV1, shopOrdersV1,
-	shopDeliverablesV1, shopOffersV1, shopBuyersV1}
+var contractDefs = []contractDef{paymentsV1, shippingCarrierV1, shopCatalogV1, shopOrdersV1,
+	shopDeliverablesV1}
 
 // render builds a contract file from its definition.
 func (d contractDef) render(t *testing.T) []byte {
