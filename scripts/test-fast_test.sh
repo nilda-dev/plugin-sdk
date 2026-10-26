@@ -176,6 +176,28 @@ git worktree remove --force "$wt"; git branch -q -D wtbranch
 i=0; : > "$marker"; while [ $i -lt 250 ]; do printf '%040d\n' $i >> "$marker"; i=$((i + 1)); done
 sh scripts/test-fast --no-guard >/dev/null 2>&1; rc=$?
 [ "$rc" = 0 ] && [ "$(wc -l < "$marker" | tr -d ' ')" = 200 ] && grep -qx "$(git rev-parse HEAD)" "$marker" && ok "the marker file keeps only the last 200 shas" || bad "bounded marker: rc=$rc lines=$(wc -l < "$marker")"
+# --- scripts/test-fast.timeout: the repo's own `go test -timeout` ---------------------------------------------
+sh scripts/test-fast --no-guard >"$tmp/run.out" 2>&1
+grep -q -- "-timeout 10m" "$tmp/run.out" && ok "without a timeout file the default is 10m" || { bad "default timeout"; cat "$tmp/run.out"; }
+printf '50m\n' > scripts/test-fast.timeout
+sh scripts/test-fast --no-guard >"$tmp/run.out" 2>&1; rc=$?
+[ "$rc" = 0 ] && grep -q -- "-timeout 50m" "$tmp/run.out" && ok "scripts/test-fast.timeout sets the go test timeout" || { bad "timeout file 50m: rc=$rc"; cat "$tmp/run.out"; }
+printf ' 1h30m \r\n' > scripts/test-fast.timeout
+sh scripts/test-fast --no-guard >"$tmp/run.out" 2>&1; rc=$?
+[ "$rc" = 0 ] && grep -q -- "-timeout 1h30m" "$tmp/run.out" && ok "a compound duration with stray blanks and CRLF is accepted" || { bad "timeout file 1h30m: rc=$rc"; cat "$tmp/run.out"; }
+printf '2h\n' > scripts/test-fast.timeout
+sh scripts/test-fast --no-guard >/dev/null 2>&1; rc=$?
+[ "$rc" = 0 ] && ok "exactly 2h is accepted" || bad "2h refused: rc=$rc"
+for v in 2h1s 3h abc 0s 10 50 -5m 1.5h ""; do
+  printf '%s\n' "$v" > scripts/test-fast.timeout
+  sh scripts/test-fast --no-guard >"$tmp/run.out" 2>&1; rc=$?
+  [ "$rc" = 2 ] && grep -q "test-fast.timeout must hold one Go duration" "$tmp/run.out" && ! grep -q "go vet" "$tmp/run.out" && ok "timeout '$v' is refused with a clear message (exit 2, nothing runs)" || { bad "timeout '$v' not refused: rc=$rc"; cat "$tmp/run.out"; }
+done
+printf 'abc\n' > scripts/test-fast.timeout
+sh scripts/test-fast --list >/dev/null 2>&1; rc=$?
+[ "$rc" = 2 ] && ok "a bad timeout file is refused even with --list" || bad "--list with bad timeout: rc=$rc"
+rm -f scripts/test-fast.timeout
+
 # a red test never writes a marker
 cat > c/c_test.go <<'X'
 package c_test

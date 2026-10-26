@@ -10,7 +10,7 @@
 #   2. every package that depends on one of them, test imports included (reverse closure over `go list`),
 #   3. the repo's always-run guard packages, one import-path suffix per line in scripts/test-fast.always,
 #   4. `go vet` and `go test` on that list (-timeout 25m when internal/plugin or internal/pagebuilder is in it,
-#      else 10m), WITH Go's test cache: a package whose files, dependencies and read environment did not change
+#      else 10m; scripts/test-fast.timeout overrides both, see below), WITH Go's test cache: a package whose files, dependencies and read environment did not change
 #      since its last green run answers "(cached)" instead of running again (--no-cache runs everything),
 #   5. when web/admin changed: `npx tsc --noEmit` and the vitest files related to the changed files.
 # The FULL lane is `make test-full`: per milestone and nightly when the machine is idle, not per card — and it
@@ -29,6 +29,9 @@
 #   --no-cache        run every selected test for real (-count=1), as the full lane does
 #   --base REF        compare against REF (default origin/main, or $TEST_FAST_BASE)
 # A go.mod / go.sum change makes every package "changed".
+# scripts/test-fast.timeout (optional, one line): a Go duration made of h, m and s parts, e.g. `50m` or `1h30m`,
+# at most 2h. When present it is the `go test -timeout` of EVERY run in that repo (for a repo whose one package
+# has a suite longer than the defaults, like commerce). Anything else in the file makes test-fast refuse (exit 2).
 # Exit 0 = everything green; non-zero = something failed or the guard refused. Verify by exit code.
 # THE MARKER. A green run (exit 0, not --list, not a guard refusal) records the commit it proved: it appends HEAD's
 # sha to <git common dir>/nilda-way/fast-lane-ok (last 200 shas), which the Nilda Way push hook reads. The COMMON
@@ -55,6 +58,22 @@ while [ $# -gt 0 ]; do
 done
 
 here=$(cd "$(dirname "$0")" && pwd)
+timeout_override=
+if [ -f "$here/test-fast.timeout" ]; then
+  timeout_override=$(head -n 1 "$here/test-fast.timeout" | tr -d ' \t\r')
+  secs=$(printf '%s\n' "$timeout_override" | awk '
+    /^([0-9]+[hms])+$/ {
+      s = $0; t = 0
+      while (match(s, /^[0-9]+[hms]/)) {
+        n = substr(s, 1, RLENGTH - 1) + 0; u = substr(s, RLENGTH, 1)
+        t += n * (u == "h" ? 3600 : u == "m" ? 60 : 1); s = substr(s, RLENGTH + 1)
+      }
+      print t }')
+  if [ -z "$secs" ] || [ "$secs" -le 0 ] || [ "$secs" -gt 7200 ]; then
+    echo "test-fast: scripts/test-fast.timeout must hold one Go duration of h, m and s parts (e.g. 50m), above 0 and at most 2h; got '$timeout_override'" >&2
+    exit 2
+  fi
+fi
 root=$(git rev-parse --show-toplevel) || exit 2
 cd "$root" || exit 2
 start=$(date +%s)
@@ -150,6 +169,7 @@ rc=0
 if [ -n "$gopkgs" ]; then
   timeout=10m
   case " $gopkgs " in *internal/plugin\ *|*internal/pagebuilder\ *) timeout=25m ;; esac
+  [ -n "$timeout_override" ] && timeout=$timeout_override
   echo "test-fast: go vet ..."
   # shellcheck disable=SC2086
   go vet $gopkgs || { echo "test-fast: go vet FAILED" >&2; rc=1; }
