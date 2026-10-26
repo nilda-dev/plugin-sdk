@@ -109,6 +109,11 @@ echo 'package e
 func E() int { return 7 }' > e/e.go
 sh scripts/test-fast --no-guard >"$tmp/run.out" 2>&1; rc=$?
 [ "$rc" = 0 ] && grep -q "elapsed" "$tmp/run.out" && ok "green run exits 0 and prints elapsed" || { bad "green run: rc=$rc"; cat "$tmp/run.out"; }
+# The fast lane answers an unchanged green package from Go's test cache; --no-cache (the full lane's way) runs it.
+sh scripts/test-fast --no-guard >"$tmp/run.out" 2>&1; rc=$?
+[ "$rc" = 0 ] && grep -q "(cached)" "$tmp/run.out" && ok "a second run of an unchanged package is answered from the cache" || { bad "cached run: rc=$rc"; cat "$tmp/run.out"; }
+sh scripts/test-fast --no-guard --no-cache >"$tmp/run.out" 2>&1; rc=$?
+[ "$rc" = 0 ] && ! grep -q "(cached)" "$tmp/run.out" && grep -q -- "-count=1" "$tmp/run.out" && ok "--no-cache runs every selected test for real" || { bad "no-cache run: rc=$rc"; cat "$tmp/run.out"; }
 cat > e/e_test.go <<'X'
 package e
 

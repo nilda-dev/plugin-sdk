@@ -8,30 +8,40 @@
 #   1. the Go packages that CHANGED against origin/main (committed + uncommitted + untracked),
 #   2. every package that depends on one of them, test imports included (reverse closure over `go list`),
 #   3. the repo's always-run guard packages, one import-path suffix per line in scripts/test-fast.always,
-#   4. `go vet` and `go test -count=1` on that list (-timeout 25m when internal/plugin or internal/pagebuilder
-#      is in it, else 10m),
+#   4. `go vet` and `go test` on that list (-timeout 25m when internal/plugin or internal/pagebuilder is in it,
+#      else 10m), WITH Go's test cache: a package whose files, dependencies and read environment did not change
+#      since its last green run answers "(cached)" instead of running again (--no-cache runs everything),
 #   5. when web/admin changed: `npx tsc --noEmit` and the vitest files related to the changed files.
-# The FULL lane is `make test-full`: per milestone and nightly when the machine is idle, not per card.
+# The FULL lane is `make test-full`: per milestone and nightly when the machine is idle, not per card — and it
+# runs with -count=1, every test for real, which is what catches a test the cache would have answered for.
 #
-# Usage: scripts/test-fast [--list] [--committed-only] [--no-guard] [--base REF]
+# WHY THE CACHE (owner, 2026-10-26). A change to a package most of Core imports (internal/settings) selects ~175
+# packages, and with -count=1 a second run after a one-line admin fix ran all of them again: 50 minutes for
+# nothing that had changed. Running the affected tests from cache before a push and the whole suite uncached
+# on a schedule is how Google (TAP: presubmit, then periodic postsubmit), Azure's Test Impact Analysis and Nx
+# (affected + cache) do it, and Go caches test results by default for this reason.
+#
+# Usage: scripts/test-fast [--list] [--committed-only] [--no-guard] [--no-cache] [--base REF]
 #   --list            print the package list and stop (nothing runs, no guard)
 #   --committed-only  ignore uncommitted and untracked files (what the pre-push hook uses)
 #   --no-guard        skip scripts/heavy-guard (emergency only)
+#   --no-cache        run every selected test for real (-count=1), as the full lane does
 #   --base REF        compare against REF (default origin/main, or $TEST_FAST_BASE)
 # A go.mod / go.sum change makes every package "changed".
 # Exit 0 = everything green; non-zero = something failed or the guard refused. Verify by exit code.
 # Needs the same environment as the full suite (Postgres for core: `make up`). GOWORK is off unless
 # TEST_FAST_KEEP_GOWORK=1, so a lone clone is tested as a lone clone.
 
-list_only=0; committed_only=0; use_guard=1
+list_only=0; committed_only=0; use_guard=1; count_flag=
 base=${TEST_FAST_BASE:-origin/main}
 while [ $# -gt 0 ]; do
   case "$1" in
     --list) list_only=1 ;;
     --committed-only) committed_only=1 ;;
     --no-guard) use_guard=0 ;;
+    --no-cache) count_flag=-count=1 ;;
     --base) shift; base=${1:?--base needs a ref} ;;
-    *) echo "usage: test-fast [--list] [--committed-only] [--no-guard] [--base REF]" >&2; exit 2 ;;
+    *) echo "usage: test-fast [--list] [--committed-only] [--no-guard] [--no-cache] [--base REF]" >&2; exit 2 ;;
   esac
   shift
 done
@@ -130,9 +140,9 @@ if [ -n "$gopkgs" ]; then
   echo "test-fast: go vet ..."
   # shellcheck disable=SC2086
   go vet $gopkgs || { echo "test-fast: go vet FAILED" >&2; rc=1; }
-  echo "test-fast: go test -count=1 -timeout $timeout ..."
+  echo "test-fast: go test ${count_flag:+$count_flag }-timeout $timeout ..."
   # shellcheck disable=SC2086
-  go test -count=1 -timeout "$timeout" $gopkgs || { echo "test-fast: go test FAILED" >&2; rc=1; }
+  go test $count_flag -timeout "$timeout" $gopkgs || { echo "test-fast: go test FAILED" >&2; rc=1; }
 fi
 
 if [ -n "$webfiles" ]; then
