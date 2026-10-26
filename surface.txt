@@ -402,6 +402,7 @@ field AdminPage.Form *PageForm json:form
 field AdminPage.Group string json:group
 field AdminPage.Help string json:help
 field AdminPage.Icon string json:icon
+field AdminPage.Install string json:install
 field AdminPage.Key string json:key
 field AdminPage.Kind string json:kind
 field AdminPage.Label string json:label

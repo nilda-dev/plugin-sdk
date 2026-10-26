@@ -8,6 +8,13 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.46.0 — unreleased (an Install line at the top of a page)
+
+- `AdminPage.Install`: on a `list` or `settings` page, the capability or contract of one of the manifest's `recommends`.
+  Core draws its Install / Switch on line for it at the top of the page until something on the site brings it, for a
+  person who may install plugins; a value that is not one of the plugin's recommends, or a report or calendar page that
+  sets it, is refused (`docs/PLUGIN_SDK.md`, "The same line on a page"). An older Core ignores the key.
+
 ## v0.45.0 — 2026-10-26 (the buyer's profile inside the account)
 
 - `AccountProfileSlot` (`data-pb-profile`): the element in an account view that Core's profile panel replaces —

@@ -1329,6 +1329,14 @@ well with" under the install result and on your row in Plugins: the marketplace'
 button, "installed and switched off — Switch on" for one already there, and nothing once one is on.
 `nilda.ValidateRecommendations` holds the list to Core's shape in your tests. Advice, never a requirement.
 
+**The same line on a page** (unreleased). A `list` or `settings` page may declare `"install"`: the capability or
+contract of one entry of your `recommends` (`"install": "payment_gateway"` on a shop's Payments page,
+`"install": "shipping.carrier/v1"` on its Shipping page). Core draws that recommendation's line — the marketplace's
+plugins with an Install button, or "installed and switched off — Switch on" — at the top of the page, for a person
+who may install plugins, until one is switched on, and then nothing. It must name one of your own `recommends`; Core
+refuses anything else, and a report or calendar page that sets it (a report has the `{label, install}` cell above).
+The page works with or without it. An older Core ignores the key.
+
 **A `calendar` page is answered too** (v0.33.0). It is `"kind": "calendar"` with `"rows_page"` — the key of
 one of your own `list` pages: each event's id is a row id of that page, and its label is what the grid names
 — and `"default_view"`: `"day"`, `"week"` or `"month"` (empty is week). Its fields are filters, exactly as a

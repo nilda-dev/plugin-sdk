@@ -145,6 +145,14 @@ type AdminPage struct {
 	Fields []SettingField `json:"fields,omitempty"`
 	// Help is shown at the top of the page — one or two sentences on what this page is for.
 	Help string `json:"help,omitempty"`
+	// Install (unreleased) is, on a "list" or "settings" page, the capability or contract of one of YOUR manifest's
+	// `recommends` — the page's counterpart of a report cell's ReportLink.Install. While nothing on the site brings
+	// it, Core draws its Install / Switch on line for it at the top of the page — a shop's Payments page, "Take card
+	// payments", the marketplace's gateways with an Install button — to whoever may install plugins, and nothing
+	// once one is switched on. Core refuses a value that is not one of your recommends, and a report or calendar page
+	// that sets it (a report has the Install cell). An older Core ignores the key. Advice on the page, never a gate:
+	// the page works whether or not the recommendation is met.
+	Install string `json:"install,omitempty"`
 
 	// --- kind: "list" ---
 
