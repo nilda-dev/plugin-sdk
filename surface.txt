@@ -1,6 +1,7 @@
 const AccountDisconnectHook
 const AccountFinishHook
 const AccountNavAttr
+const AccountProfileSlot
 const AccountStartHook
 const AccountStatusHook
 const AdminActionHook

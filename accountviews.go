@@ -24,6 +24,13 @@ import "net/http"
 // AccountNavAttr marks a link in your account fragment that Core's shell follows in place.
 const AccountNavAttr = "data-pb-nav"
 
+// AccountProfileSlot marks the element in your account fragment that Core's profile panel replaces (v0.45.0): the
+// person's name, email, password, signed-in devices, "download my data" and "delete my account", all drawn and
+// sent by Core to its own routes. You mark where it goes and never see one of its fields.
+//
+//	<div data-pb-profile><p>Your profile opens here once the page has loaded.</p></div>
+const AccountProfileSlot = "data-pb-profile"
+
 // CommerceSignInHeader is the header Core's shell reads on a 401 to draw its sign-in panel.
 const CommerceSignInHeader = "Nilda-Sign-In"
 

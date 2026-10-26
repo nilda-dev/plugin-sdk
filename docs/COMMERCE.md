@@ -75,7 +75,17 @@ dark mode included. `nilda.AccountVocabulary` is the same list.
 | `.pb-account-success` | a message that something worked |
 | `.pb-account-table` | a table: an order's lines, the invoices |
 
-## 4. When an address is proved: `user.email_verified`
+## 4. The profile: Core's panel, in your view
+
+A Profile view marks one element with `data-pb-profile` (`nilda.AccountProfileSlot`, v0.45.0) and Core's shell
+replaces it with **Core's** profile panel: the person's name, email (changed by a confirmation mail), password,
+signed-in devices with "sign out everywhere else", "download my data" and "delete my account". Every form goes to
+Core's own `/api/v1/account/*` and `/api/v1/privacy/export` with the reader's bearer; the email, password and delete
+ask the current password (and the second factor), and all of it is refused while staff act as the person. Your
+plugin draws no field of it and sees none of it. Put a sentence inside the element for a page with no script; the
+panel replaces it.
+
+## 5. When an address is proved: `user.email_verified`
 
 Core emits `user.email_verified` (`nilda.EventUserEmailVerified`) when a person **confirms** their address — the
 double opt-in link, or a sign-in provider that verified it. The subject is the user's id and there is no data; read
