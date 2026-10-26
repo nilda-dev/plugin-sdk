@@ -228,6 +228,8 @@ func scopesFor(granted []string) []string {
 		"payment_gateway": {"read:payments", "report:payments"},
 		// A plugin's own secrets with Core: the plugin-only scope behind /plugin-secrets.
 		"secrets": {"manage:secrets"},
+		// A plugin's own items in the site's recycle bin: the plugin-only scope behind /plugin-trash.
+		"trash": {"manage:trash"},
 	}
 	seen := map[string]bool{}
 	var out []string

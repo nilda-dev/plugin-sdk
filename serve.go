@@ -44,7 +44,8 @@ type InitResult struct {
 	// `field`, auth.* by `auth_provider`, widget.* by `widget`, render.assets by `render.assets`, link.targets by `route`,
 	// payment.describe/payment.start/payment.refund/payment.sync/payment.saved.forget by `payment_gateway`, and
 	// payment.session.confirm/payment.session.updated/payment.refund.updated/payment.dispute.updated by
-	// `payment_session`, privacy.export/privacy.erase by `personal_data` — and `hooks` does not admit them. account.*
+	// `payment_session`, privacy.export/privacy.erase by `personal_data`, trash.restore/trash.purge by `trash` — and
+	// `hooks` does not admit them. account.*
 	// are by the manifest's `account` block alone:
 	// Core subscribes a plugin that declares it, and keeps none listed here.
 	Hooks  []string

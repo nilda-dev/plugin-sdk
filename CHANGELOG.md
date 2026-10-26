@@ -8,12 +8,23 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.46.0 — unreleased (an Install line at the top of a page)
+## v0.46.0 — unreleased (an Install line at the top of a page; the site's one recycle bin for a plugin's own records)
 
 - `AdminPage.Install`: on a `list` or `settings` page, the capability or contract of one of the manifest's `recommends`.
   Core draws its Install / Switch on line for it at the top of the page until something on the site brings it, for a
   person who may install plugins; a value that is not one of the plugin's recommends, or a report or calendar page that
   sets it, is refused (`docs/PLUGIN_SDK.md`, "The same line on a page"). An older Core ignores the key.
+- The `trash` capability, `Core.Trash(ctx, TrashItem{Kind, ID, Name, ExpiresAfter})` and `Core.Untrash(ctx, kind, id)`:
+  a plugin keeps a deleted row marked in its own tables and tells Core it is in the site's ONE recycle bin; Core lists
+  it with its own items for 30 days (an hour to 30 days when asked) — Core D-108, commerce DR-22. On the wire
+  `PUT`/`DELETE /api/rest/v1/plugin-trash/{kind}/{id}` under the plugin-only scope `manage:trash`.
+- `TrashRestoreHook` (`trash.restore`) and `TrashPurgeHook` (`trash.purge`), admitted by `trash`, and
+  `DispatchTrash(ctx, hook, payload, restore, purge)`: Core asks the owning plugin to bring an item back (a refusal is
+  its answer, in its words) and tells it when one is gone for good — only a person's act or the 30 days, never an
+  ability or an assistant tool. `TrashRef`, `TrashRetention`, `MinTrashRetention`, `MaxTrashKind`, `MaxTrashID`,
+  `MaxTrashName`, `TrashItem.Validate`.
+- `nildatest.NewTrash()`: a fake of the bin's routes (403 without `trash`, 422 for an item Core refuses) that drives
+  the two hooks as Core does — `Items`, `Restore`, `Purge`, `TrashEntry`, `HookFunc`.
 
 ## v0.45.0 — 2026-10-26 (the buyer's profile inside the account)
 

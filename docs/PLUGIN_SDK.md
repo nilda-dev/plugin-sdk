@@ -384,6 +384,7 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `visitor_tools` | let visitors' own AI agents read and submit through your public actions — see "What a visitor's own AI agent may do" (Core from the release built on SDK v0.18.0) |
 | `site_files` | answer at `/agents.md` or `/.well-known/<name>` at the site's root — see "Files at the site's root" (the same release) |
 | `personal_data` | answer the site's privacy requests about the people in your own tables: hand over and erase a person's records by email — see "Answering privacy requests" (Core from the release built on the SDK version that carries `privacy.go`) |
+| `trash` | put what you delete into the site's one recycle bin: Core lists it with its own items, asks you to bring one back, and tells you when one is gone for good — see "The site's recycle bin" (Core from the release built on the SDK version that carries `trash.go`) |
 
 That is the whole list. Every entry is dispatched by Core and has a surface in this SDK; there is nothing
 to declare that does nothing. `admin.pages` and `payments` used to appear here and were removed in v0.3.0
@@ -2168,6 +2169,75 @@ got, _ := sec.Get("higgsfield", "refresh_token") // what Core would be holding
 ```
 
 This is plugin-sdk v0.11.0 and needs a Core built on it; an older Core refuses the `secrets` capability at install.
+
+### The site's recycle bin (`trash`)
+
+Everything the site's assistant can delete goes to a bin it cannot empty — the owner's rule, and Core keeps **one**
+bin for the whole site: pages, media, popups, menu rows, and your records. Keep your row (mark it deleted in your own
+tables and hide it from your lists), then tell Core it is in the bin. Core lists it beside its own items, with the name
+you give, for 30 days.
+
+```go
+// after your own write marked the discount deleted
+err := core.Trash(ctx, nilda.TrashItem{Kind: "discount", ID: d.ID, Name: d.Code}) // needs the `trash` capability
+```
+
+Core then calls you, never anybody else, about that item — subscribe both hooks (the grant is `trash`, not `hooks`):
+
+```go
+return nilda.InitResult{Hooks: []string{nilda.TrashRestoreHook, nilda.TrashPurgeHook}}, nil
+```
+
+```go
+func (p *Plugin) HandleHook(ctx context.Context, hook string, payload []byte) ([]byte, error) {
+	if out, handled, err := nilda.DispatchTrash(ctx, hook, payload, p.restore, p.purge); handled {
+		return out, err
+	}
+	// … your own hooks
+}
+```
+
+Both hooks receive the item's kind and id, as a `TrashRef`:
+
+```json
+{ "kind": "discount", "id": "d-1" }
+```
+
+- **`trash.restore`** — somebody pressed "Put back" on the bin, or the assistant's `trash_restore` was confirmed. Re-run
+  your own checks (a code another discount uses now, a slot that is taken) and bring the row back, or refuse with an
+  error: its first 300 characters reach that person as the reason, so write a sentence they can act on. A refusal is
+  your answer, never a failure, and the entry stays in the bin.
+- **`trash.purge`** — a person pressed "Delete for good" or emptied the bin, or the 30 days ran out. Delete the row then,
+  idempotently (a row already gone answers nil). An error keeps the entry, and the next nightly sweep asks again.
+
+**Only a person deletes for good.** No assistant tool, no MCP tool and no ability reaches the purge, and your API
+token has no route to it either. Your key comes from your token, so you cannot report, restore or purge another
+plugin's items. While your plugin is uninstalled its items wait in the bin — nothing is deleted until you are back to do
+it, or the owner deletes your kept data, which takes your bin entries with it.
+
+`ExpiresAfter` asks for a shorter stay (an hour to 30 days; zero is the 30 days). Reporting the same kind and id again
+refreshes its entry rather than listing it twice. What the law requires deleted at once is **not** binned — a privacy
+erasure, a back-in-stock request withdrawn. If a record you binned leaves the bin by your own act (that erasure, or your
+own screen putting it back), call `core.Untrash(ctx, kind, id)` so the bin stops offering it; Untrash never deletes
+anything. On the wire, `Trash` is `PUT /api/rest/v1/plugin-trash/{kind}/{id}` with `{"name": "SUMMER10",
+"expires_after_seconds": 86400, "request_id": "…"}` — the request id is the hook call you are handling (`CallOf`), which
+Core uses to record who deleted it and whether the assistant asked — and `Untrash` is `DELETE` on the same path.
+
+`nildatest.NewTrash()` is a fake of the bin's routes that answers as Core does (403 without the capability, 422 for an
+item Core would refuse) and drives your hooks the way Core does:
+
+```go
+bin := nildatest.NewTrash()
+core, _, srv := bin.Core("shop", "trash", "admin_page")
+defer srv.Close()
+// ... delete a discount through your own code ...
+items := bin.Items("shop")                                     // what the site's bin would list
+err := bin.Restore(ctx, "shop", plugin.HandleHook, items[0]) // your refusal, in your words, or nil
+err = bin.Purge(ctx, "shop", plugin.HandleHook, items[0])
+```
+
+This is on plugin-sdk main (unreleased) and needs a Core that knows the `trash` capability; an older Core refuses it at
+install.
 
 ### What the site's plan allows you (`limits`, `PlanLimit`)
 

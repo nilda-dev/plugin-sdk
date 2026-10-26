@@ -227,12 +227,16 @@ const MaxPrivacyRecords
 const MaxRecommendationWhy
 const MaxRecommendations
 const MaxSetupSteps
+const MaxTrashID
+const MaxTrashKind
+const MaxTrashName
 const MaxWidgetHTMLBytes
 const MaxWidgetsPerPlugin
 const MetricMoney
 const MetricNumber
 const MetricPercent
 const MetricText
+const MinTrashRetention
 const OfferPercentMax
 const OfferStageAfterPurchase
 const OfferStageCart
@@ -336,6 +340,9 @@ const TrackLabelPrinted
 const TrackOutForDelivery
 const TrackPreTransit
 const TrackReturnedToSender
+const TrashPurgeHook
+const TrashRestoreHook
+const TrashRetention
 const VisitorRead
 const VisitorSubmit
 const VoidPending
@@ -1417,6 +1424,12 @@ field TrackResult.Events []TrackEvent json:events
 field TrackResult.FailureCode string json:failure_code
 field TrackResult.FailureMessage string json:failure_message
 field TrackResult.Status string json:status
+field TrashItem.ExpiresAfter time.Duration
+field TrashItem.ID string
+field TrashItem.Kind string
+field TrashItem.Name string
+field TrashRef.ID string json:id
+field TrashRef.Kind string json:kind
 field Viewer.DisplayName string
 field Viewer.ImpersonatedBy string
 field Viewer.UserID string
@@ -1492,6 +1505,7 @@ func DispatchPrivacyHook(context.Context, PersonalDataHolder, string, []byte) ([
 func DispatchSearchHook(context.Context, *Core, SearchProvider, string, []byte) ([]byte, bool, error)
 func DispatchServiceHook(context.Context, ServiceProvider, string, []byte) ([]byte, bool, error)
 func DispatchSetupStatus(context.Context, string, []byte, func(context.Context) (SetupStatus, error)) ([]byte, bool, error)
+func DispatchTrash(context.Context, string, []byte, func(context.Context, TrashRef) error, func(context.Context, TrashRef) error) ([]byte, bool, error)
 func DisputeCanMove(string, string) (bool)
 func DisputeFinal(string) (bool)
 func DocumentData(string, string, []byte) (DocumentRef)
@@ -1658,6 +1672,8 @@ method (*Core) SendTransactionalEmail(context.Context, string, string, string, s
 method (*Core) Setting(string) (string)
 method (*Core) SettingBool(string) (bool)
 method (*Core) SettingNumber(string) (float64)
+method (*Core) Trash(context.Context, TrashItem) (error)
+method (*Core) Untrash(context.Context, string, string) (error)
 method (*Core) UpgradedFrom(...string) (bool)
 method (*GRPCPlugin) GRPCClient(context.Context, *plugin.GRPCBroker, *grpc.ClientConn) (interface{}, error)
 method (*GRPCPlugin) GRPCServer(*plugin.GRPCBroker, *grpc.Server) (error)
@@ -1811,6 +1827,7 @@ method (TaxReferenceRow) Threshold() (TaxThresholdValue, bool)
 method (TaxTable) Of(string) ([]TaxReferenceRow)
 method (TrackRequest) Validate() (error)
 method (TrackResult) Validate() (error)
+method (TrashItem) Validate() (error)
 method (VisitorTool) Validate() (error)
 method (VoidRequest) Validate() (error)
 method (VoidResult) Validate() (error)
@@ -2064,6 +2081,8 @@ type TemplatedEmail
 type TrackEvent
 type TrackRequest
 type TrackResult
+type TrashItem
+type TrashRef
 type Viewer
 type VisitorCall
 type VisitorEffect
