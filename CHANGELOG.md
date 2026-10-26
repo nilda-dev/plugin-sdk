@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.45.0 — unreleased (the buyer's profile inside the account)
+## v0.45.0 — 2026-10-26 (the buyer's profile inside the account)
 
 - `AccountProfileSlot` (`data-pb-profile`): the element in an account view that Core's profile panel replaces —
   name, email, password, devices, my data, delete, all Core's own routes (`docs/COMMERCE.md` "The profile").
