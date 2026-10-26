@@ -1,8 +1,9 @@
 #!/bin/sh
 # test-fast — the FAST test lane: only what a change can break, in minutes, before every push.
 #
-# CANONICAL COPY: nilda/core/scripts/test-fast. Mirrored in plugin-sdk/scripts and plugin-booking/scripts (the
-# web lane below simply finds no web/admin there). Change core's, then copy it. Test: scripts/test-fast_test.sh.
+# CANONICAL COPY: nilda/core/scripts/test-fast. Mirrored in plugin-sdk/scripts, plugin-booking/scripts and
+# commerce/scripts (the web lane below simply finds no web/admin there); mobile/scripts/test-fast is the Flutter
+# variant with the same marker. Change core's, then copy it. Test: scripts/test-fast_test.sh.
 #
 # What it runs
 #   1. the Go packages that CHANGED against origin/main (committed + uncommitted + untracked),
@@ -29,6 +30,13 @@
 #   --base REF        compare against REF (default origin/main, or $TEST_FAST_BASE)
 # A go.mod / go.sum change makes every package "changed".
 # Exit 0 = everything green; non-zero = something failed or the guard refused. Verify by exit code.
+# THE MARKER. A green run (exit 0, not --list, not a guard refusal) records the commit it proved: it appends HEAD's
+# sha to <git common dir>/nilda-way/fast-lane-ok (last 200 shas), which the Nilda Way push hook reads. The COMMON
+# dir (`git rev-parse --git-common-dir`) is deliberate: a marker is about a COMMIT, a commit is the same in every
+# worktree of a repo, and `.git` inside a worktree is a file — the common dir is the one place all worktrees
+# share. It is written only when what ran IS that commit: if an uncommitted or untracked file reaches any
+# package that ran (or web/admin when its lane ran), the run proved the dirty tree, so the script says
+# "green on uncommitted changes: no marker for HEAD" and still exits 0.
 # Needs the same environment as the full suite (Postgres for core: `make up`). GOWORK is off unless
 # TEST_FAST_KEEP_GOWORK=1, so a lone clone is tested as a lone clone.
 
@@ -65,13 +73,8 @@ changed="$tmp/changed"
 } | sort -u > "$changed"
 nfiles=$(wc -l < "$changed" | tr -d ' ')
 
-# --- Go: changed packages + reverse dependencies ---------------------------------------------------------
-gopkgs=""
-if [ -f go.mod ]; then
-  go list -e -f '{{.ImportPath}}|{{.Dir}}|{{join .Deps " "}} {{join .TestImports " "}} {{join .XTestImports " "}}' ./... > "$tmp/graph" 2>"$tmp/golist.err" \
-    || { echo "test-fast: go list failed:" >&2; cat "$tmp/golist.err" >&2; exit 2; }
-  always=""
-  [ -f "$here/test-fast.always" ] && always=$(grep -v '^#' "$here/test-fast.always" | grep -v '^$' | tr '\n' ' ')
+# select_pkgs CHANGED_FILE_LIST: prints "changed|dependent|guard <import path>" lines for those files.
+select_pkgs() {
   awk -v root="$root" -v always="$always" '
     BEGIN { FS = "|"; na = split(always, al, " ") }
     FNR == NR { ip = $1; edges[ip] = $3; pkgdir[$2] = ip; order[++n] = ip; next }
@@ -111,7 +114,17 @@ if [ -f go.mod ]; then
           for (j = 1; j <= na; j++) { s = al[j]; if (substr(p, length(p) - length(s) + 1) == s) { print "guard " p; break } }
         }
       }
-    }' "$tmp/graph" "$changed" > "$tmp/pkgs"
+    }' "$tmp/graph" "$1"
+}
+
+# --- Go: changed packages + reverse dependencies ---------------------------------------------------------
+gopkgs=""
+if [ -f go.mod ]; then
+  go list -e -f '{{.ImportPath}}|{{.Dir}}|{{join .Deps " "}} {{join .TestImports " "}} {{join .XTestImports " "}}' ./... > "$tmp/graph" 2>"$tmp/golist.err" \
+    || { echo "test-fast: go list failed:" >&2; cat "$tmp/golist.err" >&2; exit 2; }
+  always=""
+  [ -f "$here/test-fast.always" ] && always=$(grep -v '^#' "$here/test-fast.always" | grep -v '^$' | tr '\n' ' ')
+  select_pkgs "$changed" > "$tmp/pkgs"
   gopkgs=$(awk '{print $2}' "$tmp/pkgs" | tr '\n' ' ')
 fi
 
@@ -159,5 +172,33 @@ if [ -n "$webfiles" ]; then
   fi
 fi
 
+# --- the marker: record the commit this green run proved -------------------------------------------------
+# Only a green run gets here with rc=0. The marker is written when no uncommitted/untracked file reaches a
+# package that ran (the dirty selection, dependents included, is intersected with the run set) or the web lane.
+record_green() {
+  { git diff --name-only HEAD; git ls-files --others --exclude-standard; } | sort -u > "$tmp/dirty"
+  dirtyhit=0
+  if [ -s "$tmp/dirty" ]; then
+    if [ -n "$gopkgs" ] && [ -f go.mod ]; then
+      select_pkgs "$tmp/dirty" | awk '$1 != "guard" { print $2 }' > "$tmp/dirtypkgs"
+      for p in $gopkgs; do grep -qx "$p" "$tmp/dirtypkgs" && dirtyhit=1; done
+    fi
+    if [ -n "$webfiles" ] && grep -E '^web/admin/(src|index\.html|package\.json|tsconfig|vite|vitest)' "$tmp/dirty" | grep -qv '^web/admin/dist/'; then
+      dirtyhit=1
+    fi
+  fi
+  if [ "$dirtyhit" = 1 ]; then
+    echo "test-fast: green on uncommitted changes: no marker for HEAD"
+    return 0
+  fi
+  sha=$(git rev-parse HEAD) || return 0
+  common=$(git rev-parse --git-common-dir) && common=$(cd "$common" && pwd) || return 0
+  mkdir -p "$common/nilda-way" || return 0
+  marker="$common/nilda-way/fast-lane-ok"
+  { [ -f "$marker" ] && grep -vx "$sha" "$marker"; echo "$sha"; } | tail -n 200 > "$marker.$$" && mv "$marker.$$" "$marker"
+  echo "test-fast: marker written for $(printf '%.7s' "$sha") in $marker"
+}
+
+[ "$rc" = 0 ] && record_green
 echo "test-fast: elapsed $(( $(date +%s) - start ))s, exit $rc"
 exit $rc

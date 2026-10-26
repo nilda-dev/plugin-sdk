@@ -109,6 +109,7 @@ echo 'package e
 func E() int { return 7 }' > e/e.go
 sh scripts/test-fast --no-guard >"$tmp/run.out" 2>&1; rc=$?
 [ "$rc" = 0 ] && grep -q "elapsed" "$tmp/run.out" && ok "green run exits 0 and prints elapsed" || { bad "green run: rc=$rc"; cat "$tmp/run.out"; }
+[ ! -e .git/nilda-way/fast-lane-ok ] && grep -q "green on uncommitted changes: no marker for HEAD" "$tmp/run.out" && ok "a green run on a dirty tree (uncommitted change in the run set) writes no marker and still exits 0" || { bad "dirty green run wrote a marker or did not say so"; cat "$tmp/run.out"; }
 # The fast lane answers an unchanged green package from Go's test cache; --no-cache (the full lane's way) runs it.
 sh scripts/test-fast --no-guard >"$tmp/run.out" 2>&1; rc=$?
 [ "$rc" = 0 ] && grep -q "(cached)" "$tmp/run.out" && ok "a second run of an unchanged package is answered from the cache" || { bad "cached run: rc=$rc"; cat "$tmp/run.out"; }
@@ -143,6 +144,49 @@ sh scripts/install-hooks.sh >/dev/null 2>&1 && bad "overwrote a foreign hook" ||
 mkdir -p custom-hooks; git config core.hooksPath custom-hooks; rm .git/hooks/pre-push
 sh scripts/install-hooks.sh >/dev/null 2>&1
 [ -x custom-hooks/pre-push ] && ok "core.hooksPath is honoured" || bad "hooksPath not honoured"
+
+# --- the green marker (<git common dir>/nilda-way/fast-lane-ok) ---------------------------------------------
+git config --unset core.hooksPath; rm -rf custom-hooks; git checkout -q -- . 2>/dev/null; git clean -fdq
+marker="$repo/.git/nilda-way/fast-lane-ok"; rm -rf "$repo/.git/nilda-way"
+head=$(git rev-parse HEAD)
+sh scripts/test-fast --no-guard >"$tmp/run.out" 2>&1; rc=$?
+[ "$rc" = 0 ] && grep -qx "$head" "$marker" 2>/dev/null && ok "a green run on a clean tree records HEAD's sha in the common git dir" || { bad "clean green run: rc=$rc"; cat "$tmp/run.out"; }
+sh scripts/test-fast --no-guard --list >/dev/null 2>&1; git commit -q --allow-empty -m e1; head=$(git rev-parse HEAD)
+sh scripts/test-fast --no-guard --list >/dev/null 2>&1
+grep -qx "$head" "$marker" && bad "--list wrote a marker" || ok "--list never writes a marker"
+HEAVY_GUARD_MIN_FREE_GB=100000000 sh scripts/test-fast >/dev/null 2>&1; rc=$?
+[ "$rc" = 3 ] && ! grep -qx "$head" "$marker" && ok "a guard refusal never writes a marker" || bad "guard refusal: rc=$rc"
+echo 'package d
+func D3() int { return 8 }' > d/untracked.go
+sh scripts/test-fast --no-guard --committed-only >"$tmp/run.out" 2>&1; rc=$?
+[ "$rc" = 0 ] && grep -qx "$head" "$marker" && ok "--committed-only: a dirty file outside the run set does not block the marker" || { bad "unrelated dirty file: rc=$rc"; cat "$tmp/run.out"; }
+rm d/untracked.go
+git commit -q --allow-empty -m e2; head=$(git rev-parse HEAD)
+echo '// dirty' >> a/a.go
+sh scripts/test-fast --no-guard --committed-only >"$tmp/run.out" 2>&1; rc=$?
+[ "$rc" = 0 ] && ! grep -qx "$head" "$marker" && grep -q "no marker for HEAD" "$tmp/run.out" && ok "--committed-only on a tree that is dirty inside the run set writes no marker" || { bad "committed-only dirty: rc=$rc"; cat "$tmp/run.out"; }
+git checkout -q -- a/a.go
+# a git worktree: `.git` there is a FILE; the marker still lands in the shared common dir
+wt="$tmp/wt"; git worktree add -q "$wt" -b wtbranch HEAD
+(cd "$wt" && git commit -q --allow-empty -m wt && sh scripts/test-fast --no-guard >"$tmp/run.out" 2>&1); rc=$?
+whead=$(git -C "$wt" rev-parse HEAD)
+[ -f "$wt/.git" ] && [ "$rc" = 0 ] && grep -qx "$whead" "$marker" && [ ! -e "$wt/.git/nilda-way" ] && ok "a worktree run records its commit in the common git dir" || { bad "worktree marker: rc=$rc"; cat "$tmp/run.out"; }
+git worktree remove --force "$wt"; git branch -q -D wtbranch
+# bounded: only the last 200 shas are kept
+i=0; : > "$marker"; while [ $i -lt 250 ]; do printf '%040d\n' $i >> "$marker"; i=$((i + 1)); done
+sh scripts/test-fast --no-guard >/dev/null 2>&1; rc=$?
+[ "$rc" = 0 ] && [ "$(wc -l < "$marker" | tr -d ' ')" = 200 ] && grep -qx "$(git rev-parse HEAD)" "$marker" && ok "the marker file keeps only the last 200 shas" || bad "bounded marker: rc=$rc lines=$(wc -l < "$marker")"
+# a red test never writes a marker
+cat > c/c_test.go <<'X'
+package c_test
+
+import "testing"
+
+func TestC(t *testing.T) { t.Fatal("red") }
+X
+git add -A; git commit -q -m red; head=$(git rev-parse HEAD)
+sh scripts/test-fast --no-guard >"$tmp/run.out" 2>&1; rc=$?
+[ "$rc" != 0 ] && ! grep -qx "$head" "$marker" && ok "a failing run writes no marker" || { bad "red run marker: rc=$rc"; cat "$tmp/run.out"; }
 
 echo "$pass passed, $failed failed"
 [ "$failed" = 0 ]
