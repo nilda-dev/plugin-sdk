@@ -1456,7 +1456,7 @@ as a plain page with neither.
   joiners Persian and Arabic spell with aside); `secret` on anything but a text or long-text field, or with a default.
 - `edits` naming a content type this manifest does not declare, on a page with no form that edits, or one type
   edited by two pages.
-- More than 20 pages, 48 fields on a settings page, 20 filters on a report page, 20 columns or 20 search
+- More than 40 pages, 48 fields on a settings page, 20 filters on a report page, 20 columns or 20 search
   columns on a list page, 8 row actions, 4 filters on a list page, or 100 choices on a field; or a name or label longer than 120
   characters — and so is a placeholder, a choice or a page's icon — or help longer than 500 characters,
   or a row action's `confirm` longer than 300.
