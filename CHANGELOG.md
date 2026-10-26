@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.46.0 — unreleased (an Install line at the top of a page; the site's one recycle bin for a plugin's own records)
+## v0.46.0 — 2026-10-26 (an Install line at the top of a page; the site's one recycle bin for a plugin's own records)
 
 - `AdminPage.Install`: on a `list` or `settings` page, the capability or contract of one of the manifest's `recommends`.
   Core draws its Install / Switch on line for it at the top of the page until something on the site brings it, for a
