@@ -8,6 +8,13 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.48.0 — unreleased (the default page of a plugin's own content type)
+
+- Manifest `templates`: `[{content_type, name, tree}]` — the default single page of a content type the manifest
+  declares, in the page builder's layout format (`docs/PLUGIN_SDK.md`, "The default page of your content type"; Core
+  D-109). The active theme's own design and the owner's edit win over it; switching the plugin off takes it back.
+  Manifest only: no Go API changes, so a plugin may declare it against any SDK version Core reads.
+
 ## v0.47.0 — 2026-10-26 (four retired contracts removed: offers, business buyers, back-in-stock, the shop's checkout for adapters)
 
 - Removed `shop.offers/v1`, `shop.buyers/v1`, `stock.alerts/v1` and `shop.checkout/v1` — their contract files, their

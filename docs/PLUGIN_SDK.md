@@ -327,6 +327,35 @@ Declare them, and Core creates them on every enable — additively, never deleti
   reinstall you, or to delete the type first. Where two plugins' keys overlap (`shop` and `shop_widgets`), a
   key under both belongs to the longer: `shop_widgets_gadget` is `shop_widgets`'s, whoever installed first.
 
+#### The default page of your content type
+
+A content type's own page is drawn by the site's theme, and a theme knows nothing about your product or your
+service: with nothing else it draws your item the way it draws a blog post. Ship the page with the type — as
+WooCommerce ships its Single Product template and a theme may replace it:
+
+```json
+"templates": [{"content_type": "shop_product", "name": "Product page", "tree": {"nodes": [
+  {"id": "main", "kind": "section", "children": [{"id": "col", "kind": "column", "children": [
+    {"id": "title", "kind": "widget", "widget": "product_field", "config": {"field": "title", "level": 1}},
+    {"id": "price", "kind": "widget", "widget": "product_field", "config": {"field": "price"}},
+    {"id": "buy", "kind": "widget", "widget": "add_to_cart", "config": {"variations": true}},
+    {"id": "body", "kind": "widget", "widget": "post_content"}
+  ]}]}
+]}}]
+```
+
+- **Only your own types.** `content_type` names a type this manifest declares in `content_types`; a plugin names
+  no other surface (not the header, not the posts' page, not another plugin's type). One template per type.
+- **A page-builder layout**, the format a theme's `trees/<kind>.json` has — never HTML. It is checked by the
+  builder's own rules at install: known widgets with settings they accept, nothing Pro-only (it must draw on a
+  free site), at most 64 KiB, and the item placed (`post_content`, or a title, excerpt or featured image).
+  Core's storefront widgets count as known before your plugin runs; a product widget with no product chosen
+  draws the product the page is about.
+- **A default, not a lock.** Core stores it on every enable and draws it for the type's pages; the active
+  theme's own design of that page wins over it, and the owner's edit (in the page builder, or by asking the
+  assistant) wins over both — Reset brings yours back. Switching your plugin off or removing it takes your
+  template back; the owner's edits of it stay.
+
 Views, not tables, on Core's side: `core_content`, `core_users`, `core_media`, `core_terms`,
 `core_content_terms`. They carry published rows and public columns only — a view cannot apply per-viewer
 visibility, so anything whose answer depends on *who is asking* goes through the API, which enforces it
