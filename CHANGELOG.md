@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.48.0 — unreleased (the default page of a plugin's own content type)
+## v0.48.0 — 2026-10-27 (the default page of a plugin's own content type)
 
 - Manifest `templates`: `[{content_type, name, tree}]` — the default single page of a content type the manifest
   declares, in the page builder's layout format (`docs/PLUGIN_SDK.md`, "The default page of your content type"; Core
