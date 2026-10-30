@@ -1,0 +1,15 @@
+{
+ "version": 1,
+ "findings": {
+  "G115|nildatest/nildatest.go|return &contract.RevokeIdentityResponse{SessionsEnded: int32(n)}, nil": 1,
+  "G301|nildatest/mobile.go|if err := os.MkdirAll(filepath.Dir(goldenPath), 0o755); err != nil {": 1,
+  "G304|nildatest/manifest.go|raw, err := os.ReadFile(manifestPath)": 2,
+  "G304|nildatest/mobile.go|raw, err := os.ReadFile(manifestPath)": 1,
+  "G304|nildatest/mobile.go|want, err := os.ReadFile(goldenPath)": 1,
+  "G304|nildatest/templated.go|raw, err := os.ReadFile(manifestPath)": 1,
+  "G306|nildatest/manifest.go|if err := os.WriteFile(manifestPath, out, 0o644); err != nil {": 2,
+  "G306|nildatest/mobile.go|if err := os.WriteFile(goldenPath, []byte(got), 0o644); err != nil {": 1,
+  "G404|api.go|wait += time.Duration(rand.Int64N(half))": 1,
+  "G703|nildatest/manifest.go|if err := os.WriteFile(manifestPath, out, 0o644); err != nil {": 2
+ }
+}
