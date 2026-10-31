@@ -27,7 +27,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v5.29.3
-// source: plugin.proto
+// source: contract/plugin.proto
 
 package contract
 
@@ -276,7 +276,7 @@ var PluginService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "plugin.proto",
+	Metadata: "contract/plugin.proto",
 }
 
 const (
@@ -694,5 +694,5 @@ var HostService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "plugin.proto",
+	Metadata: "contract/plugin.proto",
 }
