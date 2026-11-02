@@ -8,6 +8,19 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.49.0 — unreleased (what Core sends a plugin, typed)
+
+- Core's own events by name: `EventContentCreated` … `EventContentImported`, `EventFormSubmitted`,
+  `EventFormSubscribe`, `EventUserErased` (beside the existing `EventUserEmailVerified`), and `CoreEventData` for their
+  data (`docs/EVENTS.md`, "Core's own events"). `TestCoreEventNamesAreCoresOwn` holds the list to Core's.
+- The storefront's wire: `AddToCartRequest` and `FirstTouch` (what Core's add-to-cart button sends), `CommerceOutOfStock`
+  and `CommerceOutOfStockCode` (the 409 that opens the back-in-stock form), `CommerceRedirectHeader` ("Nilda-Redirect").
+  `TestTheStorefrontWireIsCoresScript` holds them to Core's script.
+- `SchemaExport` and `TableExport`: a plugin's kept data as the Plugins screen exports it, for a successor that takes it
+  in. `TestTheDataExportIsCoresShape` holds them to Core's.
+- nildatest: `AsUser`, `AsAgent`, `FromVisitor` (and `Visitor`) put a test request in the shape Core's proxy sends.
+- Additive only. Found by the shop's Unit 12 end review: the shop spelled each of these by hand.
+
 ## v0.48.0 — 2026-10-27 (the default page of a plugin's own content type)
 
 - Manifest `templates`: `[{content_type, name, tree}]` — the default single page of a content type the manifest

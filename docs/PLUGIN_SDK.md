@@ -2576,6 +2576,27 @@ provider that must know which plugin asked — a shop deciding whether to trust 
 Neither says who the PERSON was (see abilities, above). Log `RequestID` beside your own lines: one search in the
 owner's log then finds both halves of a failure.
 
+### What Core sends you: its events, the storefront's wire, a kept-data export (unreleased)
+
+**Core's own events.** Subscribe by name (the `events` capability, at `Init`): `nilda.EventContentCreated`,
+`EventContentUpdated`, `EventContentPublished`, `EventContentUnpublished`, `EventContentTrashed`,
+`EventContentRestored`, `EventContentDeleted`, `EventContentImported`, `EventFormSubmitted`, `EventFormSubscribe`,
+`EventUserEmailVerified` and `EventUserErased` — the push half of a privacy erasure, whose subject is the erased
+account: take out what you keep per account there instead of asking Core about every account on a schedule. Decode
+the data into `nilda.CoreEventData` (`EntityID`, `EntityKind`, `OccurredAt`, and a content event's `Type` and `Slug`);
+`EventOf(ctx).Subject` is the `EntityID` too. `docs/EVENTS.md` has the table.
+
+**The storefront's wire.** Core's add-to-cart button POSTs a `nilda.AddToCartRequest` to your `AddToCart` endpoint:
+the product, the quantity when the widget offers one, the variation answers, and the visit's `nilda.FirstTouch` (the
+referring host, the landing path, the `utm_*` tags) while the visitor allows analytics. Answer a sold-out choice
+with `nilda.CommerceOutOfStock(w, message)` (409, `{"code":"out_of_stock"}`), which opens the row's back-in-stock form;
+send the shopper elsewhere from a fragment's form with the `nilda.CommerceRedirectHeader` header.
+
+**A kept-data export.** Uninstalling a plugin keeps its schema, and the Plugins screen exports it as one JSON file. A
+successor that takes such a file in decodes it as a `nilda.SchemaExport` of `nilda.TableExport`s: refuse it when
+`Truncated` is set or `Skipped` names a table, read each row by `Columns`, and each value by its column's `Types`
+entry (a uuid is its 16 bytes as an array, a time RFC 3339 text, a jsonb column its JSON value).
+
 ### Service contracts (`Contracts`, `ContractNamed`)
 
 What one kind of plugin promises another through Core — a payment gateway to the shop today; a carrier, a
@@ -2833,6 +2854,12 @@ customer's receipt with nothing recorded anywhere.
 For the API half, `nildatest.NewWithAPI(key, handler, grants...)` points `core.API()` at a test server you
 control, so you can assert the requests your plugin makes and choose what comes back — a 403 from a missing
 scope and a 500 from an outage are different bugs and a plugin should behave differently for each.
+
+A request your resident server receives comes through Core's proxy, which strips every `X-Nilda-*` header a client
+sent and sets its own. Put a test request in that shape with `nildatest.AsUser(r, nilda.Viewer{...})` (signed in),
+`nildatest.AsAgent(r, nilda.Agent{...})` (an identified AI agent and its tier) and
+`nildatest.FromVisitor(r, nildatest.Visitor{Country, Locale, Key})`; `CurrentUser`, `AgentOf`, `VisitorCountry`,
+`VisitorLocale` and `VisitorKey` read them back. (Unreleased.)
 
 `nilda.NewCoreForTest` still exists for the rare case you want your own host, but prefer `nildatest`: passing
 `nil` there gives you a `*Core` whose every host call panics on a nil pointer, and the panic names gRPC
