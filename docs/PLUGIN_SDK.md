@@ -2597,6 +2597,14 @@ successor that takes such a file in decodes it as a `nilda.SchemaExport` of `nil
 `Truncated` is set or `Skipped` names a table, read each row by `Columns`, and each value by its column's `Types`
 entry (a uuid is its 16 bytes as an array, a time RFC 3339 text, a jsonb column its JSON value).
 
+### Capability names and your admin's addresses (unreleased)
+
+Each capability a manifest may declare has its constant — `nilda.CapKV`, `CapTrash`, `CapVisitorTools`,
+`CapServiceConsumer`, … one per name Core registers — for `core.HasCapability(nilda.CapTrash)` and
+`nildatest.New(key, nilda.CapKV, …)`. A mail to the owner links the page it is about with
+`nilda.AdminPageURL(origin, pluginKey, page)`, or one record's form with `nilda.AdminFormURL(origin, pluginKey, page, id)`
+(an empty id: the form for a new one).
+
 ### Service contracts (`Contracts`, `ContractNamed`)
 
 What one kind of plugin promises another through Core — a payment gateway to the shop today; a carrier, a

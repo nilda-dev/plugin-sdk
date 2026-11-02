@@ -19,6 +19,8 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
 - `SchemaExport` and `TableExport`: a plugin's kept data as the Plugins screen exports it, for a successor that takes it
   in. `TestTheDataExportIsCoresShape` holds them to Core's.
 - nildatest: `AsUser`, `AsAgent`, `FromVisitor` (and `Visitor`) put a test request in the shape Core's proxy sends.
+- `Cap…` constants, one per capability Core registers (`TestTheCapabilitiesAreCoresOwn`, both ways), and
+  `AdminPageURL` / `AdminFormURL`, where Core's admin draws a plugin's page and form (`TestTheAdminAddressesAreTheAdminsOwn`).
 - Additive only. Found by the shop's Unit 12 end review: the shop spelled each of these by hand.
 
 ## v0.48.0 — 2026-10-27 (the default page of a plugin's own content type)

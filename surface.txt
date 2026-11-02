@@ -25,6 +25,39 @@ const BadgeGold
 const BadgeGreen
 const BadgeGrey
 const BadgeWarn
+const CapAbilities
+const CapAdminPage
+const CapAuthProvider
+const CapCommerce
+const CapContentRead
+const CapContentWrite
+const CapDatastore
+const CapEmail
+const CapEvents
+const CapField
+const CapHooks
+const CapKV
+const CapMediaRead
+const CapMediaWrite
+const CapMenusRead
+const CapMenusWrite
+const CapPaymentGateway
+const CapPaymentSession
+const CapPersonalData
+const CapRenderAssets
+const CapRoute
+const CapSchedule
+const CapSearchProvider
+const CapSecrets
+const CapServiceConsumer
+const CapServiceProvider
+const CapSiteFiles
+const CapTaxonomyRead
+const CapTaxonomyWrite
+const CapTrash
+const CapUsersRead
+const CapVisitorTools
+const CapWidget
 const CarrierCredentialsRefused
 const CarrierCustomsMissing
 const CarrierDeclined
@@ -1320,6 +1353,8 @@ field WidgetRenderRequest.Title string json:title
 field WidgetRenderRequest.Type string json:type
 field WidgetRenderRequest.URL string json:url
 func AbilityHook(string) (string)
+func AdminFormURL(string, string, string, string) (string)
+func AdminPageURL(string, string, string) (string)
 func AgentOf(*http.Request) (Agent, bool)
 func BadgeTones() ([]string)
 func CallOf(context.Context) (CallInfo)
