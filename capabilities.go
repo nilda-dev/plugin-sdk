@@ -1,0 +1,40 @@
+package nilda
+
+// THE CAPABILITIES A MANIFEST MAY DECLARE, by the names Core grants them under. A plugin asking Core.HasCapability, or
+// a test granting one (nildatest.New), spelled them by hand; capabilities_test.go holds this list to Core's own
+// registry when Core is beside the SDK, both ways: every one Core knows is here, and nothing here is unknown to Core.
+const (
+	CapAbilities       = "abilities"
+	CapAdminPage       = "admin_page"
+	CapAuthProvider    = "auth_provider"
+	CapCommerce        = "commerce"
+	CapContentRead     = "content.read"
+	CapContentWrite    = "content.write"
+	CapDatastore       = "datastore"
+	CapEmail           = "email"
+	CapEvents          = "events"
+	CapField           = "field"
+	CapHooks           = "hooks"
+	CapKV              = "kv"
+	CapMediaRead       = "media.read"
+	CapMediaWrite      = "media.write"
+	CapMenusRead       = "menus.read"
+	CapMenusWrite      = "menus.write"
+	CapPaymentGateway  = "payment_gateway"
+	CapPaymentSession  = "payment_session"
+	CapPersonalData    = "personal_data"
+	CapRenderAssets    = "render.assets"
+	CapRoute           = "route"
+	CapSchedule        = "schedule"
+	CapSearchProvider  = "search_provider"
+	CapSecrets         = "secrets"
+	CapServiceConsumer = "service_consumer"
+	CapServiceProvider = "service_provider"
+	CapSiteFiles       = "site_files"
+	CapTaxonomyRead    = "taxonomy.read"
+	CapTaxonomyWrite   = "taxonomy.write"
+	CapTrash           = "trash"
+	CapUsersRead       = "users.read"
+	CapVisitorTools    = "visitor_tools"
+	CapWidget          = "widget"
+)
