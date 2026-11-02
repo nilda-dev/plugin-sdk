@@ -72,6 +72,8 @@ const ColumnMoney
 const ColumnNumber
 const ColumnPercent
 const ColumnText
+const CommerceOutOfStockCode
+const CommerceRedirectHeader
 const CommerceSignInHeader
 const ContractShippingCarrier
 const ContractShopCatalog
@@ -103,7 +105,18 @@ const EmailTransactional
 const EmailURL
 const EventCommerceCatalogChanged
 const EventCommerceSKURenamed
+const EventContentCreated
+const EventContentDeleted
+const EventContentImported
+const EventContentPublished
+const EventContentRestored
+const EventContentTrashed
+const EventContentUnpublished
+const EventContentUpdated
+const EventFormSubmitted
+const EventFormSubscribe
 const EventUserEmailVerified
+const EventUserErased
 const FieldBoolean
 const FieldCheckbox
 const FieldColor
@@ -344,6 +357,10 @@ field AccountStartResult.State string json:state
 field AccountStatus.Connected bool json:connected
 field AccountStatus.Problem string json:problem
 field AccountStatus.Who string json:who
+field AddToCartRequest.Attribution *FirstTouch json:attribution
+field AddToCartRequest.Product string json:product
+field AddToCartRequest.Quantity int64 json:quantity
+field AddToCartRequest.Variations map[string]string json:variations
 field AdminAction.Action string json:action
 field AdminAction.ID string json:id
 field AdminAction.Page string json:page
@@ -583,6 +600,11 @@ field Core.PluginKey string
 field Core.PreviousVersion string
 field Core.RoutePrefix string
 field Core.SiteURL string
+field CoreEventData.EntityID string json:entity_id
+field CoreEventData.EntityKind string json:entity_kind
+field CoreEventData.OccurredAt time.Time json:occurred_at
+field CoreEventData.Slug string json:slug
+field CoreEventData.Type string json:type
 field Customs.ContentsType string json:contents_type
 field Customs.Currency string json:currency
 field Customs.Incoterm string json:incoterm
@@ -671,6 +693,13 @@ field FieldValidateRequest.Options map[string]any json:options
 field FieldValidateRequest.Value any json:value
 field FieldValidateResponse.Message string json:message
 field FieldValidateResponse.OK bool json:ok
+field FirstTouch.Path string json:path
+field FirstTouch.Ref string json:ref
+field FirstTouch.UTMCampaign string json:utm_campaign
+field FirstTouch.UTMContent string json:utm_content
+field FirstTouch.UTMMedium string json:utm_medium
+field FirstTouch.UTMSource string json:utm_source
+field FirstTouch.UTMTerm string json:utm_term
 field FormConflict.At string json:at
 field FormConflict.By string json:by
 field FormConflict.Values map[string]any json:values
@@ -1062,6 +1091,13 @@ field SavedPaymentMethod.Session string json:session
 field SavedPaymentMethod.Test bool json:test
 field Schedule.Cron string
 field Schedule.Name string
+field SchemaExport.ExportedAt time.Time json:exported_at
+field SchemaExport.Note string json:note
+field SchemaExport.Plugin string json:plugin
+field SchemaExport.Schema string json:schema
+field SchemaExport.Skipped []string json:skipped
+field SchemaExport.Tables map[string]TableExport json:tables
+field SchemaExport.Truncated bool json:truncated
 field ScriptAsset.Async bool json:async
 field ScriptAsset.Defer bool json:defer
 field ScriptAsset.Src string json:src
@@ -1177,6 +1213,12 @@ field StockAlertRequest.Title string json:title
 field StockAlertRequest.URL string json:url
 field StockAlertResult.Message string json:message
 field StockAlertResult.Status string json:status
+field TableExport.Columns []string json:columns
+field TableExport.Note string json:note
+field TableExport.RowCount int json:row_count
+field TableExport.Rows [][]json.RawMessage json:rows
+field TableExport.Truncated bool json:truncated
+field TableExport.Types map[string]string json:types
 field TaxImportRegimeValue.Basis string json:basis
 field TaxImportRegimeValue.Currency string json:currency
 field TaxImportRegimeValue.Scheme string json:scheme
@@ -1284,6 +1326,7 @@ func CallOf(context.Context) (CallInfo)
 func CarrierMethods(Carrier) ([]ServiceMethod)
 func CatalogMethods(CatalogProvider) ([]ServiceMethod)
 func ColumnTypes() ([]string)
+func CommerceOutOfStock(http.ResponseWriter, string)
 func CommerceSignInRequired(http.ResponseWriter)
 func CommerceViewerOf(context.Context) (CommerceViewer, bool)
 func ContractNamed(string) (ServiceContract, bool)
@@ -1593,6 +1636,7 @@ type AccountHandler
 type AccountStart
 type AccountStartResult
 type AccountStatus
+type AddToCartRequest
 type AdminAction
 type AdminActionResult
 type AdminCalendarRequest
@@ -1644,6 +1688,7 @@ type CommerceVariation
 type CommerceViewer
 type ContractMethod
 type Core
+type CoreEventData
 type CredentialPayer
 type Customs
 type CustomsItem
@@ -1671,6 +1716,7 @@ type FieldCondition
 type FieldProvider
 type FieldValidateRequest
 type FieldValidateResponse
+type FirstTouch
 type FormConflict
 type FormError
 type FormField
@@ -1758,6 +1804,7 @@ type RowCondition
 type SavedMethodPayer
 type SavedPaymentMethod
 type Schedule
+type SchemaExport
 type ScriptAsset
 type SearchDoc
 type SearchHit
@@ -1783,6 +1830,7 @@ type ShopOrderRequest
 type ShopOrderResult
 type StockAlertRequest
 type StockAlertResult
+type TableExport
 type TaxImportRegimeValue
 type TaxNoticeValue
 type TaxRateValue

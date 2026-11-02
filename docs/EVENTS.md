@@ -28,6 +28,18 @@ Inside `HandleEvent`, `nilda.EventOf(ctx)` gives the event's context:
 The event's `type` is its name, unchanged, and its data is the JSON you were handed. Outgoing webhooks carry the same
 shape, keyed by the same id.
 
+### Core's own events
+
+Core publishes these (`nilda.Event…` constants; data decodes into `nilda.CoreEventData`, every one carrying
+`entity_id`, `entity_kind` and `occurred_at`, the subject being the entity id):
+
+| name | about | its own data |
+|---|---|---|
+| `content.created`, `content.updated`, `content.published`, `content.unpublished`, `content.trashed`, `content.restored`, `content.deleted`, `content.imported` | a content item | `type` (its content type), `slug` |
+| `form.submitted`, `form.subscribe` | a form | the form's fields as Core records them |
+| `user.email_verified` | an account whose address is confirmed | none: read the address through the API |
+| `user.erased` | an account erased (a right-to-be-forgotten request, or the person deleting it) | none |
+
 ## 3. What your handler must do
 
 - **Drop repeats.** Delivery is at least once. Keep the ids you handled (a `kv` key, a table row written in the same

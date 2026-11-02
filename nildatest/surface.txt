@@ -49,8 +49,14 @@ field StubGateway.Start nilda.PaymentStartResult
 field TrashEntry.ExpiresAfter time.Duration
 field TrashEntry.Name string
 field TrashEntry.RequestID string
+field Visitor.Country string
+field Visitor.Key string
+field Visitor.Locale string
+func AsAgent(*http.Request, nilda.Agent) (*http.Request)
+func AsUser(*http.Request, nilda.Viewer) (*http.Request)
 func AsksForSignIn(*http.Response) (bool)
 func CheckPersonalDataHolder(context.Context, nilda.PersonalDataHolder, string) (error)
+func FromVisitor(*http.Request, Visitor) (*http.Request)
 func MailBlockedError() (error)
 func MailDeferredError(time.Duration) (error)
 func ManifestAbilities(testing.TB, string, []nilda.Ability)
@@ -151,6 +157,7 @@ type StubCarrier
 type StubGateway
 type Trash
 type TrashEntry
+type Visitor
 var ErrNotSubscribed
 var ErrServiceBlocked
 var SessionsPerIdentity
