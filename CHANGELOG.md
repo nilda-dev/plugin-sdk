@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.54.0 — unreleased (a file that is sold is private)
+## v0.54.0 — unreleased (a file that is sold is private, and a plugin's whole admin can be translated)
 
 - `MediaItem.Private` and `API.SetMediaPrivate(ctx, id, private)` (`PATCH /media/{id}`, `media.write`): a private
   media item is served to nobody on its public address (`/api/v1/media/{id}/file` answers "not found" for it, every
@@ -19,6 +19,10 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
   always as a download (`Disposition` is `attachment` with the file's name). Needs the Core that serves the route.
 - `nildatest.Site` serves both and refuses a private file on the public address; `SetMediaUsedOn(id, where…)` makes
   it answer as Core does for a file the site shows.
+- The translation bounds follow Core's, which now sends an admin only its own language's table:
+  `MaxManifestTranslationStrings` is 1500 a language (was 300), the new `MaxManifestTranslationLocaleBytes` is 192 KiB a
+  language, and `MaxManifestTranslationBytes` is 1 MiB for all languages as stored (was 128 KiB, which every admin's
+  browser used to receive). A manifest within the new bounds needs the Core that has them.
 
 ## v0.53.0 — 2026-11-03 (which door Core took a call through, and abilities no model is offered)
 

@@ -741,9 +741,10 @@ locale code) is not here — the pattern is the rule, and `nilda plugin check` s
 | `MaxManifestPickSentenceLen` | 120 characters | the sentence a mobile.pick chip writes in the chat box |
 | `MaxManifestPickEffectLen` | 160 characters | a mobile.pick action's effect, what visitors will see change |
 | `MaxManifestTranslationLocales` | 12 | the languages translations declares |
-| `MaxManifestTranslationStrings` | 300 | one language's strings |
+| `MaxManifestTranslationStrings` | 1,500 | one language's strings |
 | `MaxManifestTranslationLen` | 500 characters | one string, its source and its translation each |
-| `MaxManifestTranslationBytes` | 128 KiB | every source and translation of every language together |
+| `MaxManifestTranslationLocaleBytes` | 192 KiB | one language's sources and translations together |
+| `MaxManifestTranslationBytes` | 1 MiB | every source and translation of every language together |
 | `MaxManifestEditorCommands` | 24 | editor_commands |
 | `MaxManifestCommandKeywords` | 16 | one editor command's keywords |
 | `MaxManifestEditorCommandContentBytes` | 32 KiB | one editor command's content |
@@ -2654,12 +2655,12 @@ What it never touches is a KEY. Your action still arrives as `refund` whatever l
 in, the stored value of a choice is still the declared one, and your section's place in the sidebar is keyed
 by your plugin key — so a translated name cannot scatter somebody's arrangement.
 
-Bounded, because a manifest is downloaded, stored and read on every admin page load: 12 languages, 300
-strings each, 500 characters a string, source or translation — and 128 KiB for all of it together, which binds
-first: twelve full languages of full-length strings would be far larger. The string bound is counted in
+Bounded, because an admin's browser receives its own language's table with your section on every admin page load
+(Core sends that one language, never the others): 12 languages, 1500 strings each, 500 characters a string, source
+or translation — 192 KiB a language, and 1 MiB for all of them together as stored. The string bound is counted in
 characters, not bytes: it is the longest text a page declares (a field's `help`), so whatever fits there fits its
-translation, a Persian or Arabic one as much as an English one. The 128 KiB is counted in bytes, where a Persian or
-Arabic letter takes two. Past any of those the package is refused at install rather than quietly truncated.
+translation, a Persian or Arabic one as much as an English one. The 192 KiB and the 1 MiB are counted in bytes,
+where a Persian or Arabic letter takes two. Past any of those the package is refused at install rather than quietly truncated.
 
 **You ship no JavaScript into the admin.** You declare; Core draws the controls. Every other CMS extends its
 admin by injecting code — a WordPress plugin enqueues a script, a Strapi plugin ships React — and pays for it

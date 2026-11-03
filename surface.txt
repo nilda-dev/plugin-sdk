@@ -333,6 +333,7 @@ const MaxManifestTemplateBytes
 const MaxManifestTemplates
 const MaxManifestTranslationBytes
 const MaxManifestTranslationLen
+const MaxManifestTranslationLocaleBytes
 const MaxManifestTranslationLocales
 const MaxManifestTranslationStrings
 const MaxManifestVisitorToolDescriptionLen
