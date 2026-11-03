@@ -95,7 +95,7 @@ type Ability struct {
 	// answers every other ability — this is for the few no setting should answer. Declare it in plugin.json too
 	// (nildatest.ManifestAbilities writes it).
 	AlwaysAsk bool
-	// Callers names the caller kinds Core may call this ability for (v0.52.0): CallerKindImporter,
+	// Callers names the caller kinds Core may call this ability for (v0.53.0): CallerKindImporter,
 	// CallerKindOwnerUI, CallerKindAI, CallerKindMCP. Empty means the site's assistant and connected AI apps, as
 	// before. An ability that names neither CallerKindAI nor CallerKindMCP is in no tool list a model reads, and Core
 	// refuses a call to it from any kind it does not name — for a door that takes what no model may hold, such as an

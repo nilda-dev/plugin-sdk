@@ -180,7 +180,7 @@ message Ability {
   bool always_ask = 7;
   // The caller kinds Core may call this ability for (HookRequest.caller_kind's values). Empty means the site's
   // assistant and connected AI apps, as before; one that names neither "ai" nor "mcp" is in no list a model reads
-  // (v0.52.0, booking's import doors).
+  // (v0.53.0, booking's import doors).
   repeated string callers = 8;
 }
 
@@ -199,7 +199,7 @@ message HookRequest {
   string idempotency_key = 5; // the caller's key for this operation: a call repeated with it must have the effect of one
   string caller = 6;          // a service-desk call's asking plugin, by key; empty when Core itself asked
   bool via_assistant = 7;     // the site's assistant asked for this call, not a person's own press (v0.41.0)
-  // Which door Core took this call through, set by Core's own code and never from the payload (v0.52.0): "ai" (the
+  // Which door Core took this call through, set by Core's own code and never from the payload (v0.53.0): "ai" (the
   // site's assistant), "mcp" (a connected AI app or the connector REST invoke), "importer" (Core's importer),
   // "owner_ui" (a person's own press). Empty from a Core that does not say, and on Core's own hooks: fail closed.
   string caller_kind = 8;

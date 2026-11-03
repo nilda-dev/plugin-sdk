@@ -420,7 +420,7 @@ type Ability struct {
 	AlwaysAsk bool `protobuf:"varint,7,opt,name=always_ask,json=alwaysAsk,proto3" json:"always_ask,omitempty"`
 	// The caller kinds Core may call this ability for (HookRequest.caller_kind's values). Empty means the site's
 	// assistant and connected AI apps, as before; one that names neither "ai" nor "mcp" is in no list a model reads
-	// (v0.52.0, booking's import doors).
+	// (v0.53.0, booking's import doors).
 	Callers       []string `protobuf:"bytes,8,rep,name=callers,proto3" json:"callers,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -575,7 +575,7 @@ type HookRequest struct {
 	IdempotencyKey string `protobuf:"bytes,5,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"` // the caller's key for this operation: a call repeated with it must have the effect of one
 	Caller         string `protobuf:"bytes,6,opt,name=caller,proto3" json:"caller,omitempty"`                                       // a service-desk call's asking plugin, by key; empty when Core itself asked
 	ViaAssistant   bool   `protobuf:"varint,7,opt,name=via_assistant,json=viaAssistant,proto3" json:"via_assistant,omitempty"`      // the site's assistant asked for this call, not a person's own press (v0.41.0)
-	// Which door Core took this call through, set by Core's own code and never from the payload (v0.52.0): "ai" (the
+	// Which door Core took this call through, set by Core's own code and never from the payload (v0.53.0): "ai" (the
 	// site's assistant), "mcp" (a connected AI app or the connector REST invoke), "importer" (Core's importer),
 	// "owner_ui" (a person's own press). Empty from a Core that does not say, and on Core's own hooks: fail closed.
 	CallerKind    string `protobuf:"bytes,8,opt,name=caller_kind,json=callerKind,proto3" json:"caller_kind,omitempty"`
