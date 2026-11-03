@@ -175,11 +175,22 @@ func TestTheGuideSaysAHostedSiteWithoutThePlanRunsOnlyReadAbilities(t *testing.T
 	guard := flat(coreSource(t, "internal", "agent", "guardrails.go"))
 	for _, want := range []string{
 		"if r, blocked := s.policyGate(ctx, pol, spec); blocked { return owner, r }",
-		"if spec.Class.mutates() && !license.AIExecuteOpen() {",
+		// Core now lets a PERSON's press of Undo through the line (aichanges.go's withPersonsUndo): they put back by hand what an
+		// agent did. That is not the assistant running an ability — the mark is set by RunUndo alone, on an unexported
+		// key, and the inverse it runs is one of Core's own tools (toolCreates), never a plugin's.
+		"if spec.Class.mutates() && !license.AIExecuteOpen() && !isPersonsUndo(ctx) {",
 	} {
 		if !strings.Contains(guard, want) {
 			t.Errorf("core's guardrails.go no longer has %q — re-read the guide's hosted-site sentence", want)
 		}
+	}
+	// The mark's one setter is RunUndo (its declaration and that one call are the only two mentions), and it runs the
+	// stored inverse — a Core tool's name, from creationUndo or the tool's undoSpec.
+	changes := flat(coreSource(t, "internal", "agent", "aichanges.go"))
+	if n := strings.Count(changes, "withPersonsUndo("); n != 2 ||
+		!strings.Contains(changes, "ctx = withoutChangeRecord(withPersonsUndo(withPanelSession(ctx, user, string(ClassAccess))))") ||
+		!strings.Contains(changes, "doc, err := decodePlannedResult(s.InvokeForChat(ctx, call.Tool, call.Args))") {
+		t.Error("core's way past the AI-execution line is no longer a person's Undo alone (RunUndo) — re-read the guide's hosted-site sentence")
 	}
 	if lic := flat(coreSource(t, "internal", "license", "license.go")); !strings.Contains(lic,
 		"func AIExecuteOpen() bool { return !authz.Hosted() || IsProUnlocked(FeatureAIExecute) }") {

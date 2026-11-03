@@ -440,7 +440,8 @@ func TestAWrongAmountIsHeldForAPersonAndTheRightOneResolves(t *testing.T) {
 
 // A person's decision, as Core's Decide (admin.go): a held mismatch is resolved AT THE PROCESSOR'S AMOUNT — the
 // consumer books what was taken, and a refund in full is bounded by it — one in another currency is refused, and a
-// rejection keeps amount_mismatch as its reason with the note as its message. Only a pending payment is decided.
+// rejection keeps amount_mismatch as its reason with the note as its message. Only a pending payment is decided, and
+// a note holding a NUL is refused.
 func TestAPersonDecidesAPendingPaymentAsInCore(t *testing.T) {
 	w := newWorld(t)
 	ctx := context.Background()
@@ -487,6 +488,13 @@ func TestAPersonDecidesAPendingPaymentAsInCore(t *testing.T) {
 	}
 	if _, err := w.pay.Decide(last.ID, "maybe", ""); err == nil {
 		t.Error("a decision that is neither resolve nor reject was accepted")
+	}
+	if _, err := w.pay.Decide(last.ID, "reject", "refunded\x00"); err == nil {
+		t.Error("a note holding a NUL was accepted — Core refuses NUL text in a payment")
+	}
+	// None of the refusals decided it: it is still pending, and a clean note now rejects it.
+	if got, err := w.pay.Decide(last.ID, "reject", "refunded"); err != nil || got.Status != nilda.PaymentRejected {
+		t.Errorf("after the refusals, a clean rejection gave %+v %v", got, err)
 	}
 }
 

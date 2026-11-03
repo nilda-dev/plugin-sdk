@@ -393,7 +393,7 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `hooks` | receive hook callbacks |
 | `events` | subscribe to events, and emit your own — see below for which names are yours |
 | `datastore` | a dedicated Postgres schema, tables Core creates from your declaration, DML-only access |
-| `kv` | a scoped key-value namespace for small state: a value is at most 64 KiB (a larger one answers `InvalidArgument`), and on every install one plugin holds at most 10,000 keys and 16 MiB (in Core's memory on a Lite install, beside Core's cache on Dragonfly, where writes racing each other at the very edge can pass it together) — a write past that answers `ResourceExhausted`, after expired keys are cleared, with no `google.rpc.RetryInfo` (a call past the kv rate limit carries one; waiting does not empty a full namespace); declare `datastore` for more |
+| `kv` | a scoped key-value namespace for small state: a value is at most 64 KiB (a larger one answers `InvalidArgument`), and on every install one plugin holds at most 10,000 keys and 16 MiB (in Core's memory on a Lite install, beside Core's cache on Dragonfly, where writes racing each other at the very edge can pass it together) — a write past that answers `ResourceExhausted`, after expired keys are cleared (on Dragonfly by re-counting the namespace, at most once a minute for each plugin: a write refused within a minute of the last re-count is refused on the count as it stood), with no `google.rpc.RetryInfo` (a call past the kv rate limit carries one; waiting does not empty a full namespace); declare `datastore` for more |
 | `route` | a reverse-proxied URL prefix |
 | `secrets` | keep your own secrets with Core — a sign-in token for a service the owner connects — encrypted, and still there after a restart; see "Keeping a secret" |
 | `render.assets` | load its own scripts on public pages — see §4.1 |
@@ -737,8 +737,8 @@ code to ship into the editor, and no capability to ask for:
 can both declare `callout`. Core refuses at install more than 24 commands, a `key` that is not a lowercase
 identifier or is declared twice, an empty `label` or one longer than 120 characters (a `group`, an `icon`
 and each keyword too), more than 16 keywords, and a `content` that is
-empty or not JSON — it does not check the nodes themselves, so try a command on a test site before you ship
-it. Only an active plugin's commands are in the menu: disable the plugin and they go with it.
+not a JSON object with a `nodes` list (`null`, a number or a bare list is valid JSON and inserts nothing) — it does
+not check the nodes themselves, so try a command on a test site before you ship it. Only an active plugin's commands are in the menu: disable the plugin and they go with it.
 
 ### Recurring work (`schedule`)
 
@@ -1322,8 +1322,9 @@ of its logs; it is shown whole or not at all — one longer than `nilda.MaxAdmin
 nobody can copy (a line break, a control or bidi mark), is dropped, since a cut key does not work.
 
 **An action whose answer never comes back may still have run.** When your answer does not arrive — the call
-budget (`PLUGIN_CALL_TIMEOUT`) ran out, or your process stopped mid-call — Core cannot tell "never started"
-from "finished, answer lost", so it tells
+budget (`PLUGIN_CALL_TIMEOUT`) ran out, your process stopped mid-call, or your handler panicked (the SDK sends a
+panic as `Internal`, and once a call has reached you every status but the error your handler returned counts) — Core
+cannot tell "never started" from "finished, answer lost", so it tells
 the owner exactly that — check the row before pressing again — instead of a failure that reads as "nothing
 happened". Make every action safe to press twice: a refund reads the row's state before it moves money.
 
@@ -2504,10 +2505,11 @@ in, the stored value of a choice is still the declared one, and your section's p
 by your plugin key — so a translated name cannot scatter somebody's arrangement.
 
 Bounded, because a manifest is downloaded, stored and read on every admin page load: 12 languages, 300
-strings each, 400 bytes a string, source or translation — and 128 KiB for all of it together, which binds
+strings each, 500 characters a string, source or translation — and 128 KiB for all of it together, which binds
 first: twelve full languages of full-length strings would be far larger. The string bound is counted in
-BYTES, not characters: a Persian or Arabic letter takes two, so a translation in those scripts holds about
-200 letters. Past any of those the package is refused at install rather than quietly truncated.
+characters, not bytes: it is the longest text a page declares (a field's `help`), so whatever fits there fits its
+translation, a Persian or Arabic one as much as an English one. The 128 KiB is counted in bytes, where a Persian or
+Arabic letter takes two. Past any of those the package is refused at install rather than quietly truncated.
 
 **You ship no JavaScript into the admin.** You declare; Core draws the controls. Every other CMS extends its
 admin by injecting code — a WordPress plugin enqueues a script, a Strapi plugin ships React — and pays for it

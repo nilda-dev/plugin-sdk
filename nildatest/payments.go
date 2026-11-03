@@ -281,7 +281,7 @@ type reportedMoney struct {
 
 // Decide is a PERSON settling a pending payment, as the site owner does on Settings → Payments (Core's
 // Decide), so a consumer can test what it is then told. decision is "resolve" or "reject"; note, at most 500
-// characters, is the person's own words.
+// characters and with no NUL in it, is the person's own words.
 //
 // "resolve" calls it paid. A payment Core held because the processor took a different amount is resolved AT
 // THE PROCESSOR'S AMOUNT — the consumer is told a resolved session whose AmountMinor is not the one it asked
@@ -295,6 +295,9 @@ func (p *Payments) Decide(id, decision, note string) (nilda.PaymentSession, erro
 	}
 	if utf8.RuneCountInString(note) > maxPaymentText {
 		return nilda.PaymentSession{}, fmt.Errorf("nildatest: a note is at most %d characters", maxPaymentText)
+	}
+	if strings.IndexByte(note, 0) >= 0 {
+		return nilda.PaymentSession{}, fmt.Errorf("nildatest: text in a payment may not hold a NUL character")
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
