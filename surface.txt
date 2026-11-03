@@ -238,6 +238,8 @@ const LabelRejected
 const LayoutColumn
 const LayoutSection
 const LayoutWidget
+const LayoutWrittenToPage
+const LayoutWrittenToWorkingVersion
 const LinkParamNumber
 const LinkParamSelect
 const LinkTargetsHook
@@ -261,6 +263,15 @@ const MaxTrashKind
 const MaxTrashName
 const MaxWidgetHTMLBytes
 const MaxWidgetsPerPlugin
+const MenuItemContent
+const MenuItemHome
+const MenuItemLabel
+const MenuItemTerm
+const MenuItemURL
+const MenuLocationFooter
+const MenuLocationMobile
+const MenuLocationPrimary
+const MenuLocationSocial
 const MetricMoney
 const MetricNumber
 const MetricPercent
@@ -362,6 +373,10 @@ const TrackReturnedToSender
 const TrashPurgeHook
 const TrashRestoreHook
 const TrashRetention
+const UserStatusActive
+const UserStatusBanned
+const UserStatusPending
+const UserStatusSuspended
 const VisitorRead
 const VisitorSubmit
 const VoidPending
@@ -632,6 +647,11 @@ field CommerceVariation.Options []string json:options
 field CommerceVariation.Selected string json:selected
 field CommerceViewer.PriceGroup string json:price_group
 field CommerceViewer.UserID string json:user_id
+field ContentRef.ID string json:id
+field ContentRef.Slug string json:slug
+field ContentRef.Status string json:status
+field ContentRef.Title string json:title
+field ContentRef.Type string json:type
 field ContractMethod.Agent string json:agent
 field ContractMethod.AgentReason string json:agent_reason
 field ContractMethod.AnsweredBy string json:answered_by
@@ -657,6 +677,8 @@ field CoreEventData.EntityKind string json:entity_kind
 field CoreEventData.OccurredAt time.Time json:occurred_at
 field CoreEventData.Slug string json:slug
 field CoreEventData.Type string json:type
+field Crumb.Label string json:label
+field Crumb.URL string json:url
 field Customs.ContentsType string json:contents_type
 field Customs.Currency string json:currency
 field Customs.Incoterm string json:incoterm
@@ -788,8 +810,25 @@ field FormSection.Key string json:key
 field FormSection.Label string json:label
 field FormSection.Side bool json:side
 field GRPCPlugin.Impl contract.PluginServiceServer
+field HeadMeta.Canonical string json:canonical
+field HeadMeta.Description string json:description
+field HeadMeta.OGDescription string json:og_description
+field HeadMeta.OGImage string json:og_image
+field HeadMeta.OGTitle string json:og_title
+field HeadMeta.OGType string json:og_type
+field HeadMeta.OGURL string json:og_url
+field HeadMeta.Robots string json:robots
+field HeadMeta.Title string json:title
+field HeadMeta.TwitterCard string json:twitter_card
+field HeadMeta.TwitterDescription string json:twitter_description
+field HeadMeta.TwitterImage string json:twitter_image
+field HeadMeta.TwitterTitle string json:twitter_title
 field HeadlineMetric.Metric string json:metric
 field HeadlineMetric.Page string json:page
+field HoldingPage.ID string json:id
+field HoldingPage.Slug string json:slug
+field HoldingPage.Status string json:status
+field HoldingPage.Type string json:type
 field InitResult.Abilities []Ability
 field InitResult.Events []string
 field InitResult.Hooks []string
@@ -827,6 +866,10 @@ field LayoutNode.Name string json:name
 field LayoutNode.Settings map[string]any json:settings
 field LayoutNode.Widget string json:widget
 field LayoutTree.Nodes []LayoutNode json:nodes
+field LayoutWrite.ContentID string json:content_id
+field LayoutWrite.LastEditedAt string json:last_edited_at
+field LayoutWrite.Live bool json:live
+field LayoutWrite.WrittenTo string json:written_to
 field LinkChoice.Label string json:label
 field LinkChoice.Value string json:value
 field LinkParam.Choices []LinkChoice json:choices
@@ -858,10 +901,50 @@ field ListFilter.Key string json:key
 field ListFilter.Kind string json:kind
 field ListFilter.Label string json:label
 field ListFilter.Periods []string json:periods
+field MediaItem.Alt string json:alt_text
+field MediaItem.CreatedAt time.Time json:created_at
+field MediaItem.Filename string json:filename
+field MediaItem.Height *int json:height
+field MediaItem.ID string json:id
+field MediaItem.MimeType string json:mime_type
+field MediaItem.Size int64 json:size_bytes
+field MediaItem.Status string json:status
+field MediaItem.URL string json:url
+field MediaItem.Width *int json:width
+field Menu.ID string json:id
+field Menu.Location string json:location
+field Menu.Name string json:name
+field MenuItem.Broken bool json:broken
+field MenuItem.BrokenReason string json:broken_reason
+field MenuItem.Children []MenuItem json:children
+field MenuItem.ContentID string json:content_id
+field MenuItem.Description string json:description
+field MenuItem.ID string json:id
+field MenuItem.Label string json:label
+field MenuItem.OpenNew bool json:open_new
+field MenuItem.ParentID string json:parent_id
+field MenuItem.Position int json:position
+field MenuItem.TermID string json:term_id
+field MenuItem.Type string json:type
+field MenuItem.URL string json:url
+field MenuTree.Items []MenuItem json:items
+field MenuTree.Menu Menu json:menu
 field MobileRow.Badge string json:badge
 field MobileRow.Subtitle []string json:subtitle
 field MobileRow.Title string json:title
 field MobileRow.Trailing string json:trailing
+field NewMenuItem.ContentID string json:content_id
+field NewMenuItem.Description string json:description
+field NewMenuItem.Label string json:label
+field NewMenuItem.OpenNew bool json:open_new
+field NewMenuItem.ParentID string json:parent_id
+field NewMenuItem.TermID string json:term_id
+field NewMenuItem.Type string json:type
+field NewMenuItem.URL string json:url
+field NewTerm.Description string json:description
+field NewTerm.Name string json:name
+field NewTerm.ParentID string json:parent_id
+field NewTerm.Slug string json:slug
 field PageForm.AlwaysAsk bool json:always_ask
 field PageForm.Create bool json:create
 field PageForm.CreateLabel string json:create_label
@@ -876,6 +959,8 @@ field PagePick.Actions []PickAction json:actions
 field PagePick.GroupBy *PickGroupBy json:group_by
 field PagePick.Photo string json:photo
 field PagePick.Tools []string json:tools
+field Paging.Limit int
+field Paging.Offset int
 field Parcel.HeightMM int64 json:height_mm
 field Parcel.LengthMM int64 json:length_mm
 field Parcel.WeightGrams int64 json:weight_grams
@@ -1102,6 +1187,19 @@ field PrivacyRecord.ID string json:id
 field PrivacyRecord.Kind string json:kind
 field PrivacyRequest.Emails []string json:emails
 field PrivacyRequest.RequestID string json:request_id
+field PublishResult.BecameFrontPage bool json:became_front_page
+field PublishResult.Status string json:status
+field PublishedPage.AuthorID string json:author_id
+field PublishedPage.Body json.RawMessage json:body
+field PublishedPage.Excerpt string json:excerpt
+field PublishedPage.HeadMeta *HeadMeta json:head_meta
+field PublishedPage.ID string json:id
+field PublishedPage.Locale string json:locale
+field PublishedPage.PublishedAt *time.Time json:published_at
+field PublishedPage.Slug string json:slug
+field PublishedPage.Title string json:title
+field PublishedPage.Type string json:type
+field PublishedPage.Values map[string]any json:values
 field RatesRequest.Currency string json:currency
 field RatesRequest.Customs *Customs json:customs
 field RatesRequest.DeclaredValueMinor int64 json:declared_value_minor
@@ -1263,6 +1361,11 @@ field ShopOrderLine.UnitPriceMinor int64 json:unit_price_minor
 field ShopOrderRequest.OrderID string json:order_id
 field ShopOrderResult.Found bool json:found
 field ShopOrderResult.Order *ShopOrder json:order
+field Site.BaseURL string json:base_url
+field Site.Description string json:description
+field Site.Locale string json:locale
+field Site.Timezone string json:timezone
+field Site.Title string json:title
 field StockAlertRequest.ConsentText string json:consent_text
 field StockAlertRequest.Email string json:email
 field StockAlertRequest.Locale string json:locale
@@ -1318,6 +1421,16 @@ field TemplatedEmail.Locale string
 field TemplatedEmail.Ref string
 field TemplatedEmail.ReplyTo string
 field TemplatedEmail.To string
+field Term.Count int json:count
+field Term.Description string json:description
+field Term.ID string json:id
+field Term.Name string json:name
+field Term.ParentID string json:parent_id
+field Term.Slug string json:slug
+field Term.TaxonomyID string json:taxonomy_id
+field TermContentQuery.IncludeChildren bool
+field TermContentQuery.Limit int
+field TermContentQuery.Offset int
 field TrackEvent.At time.Time json:at
 field TrackEvent.Dedupe string json:dedupe
 field TrackEvent.Detail string json:detail
@@ -1335,6 +1448,19 @@ field TrashItem.Kind string
 field TrashItem.Name string
 field TrashRef.ID string json:id
 field TrashRef.Kind string json:kind
+field User.CreatedAt time.Time json:created_at
+field User.DisplayName string json:display_name
+field User.Email string json:email
+field User.EmailVerifiedAt *time.Time json:email_verified_at
+field User.ID string json:id
+field User.Language string json:language
+field User.LastLoginAt *time.Time json:last_login_at
+field User.Status string json:status
+field User.Timezone string json:timezone
+field UserQuery.Limit int
+field UserQuery.Offset int
+field UserQuery.Role string
+field UserQuery.Status string
 field Viewer.DisplayName string
 field Viewer.ImpersonatedBy string
 field Viewer.UserID string
@@ -1523,21 +1649,40 @@ imethod SearchProvider.Truncate(context.Context) (error)
 imethod ServiceProvider.ServiceMethods() ([]ServiceMethod)
 imethod WidgetProvider.RenderWidget(context.Context, WidgetRenderRequest) (string, error)
 imethod WidgetProvider.Widgets() ([]WidgetDef)
+method (*API) AddMenuItem(context.Context, string, NewMenuItem) (MenuItem, error)
 method (*API) AgentTier(context.Context, string) (AgentTier, error)
+method (*API) Breadcrumbs(context.Context, string) ([]Crumb, error)
+method (*API) ContentTerms(context.Context, string, string) (map[string][]Term, error)
+method (*API) CreateMenu(context.Context, string, string) (Menu, error)
+method (*API) CreateTerm(context.Context, string, NewTerm) (Term, error)
 method (*API) Delete(context.Context, string) (error)
 method (*API) Do(context.Context, string, string, any) (*http.Response, error)
 method (*API) Get(context.Context, string, url.Values, any) (error)
 method (*API) HasScope(string) (bool)
+method (*API) HoldingPages(context.Context, string) ([]HoldingPage, error)
 method (*API) JSON(context.Context, string, string, any, any) (error)
+method (*API) Media(context.Context, string) (MediaItem, error)
+method (*API) MediaFile(context.Context, string) (io.ReadCloser, string, error)
+method (*API) Menu(context.Context, string) (MenuTree, error)
+method (*API) Menus(context.Context) ([]Menu, error)
+method (*API) PageBySlug(context.Context, string, string) (PublishedPage, error)
 method (*API) Patch(context.Context, string, any, any) (error)
 method (*API) Payments() (*Payments)
 method (*API) PlanLimit(context.Context, string) (int64, bool, error)
 method (*API) Post(context.Context, string, any, any) (error)
+method (*API) PublishContent(context.Context, string, string) (PublishResult, error)
 method (*API) Reference() (*Reference)
 method (*API) Scopes() ([]string)
 method (*API) Secrets() (*Secrets)
 method (*API) Services() (*Services)
+method (*API) SetContentTerms(context.Context, string, string, string, []string) (error)
+method (*API) SetLayout(context.Context, string, string, LayoutTree, string) (LayoutWrite, error)
+method (*API) Site(context.Context) (Site, error)
+method (*API) TaxonomyTerms(context.Context, string, Paging) ([]Term, error)
+method (*API) TermContent(context.Context, string, TermContentQuery) ([]ContentRef, int64, error)
 method (*API) UploadMedia(context.Context, string, io.Reader, string, any) (error)
+method (*API) User(context.Context, string) (User, error)
+method (*API) Users(context.Context, UserQuery) ([]User, error)
 method (*API) WithIdempotencyKey(string) (*API)
 method (*API) WithMaxRetries(int) (*API)
 method (*APIError) Conflict() (bool)
@@ -1752,10 +1897,12 @@ type CommerceQuery
 type CommerceTerm
 type CommerceVariation
 type CommerceViewer
+type ContentRef
 type ContractMethod
 type Core
 type CoreEventData
 type CredentialPayer
+type Crumb
 type Customs
 type CustomsItem
 type DeliverablesDescription
@@ -1790,12 +1937,15 @@ type FormReplacement
 type FormSection
 type GRPCPlugin
 type Handler
+type HeadMeta
 type HeadlineMetric
+type HoldingPage
 type InitResult
 type LabelRequest
 type LabelResult
 type LayoutNode
 type LayoutTree
+type LayoutWrite
 type LinkChoice
 type LinkParam
 type LinkTarget
@@ -1803,12 +1953,19 @@ type LinkTargetProvider
 type LinkTargetsRequest
 type ListColumn
 type ListFilter
+type MediaItem
+type Menu
+type MenuItem
+type MenuTree
 type MobileRow
+type NewMenuItem
+type NewTerm
 type OIDCClient
 type OrdersProvider
 type PageForm
 type PageMobile
 type PagePick
+type Paging
 type Parcel
 type PaymentAddress
 type PaymentChargeParams
@@ -1860,6 +2017,8 @@ type PrivacyKept
 type PrivacyPolicy
 type PrivacyRecord
 type PrivacyRequest
+type PublishResult
+type PublishedPage
 type RatesRequest
 type RatesResult
 type Recommendation
@@ -1896,6 +2055,7 @@ type ShopOrder
 type ShopOrderLine
 type ShopOrderRequest
 type ShopOrderResult
+type Site
 type StockAlertRequest
 type StockAlertResult
 type TableExport
@@ -1908,11 +2068,15 @@ type TaxRegistrationValue
 type TaxTable
 type TaxThresholdValue
 type TemplatedEmail
+type Term
+type TermContentQuery
 type TrackEvent
 type TrackRequest
 type TrackResult
 type TrashItem
 type TrashRef
+type User
+type UserQuery
 type Viewer
 type VisitorCall
 type VisitorEffect

@@ -2634,6 +2634,58 @@ takes. A manifest's `templates[].tree` is the same tree.
 **A locale's direction** is `nilda.LocaleDirection(locale)`, "rtl" or "ltr", read off the script the language is
 written in as Core decides it — for a mail, a page or a PDF your plugin lays out itself.
 
+### Core's resources, typed (unreleased, v0.50.0)
+
+Core's own REST resources have typed methods on `*nilda.API`, so a plugin reads and writes them without copying Core's
+JSON. Each answers Core's `{"data": …}` unwrapped into structs carrying only fields Core's handlers really return
+(`coreapi_test.go` holds every route, scope and field name to Core's source); a refusal is an `*nilda.APIError` as from
+`JSON`. The capability each needs is the one whose scope Core checks on that route:
+
+| Method | Route | Capability |
+|---|---|---|
+| `User(ctx, id)` → `nilda.User`; `Users(ctx, nilda.UserQuery{Role, Status, Limit, Offset})` → newest first | `GET /users/{id}`, `GET /users` | `users.read` |
+| `Site(ctx)` → `nilda.Site` (`BaseURL`, `Locale`, `Timezone`, …) | `GET /site` | none |
+| `PageBySlug(ctx, slug, contentType)` → `nilda.PublishedPage` (its `HeadMeta`, a `nilda.HeadMeta`, carries the `Canonical`) | `GET /pages/{slug}?type=` | none — published items only |
+| `Breadcrumbs(ctx, contentID)` → `[]nilda.Crumb`, home first, the item last | `GET /breadcrumbs/{id}` | none |
+| `ContentTerms(ctx, contentType, id)` → `map[string][]nilda.Term` by taxonomy key | `GET /content/{type}/{id}/terms` | `taxonomy.read` |
+| `SetContentTerms(ctx, contentType, id, taxonomy, termIDs)` | `PUT /content/{type}/{id}/terms` | `taxonomy.write` |
+| `TaxonomyTerms(ctx, taxonomy, nilda.Paging{Limit, Offset})` → `[]nilda.Term` by name | `GET /taxonomies/{key}/terms` | `taxonomy.read` |
+| `CreateTerm(ctx, taxonomy, nilda.NewTerm{Name, Slug, ParentID, Description})` → `nilda.Term` | `POST /taxonomies/{key}/terms` | `taxonomy.write` |
+| `TermContent(ctx, termID, nilda.TermContentQuery{Limit, Offset, IncludeChildren})` → `[]nilda.ContentRef`, total | `GET /terms/{id}/content` | `taxonomy.read` — published items only |
+| `Menus(ctx)` → `[]nilda.Menu`; `Menu(ctx, id)` → `nilda.MenuTree` (`Menu`, `Items []nilda.MenuItem`, nested) | `GET /menus`, `GET /menus/{id}` | `menus.read` |
+| `CreateMenu(ctx, name, location)` → `nilda.Menu` | `POST /menus` | `menus.write` |
+| `AddMenuItem(ctx, menuID, nilda.NewMenuItem{Type, Label, URL, ContentID, TermID, ParentID, …})` → `nilda.MenuItem` | `POST /menus/{id}/items` | `menus.write` |
+| `HoldingPages(ctx, widget)` → `[]nilda.HoldingPage`, published first, at most 50 (30 asks a minute) | `GET /layouts/holding?widget=` | `content.read` |
+| `SetLayout(ctx, contentType, id, tree, basedOn)` → `nilda.LayoutWrite` | `PUT /content/{type}/{id}/layout` | `content.write` |
+| `PublishContent(ctx, contentType, id)` → `nilda.PublishResult` | `POST /content/{type}/{id}/publish` | `content.write` |
+| `Media(ctx, id)` → `nilda.MediaItem`; `MediaFile(ctx, id)` → the bytes and their type | `GET /media/{id}`, then the file's address | `media.read` |
+
+**`SetContentTerms` is the merge Core's PUT does not do.** Core's `PUT /content/{type}/{id}/terms` replaces an item's
+terms across EVERY taxonomy, so sending only your taxonomy's ids takes off the categories and tags a person gave the item
+in Core's editor. `SetContentTerms` reads the item's terms first and sends the other taxonomies' back with yours.
+
+**A menu's location** is one of `nilda.MenuLocationPrimary`, `MenuLocationFooter`, `MenuLocationMobile`,
+`MenuLocationSocial` (Core's list; another saves and is drawn nowhere). An entry's `Type` is `nilda.MenuItemURL`,
+`MenuItemContent`, `MenuItemTerm`, `MenuItemHome` or `MenuItemLabel`, and the field it names is required.
+
+**A layout write** answers where it went: `nilda.LayoutWrittenToPage`, or `LayoutWrittenToWorkingVersion` for a live
+page, whose working version holds it until it is published. Pass the answer's `LastEditedAt` as the next write's
+`basedOn`, and a page somebody edited meanwhile is a 409 (`APIError.Conflict`) instead of a write over theirs.
+
+**An account's status** is `nilda.UserStatusActive`, `UserStatusPending`, `UserStatusSuspended` or `UserStatusBanned`;
+`EmailVerifiedAt` is nil until the account confirmed its address.
+
+**A media file.** Core's REST API has no file route: `MediaFile` reads the item and fetches the file at the address Core
+answers (`/api/v1/media/{id}/file`, on Core's own host — the address a page draws it from), and refuses one elsewhere.
+
+**In a test**, `nildatest.NewSite()` serves all of these from memory as Core answers them — the full-replace PUT, the 403
+for a scope your capabilities lack, the 422 for a body `nilda.CheckBody` refuses or a tree that is not one, the 409 for a
+stale `basedOn` — plus the content routes a plugin makes its pages with (`POST/GET/PATCH/DELETE /content/{type}/{id}`).
+`(*nildatest.Site).Core(key, grants...)` builds the Core; set it up with `SetSite`, `AddUser`, `RemoveUser`,
+`AddPage` (a `nildatest.SitePage`), `AddTaxonomy`, `AddTerm`, `FileUnder`, `AddMenu`, `AddMenuItem`, `SetMediaFile`
+and `FailNext(status)`, and read what your plugin did with `Page(id)`, `Layout(id)`, `Terms(id)` and
+`MenuItems(location)`.
+
 ### Service contracts (`Contracts`, `ContractNamed`)
 
 What one kind of plugin promises another through Core — a payment gateway to the shop today; a carrier, a

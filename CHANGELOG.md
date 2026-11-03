@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.50.0 — unreleased (an action's one-time value, a report's notice, a body, a layout, a direction, the whole Reference fake)
+## v0.50.0 — unreleased (an action's one-time value, a report's notice, a body, a layout, a direction, the whole Reference fake, Core's resources typed)
 
 - `AdminActionResult.Reveal` (and `MaxAdminRevealLen`): a value the owner must copy now — a new API key — drawn by the
   admin in a dialog that stays until closed, with a copy button, never translated and kept out of Core's logs.
@@ -21,6 +21,15 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
 - `LayoutTree`, `LayoutNode`, `LayoutSection` / `LayoutColumn` / `LayoutWidget`, and `Widget…` keys for the shop's
   widgets beside `WidgetButton` and `WidgetPostContent` (held to Core's LayoutNode and widget registry).
 - `LocaleDirection`: "rtl" or "ltr" from the language's script, Core's list of right-to-left scripts.
+- Core's resources, typed: methods on `*API` for the REST routes a plugin used through the untyped `Get`/`Post`/`JSON` —
+  `User`, `Users` (`UserQuery`), `Site`, `PageBySlug` (`PublishedPage`, `HeadMeta`), `Breadcrumbs` (`Crumb`),
+  `ContentTerms`, `SetContentTerms` (which keeps the item's other taxonomies, as Core's full-replace PUT does not),
+  `TaxonomyTerms` (`Paging`), `CreateTerm` (`NewTerm`), `TermContent` (`TermContentQuery`, `ContentRef`), `Menus`,
+  `Menu` (`MenuTree`), `CreateMenu`, `AddMenuItem` (`NewMenuItem`), `HoldingPages` (`HoldingPage`), `SetLayout`
+  (`LayoutWrite`), `PublishContent` (`PublishResult`), `Media` (`MediaItem`) and `MediaFile`; with `Term`, `Menu`,
+  `MenuItem`, `User`, `Site`, and the constants `MenuLocation…`, `MenuItem…`, `LayoutWrittenTo…` and `UserStatus…`.
+  `TestTheTypedRoutesAreCoresOwn`, `TestTheTypedShapesAreCores` and `TestTheTypedConstantsAreCores` hold them to Core.
+  nildatest.NewSite: a stateful fake of the same routes (and the content routes) for a plugin's tests.
 - nildatest.Reference: `SetEUVATRates`, `SetExchangeRates`, `SetTaxTable`, `Down`, `Asked` — it answered two of the five
   reads, so a plugin's invoices and tax table needed fakes of its own.
 

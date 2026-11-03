@@ -33,6 +33,15 @@ field ServiceCallLog.IdempotencyKey string
 field ServiceCallLog.Input json.RawMessage
 field ServiceCallLog.Method string
 field ServiceCallLog.Provider string
+field SitePage.Body json.RawMessage
+field SitePage.HeadMeta *nilda.HeadMeta
+field SitePage.ID string
+field SitePage.Layout *nilda.LayoutTree
+field SitePage.Locale string
+field SitePage.Slug string
+field SitePage.Status string
+field SitePage.Title string
+field SitePage.Type string
 field StubCarrier.Down bool
 field StubCarrier.Events []nilda.TrackEvent
 field StubCarrier.Latency time.Duration
@@ -68,6 +77,7 @@ func NewPayments() (*Payments)
 func NewReference() (*Reference)
 func NewSecrets() (*Secrets)
 func NewServices() (*Services)
+func NewSite() (*Site)
 func NewStubCarrier(string, ...nilda.CarrierRate) (*StubCarrier)
 func NewTrash() (*Trash)
 func NewWithAPI(string, http.Handler, ...string) (*nilda.Core, *Host, *httptest.Server)
@@ -129,6 +139,22 @@ method (*Services) Calls() ([]ServiceCallLog)
 method (*Services) Core(string, ...string) (*nilda.Core, *Host, *httptest.Server)
 method (*Services) Provider(string, nilda.ServiceProvider)
 method (*Services) SetAgentTier(string, nilda.AgentTier)
+method (*Site) AddMenu(string, string) (string)
+method (*Site) AddMenuItem(string, nilda.NewMenuItem) (string, error)
+method (*Site) AddPage(SitePage) (string)
+method (*Site) AddTaxonomy(string)
+method (*Site) AddTerm(string, nilda.NewTerm) (nilda.Term)
+method (*Site) AddUser(nilda.User, ...string) (string)
+method (*Site) Core(string, ...string) (*nilda.Core, *Host, *httptest.Server)
+method (*Site) FailNext(int)
+method (*Site) FileUnder(string, ...string)
+method (*Site) Layout(string) (nilda.LayoutTree, bool)
+method (*Site) MenuItems(string) ([]nilda.MenuItem)
+method (*Site) Page(string) (SitePage, bool)
+method (*Site) RemoveUser(string)
+method (*Site) SetMediaFile(string, string, string, []byte) (string)
+method (*Site) SetSite(nilda.Site)
+method (*Site) Terms(string) (map[string][]nilda.Term)
 method (*StubCarrier) Asked() ([]nilda.RatesRequest)
 method (*StubCarrier) Bought() (int)
 method (*StubCarrier) CreateLabel(context.Context, nilda.LabelRequest) (nilda.LabelResult, error)
@@ -158,6 +184,8 @@ type Revocation
 type Secrets
 type ServiceCallLog
 type Services
+type Site
+type SitePage
 type StubCarrier
 type StubGateway
 type Trash
