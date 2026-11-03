@@ -320,7 +320,7 @@ type PaymentSessionParams struct {
 
 // Validate refuses what Core refuses without asking anything: a missing gateway, method or reference, an
 // amount that is not positive, a currency ISO 4217 gives no minor unit, a return address that is not an
-// absolute http(s) URL, a malformed email or locale, and anything past its bound. What only Core can know —
+// absolute http(s) URL, a malformed email or locale, a NUL character in any text, and anything past its bound. What only Core can know —
 // that the gateway offers the method in that currency, that the URLs are on this site — Core checks.
 func (p PaymentSessionParams) Validate() error {
 	switch {
@@ -332,6 +332,8 @@ func (p PaymentSessionParams) Validate() error {
 		return fmt.Errorf("nilda: a payment reference is at most %d characters", maxPaymentReference)
 	case utf8.RuneCountInString(p.Description) > maxPaymentText:
 		return fmt.Errorf("nilda: a payment description is at most %d characters", maxPaymentText)
+	case !noNUL(p.Gateway, p.Method, p.Reference, p.Description, p.Email):
+		return errNUL()
 	}
 	if err := validSessionAmount(p.AmountMinor, p.Currency, p.Save != nil); err != nil {
 		return err
@@ -339,6 +341,9 @@ func (p PaymentSessionParams) Validate() error {
 	if p.Save != nil {
 		if err := p.Save.Validate(); err != nil {
 			return err
+		}
+		if !noNUL(p.Save.Text) {
+			return errNUL()
 		}
 		if !strings.EqualFold(strings.TrimSpace(p.Save.Currency), strings.TrimSpace(p.Currency)) {
 			return fmt.Errorf("nilda: a mandate is in the session's currency")
@@ -388,13 +393,16 @@ type PaymentRefundParams struct {
 	Reason string `json:"reason,omitempty"`
 }
 
-// Validate refuses a refund that is not positive or whose reason is past its bound.
+// Validate refuses a refund that is not positive or whose reason is past its bound or holds a NUL.
 func (p PaymentRefundParams) Validate() error {
 	if p.AmountMinor <= 0 {
 		return fmt.Errorf("nilda: a refund's amount_minor must be positive, got %d", p.AmountMinor)
 	}
 	if utf8.RuneCountInString(p.Reason) > maxPaymentText {
 		return fmt.Errorf("nilda: a refund reason is at most %d characters", maxPaymentText)
+	}
+	if !noNUL(p.Reason) {
+		return errNUL()
 	}
 	return nil
 }
@@ -443,6 +451,9 @@ func (r PaymentResolution) Validate() error {
 		if err := r.Saved.Validate(); err != nil {
 			return err
 		}
+		if !noNUL(r.Saved.Label) {
+			return errNUL()
+		}
 	}
 	if err := validInstrument(r.Instrument); err != nil {
 		return err
@@ -462,13 +473,16 @@ type PaymentRejection struct {
 	ProviderRef    string `json:"provider_ref,omitempty"`
 }
 
-// Validate refuses a code outside the gateway's six and a message past its bound.
+// Validate refuses a code outside the gateway's six and a message past its bound or holding a NUL.
 func (r PaymentRejection) Validate() error {
 	if err := validGatewayFailure(r.FailureCode); err != nil {
 		return err
 	}
 	if utf8.RuneCountInString(r.FailureMessage) > maxPaymentText {
 		return fmt.Errorf("nilda: a failure message is at most %d characters", maxPaymentText)
+	}
+	if !noNUL(r.FailureMessage) {
+		return errNUL()
 	}
 	return validProviderRef(r.ProviderRef)
 }
@@ -838,7 +852,27 @@ func validProviderRef(ref string) error {
 	if len(ref) > maxProviderRef {
 		return fmt.Errorf("nilda: a provider_ref is at most %d bytes", maxProviderRef)
 	}
+	if !noNUL(ref) {
+		return errNUL()
+	}
 	return nil
+}
+
+// noNUL reports whether none of vals holds a NUL character — Core's rule for every payment text (its validate.go):
+// Postgres keeps one in neither text nor jsonb, so a value that passed every bound would reach the database and come
+// back as a 500.
+func noNUL(vals ...string) bool {
+	for _, v := range vals {
+		if strings.IndexByte(v, 0) >= 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// errNUL is Core's refusal of a NUL, in Core's words.
+func errNUL() error {
+	return fmt.Errorf("nilda: text in a payment may not hold a NUL character")
 }
 
 func validGatewayFailure(code string) error {
@@ -852,7 +886,8 @@ func validGatewayFailure(code string) error {
 }
 
 // validMethods refuses a describe answer a payer could not choose from: a method with no key or no label, two
-// with one key (a session names its method by key), a currency ISO 4217 does not price.
+// with one key (a session names its method by key), a currency ISO 4217 does not price, and a NUL in any of its
+// text — its key, label, description, test hints, capabilities and credential types (Core's validMethods).
 func validMethods(methods []PaymentMethod) error {
 	seen := map[string]bool{}
 	for _, m := range methods {
@@ -861,10 +896,22 @@ func validMethods(methods []PaymentMethod) error {
 			return fmt.Errorf("nilda: payment.describe answered a method with no key or no label: %+v", m)
 		case seen[m.Key]:
 			return fmt.Errorf("nilda: payment.describe answered two methods keyed %q; a session names one by its key", m.Key)
+		case !noNUL(m.Key, m.Label, m.Description):
+			return fmt.Errorf("nilda: payment.describe: method %q: %w", m.Key, errNUL())
 		}
 		seen[m.Key] = true
+		for _, hint := range m.TestHint {
+			if !noNUL(hint) {
+				return fmt.Errorf("nilda: payment.describe: method %q's test hint: %w", m.Key, errNUL())
+			}
+		}
+		for _, ct := range m.CredentialTypes {
+			if !noNUL(ct) {
+				return fmt.Errorf("nilda: payment.describe: method %q's credential type: %w", m.Key, errNUL())
+			}
+		}
 		for _, sup := range m.Supports {
-			if sup == "" || len(sup) > 64 || strings.ContainsAny(sup, " \t\n,") {
+			if sup == "" || len(sup) > 64 || strings.ContainsAny(sup, " \t\n,\x00") {
 				return fmt.Errorf("nilda: payment.describe: method %q supports %q, which is not a capability token", m.Key, sup)
 			}
 		}
@@ -901,6 +948,9 @@ func validStart(r PaymentStartResult) error {
 	if utf8.RuneCountInString(r.FailureMessage) > maxPaymentText {
 		return fmt.Errorf("nilda: a failure message is at most %d characters", maxPaymentText)
 	}
+	if !noNUL(r.FailureMessage) {
+		return errNUL()
+	}
 	return validProviderRef(r.ProviderRef)
 }
 
@@ -916,6 +966,9 @@ func validRefundResult(r PaymentRefundResult) error {
 	}
 	if utf8.RuneCountInString(r.FailureMessage) > maxPaymentText {
 		return fmt.Errorf("nilda: a failure message is at most %d characters", maxPaymentText)
+	}
+	if !noNUL(r.FailureMessage) {
+		return errNUL()
 	}
 	return validProviderRef(r.ProviderRef)
 }
