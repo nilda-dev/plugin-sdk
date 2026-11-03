@@ -25,7 +25,7 @@ type manifestAbility struct {
 	Class       string `json:"class"`
 	// AlwaysAsk: Core asks the person before every call (nilda.Ability.AlwaysAsk, v0.40.0).
 	AlwaysAsk bool `json:"always_ask,omitempty"`
-	// Callers: the caller kinds Core may call it for (nilda.Ability.Callers, v0.51.0).
+	// Callers: the caller kinds Core may call it for (nilda.Ability.Callers, v0.52.0).
 	Callers []string `json:"callers,omitempty"`
 }
 

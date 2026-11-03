@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.51.0 — unreleased (which door Core took a call through, and abilities no model is offered)
+## v0.52.0 — unreleased (which door Core took a call through, and abilities no model is offered)
 
 - `CallerKind(ctx)` and `CallInfo.CallerKind`: which door Core took the hook call through — `CallerKindAI` (the
   site's assistant: the panel's chat, the app's, Core's admin tools acting for it), `CallerKindMCP` (a connected AI
@@ -22,6 +22,8 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
   neither `ai` nor `mcp` is in no tool list a model reads, and Core refuses it to a kind it does not name; Init
   refuses a kind Core does not send, or one named twice. Booking's import doors are the first (its plan's ADR-7: the
   guest list never passes through an AI). Both need the Core that reads them; check `CallerKind` in `Run` as well.
+
+## v0.51.0 — 2026-11-03 (the v0.50.0 work below, tagged; no change of its own)
 
 ## v0.50.0 — 2026-11-03 (an action's one-time value, a report's notice, a body, a layout, a direction, Core's resources typed and faked, a route's gross prices, the manifest bounds)
 

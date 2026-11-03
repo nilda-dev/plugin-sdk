@@ -26,7 +26,7 @@ type CallInfo struct {
 	// this call rather than a person's own press (v0.41.0): hold the assistant to your own limits on every door it
 	// can reach, an admin screen's button as much as an ability.
 	ViaAssistant bool
-	// CallerKind is which door Core took this call through (v0.51.0): CallerKindAI, CallerKindMCP,
+	// CallerKind is which door Core took this call through (v0.52.0): CallerKindAI, CallerKindMCP,
 	// CallerKindImporter or CallerKindOwnerUI. Core's own code sets it on the wire, never from the payload, so a
 	// model that writes an ability's arguments cannot write this; empty from a Core that does not say and on Core's
 	// own hooks. Read it with CallerKind.

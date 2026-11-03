@@ -967,7 +967,7 @@ saves it, whatever a connector was granted; a person's own press in the panel is
 `CallOf(ctx).ViaAssistant` says when the assistant asked for a hook call, so your own limits (a daily refund count,
 say) hold on the screen's door as they do on the ability's.
 
-**A door no model may open (`Callers`, `CallerKind`, v0.51.0).** Some actions take what no model may hold — an
+**A door no model may open (`Callers`, `CallerKind`, v0.52.0).** Some actions take what no model may hold — an
 import of the owner's guest list from another tool, which Core's importer hands over and the assistant never sees.
 Declare such an ability `Callers: []string{nilda.CallerKindImporter}` (`"callers": ["importer"]` in plugin.json;
 `nildatest.ManifestAbilities` writes it): an ability whose `Callers` names neither `nilda.CallerKindAI` nor
@@ -1018,7 +1018,7 @@ action at all. You declare nothing for this: it is the same list your admin scre
 screen refuses someone is an action the chat refuses them too. What you are NOT told is who that person was:
 the call carries the hook's name, its input and what `nilda.CallOf(ctx)` reads — the request's id, and for a
 call relayed by Core's service desk the contract, the asking plugin and an idempotency key, whether the
-assistant asked (`ViaAssistant`, v0.41.0) and which door Core took the call through (`CallerKind`, v0.51.0: a kind of
+assistant asked (`ViaAssistant`, v0.41.0) and which door Core took the call through (`CallerKind`, v0.52.0: a kind of
 door, never who) — and nothing about the person (a limit Core records in its known issues).
 
 `InputSchema` is required and must be a JSON Schema **object** — an agent that cannot see the shape of

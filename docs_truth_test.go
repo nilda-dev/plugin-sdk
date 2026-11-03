@@ -175,7 +175,7 @@ func TestAKeyHoldsAcrossARestartOnlyUnderTheSameScopes(t *testing.T) {
 // TestTheGuideSaysAnAbilityIsNotToldWhoAsked holds the other half of C10 (Core's 2026-09-24 whole-plan review,
 // I-8): the call carries the hook's name, its input and CallOf's context — a request id, and for a service-desk
 // call the contract, the asking PLUGIN and an idempotency key, whether the assistant asked (v0.41.0) and which door
-// Core took the call through (its caller KIND, v0.51.0: a door, never a person) — and nothing about the person. The
+// Core took the call through (its caller KIND, v0.52.0: a door, never a person) — and nothing about the person. The
 // wire's own shape: a field added to carry the person turns this red until the sentence is rewritten.
 func TestTheGuideSaysAnAbilityIsNotToldWhoAsked(t *testing.T) {
 	var fields []string
@@ -210,7 +210,7 @@ func TestTheGuideSaysAnAbilityIsNotToldWhoAsked(t *testing.T) {
 		"What you are NOT told is who that person was: the call carries the hook's name, its input and what `nilda.CallOf(ctx)` reads — "+
 			"the request's id, and for a call relayed by Core's service desk the contract, the asking plugin and an idempotency key, "+
 			"whether the assistant asked (`ViaAssistant`, v0.41.0) and which door Core took the call through (`CallerKind`, "+
-			"v0.51.0: a kind of door, never who) — and nothing about the person") {
+			"v0.52.0: a kind of door, never who) — and nothing about the person") {
 		t.Error("the guide no longer says an ability is not told who asked, which contract.HookRequest makes true")
 	}
 }
