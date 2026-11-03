@@ -578,12 +578,13 @@ type AdminActionResult struct {
 	Message string `json:"message,omitempty"`
 	// Reveal is a value the owner must copy NOW and will never be shown again — a new API key whose fingerprint alone
 	// you keep. The admin draws it in a dialog that stays until the owner closes it, with a copy button, instead of
-	// the message's short-lived notice; it is never translated, and Core keeps it out of its logs. At most
-	// MaxAdminRevealLen characters on one line; empty, the answer is a message as before. From v0.50.0.
+	// the message's short-lived notice; it is never translated, and Core keeps it out of its logs. Shown whole or not
+	// at all: one longer than MaxAdminRevealLen characters, or holding a character a person cannot copy (a line
+	// break, a control or bidi mark), is dropped — a cut key does not work. Empty: a message as before. From v0.50.0.
 	Reveal string `json:"reveal,omitempty"`
 }
 
-// MaxAdminRevealLen bounds AdminActionResult.Reveal: Core cuts a longer one.
+// MaxAdminRevealLen bounds AdminActionResult.Reveal: Core drops a longer one, never cuts it.
 const MaxAdminRevealLen = 512
 
 // DispatchAdminAction routes a row-action press to your handler and shapes the reply Nilda expects.

@@ -1317,8 +1317,9 @@ page labels, so answer with a fixed sentence and translate it there.
 **A value the owner must copy now goes in `Reveal`** (v0.50.0). A new API key whose fingerprint alone you keep is
 shown once: answer `nilda.AdminActionResult{Message: "A new key is ready", Reveal: key}`, and the admin draws it in a
 dialog that stays until the owner closes it, with a copy button — a message's notice closes on its own after a few
-seconds, and a key gone with it is a key nobody can give the platform. `Reveal` is never translated, Core keeps it out
-of its logs and cuts it at `nilda.MaxAdminRevealLen` characters.
+seconds, and a key gone with it is a key nobody can give the platform. `Reveal` is never translated and Core keeps it out
+of its logs; it is shown whole or not at all — one longer than `nilda.MaxAdminRevealLen` characters, or with a character
+nobody can copy (a line break, a control or bidi mark), is dropped, since a cut key does not work.
 
 **An action whose answer never comes back may still have run.** When your answer does not arrive — the call
 budget (`PLUGIN_CALL_TIMEOUT`) ran out, or your process stopped mid-call — Core cannot tell "never started"
