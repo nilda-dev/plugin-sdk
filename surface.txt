@@ -901,6 +901,10 @@ field ListFilter.Key string json:key
 field ListFilter.Kind string json:kind
 field ListFilter.Label string json:label
 field ListFilter.Periods []string json:periods
+field MediaBytes.ContentType string
+field MediaBytes.Disposition string
+field MediaBytes.Item MediaItem
+field MediaBytes.Size int64
 field MediaItem.Alt string json:alt_text
 field MediaItem.CreatedAt time.Time json:created_at
 field MediaItem.Filename string json:filename
@@ -1662,7 +1666,7 @@ method (*API) HasScope(string) (bool)
 method (*API) HoldingPages(context.Context, string) ([]HoldingPage, error)
 method (*API) JSON(context.Context, string, string, any, any) (error)
 method (*API) Media(context.Context, string) (MediaItem, error)
-method (*API) MediaFile(context.Context, string) (io.ReadCloser, string, error)
+method (*API) MediaFile(context.Context, string) (*MediaBytes, error)
 method (*API) Menu(context.Context, string) (MenuTree, error)
 method (*API) Menus(context.Context) ([]Menu, error)
 method (*API) PageBySlug(context.Context, string, string) (PublishedPage, error)
@@ -1953,6 +1957,7 @@ type LinkTargetProvider
 type LinkTargetsRequest
 type ListColumn
 type ListFilter
+type MediaBytes
 type MediaItem
 type Menu
 type MenuItem

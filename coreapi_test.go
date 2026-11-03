@@ -43,6 +43,7 @@ func coreAPIStub(t *testing.T, answers map[string]string) (*API, *[]typedCall) {
 		}
 		if strings.HasPrefix(ans, "FILE ") {
 			w.Header().Set("Content-Type", "application/pdf")
+			w.Header().Set("Content-Disposition", "attachment; filename=guide.pdf")
 			_, _ = w.Write([]byte(strings.TrimPrefix(ans, "FILE ")))
 			return
 		}
@@ -346,14 +347,17 @@ func TestLayoutsPublishAndMedia(t *testing.T) {
 	}
 
 	*calls = nil
-	file, typ, err := api.MediaFile(ctx, "f1")
+	file, err := api.MediaFile(ctx, "f1")
 	if err != nil {
 		t.Fatal(err)
 	}
 	body, _ := io.ReadAll(file)
 	_ = file.Close()
-	if string(body) != "%PDF-1." || typ != "application/pdf" {
-		t.Errorf("the file read as %q (%s)", body, typ)
+	if string(body) != "%PDF-1." || file.ContentType != "application/pdf" {
+		t.Errorf("the file read as %q (%s)", body, file.ContentType)
+	}
+	if file.Item.Filename != "guide.pdf" || file.Size != 7 || file.Disposition != `attachment; filename=guide.pdf` {
+		t.Errorf("the file came with %+v, want the item, its length and Core's attachment header", file)
 	}
 	if len(*calls) != 2 || (*calls)[0].Path != "/media/f1" || (*calls)[1].Path != "/api/v1/media/f1/file" ||
 		(*calls)[1].Query != "c=ab12" {
@@ -371,14 +375,14 @@ func TestMediaFileStaysOnCoresHost(t *testing.T) {
 		"GET /media/f2": `{"data":{"id":"f2","url":"//evil.example/x"}}`,
 	})
 	for _, id := range []string{"f1", "f2"} {
-		if _, _, err := api.MediaFile(context.Background(), id); err == nil {
+		if _, err := api.MediaFile(context.Background(), id); err == nil {
 			t.Errorf("%s: an address off Core's host was fetched", id)
 		}
 	}
 	if len(*calls) != 2 {
 		t.Errorf("sent %+v, want only the two item reads", *calls)
 	}
-	if _, _, err := (*API)(nil).MediaFile(context.Background(), "f1"); err == nil {
+	if _, err := (*API)(nil).MediaFile(context.Background(), "f1"); err == nil {
 		t.Error("a plugin with no API read a file")
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -662,6 +663,12 @@ func (s *Site) serve(h *Host, w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", m.item.MimeType)
 		w.Header().Set("Content-Length", strconv.Itoa(len(m.data)))
+		// As Core's media serveFile: only a raster image is shown inline; anything else is an attachment by its name.
+		switch strings.ToLower(strings.TrimSpace(strings.SplitN(m.item.MimeType, ";", 2)[0])) {
+		case "image/jpeg", "image/png", "image/webp", "image/gif":
+		default:
+			w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": m.item.Filename}))
+		}
 		_, _ = w.Write(m.data)
 	default:
 		writeError(w, notFound("no such route: %s %s", r.Method, r.URL.Path))
