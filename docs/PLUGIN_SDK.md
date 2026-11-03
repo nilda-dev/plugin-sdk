@@ -2660,7 +2660,7 @@ JSON. Each answers Core's `{"data": …}` unwrapped into structs carrying only f
 | `HoldingPages(ctx, widget)` → `[]nilda.HoldingPage`, published first, at most 50 (30 asks a minute) | `GET /layouts/holding?widget=` | `content.read` |
 | `SetLayout(ctx, contentType, id, tree, basedOn)` → `nilda.LayoutWrite` | `PUT /content/{type}/{id}/layout` | `content.write` |
 | `PublishContent(ctx, contentType, id)` → `nilda.PublishResult` | `POST /content/{type}/{id}/publish` | `content.write` |
-| `Media(ctx, id)` → `nilda.MediaItem`; `MediaFile(ctx, id)` → the bytes and their type | `GET /media/{id}`, then the file's address | `media.read` |
+| `Media(ctx, id)` → `nilda.MediaItem`; `MediaFile(ctx, id)` → `*nilda.MediaBytes`, the bytes open with Core's headers | `GET /media/{id}`, then the file's address | `media.read` |
 
 **`SetContentTerms` is the merge Core's PUT does not do.** Core's `PUT /content/{type}/{id}/terms` replaces an item's
 terms across EVERY taxonomy, so sending only your taxonomy's ids takes off the categories and tags a person gave the item
@@ -2679,6 +2679,10 @@ page, whose working version holds it until it is published. Pass the answer's `L
 
 **A media file.** Core's REST API has no file route: `MediaFile` reads the item and fetches the file at the address Core
 answers (`/api/v1/media/{id}/file`, on Core's own host — the address a page draws it from), and refuses one elsewhere.
+What it answers is a `nilda.MediaBytes`: the open bytes (read, then `Close`), the `Item`, the `ContentType` and `Size`
+Core served, and its `Disposition` — `attachment` with the file's name for anything but a raster image, which Core shows
+inline. A plugin that hands the file on to its own visitor (a paid download) copies those three headers, and sets an
+attachment header of its own when `Disposition` is empty.
 
 **In a test**, `nildatest.NewSite()` serves all of these from memory as Core answers them — the full-replace PUT, the 403
 for a scope your capabilities lack, the 422 for a body `nilda.CheckBody` refuses or a tree that is not one, the 409 for a

@@ -29,6 +29,9 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
   (`LayoutWrite`), `PublishContent` (`PublishResult`), `Media` (`MediaItem`) and `MediaFile`; with `Term`, `Menu`,
   `MenuItem`, `User`, `Site`, and the constants `MenuLocation…`, `MenuItem…`, `LayoutWrittenTo…` and `UserStatus…`.
   `TestTheTypedRoutesAreCoresOwn`, `TestTheTypedShapesAreCores` and `TestTheTypedConstantsAreCores` hold them to Core.
+  `MediaFile` answers a `MediaBytes` — the open bytes with the item and the type, length and `Content-Disposition` Core
+  served them with — so a plugin streaming a download needs no second read; Core's REST API has no file route, and the
+  shop's `GET /media/{id}/file` on it was a 404 on every install.
   nildatest.NewSite: a stateful fake of the same routes (and the content routes) for a plugin's tests.
 - nildatest.Reference: `SetEUVATRates`, `SetExchangeRates`, `SetTaxTable`, `Down`, `Asked` — it answered two of the five
   reads, so a plugin's invoices and tax table needed fakes of its own.
