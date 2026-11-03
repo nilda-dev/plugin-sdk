@@ -23,7 +23,9 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
   refuses a kind Core does not send, or one named twice. Booking's import doors are the first (its plan's ADR-7: the
   guest list never passes through an AI). Both need the Core that reads them; check `CallerKind` in `Run` as well.
 
-## v0.52.0, v0.51.0 — 2026-11-03 (the v0.50.0 work below, tagged again; no change of their own)
+## v0.52.0 — 2026-11-03 (the v0.50.0 work below, tagged again; no change of its own)
+
+## v0.51.0 — 2026-11-03 (the v0.50.0 work below, tagged again; no change of its own)
 
 ## v0.50.0 — 2026-11-03 (an action's one-time value, a report's notice, a body, a layout, a direction, Core's resources typed and faked, a route's gross prices, the manifest bounds)
 
