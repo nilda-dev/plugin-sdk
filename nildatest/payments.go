@@ -1015,6 +1015,10 @@ func checkReport(verb string, body []byte) error {
 		if len(r.ProviderRef) > maxProviderRef {
 			return invalid("a processor's reference is at most %d bytes", maxProviderRef)
 		}
+		// Core's validateProviderRef: a NUL never reaches the database.
+		if strings.IndexByte(r.ProviderRef, 0) >= 0 {
+			return invalid("text in a payment may not hold a NUL character")
+		}
 	}
 	return nil
 }

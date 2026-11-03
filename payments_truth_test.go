@@ -543,3 +543,91 @@ func TestTheKitsDecisionIsCores(t *testing.T) {
 		}
 	}
 }
+
+// TestTheNULRuleIsCores holds every place the SDK and nildatest refuse a NUL in payment text to the Core line that
+// refuses the same field (Core's validate.go, cd898a911, review 2026-10-30): the rule itself and its words, then each
+// validator Core says mirrors the SDK's — read function by function on both sides, so a NUL check moved to another
+// field, or dropped from one, fails here.
+func TestTheNULRuleIsCores(t *testing.T) {
+	flat := func(s string) string { return strings.Join(strings.Fields(s), " ") }
+	body := func(src, decl, where string) string {
+		t.Helper()
+		b := from(t, src, decl, where)
+		return flat(upTo(t, b, "\n}\n", where+"'s "+decl))
+	}
+	core := corePaymentsSource(t, "internal", "payments", "validate.go")
+	sdk := readText(t, "payment.go") + readText(t, "paymentmore.go") + readText(t, "paymentsaved.go") + readText(t, "paymentapi.go")
+	kit := readText(t, "nildatest/payments.go")
+	const cv, sv = "core's internal/payments/validate.go", "the SDK's payment files"
+
+	// The rule, and the words a plugin is told.
+	if c, s := body(core, "func noNUL(vals ...string) bool {", cv), body(sdk, "func noNUL(vals ...string) bool {", sv); c != s {
+		t.Errorf("the SDK's noNUL is not Core's:\n core: %s\n  sdk: %s", c, s)
+	}
+	if !strings.Contains(flat(core), `return apperr.ValidationMsg("text in a payment may not hold a NUL character", nil)`) ||
+		!strings.Contains(flat(sdk), `return fmt.Errorf("nilda: text in a payment may not hold a NUL character")`) {
+		t.Error("the SDK's errNUL no longer says what Core's does")
+	}
+
+	for _, c := range []struct{ coreDecl, coreWant, sdkDecl, sdkWant string }{
+		{"func validateSessionParams(", "case !noNUL(p.Gateway, p.Method, p.Reference, p.Description, p.Email): return errNUL()",
+			"func (p PaymentSessionParams) Validate() error {", "case !noNUL(p.Gateway, p.Method, p.Reference, p.Description, p.Email): return errNUL()"},
+		{"func validateSessionParams(", "if !noNUL(p.Save.Text) { return errNUL() }",
+			"func (p PaymentSessionParams) Validate() error {", "if !noNUL(p.Save.Text) { return errNUL() }"},
+		// A credential's type is a token: Core refuses a NUL in it with the credential's own sentence.
+		{"func validateSessionParams(", `strings.ContainsAny(c.Type, " \t\n,") || !noNUL(c.Type)`,
+			"func (c PaymentCredential) Validate() error {", `strings.ContainsAny(c.Type, " \t\n,\x00")`},
+		{"func validateAddress(a *Address) error {", "if !noNUL(a.Name, a.Line1, a.Line2, a.City, a.PostalCode, a.Region) { return errNUL() }",
+			"func (a PaymentAddress) Validate() error {", "if !noNUL(a.Name, a.Line1, a.Line2, a.City, a.PostalCode, a.Region) { return errNUL() }"},
+		{"func validateDisputeReport(r DisputeReport) error {", "case !noNUL(r.Reason): return errNUL()",
+			"func (r PaymentDisputeReport) Validate() error {", "if !noNUL(r.Reason) { return errNUL() }"},
+		{"func validateExternalRefund(r ExternalRefund) error {", "if !noNUL(r.Reason) { return errNUL() } return validateProviderRef(r.ProviderRef)",
+			"func (r PaymentExternalRefund) Validate() error {", "if !noNUL(r.Reason) { return errNUL() } return validProviderRef(r.ProviderRef)"},
+		{"func validateChargeParams(p ChargeParams) error {", "if !noNUL(p.Reference, p.Description) { return errNUL() }",
+			"func (p PaymentChargeParams) Validate() error {", "if !noNUL(p.Reference, p.Description) { return errNUL() }"},
+		{"func validateRefundParams(p RefundParams) error {", "if !noNUL(p.Reason) { return errNUL() }",
+			"func (p PaymentRefundParams) Validate() error {", "if !noNUL(p.Reason) { return errNUL() }"},
+		{"func validateResolution(r Resolution) error {", "if !noNUL(r.Saved.Label) { return errNUL() }",
+			"func (r PaymentResolution) Validate() error {", "if !noNUL(r.Saved.Label) { return errNUL() }"},
+		{"func validateRejection(r Rejection) error {", "if !noNUL(r.FailureMessage) { return errNUL() } return validateProviderRef(r.ProviderRef)",
+			"func (r PaymentRejection) Validate() error {", "if !noNUL(r.FailureMessage) { return errNUL() } return validProviderRef(r.ProviderRef)"},
+		{"func validateProviderRef(ref string) error {", "if !noNUL(ref) { return errNUL() }",
+			"func validProviderRef(ref string) error {", "if !noNUL(ref) { return errNUL() }"},
+		{"func validateIdempotencyKey(key string) error {", "if !noNUL(key) { return errNUL() }",
+			"func validIdempotencyKey(key string) error {", "case !noNUL(key): return errNUL()"},
+		// What a gateway answers: Core refuses the whole answer, the dispatch says which field.
+		{"func validMethods(methods []Method) bool {", "!noNUL(m.Label, m.Description)",
+			"func validMethods(methods []PaymentMethod) error {", "case !noNUL(m.Key, m.Label, m.Description):"},
+		{"func validMethods(methods []Method) bool {", "!noNUL(hint)",
+			"func validMethods(methods []PaymentMethod) error {", "if !noNUL(hint) {"},
+		{"func validMethods(methods []Method) bool {", "for _, ct := range m.CredentialTypes { if !token(ct) {",
+			"func validMethods(methods []PaymentMethod) error {", "for _, ct := range m.CredentialTypes { if !noNUL(ct) {"},
+		{"func validMethods(methods []Method) bool {", "for _, sup := range m.Supports { if !token(sup) {",
+			"func validMethods(methods []PaymentMethod) error {", `strings.ContainsAny(sup, " \t\n,\x00")`},
+		{"func validStart(r startResult) bool {", "noNUL(r.FailureMessage, r.ProviderRef)",
+			"func validStart(r PaymentStartResult) error {", "if !noNUL(r.FailureMessage) { return errNUL() } return validProviderRef(r.ProviderRef)"},
+		{"func validRefundResult(r refundResult) bool {", "noNUL(r.FailureMessage, r.ProviderRef)",
+			"func validRefundResult(r PaymentRefundResult) error {", "if !noNUL(r.FailureMessage) { return errNUL() } return validProviderRef(r.ProviderRef)"},
+	} {
+		if !strings.Contains(body(core, c.coreDecl, cv), c.coreWant) {
+			t.Errorf("core's %s no longer has %q — re-read the SDK's %s", c.coreDecl, c.coreWant, c.sdkDecl)
+		}
+		if !strings.Contains(body(sdk, c.sdkDecl, sv), c.sdkWant) {
+			t.Errorf("the SDK's %s no longer has %q, its half of Core's %q", c.sdkDecl, c.sdkWant, c.coreWant)
+		}
+	}
+	// Core's token(), which its methods' key, capabilities and credential types go through, holds no NUL either.
+	if !strings.Contains(body(core, "func token(v string) bool {", cv), `!strings.ContainsAny(v, " \t\n,\x00")`) {
+		t.Error("core's token() no longer refuses a NUL — re-read the SDK's validMethods")
+	}
+	// nildatest: a pending or refund-resolve report's provider_ref (Core's validateProviderRef, through MarkPending);
+	// every other body goes through the SDK's Validate above.
+	if !strings.Contains(body(kit, "func checkReport(verb string, body []byte) error {", "nildatest/payments.go"),
+		`if strings.IndexByte(r.ProviderRef, 0) >= 0 { return invalid("text in a payment may not hold a NUL character") }`) {
+		t.Error("nildatest's checkReport no longer refuses a NUL in a provider_ref, as Core's validateProviderRef does")
+	}
+	doc := flat(readText(t, "docs/PAYMENTS.md"))
+	if !strings.Contains(doc, "a NUL character in any text") {
+		t.Error("PAYMENTS.md no longer says Validate refuses a NUL character in any text, as Core does")
+	}
+}

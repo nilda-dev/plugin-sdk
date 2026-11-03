@@ -79,7 +79,7 @@ func (c PaymentCredential) GoString() string { return c.String() }
 
 // Validate refuses a credential with no type or no token, or past its bounds.
 func (c PaymentCredential) Validate() error {
-	if strings.TrimSpace(c.Type) == "" || len(c.Type) > 64 || strings.ContainsAny(c.Type, " \t\n,") {
+	if strings.TrimSpace(c.Type) == "" || len(c.Type) > 64 || strings.ContainsAny(c.Type, " \t\n,\x00") {
 		return fmt.Errorf("nilda: a payment credential names its type, e.g. %q", CredentialStripeSPT)
 	}
 	if strings.TrimSpace(c.Token) == "" || len(c.Token) > maxCredentialToken {
@@ -138,7 +138,7 @@ const (
 
 var countryCode = regexp.MustCompile(`^[A-Z]{2}$`)
 
-// Validate refuses an address past its bounds or with a country that is not two capital letters.
+// Validate refuses an address past its bounds, with a country that is not two capital letters, or holding a NUL.
 func (a PaymentAddress) Validate() error {
 	for name, v := range map[string]string{"name": a.Name, "line1": a.Line1, "line2": a.Line2} {
 		if utf8.RuneCountInString(v) > maxAddressLine {
@@ -155,6 +155,9 @@ func (a PaymentAddress) Validate() error {
 	}
 	if a.Country != "" && !countryCode.MatchString(a.Country) {
 		return fmt.Errorf("nilda: an address's country is an ISO 3166-1 alpha-2 code (\"AT\"), got %q", a.Country)
+	}
+	if !noNUL(a.Name, a.Line1, a.Line2, a.City, a.PostalCode, a.Region) {
+		return errNUL()
 	}
 	return nil
 }
@@ -268,6 +271,9 @@ func (r PaymentDisputeReport) Validate() error {
 	if r.AmountMinor < 0 {
 		return fmt.Errorf("nilda: a dispute's amount_minor is not negative, got %d", r.AmountMinor)
 	}
+	if !noNUL(r.Reason) {
+		return errNUL()
+	}
 	if _, ok := MinorUnits(strings.ToUpper(strings.TrimSpace(r.Currency))); !ok {
 		return fmt.Errorf("nilda: %q is not a currency ISO 4217 gives a minor unit to", r.Currency)
 	}
@@ -325,6 +331,9 @@ func (r PaymentExternalRefund) Validate() error {
 	}
 	if utf8.RuneCountInString(r.Reason) > maxPaymentText {
 		return fmt.Errorf("nilda: a refund reason is at most %d characters", maxPaymentText)
+	}
+	if !noNUL(r.Reason) {
+		return errNUL()
 	}
 	return validProviderRef(r.ProviderRef)
 }

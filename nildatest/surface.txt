@@ -61,6 +61,7 @@ field TrashEntry.RequestID string
 field Visitor.Country string
 field Visitor.Key string
 field Visitor.Locale string
+field Visitor.ShowPricesIncludingTax bool
 func AsAgent(*http.Request, nilda.Agent) (*http.Request)
 func AsUser(*http.Request, nilda.Viewer) (*http.Request)
 func AsksForSignIn(*http.Response) (bool)

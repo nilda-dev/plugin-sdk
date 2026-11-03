@@ -394,6 +394,8 @@ func validIdempotencyKey(key string) error {
 			"retry after a lost answer makes a second payment or a second refund")
 	case len(key) > maxIdempotencyKey:
 		return fmt.Errorf("nilda: an idempotency key is at most %d bytes, as Core allows", maxIdempotencyKey)
+	case !noNUL(key):
+		return errNUL()
 	}
 	return nil
 }

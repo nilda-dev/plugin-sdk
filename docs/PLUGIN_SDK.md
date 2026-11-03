@@ -1272,6 +1272,12 @@ published in, else the site's default. Core strips a client-sent value. Write an
 keyed hash Core makes of the whole IPv4 address or an IPv6 address's /64, changing every UTC day, never the address.
 Limit a public write by it (a form that mails whoever it is given); it identifies nobody. "" from an older Core.
 
+**Whether a price must include tax.** `nilda.ShowsPricesIncludingTax(r)` (from v0.50.0) is Core's answer to "must a
+consumer price on this site be shown including tax" (EU Directive 98/6/EC), on the shop's own routes — the answer the
+commerce hooks' queries carry as `CommerceQuery.ShowPricesIncludingTax`, so a page the shop draws itself (its cart, its
+offer cards) reads a price the way its widgets do. Core decides it from the business's country and sends it only to
+the plugin granted `commerce`, stripping a client-sent value. false from an older Core and where net prices are allowed.
+
 **The EU's VAT rates.** `core.API().Reference().EUVATRates(ctx, day)` returns an `EUVATRateSet`: every member state's
 rates applying on that day (Brussels time), each an `EUVATRate` in basis points, read by Nilda Central from the European
 Commission's Taxes in Europe Database and kept by Core through an outage. `set.Standard("FR")` is a member state's
@@ -3081,8 +3087,8 @@ scope and a 500 from an outage are different bugs and a plugin should behave dif
 A request your resident server receives comes through Core's proxy, which strips every `X-Nilda-*` header a client
 sent and sets its own. Put a test request in that shape with `nildatest.AsUser(r, nilda.Viewer{...})` (signed in),
 `nildatest.AsAgent(r, nilda.Agent{...})` (an identified AI agent and its tier) and
-`nildatest.FromVisitor(r, nildatest.Visitor{Country, Locale, Key})`; `CurrentUser`, `AgentOf`, `VisitorCountry`,
-`VisitorLocale` and `VisitorKey` read them back. (Unreleased.)
+`nildatest.FromVisitor(r, nildatest.Visitor{Country, Locale, Key, ShowPricesIncludingTax})`; `CurrentUser`, `AgentOf`,
+`VisitorCountry`, `VisitorLocale`, `VisitorKey` and `ShowsPricesIncludingTax` read them back. (Unreleased.)
 
 `nilda.NewCoreForTest` still exists for the rare case you want your own host, but prefer `nildatest`: passing
 `nil` there gives you a `*Core` whose every host call panics on a nil pointer, and the panic names gRPC
