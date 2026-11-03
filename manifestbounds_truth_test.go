@@ -81,7 +81,7 @@ func manifestBounds() []manifestBound {
 		{name: "MaxManifestTranslationStrings", got: MaxManifestTranslationStrings, file: manifest, core: "maxTranslationStrings"},
 		{name: "MaxManifestTranslationLen", got: MaxManifestTranslationLen, unit: unitRunes, file: manifest, core: "maxTranslationLen"},
 		{name: "MaxManifestTranslationLocaleBytes", got: MaxManifestTranslationLocaleBytes, unit: unitBytes, file: manifest,
-			core: "maxTranslationLocaleBytes",
+			core:     "maxTranslationLocaleBytes",
 			evidence: []string{"size += len(src) + len(translated)", "if size > maxTranslationLocaleBytes {"}},
 		{name: "MaxManifestTranslationBytes", got: MaxManifestTranslationBytes, unit: unitBytes, file: manifest, core: "maxTranslationBytes",
 			evidence: []string{"total += size", "if total > maxTranslationBytes {"}},
