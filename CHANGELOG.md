@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.50.0 — unreleased (an action's one-time value, a report's notice)
+## v0.50.0 — unreleased (an action's one-time value, a report's notice, a body, a layout, a direction, the whole Reference fake)
 
 - `AdminActionResult.Reveal` (and `MaxAdminRevealLen`): a value the owner must copy now — a new API key — drawn by the
   admin in a dialog that stays until closed, with a copy button, never translated and kept out of Core's logs.
@@ -16,6 +16,13 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
   ("requests are switched off"), translated like a label. Core's lesson 13; the shop's Reports page already used all
   eight of Core's metrics, so it had nowhere to say it.
 - Both found by the shop's Unit 12 end review; Core draws them from the same release.
+- `TextBody`, `BodyText`, `CheckBody` and `ErrNotABody`: a content item's body as the Lexical document Core stores and
+  refuses any other shape of (`TestTheBodyRuleAndTheDirectionAreCores` holds `CheckBody` to Core's rule).
+- `LayoutTree`, `LayoutNode`, `LayoutSection` / `LayoutColumn` / `LayoutWidget`, and `Widget…` keys for the shop's
+  widgets beside `WidgetButton` and `WidgetPostContent` (held to Core's LayoutNode and widget registry).
+- `LocaleDirection`: "rtl" or "ltr" from the language's script, Core's list of right-to-left scripts.
+- nildatest.Reference: `SetEUVATRates`, `SetExchangeRates`, `SetTaxTable`, `Down`, `Asked` — it answered two of the five
+  reads, so a plugin's invoices and tax table needed fakes of its own.
 
 ## v0.49.0 — 2026-11-03 (what Core sends a plugin, typed)
 
