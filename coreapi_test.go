@@ -295,7 +295,9 @@ func TestLayoutsPublishAndMedia(t *testing.T) {
 		"GET /media/f1": `{"data":{"id":"f1","filename":"guide.pdf","mime_type":"application/pdf","size_bytes":7,
 			"alt_text":"","tags":[],"focal_x":0.5,"focal_y":0.5,"status":"ready","url":"/api/v1/media/f1/file?c=ab12",
 			"created_at":"2026-10-01T00:00:00Z"}}`,
-		"GET /api/v1/media/f1/file": "FILE %PDF-1.",
+		"GET /media/f1/file": "FILE %PDF-1.",
+		"PATCH /media/f1": `{"data":{"id":"f1","filename":"guide.pdf","private":true,
+			"url":"/api/v1/media/f1/private-file"}}`,
 	})
 	holders, err := api.HoldingPages(ctx, WidgetCart)
 	if err != nil {
@@ -359,31 +361,44 @@ func TestLayoutsPublishAndMedia(t *testing.T) {
 	if file.Item.Filename != "guide.pdf" || file.Size != 7 || file.Disposition != `attachment; filename=guide.pdf` {
 		t.Errorf("the file came with %+v, want the item, its length and Core's attachment header", file)
 	}
-	if len(*calls) != 2 || (*calls)[0].Path != "/media/f1" || (*calls)[1].Path != "/api/v1/media/f1/file" ||
-		(*calls)[1].Query != "c=ab12" {
-		t.Errorf("the file was fetched by %+v, want the item and then its own address on Core's host", *calls)
+	if len(*calls) != 2 || (*calls)[0].Path != "/media/f1" || (*calls)[1].Path != "/media/f1/file" {
+		t.Errorf("the file was fetched by %+v, want the item and then the API's own file route", *calls)
 	}
-	if (*calls)[1].Auth != "" {
-		t.Error("the plugin's token was sent to the public file address, which needs none")
+	if (*calls)[1].Auth != "Bearer nlda_tok" {
+		t.Error("the file was fetched without the plugin's token — a private file would not open")
+	}
+
+	*calls = nil
+	item, err := api.SetMediaPrivate(ctx, "f1", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pc := onlyCall(t, *calls, "PATCH", "/media/f1", "")
+	if !reflect.DeepEqual(pc.Body, map[string]any{"private": true}) || !item.Private {
+		t.Errorf("SetMediaPrivate sent %v and answered %+v, want {\"private\":true} and the private item", pc.Body, item)
 	}
 }
 
-// A media item whose address is not on Core's own host is refused, not fetched.
-func TestMediaFileStaysOnCoresHost(t *testing.T) {
+// MediaFile never fetches the address an item's url names: a url off Core's host is not followed, and the bytes come
+// from the API's own file route either way.
+func TestMediaFileNeverFollowsTheItemsURL(t *testing.T) {
 	api, calls := coreAPIStub(t, map[string]string{
-		"GET /media/f1": `{"data":{"id":"f1","url":"https://images.example.com/x.jpg"}}`,
-		"GET /media/f2": `{"data":{"id":"f2","url":"//evil.example/x"}}`,
+		"GET /media/f1":      `{"data":{"id":"f1","url":"https://images.example.com/x.jpg"}}`,
+		"GET /media/f1/file": "FILE %PDF-1.",
 	})
-	for _, id := range []string{"f1", "f2"} {
-		if _, err := api.MediaFile(context.Background(), id); err == nil {
-			t.Errorf("%s: an address off Core's host was fetched", id)
-		}
+	f, err := api.MediaFile(context.Background(), "f1")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if len(*calls) != 2 {
-		t.Errorf("sent %+v, want only the two item reads", *calls)
+	_ = f.Close()
+	if len(*calls) != 2 || (*calls)[1].Path != "/media/f1/file" {
+		t.Errorf("sent %+v, want the item and its file through the API", *calls)
 	}
 	if _, err := (*API)(nil).MediaFile(context.Background(), "f1"); err == nil {
 		t.Error("a plugin with no API read a file")
+	}
+	if _, err := (*API)(nil).SetMediaPrivate(context.Background(), "f1", true); err == nil {
+		t.Error("a plugin with no API changed a file")
 	}
 }
 

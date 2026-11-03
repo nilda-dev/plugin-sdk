@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -304,13 +305,64 @@ func TestSitePagesLayoutsAndMedia(t *testing.T) {
 		t.Errorf("the file read as %q with %+v", data, file)
 	}
 	pic := site.SetMediaFile("", "cup.png", "image/png", []byte("PNG"))
-	if img, err := api.MediaFile(ctx, pic); err != nil || img.Disposition != "" {
-		t.Errorf("a picture came as %+v (%v), want it shown inline as Core does", img, err)
+	if img, err := api.MediaFile(ctx, pic); err != nil || img.Disposition != "attachment; filename=cup.png" {
+		t.Errorf("a picture came as %+v (%v), want the original as a download, as Core's API file route sends it", img, err)
 	} else {
 		_ = img.Close()
 	}
 	if _, err := api.MediaFile(ctx, newID()); apiStatus(err) != http.StatusNotFound {
 		t.Errorf("a file the library lacks answered %v", err)
+	}
+}
+
+// A private file: the public address no longer has it, MediaFile still opens it, a file a page shows is refused, and
+// it takes media.write.
+func TestSitePrivateMedia(t *testing.T) {
+	ctx := context.Background()
+	site := NewSite()
+	core, host, srv := site.Core("shop")
+	defer srv.Close()
+	api := core.API()
+	host.Grant(nilda.CapMediaRead)
+	id := site.SetMediaFile("", "course.zip", "application/zip", []byte("PK"))
+	public := func() int {
+		res, err := http.Get(srv.URL + "/api/v1/media/" + id + "/file")
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = res.Body.Close()
+		return res.StatusCode
+	}
+	if public() != http.StatusOK {
+		t.Fatal("a library file is not on its public address")
+	}
+	if _, err := api.SetMediaPrivate(ctx, id, true); apiStatus(err) != http.StatusForbidden {
+		t.Errorf("a plugin without media.write made a file private: %v", err)
+	}
+	host.Grant(nilda.CapMediaWrite)
+	item, err := api.SetMediaPrivate(ctx, id, true)
+	if err != nil || !item.Private || item.URL != "/api/v1/media/"+id+"/private-file" {
+		t.Fatalf("SetMediaPrivate answered %+v (%v)", item, err)
+	}
+	if public() != http.StatusNotFound {
+		t.Error("a private file is still on its public address")
+	}
+	f, err := api.MediaFile(ctx, id)
+	if err != nil {
+		t.Fatalf("the plugin could not open its private file: %v", err)
+	}
+	data, _ := io.ReadAll(f)
+	_ = f.Close()
+	if string(data) != "PK" || !f.Item.Private {
+		t.Errorf("the private file read as %q with %+v", data, f.Item)
+	}
+	if _, err := api.SetMediaPrivate(ctx, id, false); err != nil || public() != http.StatusOK {
+		t.Errorf("making it public again: %v", err)
+	}
+	site.SetMediaUsedOn(id, "Home")
+	if _, err := api.SetMediaPrivate(ctx, id, true); apiStatus(err) != http.StatusUnprocessableEntity ||
+		!strings.Contains(err.Error(), "Home") {
+		t.Errorf("a file the home page shows was made private: %v", err)
 	}
 }
 

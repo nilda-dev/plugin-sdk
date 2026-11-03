@@ -24,12 +24,14 @@ import (
 // from memory, answering as Core answers:
 //
 //   - a route whose scope the granted capabilities do not carry is refused 403, as Core refuses it (users.read,
-//     taxonomy.read/write, menus.read/write, content.read/write, media.read; /site, /pages and /breadcrumbs need none);
+//     taxonomy.read/write, menus.read/write, content.read/write, media.read/write; /site, /pages and /breadcrumbs need none);
 //   - PUT /content/{type}/{id}/terms REPLACES the item's terms across every taxonomy, as Core's does;
 //   - a content body Core would refuse (nilda.CheckBody) is a 422, so is a layout that is not a tree, a menu item
 //     without the field its type needs, a term id that does not exist;
 //   - a layout written to a published page goes to its working version (written_to), and a write based on an old
 //     stamp is a 409;
+//   - a private media item (SetMediaPrivate) is "not found" on its public address and opens through MediaFile; making
+//     one the site shows (SetMediaUsedOn) private is a 422 naming where;
 //   - an id the fake does not have is a 404, one that is not even a uuid a 422 (Core parses every id).
 //
 // Its pages draw no real permalinks: an item's address in a crumb or a menu entry is "/" + its slug. In a test:
@@ -101,6 +103,8 @@ type siteMenuItem struct {
 type siteMedia struct {
 	item nilda.MediaItem
 	data []byte
+	// usedOn is where the site shows the file (SetMediaUsedOn): Core refuses to make such a file private.
+	usedOn []string
 }
 
 // NewSite builds an empty site with Core's two built-in taxonomies, "category" and "tag".
@@ -296,6 +300,16 @@ func (s *Site) SetMediaFile(id, filename, contentType string, data []byte) strin
 	return id
 }
 
+// SetMediaUsedOn says the site shows the media item id on each of where (a page's title, a setting's name), as Core's
+// where-used answers it: making that item private is then refused, as Core refuses it, naming them. None clears it.
+func (s *Site) SetMediaUsedOn(id string, where ...string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if m, ok := s.media[id]; ok {
+		m.usedOn = append([]string(nil), where...)
+	}
+}
+
 // FailNext makes the next request answer status, whatever it asks — Core restarting (503), a rate limit (429). Each
 // call queues one failure.
 func (s *Site) FailNext(status int) {
@@ -342,8 +356,10 @@ func (s *Site) serve(h *Host, w http.ResponseWriter, r *http.Request) {
 		need = "read:menus"
 	case strings.HasPrefix(route, "POST menus"):
 		need = "write:menus"
-	case route == "GET media/*":
+	case route == "GET media/*", route == "GET media/*/file":
 		need = "read:media"
+	case route == "PATCH media/*":
+		need = "write:media"
 	case strings.HasPrefix(route, "GET content/"), route == "GET layouts/holding":
 		need = "read:content"
 	case strings.HasPrefix(route, "POST content/"), strings.HasPrefix(route, "PUT content/"),
@@ -666,24 +682,67 @@ func (s *Site) serve(h *Host, w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeError(w, missing(parts[1], "media not found"))
-	case "GET api/v1/media/*/file":
-		m, ok := s.media[parts[3]]
+	case "GET media/*/file":
+		// The API's own file route: the original, private or not, always as a download that is never cached.
+		m, ok := s.media[parts[1]]
 		if !ok {
+			writeError(w, missing(parts[1], "media not found"))
+			return
+		}
+		w.Header().Set("Cache-Control", "private, no-store")
+		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": m.item.Filename}))
+		serveMediaBytes(w, m)
+	case "PATCH media/*":
+		m, ok := s.media[parts[1]]
+		if !ok {
+			writeError(w, missing(parts[1], "media not found"))
+			return
+		}
+		var in struct {
+			Private *bool `json:"private"`
+		}
+		if err := decodeInto(body, &in); err != nil {
+			writeError(w, err)
+			return
+		}
+		if in.Private == nil {
+			writeError(w, invalid("private is required"))
+			return
+		}
+		if *in.Private && len(m.usedOn) > 0 {
+			writeError(w, invalid("this file is shown on %s; making it private would break them — upload a copy to sell",
+				strings.Join(m.usedOn, ", ")))
+			return
+		}
+		m.item.Private = *in.Private
+		m.item.URL = "/api/v1/media/" + m.item.ID + "/file"
+		if m.item.Private {
+			m.item.URL = "/api/v1/media/" + m.item.ID + "/private-file"
+		}
+		answer(w, http.StatusOK, m.item, nil)
+	case "GET api/v1/media/*/file":
+		// The public address a page draws a file from: a private item is not there at all.
+		m, ok := s.media[parts[3]]
+		if !ok || m.item.Private {
 			writeError(w, notFound("media not found"))
 			return
 		}
-		w.Header().Set("Content-Type", m.item.MimeType)
-		w.Header().Set("Content-Length", strconv.Itoa(len(m.data)))
 		// As Core's media serveFile: only a raster image is shown inline; anything else is an attachment by its name.
 		switch strings.ToLower(strings.TrimSpace(strings.SplitN(m.item.MimeType, ";", 2)[0])) {
 		case "image/jpeg", "image/png", "image/webp", "image/gif":
 		default:
 			w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": m.item.Filename}))
 		}
-		_, _ = w.Write(m.data)
+		serveMediaBytes(w, m)
 	default:
 		writeError(w, notFound("no such route: %s %s", r.Method, r.URL.Path))
 	}
+}
+
+func serveMediaBytes(w http.ResponseWriter, m *siteMedia) {
+	w.Header().Set("Content-Type", m.item.MimeType)
+	w.Header().Set("Content-Length", strconv.Itoa(len(m.data)))
+	_, _ = w.Write(m.data)
 }
 
 // allowed reports whether the capabilities granted now carry scope.
@@ -911,7 +970,7 @@ func shape(parts []string) string {
 	out := append([]string(nil), parts...)
 	fixed := map[string][]int{ // the segments that are words, per first segment
 		"users": {0}, "site": {0}, "pages": {0}, "breadcrumbs": {0}, "taxonomies": {0, 2}, "terms": {0, 2},
-		"content": {0, 3}, "menus": {0, 2}, "layouts": {0, 1}, "media": {0}, "api": {0, 1, 2, 4},
+		"content": {0, 3}, "menus": {0, 2}, "layouts": {0, 1}, "media": {0, 2}, "api": {0, 1, 2, 4},
 	}
 	keep, ok := fixed[parts[0]]
 	if !ok {

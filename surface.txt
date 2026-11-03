@@ -1003,6 +1003,7 @@ field MediaItem.Filename string json:filename
 field MediaItem.Height *int json:height
 field MediaItem.ID string json:id
 field MediaItem.MimeType string json:mime_type
+field MediaItem.Private bool json:private
 field MediaItem.Size int64 json:size_bytes
 field MediaItem.Status string json:status
 field MediaItem.URL string json:url
@@ -1775,6 +1776,7 @@ method (*API) Secrets() (*Secrets)
 method (*API) Services() (*Services)
 method (*API) SetContentTerms(context.Context, string, string, string, []string) (error)
 method (*API) SetLayout(context.Context, string, string, LayoutTree, string) (LayoutWrite, error)
+method (*API) SetMediaPrivate(context.Context, string, bool) (MediaItem, error)
 method (*API) Site(context.Context) (Site, error)
 method (*API) TaxonomyTerms(context.Context, string, Paging) ([]Term, error)
 method (*API) TermContent(context.Context, string, TermContentQuery) ([]ContentRef, int64, error)
