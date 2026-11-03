@@ -21,6 +21,8 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
 - `LayoutTree`, `LayoutNode`, `LayoutSection` / `LayoutColumn` / `LayoutWidget`, and `Widget…` keys for the shop's
   widgets beside `WidgetButton` and `WidgetPostContent` (held to Core's LayoutNode and widget registry).
 - `LocaleDirection`: "rtl" or "ltr" from the language's script, Core's list of right-to-left scripts.
+- `ShowsPricesIncludingTax(r)` and `nildatest.Visitor.ShowPricesIncludingTax`: whether a consumer price must include tax,
+  as Core tells the shop's own routes (EU Directive 98/6/EC) — the hook queries' answer, for its cart page and offer cards.
 - Core's resources, typed: methods on `*API` for the REST routes a plugin used through the untyped `Get`/`Post`/`JSON` —
   `User`, `Users` (`UserQuery`), `Site`, `PageBySlug` (`PublishedPage`, `HeadMeta`), `Breadcrumbs` (`Crumb`),
   `ContentTerms`, `SetContentTerms` (which keeps the item's other taxonomies, as Core's full-replace PUT does not),

@@ -27,6 +27,12 @@ func TestRequestsReadBackThroughTheSDK(t *testing.T) {
 	if k := nilda.VisitorKey(r); k != "k-9" {
 		t.Errorf("VisitorKey read %q", k)
 	}
+	if nilda.ShowsPricesIncludingTax(r) {
+		t.Error("a visitor on a site where net is allowed reads as gross")
+	}
+	if !nilda.ShowsPricesIncludingTax(FromVisitor(httptest.NewRequest("GET", "/shop/cart", nil), Visitor{ShowPricesIncludingTax: true})) {
+		t.Error("ShowPricesIncludingTax does not read back through nilda.ShowsPricesIncludingTax")
+	}
 	if _, ok := nilda.CurrentUser(FromVisitor(httptest.NewRequest("GET", "/", nil), Visitor{})); ok {
 		t.Error("an anonymous visitor reads as signed in")
 	}
