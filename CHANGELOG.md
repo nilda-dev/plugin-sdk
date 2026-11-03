@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.49.0 — unreleased (what Core sends a plugin, typed)
+## v0.49.0 — 2026-11-03 (what Core sends a plugin, typed)
 
 - Core's own events by name: `EventContentCreated` … `EventContentImported`, `EventFormSubmitted`,
   `EventFormSubscribe`, `EventUserErased` (beside the existing `EventUserEmailVerified`), and `CoreEventData` for their
