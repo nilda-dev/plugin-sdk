@@ -537,36 +537,54 @@ func (a *API) Media(ctx context.Context, id string) (MediaItem, error) {
 	return out.Data, nil
 }
 
-// MediaFile opens a media item's bytes, and says their type — `media.read`. Core's API has no file route: it reads the
-// item (GET /media/{id}) and fetches the file at the address Core answered, on Core's own host (the address a page
-// draws it from). Close the reader. A file Core will not serve is an *APIError.
-func (a *API) MediaFile(ctx context.Context, id string) (io.ReadCloser, string, error) {
+// MediaBytes is a media file Core opened: read it, then Close it. What a download needs to answer its own visitor rides
+// with the bytes, as Core served them — a plugin that streams the file on (a paid download) copies these headers and
+// needs no second read of the item.
+type MediaBytes struct {
+	io.ReadCloser
+	// Item is the media item, as GET /media/{id} answered it (its Filename, MimeType, Size and URL).
+	Item MediaItem
+	// ContentType is the type Core served the bytes as (Content-Type).
+	ContentType string
+	// Size is the length Core sent (Content-Length), -1 when it sent none.
+	Size int64
+	// Disposition is Core's Content-Disposition — "attachment" with the file's name for a file a browser must not
+	// show inline (an SVG, a document), "" for one it shows (an image). A plugin offering a download sets its own
+	// attachment header when this is empty.
+	Disposition string
+}
+
+// MediaFile opens a media item's bytes — `media.read`. Core's API has no file route: it reads the item (GET
+// /media/{id}) and fetches the file at the address Core answered, on Core's own host (the address a page draws it
+// from). Close what it answers. A file Core will not serve is an *APIError.
+func (a *API) MediaFile(ctx context.Context, id string) (*MediaBytes, error) {
 	if a == nil {
-		return nil, "", errNoAPI
+		return nil, errNoAPI
 	}
 	m, err := a.Media(ctx, id)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	if !strings.HasPrefix(m.URL, "/") || strings.HasPrefix(m.URL, "//") {
-		return nil, "", fmt.Errorf("nilda: Core answered the media item %s with the address %q, not one on its own host", id, m.URL)
+		return nil, fmt.Errorf("nilda: Core answered the media item %s with the address %q, not one on its own host", id, m.URL)
 	}
 	base, err := url.Parse(a.baseURL)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base.Scheme+"://"+base.Host+m.URL, nil)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	res, err := a.http.Do(req)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return nil, "", a.readResponse(res, http.MethodGet, m.URL, nil)
+		return nil, a.readResponse(res, http.MethodGet, m.URL, nil)
 	}
-	return res.Body, res.Header.Get("Content-Type"), nil
+	return &MediaBytes{ReadCloser: res.Body, Item: m, ContentType: res.Header.Get("Content-Type"),
+		Size: res.ContentLength, Disposition: res.Header.Get("Content-Disposition")}, nil
 }
 
 func contentPath(contentType, id string) string {

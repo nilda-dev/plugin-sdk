@@ -288,20 +288,27 @@ func TestSitePagesLayoutsAndMedia(t *testing.T) {
 
 	// Media: refused without media.read, then the item and its bytes.
 	id := site.SetMediaFile("", "guide.pdf", "application/pdf", []byte("%PDF-1.7"))
-	if _, _, err := api.MediaFile(ctx, id); apiStatus(err) != http.StatusForbidden {
+	if _, err := api.MediaFile(ctx, id); apiStatus(err) != http.StatusForbidden {
 		t.Errorf("a plugin without media.read read a file: %v", err)
 	}
 	host.Grant(nilda.CapMediaRead)
-	file, typ, err := api.MediaFile(ctx, id)
+	file, err := api.MediaFile(ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
 	data, _ := io.ReadAll(file)
 	_ = file.Close()
-	if string(data) != "%PDF-1.7" || typ != "application/pdf" {
-		t.Errorf("the file read as %q (%s)", data, typ)
+	if string(data) != "%PDF-1.7" || file.ContentType != "application/pdf" || file.Size != 8 ||
+		file.Disposition != "attachment; filename=guide.pdf" || file.Item.Filename != "guide.pdf" {
+		t.Errorf("the file read as %q with %+v", data, file)
 	}
-	if _, _, err := api.MediaFile(ctx, newID()); apiStatus(err) != http.StatusNotFound {
+	pic := site.SetMediaFile("", "cup.png", "image/png", []byte("PNG"))
+	if img, err := api.MediaFile(ctx, pic); err != nil || img.Disposition != "" {
+		t.Errorf("a picture came as %+v (%v), want it shown inline as Core does", img, err)
+	} else {
+		_ = img.Close()
+	}
+	if _, err := api.MediaFile(ctx, newID()); apiStatus(err) != http.StatusNotFound {
 		t.Errorf("a file the library lacks answered %v", err)
 	}
 }
