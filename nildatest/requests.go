@@ -10,7 +10,7 @@ import (
 // server, and it strips every X-Nilda-* header a client sent before setting its own: who is signed in, the
 // identified agent, the visitor's country, language and key. A plugin's own test puts a request in that shape with
 // these, instead of spelling header names the SDK keeps to itself (and that nilda.CurrentUser, AgentOf,
-// VisitorCountry, VisitorLocale and VisitorKey read back).
+// VisitorCountry, VisitorLocale, VisitorKey and ShowsPricesIncludingTax read back).
 
 // AsUser makes r a request from the signed-in v, as Core's proxy asserts one. It returns r.
 func AsUser(r *http.Request, v nilda.Viewer) *http.Request {
@@ -34,10 +34,13 @@ func AsAgent(r *http.Request, a nilda.Agent) *http.Request {
 
 // Visitor is what Core's proxy says about an anonymous visitor: the country it placed their address in (ISO 3166-1
 // alpha-2), the language it served them, and the key it keeps per visitor. An empty field is not sent.
+// ShowPricesIncludingTax is the site's answer, not the visitor's — a consumer price must include tax — as Core tells
+// the shop's own routes (v0.50.0); false is not sent, as Core sends nothing for net.
 type Visitor struct {
-	Country string
-	Locale  string
-	Key     string
+	Country                string
+	Locale                 string
+	Key                    string
+	ShowPricesIncludingTax bool
 }
 
 // FromVisitor makes r a request from the visitor v. It returns r.
@@ -47,6 +50,9 @@ func FromVisitor(r *http.Request, v Visitor) *http.Request {
 		if value != "" {
 			r.Header.Set(header, value)
 		}
+	}
+	if v.ShowPricesIncludingTax {
+		r.Header.Set("X-Nilda-Prices-Include-Tax", "1")
 	}
 	return r
 }

@@ -26,12 +26,13 @@ type Viewer struct {
 // "x-nilda-user-id" while Core asserts "X-Nilda-User" — was a real, live bug this constant exists to make
 // impossible to repeat).
 const (
-	currentUserHeader     = "X-Nilda-User"
-	currentUserNameHeader = "X-Nilda-User-Name"
-	impersonatedByHeader  = "X-Nilda-Impersonated-By"
-	visitorCountryHeader  = "X-Nilda-Visitor-Country"
-	visitorLocaleHeader   = "X-Nilda-Visitor-Locale"
-	visitorKeyHeader      = "X-Nilda-Visitor-Key"
+	currentUserHeader      = "X-Nilda-User"
+	currentUserNameHeader  = "X-Nilda-User-Name"
+	impersonatedByHeader   = "X-Nilda-Impersonated-By"
+	visitorCountryHeader   = "X-Nilda-Visitor-Country"
+	visitorLocaleHeader    = "X-Nilda-Visitor-Locale"
+	visitorKeyHeader       = "X-Nilda-Visitor-Key"
+	pricesIncludeTaxHeader = "X-Nilda-Prices-Include-Tax"
 )
 
 // CurrentUser reports the Core user behind a request your resident HTTP server received — the `route`
@@ -99,6 +100,16 @@ func VisitorKey(r *http.Request) string {
 		return ""
 	}
 	return k
+}
+
+// ShowsPricesIncludingTax reports whether a consumer price on this site must be shown including tax (EU Directive
+// 98/6/EC), for a request your resident HTTP server received (v0.50.0) — the same answer Core puts on the commerce
+// hooks' queries as CommerceQuery.ShowPricesIncludingTax, so a page the shop draws on its own route (its cart, its
+// offer cards) reads a price the way its widgets do. Core decides it from the business's country and sends it only to
+// the plugin granted `commerce`; it strips any value a client sent, as it does every X-Nilda-* header. false from an
+// older Core, and on a site where net prices are allowed.
+func ShowsPricesIncludingTax(r *http.Request) bool {
+	return r.Header.Get(pricesIncludeTaxHeader) == "1"
 }
 
 // AGENTS THAT PROVE WHO THEY ARE (Web Bot Auth). An AI agent — ChatGPT's agent, Google's — can sign its requests
