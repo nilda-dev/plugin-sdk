@@ -10,6 +10,11 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
 
 ## v0.50.0 — unreleased (an action's one-time value, a report's notice, a body, a layout, a direction, the whole Reference fake, Core's resources typed)
 
+- Core's manifest bounds, exported: `MaxManifestAdminPages`, `MaxManifestLabelLen`, `MaxManifestTranslationLen` and the
+  rest of the 86 `MaxManifest…` constants (manifestbounds.go, the guide's table) — every count, length and size Core's
+  manifest validation states as a number, each with its unit (a count, characters or bytes), held to Core's source and
+  its unit by `TestTheManifestBoundsAreCores`, so a plugin's test holds its plugin.json to Core's numbers instead of
+  copies (the shop's sixty had gone stale: a translation string was 400 bytes there and is 500 characters in Core).
 - `AdminActionResult.Reveal` (and `MaxAdminRevealLen`): a value the owner must copy now — a new API key — drawn by the
   admin in a dialog that stays until closed, with a copy button, never translated and kept out of Core's logs.
 - `AdminReportResult.Notice` (and `MaxAdminNoticeLen`): one sentence above a report, chiefly what a zero means
