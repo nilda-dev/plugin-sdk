@@ -2820,7 +2820,10 @@ stale `basedOn` — plus the content routes a plugin makes its pages with (`POST
 `(*nildatest.Site).Core(key, grants...)` builds the Core; set it up with `SetSite`, `AddUser`, `RemoveUser`,
 `AddPage` (a `nildatest.SitePage`), `AddTaxonomy`, `AddTerm`, `FileUnder`, `AddMenu`, `AddMenuItem`, `SetMediaFile`
 and `FailNext(status)`, and read what your plugin did with `Page(id)`, `Layout(id)`, `Terms(id)` and
-`MenuItems(location)`.
+`MenuItems(location)`. Its `/reference` routes answer from its own `(*nildatest.Site).Reference()` — a `nildatest.Reference`, set
+with `SetSeller`, `SetPrivacyPolicy`, `SetEUVATRates`, `SetExchangeRates`, `SetTaxTable` and `Down` — so a plugin that
+reads both Core's resources and its reference data runs against one fake Core; a new site answers that it publishes no
+imprint and no privacy policy, as Core does.
 
 ### Service contracts (`Contracts`, `ContractNamed`)
 
