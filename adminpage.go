@@ -576,7 +576,15 @@ type AdminAction struct {
 // wrote it: keep the variable part out of it — the row the owner pressed the button on already says which.
 type AdminActionResult struct {
 	Message string `json:"message,omitempty"`
+	// Reveal is a value the owner must copy NOW and will never be shown again — a new API key whose fingerprint alone
+	// you keep. The admin draws it in a dialog that stays until the owner closes it, with a copy button, instead of
+	// the message's short-lived notice; it is never translated, and Core keeps it out of its logs. At most
+	// MaxAdminRevealLen characters on one line; empty, the answer is a message as before. From v0.50.0.
+	Reveal string `json:"reveal,omitempty"`
 }
+
+// MaxAdminRevealLen bounds AdminActionResult.Reveal: Core cuts a longer one.
+const MaxAdminRevealLen = 512
 
 // DispatchAdminAction routes a row-action press to your handler and shapes the reply Nilda expects.
 //
@@ -650,7 +658,15 @@ type AdminReportResult struct {
 	Columns []ListColumn     `json:"columns"`
 	Rows    []map[string]any `json:"rows"`
 	Summary map[string]any   `json:"summary,omitempty"`
+	// Notice is one sentence the admin shows above the report — chiefly what a zero means: "Back-in-stock requests
+	// are switched off", so a 0 with nothing measuring does not read as a quiet shop (Core's lesson 13). A FIXED
+	// sentence, translated through your manifest's translations like a label; at most MaxAdminNoticeLen characters.
+	// From v0.50.0.
+	Notice string `json:"notice,omitempty"`
 }
+
+// MaxAdminNoticeLen bounds AdminReportResult.Notice: Core cuts a longer one.
+const MaxAdminNoticeLen = 300
 
 // DispatchAdminReport routes a report-page open to your handler, the same shape DispatchAdminAction uses:
 //
