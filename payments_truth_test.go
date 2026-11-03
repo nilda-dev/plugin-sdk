@@ -199,9 +199,11 @@ func TestThePaymentNumbersInTheGuideAreCores(t *testing.T) {
 			"HookPaymentSync: {budget: PaymentHookBudget, errorIsAnswer: true},"},
 		{calls, "internal/plugin/calltable.go", "HookPaymentForget: {budget: PaymentHookBudget, errorIsAnswer: true},"},
 		{service, "internal/payments/service.go", "Lifetime: sessionLifetime,"},
-		{queries, "internal/db/queries/payments.sql", "save, charged_saved_id, expires_at ) VALUES ( $1, $2, $3, $4, $5, $6, $7, " +
+		// Core's 625bc5d33 (2026-10-30) added credential_type before expires_at; the expiry is still the database's
+		// now() plus the lifetime.
+		{queries, "internal/db/queries/payments.sql", "save, charged_saved_id, credential_type, expires_at ) VALUES ( $1, $2, $3, $4, $5, $6, $7, " +
 			"'created', $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, sqlc.narg('save'), sqlc.narg('charged_saved_id'), " +
-			"now() + sqlc.arg('lifetime')::interval )"},
+			"sqlc.arg('credential_type'), now() + sqlc.arg('lifetime')::interval )"},
 	} {
 		if !strings.Contains(c.src, c.want) {
 			t.Errorf("core's %s no longer has %q — re-read what PAYMENTS.md says about it", c.file, c.want)
@@ -252,6 +254,8 @@ func TestTheSiteThePaymentsAreHeldToIsCores(t *testing.T) {
 	}
 	service := flat("internal", "payments", "service.go")
 	main := flat("cmd", "server", "main.go")
+	// stable.NewService also takes the translation service now (Core's 96aee2586, 2026-10-27: the D-49 shared values
+	// became a NewService parameter); the site the REST API answers from is still a.stableSite.
 	for where, want := range map[string]struct{ src, text string }{
 		"payments: the setting first":            {service, `if u := strings.TrimSpace(s.siteURL(ctx)); u != "" { return u }`},
 		"payments: then APP_BASE_URL":            {service, "return s.appURL }"},
@@ -259,7 +263,7 @@ func TestTheSiteThePaymentsAreHeldToIsCores(t *testing.T) {
 		"main.go: the fallback is the env":       {main, "AppBaseURL: a.cfg.AppBaseURL"},
 		"main.go: GET /site reads the setting":   {main, "return stable.SiteFromSettings(ctx, a.settingsSvc, a.cfg.I18NDefault)"},
 		"stable: it reads site.base_url":         {flat("internal", "api", "stable", "site.go"), `BaseURL: settings.GetString(ctx, "site.base_url"),`},
-		"main.go: the REST API is built from it": {main, "stableAPI := stable.NewService(a.store, a.stableSite, a.log)"},
+		"main.go: the REST API is built from it": {main, "stableAPI := stable.NewService(a.store, a.stableSite, a.translationSvc, a.log)"},
 		"main.go: that is the REST API's":        {main, "a.srv.Mount(rest.PathV1, stable.NewHandlers(stableAPI,"},
 		"settings: SiteBaseURL's key":            {flat("internal", "settings", "browser.go"), `const keySiteBaseURL = "site.base_url"`},
 		"stable: the field is base_url":          {flat("internal", "api", "stable", "contract.go"), "BaseURL string `json:\"base_url\"`"},
@@ -511,16 +515,25 @@ func TestTheKitsDecisionIsCores(t *testing.T) {
 	kit := strings.Join(strings.Fields(readText(t, "nildatest/payments.go")), " ")
 	for _, pair := range []struct{ core, kit string }{
 		{`DecisionResolve = "resolve" DecisionReject = "reject"`, `if decision != "resolve" && decision != "reject" {`},
-		{`if cur.Status != StatusPending { return false, apperr.Conflict("only a payment that is pending can be decided by a person")`,
+		// Core's d6f8fed90 (2026-10-30) moved the two refusals about the payment itself into decisionRefused, one home
+		// for the assistant's preview and the apply; Decide's apply asks it first, as before.
+		{`if err := decisionRefused(decision, cur.Status, cur.FailureCode, cur.Currency, cur.ReportedAmountMinor, cur.ReportedCurrency); err != nil { return false, err }`,
+			`if s.Status != nilda.PaymentPending {`},
+		{`func decisionRefused(decision, status, failureCode, currency string, reported *int64, reportedCurrency string) error { ` +
+			`if status != StatusPending { return apperr.Conflict("only a payment that is pending can be decided by a person")`,
 			`if s.Status != nilda.PaymentPending { return nilda.PaymentSession{}, fmt.Errorf("nildatest: only a payment that is pending can be decided by a person;`},
-		{`if cur.FailureCode == FailAmountMismatch && cur.ReportedAmountMinor != nil { if cur.ReportedCurrency != cur.Currency {`,
-			`if held { if took.currency != s.Currency {`},
+		{`if decision == DecisionResolve && failureCode == FailAmountMismatch && reported != nil && reportedCurrency != currency {`,
+			`if decision == "resolve" { if held { if took.currency != s.Currency {`},
+		{`if cur.FailureCode == FailAmountMismatch && cur.ReportedAmountMinor != nil { next.AmountMinor = *cur.ReportedAmountMinor`,
+			`held = held && s.FailureCode == nilda.PaymentFailAmountMismatch`},
 		{`next.AmountMinor = *cur.ReportedAmountMinor`, `s.AmountMinor = took.amount`},
 		{`next.Status, next.FailureCode, next.FailureMessage = StatusResolved, "", ""`, `s.FailureCode, s.FailureMessage = "", "" p.move(s, nilda.PaymentResolved)`},
 		{`code := FailCancelled if cur.FailureCode == FailAmountMismatch { code = FailAmountMismatch }`,
 			`code := nilda.PaymentFailCancelled if s.FailureCode == nilda.PaymentFailAmountMismatch { code = nilda.PaymentFailAmountMismatch }`},
 		{`next.Status, next.FailureCode, next.FailureMessage = StatusRejected, code, note`, `s.FailureCode, s.FailureMessage = code, note p.move(s, nilda.PaymentRejected)`},
 		{`if utf8.RuneCountInString(note) > maxText {`, `if utf8.RuneCountInString(note) > maxPaymentText {`},
+		// …and a note holding a NUL is refused (Core's d6f8fed90, 2026-10-30), in Core's words.
+		{`if !noNUL(note) { return errNUL() }`, `if strings.IndexByte(note, 0) >= 0 { return nilda.PaymentSession{}, fmt.Errorf("nildatest: text in a payment may not hold a NUL character")`},
 	} {
 		if !strings.Contains(core, pair.core) {
 			t.Errorf("core's Decide no longer says %q — re-read nildatest's Decide against it", pair.core)

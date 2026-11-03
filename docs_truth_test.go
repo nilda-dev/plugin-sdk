@@ -423,9 +423,21 @@ func TestTheKVLimitsTheDocsNameAreCores(t *testing.T) {
 	// Held to the call that keeps them there, not to the file existing (the review of 384e49c): Set on
 	// Dragonfly admits the write against the caps before it writes. And the one way past them, said as Core says it.
 	shared := strings.Join(strings.Fields(strings.ReplaceAll(coreSource(t, "internal", "plugin", "kvshared.go"), "\n//", "\n")), " ")
-	if !strings.Contains(shared, "old, err := k.admitShared(ctx, name, size)") ||
-		!strings.Contains(shared, "keys > maxKVKeysPerPlugin || bytes > maxKVBytesPerPlugin { return 0, ErrKVFull") {
+	// Core's pre-launch review (2026-10-27) moved the counter into one script with the write, so
+	// admitShared answers only yes or no now; the caps it holds the write to are the same.
+	if !strings.Contains(shared, "if err := k.admitShared(ctx, name, size); err != nil { return err } return setScript.Run(") ||
+		!strings.Contains(shared, "if keys, bytes := u.grown(size); keys > maxKVKeysPerPlugin || bytes > maxKVBytesPerPlugin { return ErrKVFull }") {
 		t.Error("core's Dragonfly kv no longer admits a write against the key and byte caps — re-read the kv row's \"on every install\"")
+	}
+	// …and the re-count before refusing, which clears expired keys on Dragonfly, runs at most once a minute a plugin:
+	// a refusal inside that minute is on the count as it stands.
+	if !strings.Contains(shared, "if keys, bytes := u.grown(size); keys > maxKVKeysPerPlugin || bytes > maxKVBytesPerPlugin { if err := k.reconcileOnce(ctx); err != nil {") ||
+		!strings.Contains(shared, "const reconcileEvery = time.Minute") ||
+		!strings.Contains(shared, "first, err := k.rdb.SetNX(ctx, kvReconcileKey(k.plugin), 1, reconcileEvery).Result()") {
+		t.Error("core's Dragonfly kv no longer re-counts at most once a minute before refusing — re-read the kv row")
+	}
+	if !strings.Contains(row, "on Dragonfly by re-counting the namespace, at most once a minute for each plugin") {
+		t.Errorf("the kv row does not say Dragonfly's re-count runs at most once a minute, as Core's reconcileOnce does:\n%s", row)
 	}
 	if !strings.Contains(row, "on every install") {
 		t.Errorf("the kv row does not say the key and byte caps hold on every install, as Core keeps them:\n%s", row)
@@ -712,11 +724,14 @@ func TestTheAdminPageRulesTheDocsNameAreCores(t *testing.T) {
 		{flat(list), regexp.MustCompile(`if actionOutcomeUnknown\(err\) \{ ` +
 			`return nil, apperr\.New\(apperr\.CodeConflict, [^{}]*\)\. WithDetails\(map\[string\]string\{"reason": ReasonActionOutcomeUnknown\}\) \}`),
 			"Core cannot tell \"never started\" from \"finished, answer lost\""},
-		// Which answers count as lost: the call's time running out, and the process going away mid-call
-		// (Core's 2026-09-24 whole-plan review, A-4).
-		{flat(list), regexp.MustCompile(`func actionOutcomeUnknown\(err error\) bool \{ if errors\.Is\(err, context\.DeadlineExceeded\) \|\| ` +
-			`status\.Code\(err\) == codes\.DeadlineExceeded \{ return true \}.*case codes\.Unavailable, codes\.Canceled: return true`),
-			"the call budget (`PLUGIN_CALL_TIMEOUT`) ran out, or your process stopped mid-call"},
+		// Which answers count as lost: the call's time running out, and — for a call that reached the plugin — every
+		// status but the handler's own answer (codes.Unknown): the process going away mid-call (Core's 2026-09-24
+		// whole-plan review, A-4), and since Core's pre-launch review (2026-10-27) a panic too, which
+		// the SDK sends as Internal.
+		{flat(list), regexp.MustCompile(regexp.QuoteMeta(`func actionOutcomeUnknown(err error) bool { ` +
+			`if errors.Is(err, context.DeadlineExceeded) || status.Code(err) == codes.DeadlineExceeded { return true } ` +
+			`if !errors.As(err, new(pluginAnswer)) { return false } return status.Code(err) != codes.Unknown }`)),
+			"the call budget (`PLUGIN_CALL_TIMEOUT`) ran out, your process stopped mid-call, or your handler panicked"},
 		{flat(list), regexp.MustCompile(regexp.QuoteMeta(`if pk := primaryKeyOf(table); pk != "" && pk != page.OrderBy { ` +
 			`order = append(order, pgx.Identifier{pk}.Sanitize()+" "+dir) }`)), "then by the table's primary key"},
 		// Core now stamps the datastore with the plugin's version on this call (WithDatastoreVersion); the sentence the
@@ -867,9 +882,36 @@ func TestTheAssistantSavesSettingsThroughTheSectionsOwnSave(t *testing.T) {
 		}
 	}
 	// settingsTarget is the one gate: the preview and the apply ask it, and so does the always-ask check that decides
-	// whether a field marked always_ask makes the change ask the person (v0.41.0).
-	if n := strings.Count(src, "s.settingsTarget(ctx, v, in)"); n != 3 {
-		t.Errorf("core asks settingsTarget %d times, want the preview, the apply and the always-ask check", n)
+	// whether a field marked always_ask makes the change ask the person (v0.41.0) — and, since Core's 2026-10-30
+	// review, the redaction that keeps every secret field out of what the AI-changes ledger stores of the call. Each
+	// asker is held by its own function, so a fifth one, or one of these four gone, is seen.
+	if n := strings.Count(src, "s.settingsTarget(ctx, v, in)"); n != 4 {
+		t.Errorf("core asks settingsTarget %d times, want the preview, the apply, the always-ask check and the redaction", n)
+	}
+	for _, decl := range []string{
+		"func (s *Service) previewSettingsSet(",
+		"func (s *Service) toolSettingsSet(",
+		"func (s *Service) settingsSetAlwaysAsks(",
+		"func (s *Service) redactSettingsSet(",
+	} {
+		i := strings.Index(src, decl)
+		if i < 0 {
+			t.Errorf("core's module.go no longer declares %s — re-read the guide's \"Who saves them\"", decl)
+			continue
+		}
+		body := src[i:]
+		if end := strings.Index(body, "\n}\n"); end >= 0 {
+			body = body[:end]
+		}
+		if !strings.Contains(body, "s.settingsTarget(ctx, v, in)") {
+			t.Errorf("core's %s no longer asks settingsTarget — re-read the guide's \"Who saves them\"", decl)
+		}
+	}
+	for _, want := range []string{"AlwaysAsk:    s.settingsSetAlwaysAsks,", "RedactArgs:   s.redactSettingsSet,",
+		"for _, f := range page.Fields { if f.Secret { delete(in.Values, f.Key) } }"} {
+		if !strings.Contains(src, want) && !strings.Contains(flat, want) {
+			t.Errorf("core's plugin_settings_set no longer has %q — re-read the guide's \"a secret … is never read back or repeated\"", want)
+		}
 	}
 	guide := strings.Join(strings.Fields(readText(t, "docs/PLUGIN_SDK.md")), " ")
 	for _, want := range []string{

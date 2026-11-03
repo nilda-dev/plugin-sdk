@@ -169,7 +169,10 @@ func TestTheManifestRulesTheDocsNameAreCores(t *testing.T) {
 		`tooMany("editor_commands", len(m.EditorCommands), maxEditorCommands, "editor commands")`,
 		`tooLong("editor_commands["+strconv.Itoa(i)+"].label", c.Label)`,
 		"if utf8.RuneCountInString(s) > maxDeclaredLabelLen {",
-		"if len(c.Content) == 0 || !json.Valid(c.Content) {",
+		// Core's f6609f820 (2026-10-30): valid JSON is not enough — `null`, a number or a bare list inserts nothing.
+		"if !editorNodesShape(c.Content) {",
+		"Nodes *[]json.RawMessage `json:\"nodes\"`",
+		"return json.Unmarshal(raw, &c) == nil && c.Nodes != nil",
 		`tooMany(where+".keywords", len(c.Keywords), maxCommandKeywords, "keywords")`,
 		`tooLong(where+".keywords["+strconv.Itoa(k)+"]", kw)`,
 	} {
@@ -181,6 +184,7 @@ func TestTheManifestRulesTheDocsNameAreCores(t *testing.T) {
 		"Core refuses at install more than " + n(manifestSrc, "schema_manifest.go", "maxEditorCommands") + " commands",
 		"one longer than " + n(manifestSrc, "schema_manifest.go", "maxDeclaredLabelLen") + " characters",
 		"more than " + n(manifestSrc, "schema_manifest.go", "maxCommandKeywords") + " keywords",
+		"a `content` that is not a JSON object with a `nodes` list",
 	} {
 		if !strings.Contains(doc, want) {
 			t.Errorf("PLUGIN_SDK.md does not say %q, which is Core's bound", want)

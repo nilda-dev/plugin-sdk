@@ -35,6 +35,10 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
   nildatest.NewSite: a stateful fake of the same routes (and the content routes) for a plugin's tests.
 - nildatest.Reference: `SetEUVATRates`, `SetExchangeRates`, `SetTaxTable`, `Down`, `Asked` — it answered two of the five
   reads, so a plugin's invoices and tax table needed fakes of its own.
+- The guide says what today's Core does: a translation string is bounded at 500 characters, not 400 bytes; an
+  `editor_commands` `content` must be an object with a `nodes` list; a row action whose handler panicked is "may have
+  run", like a lost answer; and on Dragonfly a full kv namespace is re-counted at most once a minute before a refusal.
+  nildatest's `Payments.Decide` refuses a note holding a NUL, as Core's does.
 
 ## v0.49.0 — 2026-11-03 (what Core sends a plugin, typed)
 
