@@ -418,7 +418,9 @@ if session.Status == nilda.PaymentRedirected {
 - **Create the order BEFORE the session** (pending payment), so the outcome has something to land on.
 - **The idempotency key names the attempt** (`order-123#2`): sent again it returns the same session, so a retry
   after a lost answer is safe; a payer's second try after a declined card is a new attempt, a new key.
-- `nilda.PaymentSessionParams.Validate` is what Core checks without asking anything; Core also checks the
+- `nilda.PaymentSessionParams.Validate` is what Core checks without asking anything — a NUL character in any text
+  included, which every payment `Validate` refuses as Core does ("text in a payment may not hold a NUL character":
+  Postgres stores none, so it would come back as a 500); Core also checks the
   gateway offers that method in that currency and that the URLs are on this site (another host is refused: a
   payment flow that returns the payer anywhere is an open redirect).
 - **"This site" is the site's public address**: the owner's Settings → General address (`site.base_url`), or
@@ -618,6 +620,7 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
 | a kept method's `label` | 100 characters | Nilda's choice |
 | a mandate's `interval_count` | 1–365 | Nilda's choice |
 | `Idempotency-Key` | 255 bytes | Core's, which is Stripe's |
+| any payment text — a reference, a reason, an address, a label, a `provider_ref`, a key | no NUL character | Postgres keeps one in neither text nor jsonb |
 | a session nothing decided | 24 hours, unless the gateway says | Stripe Checkout's own default |
 | a gateway's hook | at most 15 seconds, or `PLUGIN_CALL_TIMEOUT` if that is longer | Core's budget for a processor's API |
 | a consumer's hook | 5 seconds, the default of `PLUGIN_CALL_TIMEOUT` | the ordinary plugin call |

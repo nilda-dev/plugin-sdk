@@ -41,6 +41,10 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
   `editor_commands` `content` must be an object with a `nodes` list; a row action whose handler panicked is "may have
   run", like a lost answer; and on Dragonfly a full kv namespace is re-counted at most once a minute before a refusal.
   nildatest's `Payments.Decide` refuses a note holding a NUL, as Core's does.
+- Every payment `Validate` (session, refund, resolution, rejection, address, credential, dispute, external refund,
+  charge), the idempotency key, and a gateway's describe, start and refund answers refuse a NUL character in their
+  text, as Core does since its 2026-10-30 review: "text in a payment may not hold a NUL character". nildatest refuses
+  one in a pending or refund-resolve report's `provider_ref` too. `TestTheNULRuleIsCores` holds each to Core's line.
 
 ## v0.49.0 — 2026-11-03 (what Core sends a plugin, typed)
 

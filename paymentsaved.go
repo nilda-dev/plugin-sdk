@@ -208,7 +208,12 @@ func (p PaymentChargeParams) Validate() error {
 		return err
 	}
 	if p.ShippingAddress != nil {
-		return p.ShippingAddress.Validate()
+		if err := p.ShippingAddress.Validate(); err != nil {
+			return err
+		}
+	}
+	if !noNUL(p.Reference, p.Description) {
+		return errNUL()
 	}
 	return nil
 }
