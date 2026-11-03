@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.50.0 — unreleased (an action's one-time value, a report's notice, a body, a layout, a direction, the whole Reference fake, Core's resources typed)
+## v0.50.0 — 2026-11-03 (an action's one-time value, a report's notice, a body, a layout, a direction, Core's resources typed and faked, a route's gross prices, the manifest bounds)
 
 - Core's manifest bounds, exported: `MaxManifestAdminPages`, `MaxManifestLabelLen`, `MaxManifestTranslationLen` and the
   rest of the 86 `MaxManifest…` constants (manifestbounds.go, the guide's table) — every count, length and size Core's
