@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -24,6 +25,14 @@ type manifestAbility struct {
 	Class       string `json:"class"`
 	// AlwaysAsk: Core asks the person before every call (nilda.Ability.AlwaysAsk, v0.40.0).
 	AlwaysAsk bool `json:"always_ask,omitempty"`
+	// Callers: the caller kinds Core may call it for (nilda.Ability.Callers, v0.53.0).
+	Callers []string `json:"callers,omitempty"`
+}
+
+// same reports whether two declarations of one ability agree, field by field.
+func (m manifestAbility) same(o manifestAbility) bool {
+	return m.Name == o.Name && m.Label == o.Label && m.Description == o.Description && m.Class == o.Class &&
+		m.AlwaysAsk == o.AlwaysAsk && slices.Equal(m.Callers, o.Callers)
 }
 
 // ManifestAbilities holds plugin.json's "abilities" to the abilities your Init returns.
@@ -46,7 +55,7 @@ func ManifestAbilities(t testing.TB, manifestPath string, abilities []nilda.Abil
 	want := make([]manifestAbility, 0, len(abilities))
 	for _, a := range abilities {
 		want = append(want, manifestAbility{Name: a.Name, Label: a.Label, Description: a.Description, Class: string(a.Class),
-			AlwaysAsk: a.AlwaysAsk})
+			AlwaysAsk: a.AlwaysAsk, Callers: a.Callers})
 	}
 	raw, err := os.ReadFile(manifestPath)
 	if err != nil {
@@ -137,7 +146,7 @@ func abilityDiff(have, want []manifestAbility) string {
 		switch {
 		case !ok:
 			parts = append(parts, w.Name+" is not declared")
-		case h != w:
+		case !h.same(w):
 			parts = append(parts, w.Name+" differs")
 		}
 		delete(byName, w.Name)

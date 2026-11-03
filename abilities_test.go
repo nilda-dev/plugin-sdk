@@ -330,3 +330,33 @@ func TestAnAlwaysAskAbilityTravelsToCore(t *testing.T) {
 		t.Fatal("serve.go's Init no longer sends the abilities through abilitiesToContract")
 	}
 }
+
+// ADR-7(a) of booking's import plan (card T56b): an ability may name the callers Core may call it for, and the list
+// reaches Core in the Init answer, as AlwaysAsk does — Core keeps one that names neither ai nor mcp out of every list
+// a model reads.
+func TestAnAbilitysCallersTravelToCore(t *testing.T) {
+	out := abilitiesToContract([]Ability{
+		{Name: "import_apply", Label: "Import", Description: "Apply one chunk.", Class: ClassDestructive,
+			Callers: []string{CallerKindImporter}},
+		{Name: "list_orders", Label: "Orders", Description: "List them.", Class: ClassRead},
+	})
+	if len(out) != 2 || strings.Join(out[0].GetCallers(), ",") != "importer" || len(out[1].GetCallers()) != 0 {
+		t.Fatalf("the Init answer's abilities: %+v", out)
+	}
+}
+
+// A kind the SDK does not know, or one named twice, stops Init: a typo ("importr") would otherwise be an ability no
+// caller reaches, with no error anywhere.
+func TestAnAbilityNamingAnUnknownCallerStopsInit(t *testing.T) {
+	s := &pluginServer{handler: &recordingHandler{}}
+	for _, bad := range [][]string{{"importr"}, {CallerKindImporter, CallerKindImporter}, {""}, {"AI"}} {
+		_, err := s.wire(InitResult{Abilities: []Ability{{Name: "import_apply", Callers: bad}}})
+		if err == nil || !strings.Contains(err.Error(), "import_apply") {
+			t.Errorf("callers %q: Init went on (%v)", bad, err)
+		}
+	}
+	ok := []string{CallerKindImporter, CallerKindOwnerUI, CallerKindAI, CallerKindMCP}
+	if _, err := s.wire(InitResult{Abilities: []Ability{{Name: "import_apply", Callers: ok}, {Name: "plain"}}}); err != nil {
+		t.Errorf("the four kinds were refused: %v", err)
+	}
+}

@@ -139,3 +139,36 @@ func TestManifestAbilitiesWritesAlwaysAsk(t *testing.T) {
 		t.Error("a manifest that says always_ask while Init does not was accepted")
 	}
 }
+
+// An ability's callers (ADR-7(a), card T56b) are declared in plugin.json too: Core offers only an ability declared
+// exactly as Init returns it, and the review reads which ones no model may call.
+func TestTheManifestDeclaresAnAbilitysCallers(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plugin.json")
+	if err := os.WriteFile(path, []byte(`{"key":"booking"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	list := []nilda.Ability{
+		{Name: "import_apply", Label: "Import", Description: "Apply one chunk.", Class: nilda.ClassDestructive,
+			Callers: []string{nilda.CallerKindImporter}},
+		{Name: "list_orders", Label: "Orders", Description: "List them.", Class: nilda.ClassRead},
+	}
+	t.Setenv(WriteManifestEnv, "1")
+	ManifestAbilities(t, path, list)
+	raw, _ := os.ReadFile(path)
+	if !strings.Contains(string(raw), `"callers": [`) || !strings.Contains(string(raw), `"importer"`) ||
+		strings.Count(string(raw), "callers") != 1 {
+		t.Fatalf("the written manifest:\n%s", raw)
+	}
+	t.Setenv(WriteManifestEnv, "")
+	if failed := run(t, path, list); failed != "" {
+		t.Fatalf("the manifest just written does not hold: %s", failed)
+	}
+	list[0].Callers = nil
+	if failed := run(t, path, list); failed == "" {
+		t.Error("a manifest that names callers while Init does not was accepted")
+	}
+	list[0].Callers = []string{nilda.CallerKindOwnerUI}
+	if failed := run(t, path, list); failed == "" {
+		t.Error("a manifest whose callers differ from Init's was accepted")
+	}
+}

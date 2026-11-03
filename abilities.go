@@ -95,6 +95,13 @@ type Ability struct {
 	// answers every other ability — this is for the few no setting should answer. Declare it in plugin.json too
 	// (nildatest.ManifestAbilities writes it).
 	AlwaysAsk bool
+	// Callers names the caller kinds Core may call this ability for (v0.53.0): CallerKindImporter,
+	// CallerKindOwnerUI, CallerKindAI, CallerKindMCP. Empty means the site's assistant and connected AI apps, as
+	// before. An ability that names neither CallerKindAI nor CallerKindMCP is in no tool list a model reads, and Core
+	// refuses a call to it from any kind it does not name — for a door that takes what no model may hold, such as an
+	// import of the owner's guest list. Still check CallerKind(ctx) in Run: an older Core does not know this field.
+	// Declare it in plugin.json too (nildatest.ManifestAbilities writes it).
+	Callers []string
 	// Run executes the ability. Optional — leave it nil to handle the dispatch yourself in HandleHook,
 	// where the hook name is AbilityHook(Name).
 	//
@@ -183,6 +190,24 @@ func duplicateAbility(list []Ability) error {
 			return fmt.Errorf("two abilities are named %q — each needs its own name, or the agent reaches only one of them", a.Name)
 		}
 		seen[a.Name] = true
+	}
+	return nil
+}
+
+// checkAbilityCallers refuses a caller kind Core does not send, or one named twice: a typo ("importr") would be an
+// ability no caller reaches, with no error anywhere.
+func checkAbilityCallers(list []Ability) error {
+	for _, a := range list {
+		seen := map[string]bool{}
+		for _, kind := range a.Callers {
+			if !knownCallerKind(kind) {
+				return fmt.Errorf("ability %q names the caller %q, which Core does not send — use CallerKindImporter, CallerKindOwnerUI, CallerKindAI or CallerKindMCP", a.Name, kind)
+			}
+			if seen[kind] {
+				return fmt.Errorf("ability %q names the caller %q twice", a.Name, kind)
+			}
+			seen[kind] = true
+		}
 	}
 	return nil
 }

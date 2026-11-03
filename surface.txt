@@ -25,6 +25,10 @@ const BadgeGold
 const BadgeGreen
 const BadgeGrey
 const BadgeWarn
+const CallerKindAI
+const CallerKindImporter
+const CallerKindMCP
+const CallerKindOwnerUI
 const CapAbilities
 const CapAdminPage
 const CapAuthProvider
@@ -487,6 +491,7 @@ field APIError.Path string
 field APIError.RetryAfter time.Duration
 field APIError.Status int
 field Ability.AlwaysAsk bool
+field Ability.Callers []string
 field Ability.Class Class
 field Ability.Description string
 field Ability.InputSchema json.RawMessage
@@ -603,6 +608,7 @@ field CalendarShade.Lane string json:lane
 field CalendarShade.Start string json:start
 field CalendarShade.StartDate string json:start_date
 field CallInfo.Caller string
+field CallInfo.CallerKind string
 field CallInfo.Contract string
 field CallInfo.IdempotencyKey string
 field CallInfo.RequestID string
@@ -1602,6 +1608,7 @@ func AgentOf(*http.Request) (Agent, bool)
 func BadgeTones() ([]string)
 func BodyText(json.RawMessage) (string)
 func CallOf(context.Context) (CallInfo)
+func CallerKind(context.Context) (string, bool)
 func CarrierMethods(Carrier) ([]ServiceMethod)
 func CatalogMethods(CatalogProvider) ([]ServiceMethod)
 func CheckBody(json.RawMessage) (error)
