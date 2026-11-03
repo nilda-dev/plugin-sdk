@@ -417,7 +417,11 @@ type Ability struct {
 	InputSchema string `protobuf:"bytes,5,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"` // JSON Schema object describing the arguments; required
 	ReadOnly    bool   `protobuf:"varint,6,opt,name=read_only,json=readOnly,proto3" json:"read_only,omitempty"`         // advisory MCP annotation; the gates are driven by `class`, not by this
 	// Core asks the person before every call, whatever a connector was granted (v0.40.0): money moving, data leaving.
-	AlwaysAsk     bool `protobuf:"varint,7,opt,name=always_ask,json=alwaysAsk,proto3" json:"always_ask,omitempty"`
+	AlwaysAsk bool `protobuf:"varint,7,opt,name=always_ask,json=alwaysAsk,proto3" json:"always_ask,omitempty"`
+	// The caller kinds Core may call this ability for (HookRequest.caller_kind's values). Empty means the site's
+	// assistant and connected AI apps, as before; one that names neither "ai" nor "mcp" is in no list a model reads
+	// (v0.51.0, booking's import doors).
+	Callers       []string `protobuf:"bytes,8,rep,name=callers,proto3" json:"callers,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -501,6 +505,13 @@ func (x *Ability) GetAlwaysAsk() bool {
 	return false
 }
 
+func (x *Ability) GetCallers() []string {
+	if x != nil {
+		return x.Callers
+	}
+	return nil
+}
+
 type Schedule struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"` // stable identifier; Core calls back with hook "schedule:<name>"
@@ -564,8 +575,12 @@ type HookRequest struct {
 	IdempotencyKey string `protobuf:"bytes,5,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"` // the caller's key for this operation: a call repeated with it must have the effect of one
 	Caller         string `protobuf:"bytes,6,opt,name=caller,proto3" json:"caller,omitempty"`                                       // a service-desk call's asking plugin, by key; empty when Core itself asked
 	ViaAssistant   bool   `protobuf:"varint,7,opt,name=via_assistant,json=viaAssistant,proto3" json:"via_assistant,omitempty"`      // the site's assistant asked for this call, not a person's own press (v0.41.0)
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Which door Core took this call through, set by Core's own code and never from the payload (v0.51.0): "ai" (the
+	// site's assistant), "mcp" (a connected AI app or the connector REST invoke), "importer" (Core's importer),
+	// "owner_ui" (a person's own press). Empty from a Core that does not say, and on Core's own hooks: fail closed.
+	CallerKind    string `protobuf:"bytes,8,opt,name=caller_kind,json=callerKind,proto3" json:"caller_kind,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *HookRequest) Reset() {
@@ -645,6 +660,13 @@ func (x *HookRequest) GetViaAssistant() bool {
 		return x.ViaAssistant
 	}
 	return false
+}
+
+func (x *HookRequest) GetCallerKind() string {
+	if x != nil {
+		return x.CallerKind
+	}
+	return ""
 }
 
 type HookResponse struct {
@@ -1764,7 +1786,7 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x16\n" +
 	"\x06effect\x18\x03 \x01(\tR\x06effect\x12!\n" +
 	"\finput_schema\x18\x04 \x01(\tR\vinputSchema\x12\x14\n" +
-	"\x05paths\x18\x05 \x03(\tR\x05paths\"\xca\x01\n" +
+	"\x05paths\x18\x05 \x03(\tR\x05paths\"\xe4\x01\n" +
 	"\aAbility\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12 \n" +
@@ -1773,10 +1795,11 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"\finput_schema\x18\x05 \x01(\tR\vinputSchema\x12\x1b\n" +
 	"\tread_only\x18\x06 \x01(\bR\breadOnly\x12\x1d\n" +
 	"\n" +
-	"always_ask\x18\a \x01(\bR\talwaysAsk\"2\n" +
+	"always_ask\x18\a \x01(\bR\talwaysAsk\x12\x18\n" +
+	"\acallers\x18\b \x03(\tR\acallers\"2\n" +
 	"\bSchedule\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
-	"\x04cron\x18\x02 \x01(\tR\x04cron\"\xdc\x01\n" +
+	"\x04cron\x18\x02 \x01(\tR\x04cron\"\xfd\x01\n" +
 	"\vHookRequest\x12\x12\n" +
 	"\x04hook\x18\x01 \x01(\tR\x04hook\x12\x18\n" +
 	"\apayload\x18\x02 \x01(\fR\apayload\x12\x1d\n" +
@@ -1785,7 +1808,9 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"\bcontract\x18\x04 \x01(\tR\bcontract\x12'\n" +
 	"\x0fidempotency_key\x18\x05 \x01(\tR\x0eidempotencyKey\x12\x16\n" +
 	"\x06caller\x18\x06 \x01(\tR\x06caller\x12#\n" +
-	"\rvia_assistant\x18\a \x01(\bR\fviaAssistant\"(\n" +
+	"\rvia_assistant\x18\a \x01(\bR\fviaAssistant\x12\x1f\n" +
+	"\vcaller_kind\x18\b \x01(\tR\n" +
+	"callerKind\"(\n" +
 	"\fHookResponse\x12\x18\n" +
 	"\apayload\x18\x01 \x01(\fR\apayload\"\xb5\x01\n" +
 	"\fEventRequest\x12\x12\n" +

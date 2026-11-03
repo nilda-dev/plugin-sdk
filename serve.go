@@ -188,6 +188,9 @@ func (s *pluginServer) wire(res InitResult) (*contract.InitResponse, error) {
 	if err := duplicateAbility(res.Abilities); err != nil {
 		return nil, err
 	}
+	if err := checkAbilityCallers(res.Abilities); err != nil {
+		return nil, err
+	}
 	if err := checkVisitorTools(res.VisitorTools); err != nil {
 		return nil, err
 	}
@@ -352,6 +355,7 @@ func abilitiesToContract(list []Ability) []*contract.Ability {
 		out = append(out, &contract.Ability{
 			Name: ab.Name, Label: ab.Label, Description: ab.Description,
 			Class: string(ab.Class), InputSchema: string(ab.InputSchema), ReadOnly: ab.ReadOnly, AlwaysAsk: ab.AlwaysAsk,
+			Callers: ab.Callers,
 		})
 	}
 	return out

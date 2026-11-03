@@ -8,6 +8,21 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.51.0 — unreleased (which door Core took a call through, and abilities no model is offered)
+
+- `CallerKind(ctx)` and `CallInfo.CallerKind`: which door Core took the hook call through — `CallerKindAI` (the
+  site's assistant: the panel's chat, the app's, Core's admin tools acting for it), `CallerKindMCP` (a connected AI
+  app, or a connector's REST invoke), `CallerKindImporter` (Core's importer) or `CallerKindOwnerUI` (a person's own
+  press) — and `false` when Core did not say: an older Core, or one of Core's own hooks. It is the new wire field
+  `HookRequest.caller_kind`, set by Core's own code and never from the payload, so a model that writes an ability's
+  arguments cannot write it (`TestTheCallerKindNeverComesFromTheArguments`). A kind names a door, never a person.
+  `nilda.WithCallInfo(ctx, nilda.CallInfo{CallerKind: …})` sets it in a plugin's test.
+- `Ability.Callers` (`"callers"` in plugin.json, written by `nildatest.ManifestAbilities`; the wire's
+  `Ability.callers`): the caller kinds Core may call an ability for. Empty is every ability before. One that names
+  neither `ai` nor `mcp` is in no tool list a model reads, and Core refuses it to a kind it does not name; Init
+  refuses a kind Core does not send, or one named twice. Booking's import doors are the first (its plan's ADR-7: the
+  guest list never passes through an AI). Both need the Core that reads them; check `CallerKind` in `Run` as well.
+
 ## v0.50.0 — 2026-11-03 (an action's one-time value, a report's notice, a body, a layout, a direction, Core's resources typed and faked, a route's gross prices, the manifest bounds)
 
 - Core's manifest bounds, exported: `MaxManifestAdminPages`, `MaxManifestLabelLen`, `MaxManifestTranslationLen` and the

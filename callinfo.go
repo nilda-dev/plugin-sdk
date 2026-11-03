@@ -26,6 +26,49 @@ type CallInfo struct {
 	// this call rather than a person's own press (v0.41.0): hold the assistant to your own limits on every door it
 	// can reach, an admin screen's button as much as an ability.
 	ViaAssistant bool
+	// CallerKind is which door Core took this call through (v0.51.0): CallerKindAI, CallerKindMCP,
+	// CallerKindImporter or CallerKindOwnerUI. Core's own code sets it on the wire, never from the payload, so a
+	// model that writes an ability's arguments cannot write this; empty from a Core that does not say and on Core's
+	// own hooks. Read it with CallerKind.
+	CallerKind string
+}
+
+// The caller kinds Core sends (CallInfo.CallerKind, Ability.Callers). A kind names a door, never a person.
+const (
+	// CallerKindAI is the site's assistant: the panel's chat, the app's, or Core's admin tools pressing a button or
+	// saving a form for it.
+	CallerKindAI = "ai"
+	// CallerKindMCP is a connected AI app over Remote MCP, or a connector's direct REST invoke.
+	CallerKindMCP = "mcp"
+	// CallerKindImporter is Core's own importer, which hands a plugin a document the owner uploaded and no model
+	// has held.
+	CallerKindImporter = "importer"
+	// CallerKindOwnerUI is a person's own press in the panel or the app: a row action, a form save.
+	CallerKindOwnerUI = "owner_ui"
+)
+
+// CallerKind returns which door Core took the call ctx belongs to, and false when Core did not say — an older Core,
+// one of Core's own hooks, or outside a call. Never read the kind from your arguments: they are what a model wrote.
+// A door that must not open to a model fails closed on false:
+//
+//	kind, ok := nilda.CallerKind(ctx)
+//	if !ok || kind != nilda.CallerKindImporter {
+//		return nil, errors.New("this action takes calls from Core's importer only")
+//	}
+//
+// In a test, nilda.WithCallInfo(ctx, nilda.CallInfo{CallerKind: nilda.CallerKindImporter}) sets it.
+func CallerKind(ctx context.Context) (string, bool) {
+	kind := CallOf(ctx).CallerKind
+	return kind, kind != ""
+}
+
+// knownCallerKind reports whether kind is one Core sends.
+func knownCallerKind(kind string) bool {
+	switch kind {
+	case CallerKindAI, CallerKindMCP, CallerKindImporter, CallerKindOwnerUI:
+		return true
+	}
+	return false
 }
 
 // EventInfo is the CloudEvents 1.0 context of the event being handled (Core owner decision D13): the type and data
@@ -69,7 +112,7 @@ func EventOf(ctx context.Context) EventInfo {
 // withCall puts a hook request's call context where CallOf finds it.
 func withCall(ctx context.Context, req *contract.HookRequest) context.Context {
 	ci := CallInfo{RequestID: req.GetRequestId(), Contract: req.GetContract(), Caller: req.GetCaller(),
-		IdempotencyKey: req.GetIdempotencyKey(), ViaAssistant: req.GetViaAssistant()}
+		IdempotencyKey: req.GetIdempotencyKey(), ViaAssistant: req.GetViaAssistant(), CallerKind: req.GetCallerKind()}
 	if ci == (CallInfo{}) {
 		return ctx
 	}

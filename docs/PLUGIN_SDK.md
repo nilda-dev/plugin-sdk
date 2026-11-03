@@ -967,6 +967,25 @@ saves it, whatever a connector was granted; a person's own press in the panel is
 `CallOf(ctx).ViaAssistant` says when the assistant asked for a hook call, so your own limits (a daily refund count,
 say) hold on the screen's door as they do on the ability's.
 
+**A door no model may open (`Callers`, `CallerKind`, v0.51.0).** Some actions take what no model may hold — an
+import of the owner's guest list from another tool, which Core's importer hands over and the assistant never sees.
+Declare such an ability `Callers: []string{nilda.CallerKindImporter}` (`"callers": ["importer"]` in plugin.json;
+`nildatest.ManifestAbilities` writes it): an ability whose `Callers` names neither `nilda.CallerKindAI` nor
+`nilda.CallerKindMCP` is in no tool list a model reads, and Core refuses a call to it from a kind it does not name.
+Empty `Callers` is every ability before: the assistant's and connected AI apps'. Then check the kind in `Run` as well,
+because an older Core does not know the field — `nilda.CallerKind(ctx)` answers which door Core took the call through
+(`ai`, `mcp`, `importer`, `owner_ui`) and `false` when Core did not say, so a door fails closed on `false`:
+
+```go
+kind, ok := nilda.CallerKind(ctx)
+if !ok || kind != nilda.CallerKindImporter {
+	return nil, errors.New("this action takes calls from Core's importer only")
+}
+```
+
+Core sets the kind on the hook call's wire message from its own code — never from your arguments, which are what a
+model wrote; do not read a kind from them. Init refuses a kind Core does not send (`"importr"`) or one named twice.
+
 **Declare the truest `Class`, not the most convenient one.** The class is what Core's guardrails run on:
 each connector has a risk ceiling the owner sets, and an ability above it is refused before your plugin is
 ever reached. A lower class does not make your action safer — it makes it reachable by connectors the
@@ -998,8 +1017,9 @@ Editor who holds `content.edit` and nothing of yours is refused, and the site's 
 action at all. You declare nothing for this: it is the same list your admin screens use, so a button your
 screen refuses someone is an action the chat refuses them too. What you are NOT told is who that person was:
 the call carries the hook's name, its input and what `nilda.CallOf(ctx)` reads — the request's id, and for a
-call relayed by Core's service desk the contract, the asking plugin and an idempotency key, and whether the
-assistant asked (`ViaAssistant`, v0.41.0) — and nothing about the person (a limit Core records in its known issues).
+call relayed by Core's service desk the contract, the asking plugin and an idempotency key, whether the
+assistant asked (`ViaAssistant`, v0.41.0) and which door Core took the call through (`CallerKind`, v0.51.0: a kind of
+door, never who) — and nothing about the person (a limit Core records in its known issues).
 
 `InputSchema` is required and must be a JSON Schema **object** — an agent that cannot see the shape of
 your input will call you with the wrong thing. `ObjectSchema` builds one so you do not hand-write JSON.
@@ -2716,7 +2736,8 @@ inside `HandleEvent` returns an `EventInfo`: `ID`
 Every field is empty from a Core that does not fill it, and Core's own hooks carry no `Contract` or `Caller`. A
 provider that must know which plugin asked — a shop deciding whether to trust an agent named in a checkout — reads
 `Caller`. In a test that drives a provider method directly, `nilda.WithCallInfo(ctx, nilda.CallInfo{…})` sets what
-`CallOf` answers (nildatest's service desk does it for you), and `Services.SetAgentTier` sets what `AgentTier` answers.
+`CallOf` answers (nildatest's service desk does it for you) — `nilda.CallInfo{CallerKind: nilda.CallerKindImporter}`
+is what `CallerKind` then answers — and `Services.SetAgentTier` sets what `AgentTier` answers.
 Neither says who the PERSON was (see abilities, above). Log `RequestID` beside your own lines: one search in the
 owner's log then finds both halves of a failure.
 
