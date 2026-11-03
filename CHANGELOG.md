@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.53.0 — unreleased (which door Core took a call through, and abilities no model is offered)
+## v0.53.0 — 2026-11-03 (which door Core took a call through, and abilities no model is offered)
 
 - `CallerKind(ctx)` and `CallInfo.CallerKind`: which door Core took the hook call through — `CallerKindAI` (the
   site's assistant: the panel's chat, the app's, Core's admin tools acting for it), `CallerKindMCP` (a connected AI

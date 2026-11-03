@@ -3,6 +3,7 @@ package nilda
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -17,6 +18,21 @@ func TestShowsPricesIncludingTaxIsCoresOneOrNothing(t *testing.T) {
 		}
 		if got := ShowsPricesIncludingTax(r); got != want {
 			t.Errorf("%q → %v, want %v", in, got, want)
+		}
+	}
+}
+
+// The header and its one "yes" are Core's: its proxy sends pricesIncludeTaxHeader with "1" to the shop's own routes
+// (internal/plugin/commerce.go RouteHeaders, core#65). A rename on either side would leave the shop showing net again
+// with every test of its own still green.
+func TestThePricesIncludeTaxHeaderIsCores(t *testing.T) {
+	src := coreSource(t, "internal", "plugin", "commerce.go")
+	for _, want := range []string{
+		`pricesIncludeTaxHeader = "` + pricesIncludeTaxHeader + `"`,
+		`map[string]string{pricesIncludeTaxHeader: "1"}`,
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("core's internal/plugin/commerce.go no longer has %q — re-read ShowsPricesIncludingTax against it", want)
 		}
 	}
 }
