@@ -876,3 +876,39 @@ func TestTheFakeCopiesTheInstrumentAndTheResolveMoment(t *testing.T) {
 		t.Errorf("a session nobody paid has an instrument or a moment: %+v", other)
 	}
 }
+
+// The kit refuses a NUL in payment text where Core does (Core's noNUL, review 2026-10-30), in Core's words: a body
+// that never went through the SDK's Validate — a plugin in another language, or the untyped API — meets the rule too.
+func TestTheKitRefusesANULInPaymentTextAsCoreDoes(t *testing.T) {
+	pay := NewPayments()
+	pay.Gateway("testpay", &StubGateway{})
+	pay.Consumer("shop", &shopConsumer{confirm: nilda.PaymentConfirmResult{Proceed: true}})
+	shopCore, _, s1 := pay.Core("shop", "payment_session")
+	gwCore, _, s2 := pay.Core("testpay", "payment_gateway")
+	t.Cleanup(s1.Close)
+	t.Cleanup(s2.Close)
+	ctx := context.Background()
+	const words = "text in a payment may not hold a NUL character"
+	refusedInWords := func(name string, err error) {
+		t.Helper()
+		var ae *nilda.APIError
+		if !errors.As(err, &ae) || ae.Status != http.StatusUnprocessableEntity || !strings.Contains(ae.Error(), words) {
+			t.Errorf("%s: %v — want 422 with Core's %q", name, err, words)
+		}
+	}
+
+	p := params()
+	p.Description = "a\x00b"
+	refusedInWords("a session's description",
+		shopCore.API().WithIdempotencyKey("k-nul").Post(ctx, "/payments/sessions", p, nil))
+
+	s, err := shopCore.API().Payments().CreateSession(ctx, "k1", params())
+	if err != nil {
+		t.Fatal(err)
+	}
+	refusedInWords("a pending report's provider_ref",
+		gwCore.API().Post(ctx, "/payments/sessions/"+s.ID+"/pending", map[string]string{"provider_ref": "pi\x001"}, nil))
+	if got, err := gwCore.API().Payments().MarkPending(ctx, s.ID, "pi_1"); err != nil || got.Status != nilda.PaymentPending {
+		t.Fatalf("a clean pending report after the refusal: %+v %v", got, err)
+	}
+}
