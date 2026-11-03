@@ -8,6 +8,15 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.50.0 — unreleased (an action's one-time value, a report's notice)
+
+- `AdminActionResult.Reveal` (and `MaxAdminRevealLen`): a value the owner must copy now — a new API key — drawn by the
+  admin in a dialog that stays until closed, with a copy button, never translated and kept out of Core's logs.
+- `AdminReportResult.Notice` (and `MaxAdminNoticeLen`): one sentence above a report, chiefly what a zero means
+  ("requests are switched off"), translated like a label. Core's lesson 13; the shop's Reports page already used all
+  eight of Core's metrics, so it had nowhere to say it.
+- Both found by the shop's Unit 12 end review; Core draws them from the same release.
+
 ## v0.49.0 — 2026-11-03 (what Core sends a plugin, typed)
 
 - Core's own events by name: `EventContentCreated` … `EventContentImported`, `EventFormSubmitted`,

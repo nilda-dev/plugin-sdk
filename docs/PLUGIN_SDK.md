@@ -1314,6 +1314,13 @@ the reply is a typed struct now rather than a map you fill in from memory. A but
 did anything is worse than no button. The admin looks `Message` up in your `translations`, as it does your
 page labels, so answer with a fixed sentence and translate it there.
 
+**A value the owner must copy now goes in `Reveal`** (v0.50.0). A new API key whose fingerprint alone you keep is
+shown once: answer `nilda.AdminActionResult{Message: "A new key is ready", Reveal: key}`, and the admin draws it in a
+dialog that stays until the owner closes it, with a copy button — a message's notice closes on its own after a few
+seconds, and a key gone with it is a key nobody can give the platform. `Reveal` is never translated and Core keeps it out
+of its logs; it is shown whole or not at all — one longer than `nilda.MaxAdminRevealLen` characters, or with a character
+nobody can copy (a line break, a control or bidi mark), is dropped, since a cut key does not work.
+
 **An action whose answer never comes back may still have run.** When your answer does not arrive — the call
 budget (`PLUGIN_CALL_TIMEOUT`) ran out, or your process stopped mid-call — Core cannot tell "never started"
 from "finished, answer lost", so it tells
@@ -1331,6 +1338,11 @@ headline numbers above them. Subscribe it the way actions are subscribed — `ni
 `InitResult.Hooks`, under the same `admin_page` grant — and route it the way actions are routed, with
 `nilda.DispatchAdminReport(ctx, hook, payload, p.onReport)`. A plugin with all three kinds of page lists all
 three hooks: `Hooks: []string{nilda.AdminActionHook, nilda.AdminReportHook, nilda.AdminCalendarHook}`.
+
+**A zero says whether anything is measuring** (v0.50.0). `AdminReportResult.Notice` is one fixed sentence the
+admin shows above the report, translated through your `translations`: "Back-in-stock requests are switched off" beside
+a count of 0, so the owner can tell a quiet shop from a switched-off feature. At most `nilda.MaxAdminNoticeLen`
+characters.
 
 **A report row can link and act** (v0.42.0). Two column types are a report's alone: `nilda.ColumnLink`
 (`"link"`), whose cell is a `nilda.ReportLink` — `{label, page}` one of your own declared pages, `{label, screen}`

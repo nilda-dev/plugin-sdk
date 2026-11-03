@@ -241,6 +241,8 @@ const LinkTargetsHook
 const MandatePreOrder
 const MandateSubscription
 const MandateUpdate
+const MaxAdminNoticeLen
+const MaxAdminRevealLen
 const MaxAssetsPerPlugin
 const MaxDisputesPerSession
 const MaxListFilters
@@ -398,6 +400,7 @@ field AdminAction.Action string json:action
 field AdminAction.ID string json:id
 field AdminAction.Page string json:page
 field AdminActionResult.Message string json:message
+field AdminActionResult.Reveal string json:reveal
 field AdminCalendarRequest.From string json:from
 field AdminCalendarRequest.Page string json:page
 field AdminCalendarRequest.Params map[string]string json:params
@@ -441,6 +444,7 @@ field AdminPage.Table string json:table
 field AdminReportRequest.Page string json:page
 field AdminReportRequest.Params map[string]string json:params
 field AdminReportResult.Columns []ListColumn json:columns
+field AdminReportResult.Notice string json:notice
 field AdminReportResult.Rows []map[string]any json:rows
 field AdminReportResult.Summary map[string]any json:summary
 field Agent.Operator string json:operator
