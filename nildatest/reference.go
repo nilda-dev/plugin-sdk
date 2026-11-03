@@ -94,39 +94,43 @@ func (r *Reference) SetPrivacyPolicy(p nilda.PrivacyPolicy) {
 // Core builds a fake Core for the plugin key whose API answers the reference routes. Close the server when done.
 func (r *Reference) Core(key string, granted ...string) (*nilda.Core, *Host, *httptest.Server) {
 	h := newHost(key, granted)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		r.mu.Lock()
-		r.asked = append(r.asked, req.URL.RequestURI())
-		status, isDown := r.down[req.URL.Path]
-		var data any
-		switch {
-		case req.Method != http.MethodGet:
-		case req.URL.Path == "/reference/seller":
-			data = r.seller
-		case req.URL.Path == "/reference/privacy-policy":
-			data = r.privacy
-		case req.URL.Path == "/reference/eu-vat-rates" && r.euVAT != nil:
-			data = *r.euVAT
-		case req.URL.Path == "/reference/exchange-rates" && r.rates != nil:
-			data = *r.rates
-		case req.URL.Path == "/reference/tax-table" && r.taxTable != nil:
-			data = *r.taxTable
-		}
-		r.mu.Unlock()
-		if isDown {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(status)
-			_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]string{"code": "unavailable",
-				"message": "reference data is not available"}})
-			return
-		}
-		if data == nil {
-			writeError(w, notFound("no such route: %s %s", req.Method, req.URL.Path))
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
-	}))
+	srv := httptest.NewServer(http.HandlerFunc(r.serve))
 	core := nilda.NewCoreForTest(key, granted, h, srv.URL, "test-token", scopesFor(granted))
 	return core, h, srv
+}
+
+// serve answers one request to the reference routes, as Core does. NewSite's fake site serves its own Reference through
+// it, so a plugin that reads both Core's resources and its reference data runs against one fake Core.
+func (r *Reference) serve(w http.ResponseWriter, req *http.Request) {
+	r.mu.Lock()
+	r.asked = append(r.asked, req.URL.RequestURI())
+	status, isDown := r.down[req.URL.Path]
+	var data any
+	switch {
+	case req.Method != http.MethodGet:
+	case req.URL.Path == "/reference/seller":
+		data = r.seller
+	case req.URL.Path == "/reference/privacy-policy":
+		data = r.privacy
+	case req.URL.Path == "/reference/eu-vat-rates" && r.euVAT != nil:
+		data = *r.euVAT
+	case req.URL.Path == "/reference/exchange-rates" && r.rates != nil:
+		data = *r.rates
+	case req.URL.Path == "/reference/tax-table" && r.taxTable != nil:
+		data = *r.taxTable
+	}
+	r.mu.Unlock()
+	if isDown {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]string{"code": "unavailable",
+			"message": "reference data is not available"}})
+		return
+	}
+	if data == nil {
+		writeError(w, notFound("no such route: %s %s", req.Method, req.URL.Path))
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"data": data})
 }

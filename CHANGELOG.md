@@ -34,7 +34,8 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
   `MediaFile` answers a `MediaBytes` — the open bytes with the item and the type, length and `Content-Disposition` Core
   served them with — so a plugin streaming a download needs no second read; Core's REST API has no file route, and the
   shop's `GET /media/{id}/file` on it was a 404 on every install.
-  nildatest.NewSite: a stateful fake of the same routes (and the content routes) for a plugin's tests.
+  nildatest.NewSite: a stateful fake of the same routes (and the content routes) for a plugin's tests. Its `/reference` routes answer
+  from its own `Reference()`, so one fake Core serves both.
 - nildatest.Reference: `SetEUVATRates`, `SetExchangeRates`, `SetTaxTable`, `Down`, `Asked` — it answered two of the five
   reads, so a plugin's invoices and tax table needed fakes of its own.
 - The guide says what today's Core does: a translation string is bounded at 500 characters, not 400 bytes; an

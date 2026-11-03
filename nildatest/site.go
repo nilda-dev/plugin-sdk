@@ -55,6 +55,7 @@ type Site struct {
 	media    map[string]*siteMedia
 	failNext []int
 	clock    time.Time
+	ref      *Reference
 }
 
 // SitePage is a content item of the fake site, as a test adds it and reads it back.
@@ -105,7 +106,8 @@ type siteMedia struct {
 // NewSite builds an empty site with Core's two built-in taxonomies, "category" and "tag".
 func NewSite() *Site {
 	s := &Site{items: map[string]*sitePageState{}, taxIDs: map[string]string{}, terms: map[string]*siteTerm{},
-		filed: map[string][]string{}, media: map[string]*siteMedia{}, clock: time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC)}
+		filed: map[string][]string{}, media: map[string]*siteMedia{}, clock: time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC),
+		ref: NewReference()}
 	s.AddTaxonomy("category")
 	s.AddTaxonomy("tag")
 	return s
@@ -119,6 +121,11 @@ func (s *Site) Core(key string, granted ...string) (*nilda.Core, *Host, *httptes
 	core := nilda.NewCoreForTest(key, granted, h, srv.URL, "test-token", scopesFor(granted))
 	return core, h, srv
 }
+
+// Reference is the site's reference data — who sells, whether a privacy policy is published, the EU VAT rates, the
+// exchange rates, the tax table — which its /reference routes answer, as Core's do: set it as a Reference is set
+// (SetSeller, SetPrivacyPolicy, …). A new site publishes no imprint and no privacy policy.
+func (s *Site) Reference() *Reference { return s.ref }
 
 // SetSite sets what GET /site answers.
 func (s *Site) SetSite(site nilda.Site) {
@@ -306,6 +313,10 @@ func (s *Site) serve(h *Host, w http.ResponseWriter, r *http.Request) {
 		status := s.failNext[0]
 		s.failNext = s.failNext[1:]
 		writeError(w, &apiError{status, "UNAVAILABLE", "the fake site was told to fail this request"})
+		return
+	}
+	if strings.HasPrefix(r.URL.Path, "/reference/") {
+		s.ref.serve(w, r)
 		return
 	}
 	var parts []string

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"testing"
+	"time"
 
 	nilda "github.com/nilda-dev/plugin-sdk"
 )
@@ -330,5 +331,39 @@ func TestSiteFailNext(t *testing.T) {
 	site.FailNext(http.StatusServiceUnavailable)
 	if s, err := core.API().Site(ctx); err != nil || s.Title != "Santoor" {
 		t.Errorf("a retried read answered %+v (%v)", s, err)
+	}
+}
+
+// The fake site answers Core's /reference routes too, from its own Reference: a plugin reading both Core's resources
+// and its reference data runs against one fake Core, and a site nobody set up answers as Core does with no imprint and
+// no policy — an answer, not a missing route.
+func TestSiteAnswersItsReferenceRoutes(t *testing.T) {
+	ctx := context.Background()
+	site := NewSite()
+	core, _, srv := site.Core("shop")
+	defer srv.Close()
+	ref := core.API().Reference()
+
+	pp, err := ref.PrivacyPolicy(ctx)
+	if err != nil || pp.Published {
+		t.Fatalf("a new site's privacy policy read %+v (%v), want an answer that none is published", pp, err)
+	}
+	site.Reference().SetPrivacyPolicy(nilda.PrivacyPolicy{Published: true, Path: "/privacy"})
+	site.Reference().SetSeller(nilda.Seller{Name: "Santoor GmbH"})
+	if pp, err := ref.PrivacyPolicy(ctx); err != nil || !pp.Published || pp.Path != "/privacy" {
+		t.Errorf("the policy set read %+v (%v)", pp, err)
+	}
+	if s, err := ref.Seller(ctx); err != nil || s.Name != "Santoor GmbH" {
+		t.Errorf("the seller set read %+v (%v)", s, err)
+	}
+	if _, err := ref.TaxTable(ctx, time.Now()); apiStatus(err) != http.StatusNotFound {
+		t.Errorf("a tax table nobody set answered %v, want Core's 404", err)
+	}
+	site.Reference().Down("/reference/privacy-policy", http.StatusServiceUnavailable)
+	if _, err := ref.PrivacyPolicy(ctx); err == nil {
+		t.Error("a reference route that is down answered")
+	}
+	if got := site.Reference().Asked(); len(got) < 4 || got[0] != "/reference/privacy-policy" {
+		t.Errorf("asked %v", got)
 	}
 }
