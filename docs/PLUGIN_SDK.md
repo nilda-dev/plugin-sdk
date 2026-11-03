@@ -2617,6 +2617,23 @@ Each capability a manifest may declare has its constant — `nilda.CapKV`, `CapT
 `nilda.AdminPageURL(origin, pluginKey, page)`, or one record's form with `nilda.AdminFormURL(origin, pluginKey, page, id)`
 (an empty id: the form for a new one).
 
+### A content item's body, a page's layout, a locale's direction (unreleased, v0.50.0)
+
+**A body is a Lexical document.** Core refuses any other shape on a content write. Write plain words as one with
+`nilda.TextBody(text)` (a paragraph per blank-line block, right to left when the words are), read a body back as plain
+text with `nilda.BodyText(body)` (a heading, a list item, a quote each its own block; bold and links read as their
+words), and check one before a write, or in a test, with `nilda.CheckBody(body)` — Core's own rule (`ErrNotABody`).
+
+**A page's layout is a `nilda.LayoutTree`** — sections (`nilda.LayoutSection`) holding columns (`LayoutColumn`)
+holding widgets (`LayoutWidget`), each a `nilda.LayoutNode` with its `ID`, `Widget` key and `Config`. The shop's widget
+keys are constants — `nilda.WidgetProductLoop`, `WidgetCart`, `WidgetCheckout`, `WidgetAccount`, `WidgetAddToCart`,
+`WidgetProductField`, `WidgetProductGallery`, `WidgetProductReviews`, `WidgetProductTerms`, `WidgetCartCount` — beside
+`WidgetButton` and `WidgetPostContent`; Core's `docs/WIDGET_REGISTRY.json` lists every widget and the fields its config
+takes. A manifest's `templates[].tree` is the same tree.
+
+**A locale's direction** is `nilda.LocaleDirection(locale)`, "rtl" or "ltr", read off the script the language is
+written in as Core decides it — for a mail, a page or a PDF your plugin lays out itself.
+
 ### Service contracts (`Contracts`, `ContractNamed`)
 
 What one kind of plugin promises another through Core — a payment gateway to the shop today; a carrier, a
@@ -2870,6 +2887,10 @@ subscribed to, or one your grants do not admit, still reaches your code here —
 it. Assert on what `Init` returns (its `Hooks` and `Events`) for that half. `host.Fail = err` covers the case nobody
 writes: what your plugin does when Core is having a bad day — one that ignores a failed `SendEmail` loses a
 customer's receipt with nothing recorded anywhere.
+
+`nildatest.NewReference()` fakes every `/reference` read: `SetSeller`, `SetPrivacyPolicy`, and (v0.50.0)
+`SetEUVATRates`, `SetExchangeRates`, `SetTaxTable`; a read nothing was set for is a 404, as with no Nilda Central;
+`Down(path, status)` makes one fail as an outage would, and `Asked()` says which routes your plugin read.
 
 For the API half, `nildatest.NewWithAPI(key, handler, grants...)` points `core.API()` at a test server you
 control, so you can assert the requests your plugin makes and choose what comes back — a 403 from a missing
