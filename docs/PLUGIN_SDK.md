@@ -675,6 +675,130 @@ a release named after your plugin for the owner to review and publish. The live 
 its live tree are untouched until they do; on a plan without releases nothing is created, and the owner is
 told to add the widget by hand.
 
+### Core's bounds on a manifest (`MaxManifest…`, v0.50.0)
+
+Core refuses a WHOLE manifest at install for any one bound crossed — a 2,001-character ability description takes
+every page, table and ability down with it — and `nilda plugin check` refuses it on your machine. The SDK exports
+each bound Core states as a number, so your own test can hold your plugin.json to them and hear about a crossed one
+at your keyboard rather than at an install:
+
+```go
+func TestTheAbilitiesFitCoresBounds(t *testing.T) {
+	var m struct {
+		Abilities []struct{ Name, Description string } `json:"abilities"`
+	}
+	raw, _ := os.ReadFile("plugin.json")
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Abilities) > nilda.MaxManifestAbilities {
+		t.Errorf("%d abilities, Core takes at most %d", len(m.Abilities), nilda.MaxManifestAbilities)
+	}
+	for _, a := range m.Abilities {
+		if n := utf8.RuneCountInString(a.Description); n > nilda.MaxManifestAbilityDescriptionLen {
+			t.Errorf("%s: a description of %d characters", a.Name, n)
+		}
+	}
+}
+```
+
+They are numbers, not a validator: which field each bound applies to, and every rule that is not a size, is Core's
+validation, and `nilda plugin check` is the one that runs it. Each constant is Core's own number AND Core's unit,
+held to Core's source by `TestTheManifestBoundsAreCores`. **Count in the unit the table says**: a count is entries of
+a list or a map; characters are Unicode characters, so a Persian or Arabic text has as many as an English one of the
+same letters (`utf8.RuneCountInString`, never `len`); bytes are UTF-8 bytes (`len`), where a Persian or Arabic letter
+takes two. A key or a name whose shape Core holds to a pattern (a page's key, a content type's, a limit's name, a
+locale code) is not here — the pattern is the rule, and `nilda plugin check` says it.
+
+| Constant | Bound | What it bounds |
+|---|---|---|
+| `MaxManifestAdminPages` | 40 | admin_pages |
+| `MaxManifestPageFields` | 48 | a settings page's fields |
+| `MaxManifestReportParams` | 20 | a report or calendar page's fields (its filters) |
+| `MaxManifestListColumns` | 20 | a list page's columns, and its search columns, each |
+| `MaxManifestRowActions` | 8 | a list page's row actions |
+| `MaxManifestListFilters` | 4 | a list page's filters |
+| `MaxManifestFilterChoices` | 20 | a choice filter's values |
+| `MaxManifestFilterChoiceLen` | 120 characters | one of a choice filter's values |
+| `MaxManifestConditionValues` | 20 | a row action's shown_when, its in and its not_in each |
+| `MaxManifestSettingChoices` | 100 | a field's choices, on a settings page and in a form |
+| `MaxManifestSettingDefaultBytes` | 4 KiB | a setting's default, written as JSON |
+| `MaxManifestLabelLen` | 120 characters | the plugin's name and every label, placeholder, unit, choice, group, icon, title and keyword it declares |
+| `MaxManifestHelpLen` | 500 characters | every help text |
+| `MaxManifestFormFields` | 80 | a form's fields, a repeater's own counted |
+| `MaxManifestFormSections` | 12 | a form's sections |
+| `MaxManifestRepeaterFields` | 16 | one repeater's own fields |
+| `MaxManifestDescriptionLen` | 300 characters | the plugin's description, a mail's and an emitted field's |
+| `MaxManifestConfirmLen` | 300 characters | a row action's confirm, the question before it acts |
+| `MaxManifestMetrics` | 8 | a report page's metrics |
+| `MaxManifestBadges` | 40 | a column's badges, its labels and its types, each |
+| `MaxManifestRowSubtitle` | 2 | the columns a page's mobile.row.subtitle names |
+| `MaxManifestHeadline` | 3 | mobile.headline |
+| `MaxManifestMobileLabelLen` | 40 characters | mobile.label |
+| `MaxManifestPickActions` | 4 | a page's mobile.pick actions |
+| `MaxManifestPickActionLabelLen` | 24 characters | a mobile.pick action's label |
+| `MaxManifestPickTools` | 12 | the tools a mobile.pick names |
+| `MaxManifestPickSentenceLen` | 120 characters | the sentence a mobile.pick chip writes in the chat box |
+| `MaxManifestPickEffectLen` | 160 characters | a mobile.pick action's effect, what visitors will see change |
+| `MaxManifestTranslationLocales` | 12 | the languages translations declares |
+| `MaxManifestTranslationStrings` | 300 | one language's strings |
+| `MaxManifestTranslationLen` | 500 characters | one string, its source and its translation each |
+| `MaxManifestTranslationBytes` | 128 KiB | every source and translation of every language together |
+| `MaxManifestEditorCommands` | 24 | editor_commands |
+| `MaxManifestCommandKeywords` | 16 | one editor command's keywords |
+| `MaxManifestEditorCommandContentBytes` | 32 KiB | one editor command's content |
+| `MaxManifestFieldTypes` | 12 | the field types fields declares |
+| `MaxManifestAuthProviders` | 4 | auth_providers |
+| `MaxManifestWebhookPaths` | 8 | webhook_paths |
+| `MaxManifestWebhookPathLen` | 128 bytes | one of webhook_paths |
+| `MaxManifestFormReplacements` | 4 | form_replacements |
+| `MaxManifestFormSlugs` | 8 | one form replacement's form_slugs |
+| `MaxManifestSearchNameLen` | 40 characters | search.name, the engine's name |
+| `MaxManifestAbilities` | 200 | abilities |
+| `MaxManifestAbilityDescriptionLen` | 2,000 characters | an ability's description |
+| `MaxManifestVisitorTools` | 16 | visitor_tools |
+| `MaxManifestVisitorToolDescriptionLen` | 1,000 characters | a visitor tool's description |
+| `MaxManifestVisitorToolPaths` | 8 | a visitor tool's paths |
+| `MaxManifestVisitorToolPathLen` | 200 bytes | one of a visitor tool's paths |
+| `MaxManifestSiteFiles` | 8 | site_files |
+| `MaxManifestTables` | 128 | tables |
+| `MaxManifestTableColumns` | 64 | one table's columns |
+| `MaxManifestTableNameLen` | 48 bytes | a table's name and a column's (the name is lowercase ASCII) |
+| `MaxManifestIndexesPerTable` | 16 | one table's indexes, counting its unique columns and the index a list page's order_by adds |
+| `MaxManifestIndexColumns` | 32 | one index's columns |
+| `MaxManifestEmailTemplates` | 64 | email_templates |
+| `MaxManifestEmailVariables` | 64 | one template's variables |
+| `MaxManifestEmailSampleBytes` | 16 KiB | one variable's sample, written as JSON |
+| `MaxManifestEmailLocales` | 64 | the languages one template's defaults are written in |
+| `MaxManifestEmailSubjectLen` | 200 characters | a default's subject |
+| `MaxManifestEmailBodyBytes` | 32 KiB | a default's text, and its HTML, each |
+| `MaxManifestEmits` | 32 | emits |
+| `MaxManifestEmitFields` | 64 | one event's fields |
+| `MaxManifestEmitTypeLen` | 96 bytes | an event's type (the type is lowercase ASCII) |
+| `MaxManifestNotifications` | 16 | notifications |
+| `MaxManifestNoticeTitleLen` | 120 characters | a notice's title, before its {field}s are filled |
+| `MaxManifestNoticeBodyLen` | 200 characters | a notice's body, before its {field}s are filled |
+| `MaxManifestProcessing` | 16 | processing |
+| `MaxManifestProcessingTextLen` | 400 characters | a processing entry's what, recipient and retention, each |
+| `MaxManifestNetworkHosts` | 32 | network |
+| `MaxManifestContracts` | 16 | provides, requires and uses, each |
+| `MaxManifestRecommends` | 8 | recommends |
+| `MaxManifestRecommendationWhyLen` | 200 characters | a recommendation's why |
+| `MaxManifestPlanLimits` | 16 | limits |
+| `MaxManifestPlanLimitLabelLen` | 80 characters | a limit's label |
+| `MaxManifestContentTypes` | 8 | content_types |
+| `MaxManifestContentTypeFields` | 48 | a content type's fields, and a field's sub-fields |
+| `MaxManifestContentTypeGroups` | 16 | a content type's groups |
+| `MaxManifestTaxonomies` | 8 | taxonomies |
+| `MaxManifestTaxonomyKeyLen` | 60 bytes | a taxonomy's key (the key is lowercase ASCII) |
+| `MaxManifestTaxonomyAppliesTo` | 32 | the content types one taxonomy applies_to |
+| `MaxManifestTemplates` | 8 | templates, one per content type |
+| `MaxManifestTemplateBytes` | 64 KiB | one template's tree, as JSON |
+| `MaxManifestLegalNoticeLen` | 12,000 characters | legal_notice |
+| `MaxManifestAccountNameLen` | 80 characters | account.name |
+| `MaxManifestAccountHostLen` | 253 bytes | account.host (a host name is ASCII) |
+| `MaxManifestBytes` | 2 MiB | plugin.json itself, in the package |
+
 ### What you do with personal data (`processing`)
 
 A site's privacy notice must say what is done with a visitor's data, who receives it and how long it is kept (GDPR
