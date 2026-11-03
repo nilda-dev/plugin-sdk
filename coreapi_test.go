@@ -445,6 +445,8 @@ func TestTheTypedRoutesAreCoresOwn(t *testing.T) {
 		{resources, "rest/resources_core.go", `g.POST("/menus", s.createMenu)`},
 		{resources, "rest/resources_core.go", `g.POST("/menus/:id/items", s.addMenuItem)`},
 		{resources, "rest/resources_core.go", `g.GET("/media/:id", s.getMedia)`},
+		{resources, "rest/resources_core.go", `g.GET("/media/:id/file", s.getMediaFile)`},
+		{resources, "rest/resources_core.go", `g.PATCH("/media/:id", s.updateMedia)`},
 		{layouts, "rest/layouts.go", `g.GET("/layouts/holding", s.layoutsHolding)`},
 		{layouts, "rest/layouts.go", `g.PUT("/content/:type/:id/layout", s.putLayout)`},
 		{crud, "rest/crud.go", `g.POST("/content/:type/:id/publish", s.publishContent)`},
@@ -460,7 +462,8 @@ func TestTheTypedRoutesAreCoresOwn(t *testing.T) {
 		"getContentTerms": "ScopeReadTaxonomy", "assignContentTerms": "ScopeWriteTaxonomy",
 		"getTermContent": "ScopeReadTaxonomy", "listTerms": "ScopeReadTaxonomy", "createTerm": "ScopeWriteTaxonomy",
 		"listMenus": "ScopeReadMenus", "getMenu": "ScopeReadMenus", "createMenu": "ScopeWriteMenus",
-		"addMenuItem": "ScopeWriteMenus", "getMedia": "ScopeReadMedia",
+		"addMenuItem": "ScopeWriteMenus", "getMedia": "ScopeReadMedia", "getMediaFile": "ScopeReadMedia",
+		"updateMedia": "ScopeWriteMedia",
 	} {
 		body := upTo(t, from(t, resources, "func (s *Server) "+handler+"(", "rest/resources_core.go"), "\n}",
 			"rest/resources_core.go "+handler)
@@ -482,9 +485,9 @@ func TestTheTypedRoutesAreCoresOwn(t *testing.T) {
 	if !strings.Contains(coreSource(t, "internal", "media", "service.go"), `u := "/api/v1/media/" + id.String() + "/file"`) {
 		t.Error("Core's media url is no longer /api/v1/media/{id}/file — MediaFile resolves it on Core's host")
 	}
-	// Core's REST API still has no file route of its own; when it gains one, MediaFile should call it.
-	if strings.Contains(resources, `"/media/:id/file"`) {
-		t.Error("Core's REST API serves /media/:id/file now — point MediaFile at it")
+	// A private item's address is the signed-in library's, never the public file route (SetMediaPrivate's doc, the fake).
+	if !strings.Contains(coreSource(t, "internal", "media", "service.go"), `"/api/v1/media/" + id.String() + "/private-file"`) {
+		t.Error("Core's private media url is no longer /api/v1/media/{id}/private-file — the fake answers it")
 	}
 }
 
