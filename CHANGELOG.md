@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.54.0 — unreleased (a file that is sold is private, and a plugin's whole admin can be translated)
+## v0.54.0 — 2026-11-04 (a file that is sold is private, and a plugin's whole admin can be translated)
 
 - `MediaItem.Private` and `API.SetMediaPrivate(ctx, id, private)` (`PATCH /media/{id}`, `media.write`): a private
   media item is served to nobody on its public address (`/api/v1/media/{id}/file` answers "not found" for it, every
