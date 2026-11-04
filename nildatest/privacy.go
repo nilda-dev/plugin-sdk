@@ -16,14 +16,34 @@ import (
 // holds the rules docs/PLUGIN_SDK.md states: every record found is accounted for by the erasure (erased, kept or
 // held), a held record is one the export returned, and erasing again changes nothing more.
 func CheckPersonalDataHolder(ctx context.Context, h nilda.PersonalDataHolder, email string) error {
-	req := nilda.PrivacyRequest{Emails: []string{nilda.NormalizePrivacyEmail(email)}, RequestID: "nildatest-privacy"}
+	e := nilda.NormalizePrivacyEmail(email)
+	return checkPrivacyRound(ctx, h, nilda.PrivacyRequest{Emails: []string{e}, RequestID: "nildatest-privacy"}, e)
+}
 
+// CheckPersonalDataHolderByPhone is the same round for a request that names one phone and no address — what Core sends
+// when an operator holding privacy.manage types a guest's number:
+//
+//	if err := nildatest.CheckPersonalDataHolderByPhone(ctx, plugin, "+43 660 1234567"); err != nil { t.Fatal(err) }
+//
+// The phone is sent in its nilda.NormalizePrivacyPhone form, as Core sends it. Every record must name the phone it
+// matched (a record naming the guest's address answers a question nobody asked), a record about another phone refuses
+// the whole answer, and erasing again changes nothing more. Seed a record with that phone first.
+func CheckPersonalDataHolderByPhone(ctx context.Context, h nilda.PersonalDataHolder, phone string) error {
+	p := nilda.NormalizePrivacyPhone(phone)
+	if p == "" {
+		return fmt.Errorf("nildatest: %q is not a phone by nilda.NormalizePrivacyPhone (6 to 20 digits), so Core would never send it", phone)
+	}
+	return checkPrivacyRound(ctx, h, nilda.PrivacyRequest{Phones: []string{p}, RequestID: "nildatest-privacy-phone"}, p)
+}
+
+// checkPrivacyRound is the round both checks run: export, erase, export again, erase again.
+func checkPrivacyRound(ctx context.Context, h nilda.PersonalDataHolder, req nilda.PrivacyRequest, asked string) error {
 	before, err := exportChecked(ctx, h, req)
 	if err != nil {
 		return err
 	}
 	if len(before.Records) == 0 {
-		return fmt.Errorf("nildatest: privacy.export found nothing for %s — seed a record first; an empty round proves nothing", req.Emails[0])
+		return fmt.Errorf("nildatest: privacy.export found nothing for %s — seed a record first; an empty round proves nothing", asked)
 	}
 	found := map[string]bool{}
 	for _, r := range before.Records {

@@ -2006,6 +2006,7 @@ subscribes and answers both hooks — `privacy.export` and `privacy.erase`, each
 ```go
 func (p *Plugin) ExportPersonalData(ctx context.Context, req nilda.PrivacyRequest) (nilda.PrivacyExport, error) {
 	// req.Emails are trimmed and lower-cased; match your rows the same way (nilda.NormalizePrivacyEmail).
+	// req.Phones are in nilda.NormalizePrivacyPhone form; match with req.AskedPhone (below, "Asked by phone").
 	return nilda.PrivacyExport{Records: []nilda.PrivacyRecord{{Kind: "booking", ID: "b-1042",
 		Email: "guest@example.com", Data: map[string]any{"name": "Lena Gruber"}}}}, nil
 }
@@ -2037,8 +2038,9 @@ On the wire (a plugin in another language reads and writes exactly this):
 The rules Core holds you to, and that `PrivacyExport.Validate` and `PrivacyErasure.Validate` (which `Serve` runs on
 your answer before sending it) hold you to first:
 
-- **Every record names the request address it matched** (`PrivacyRecord.Email`). One record about an address Core did
-  not ask about refuses your WHOLE answer: it is somebody else's data on its way into a stranger's archive.
+- **Every record names the one request contact it matched** — the address (`PrivacyRecord.Email`) or the phone
+  (`PrivacyRecord.Phone`), exactly one of the two. One record about an address or a phone Core did not ask about
+  refuses your WHOLE answer: it is somebody else's data on its way into a stranger's archive.
 - **An erasure says why for everything it did not erase.** `Kept` is a record you anonymised and kept part of because
   a law makes you (`PrivacyBasisLegalObligation`, Art. 17(3)(b) — the accounting facts of a payment: amount, currency,
   date, reference, status, the processor's reference); the fields you name there must no longer identify the person.
@@ -2057,8 +2059,28 @@ request, or an operator erasing their account), or the one address an operator h
 guest with no account. Never keep them for anything else. If your manifest declares `processing`, say there that you
 answer these requests. A blocklist kept as hashes is found the same way: hash the address you are sent and look it up.
 
+**Asked by phone.** A guest who booked with a phone number and no address is found by `PrivacyRequest.Phones`. Only an
+operator holding `privacy.manage` types a phone — a phone is never verified the way a signed-in person's address is, so
+Core never sends one for a person's own request — and Core sends each in its one normal form,
+`nilda.NormalizePrivacyPhone`: the digits, a leading `00` dropped, 6 to 20 digits or nothing. Match your rows by that
+form (`req.AskedPhone(row.Phone)`), **never by a suffix, a prefix or a fuzzy match**: an erasure that matched another
+guest cannot be taken back. The rule does not guess a country, so `+43 660 1234567` and `0660 1234567` are two numbers;
+Core's screen takes several and tells the operator to type both forms. A record found by phone names that phone
+(`PrivacyRecord.Phone`) and no address:
+
+```json
+{ "phones": ["436601234567"], "request_id": "5c2e7a10-8d4b-4f6e-a1c3-9b7d2e4f6a80" }
+
+{ "records": [ { "kind": "booking", "id": "b-1107", "phone": "436601234567",
+                 "data": { "name": "Lena Gruber", "phone": "+43 660 1234567" } } ] }
+```
+
+A Core older than phones sends no `phones`, and a plugin older than them ignores the key: additive both ways.
+
 Routing by hand (a Handler that already answers other hooks itself): `nilda.DispatchPrivacyHook` answers
-`handled == false` for any other hook. Test the whole round with `nildatest.CheckPersonalDataHolder`.
+`handled == false` for any other hook; it hands your holder the phones in their normal form and drops an entry that
+is no phone at all. Test the whole round with `nildatest.CheckPersonalDataHolder`, and by phone with
+`nildatest.CheckPersonalDataHolderByPhone`.
 
 ### Being the site's shop (`commerce`)
 

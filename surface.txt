@@ -1283,7 +1283,9 @@ field PrivacyRecord.Data map[string]any json:data
 field PrivacyRecord.Email string json:email
 field PrivacyRecord.ID string json:id
 field PrivacyRecord.Kind string json:kind
+field PrivacyRecord.Phone string json:phone
 field PrivacyRequest.Emails []string json:emails
+field PrivacyRequest.Phones []string json:phones
 field PrivacyRequest.RequestID string json:request_id
 field PublishResult.BecameFrontPage bool json:became_front_page
 field PublishResult.Status string json:status
@@ -1660,6 +1662,7 @@ func NewCoreForTest(string, []string, contract.HostServiceClient, string, string
 func NewOIDCClient(string, string, string, ...string) (*OIDCClient)
 func NewTransport(http.RoundTripper) (http.RoundTripper)
 func NormalizePrivacyEmail(string) (string)
+func NormalizePrivacyPhone(string) (string)
 func ObjectSchema(map[string]any, ...string) (json.RawMessage)
 func OrdersMethods(OrdersProvider) ([]ServiceMethod)
 func ParseContract([]byte) (ServiceContract, error)
@@ -1913,6 +1916,7 @@ method (PaymentSessionParams) Validate() (error)
 method (PrivacyErasure) Validate() (error)
 method (PrivacyExport) Validate(PrivacyRequest) (error)
 method (PrivacyRequest) Asked(string) (bool)
+method (PrivacyRequest) AskedPhone(string) (bool)
 method (RatesRequest) Validate() (error)
 method (RatesResult) Validate() (error)
 method (Recommendation) Target() (string)

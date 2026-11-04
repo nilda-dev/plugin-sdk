@@ -8,37 +8,46 @@ import (
 	nilda "github.com/nilda-dev/plugin-sdk"
 )
 
-// memBook is a guest book in memory: rows by email, one with a paid deposit (kept for the accounts once anonymised)
-// and one under an open chargeback (held whole).
+// memBook is a guest book in memory: rows by email and by phone (as the guest typed it), one with a paid deposit
+// (kept for the accounts once anonymised) and one under an open chargeback (held whole).
 type memBook struct {
 	rows map[string]memRow
 	// lie makes it report the erasure and keep the rows; recount makes the second erase count again; holdUnknown
-	// holds a record it never had.
-	lie, recount, holdUnknown bool
-	erases                    int
+	// holds a record it never had; leakPhone answers about another guest's phone too; byEmail names the address of a
+	// row it found by phone.
+	lie, recount, holdUnknown, leakPhone, byEmail bool
+	erases                                        int
 }
 
 type memRow struct {
-	email           string
+	email, phone    string
 	deposit, appeal bool
 }
 
 func newMemBook() *memBook {
 	return &memBook{rows: map[string]memRow{
-		"b1": {email: "guest@example.com"},
-		"b2": {email: "guest@example.com", deposit: true},
-		"b3": {email: "guest@example.com", appeal: true},
-		"b9": {email: "other@example.com"},
+		"b1": {email: "guest@example.com", phone: "+43 660 1234567"},
+		"b2": {email: "guest@example.com", phone: "+43 (660) 123 45 67", deposit: true},
+		"b3": {email: "guest@example.com", phone: "0043 660 1234567", appeal: true},
+		"b9": {email: "other@example.com", phone: "+43 660 9999999"},
 	}}
 }
 
 func (m *memBook) ExportPersonalData(_ context.Context, req nilda.PrivacyRequest) (nilda.PrivacyExport, error) {
 	var out nilda.PrivacyExport
 	for id, r := range m.rows {
-		if req.Asked(r.email) {
-			out.Records = append(out.Records, nilda.PrivacyRecord{Kind: "booking", ID: id, Email: r.email,
-				Data: map[string]any{"deposit": r.deposit}})
+		rec := nilda.PrivacyRecord{Kind: "booking", ID: id, Data: map[string]any{"deposit": r.deposit}}
+		switch {
+		case req.Asked(r.email):
+			rec.Email = r.email
+		case req.AskedPhone(r.phone) && m.byEmail:
+			rec.Email = r.email
+		case req.AskedPhone(r.phone), m.leakPhone && r.phone != "" && len(req.Phones) > 0:
+			rec.Phone = r.phone
+		default:
+			continue
 		}
+		out.Records = append(out.Records, rec)
 	}
 	return out, nil
 }
@@ -46,7 +55,7 @@ func (m *memBook) ExportPersonalData(_ context.Context, req nilda.PrivacyRequest
 func (m *memBook) ErasePersonalData(_ context.Context, req nilda.PrivacyRequest) (nilda.PrivacyErasure, error) {
 	var out nilda.PrivacyErasure
 	for id, r := range m.rows {
-		if !req.Asked(r.email) {
+		if !req.Asked(r.email) && !req.AskedPhone(r.phone) {
 			continue
 		}
 		switch {
@@ -61,7 +70,7 @@ func (m *memBook) ErasePersonalData(_ context.Context, req nilda.PrivacyRequest)
 			out.Erased++
 		}
 		if !m.lie {
-			r.email = "" // anonymised: no longer found by the address
+			r.email, r.phone = "", "" // anonymised: no longer found by the address or the phone
 			m.rows[id] = r
 		}
 	}
@@ -104,5 +113,36 @@ func TestCheckPersonalDataHolder(t *testing.T) {
 	if err := CheckPersonalDataHolder(ctx, newMemBook(), "nobody@example.com"); err == nil ||
 		!strings.Contains(err.Error(), "found nothing") {
 		t.Errorf("an empty round passed: %v", err)
+	}
+}
+
+// The same round asked by phone (B31): a holder that finds its guests by phone answers with records naming the phone,
+// erases them, and changes nothing the second time; a record about another phone refuses the whole answer.
+func TestCheckPersonalDataHolderByPhone(t *testing.T) {
+	ctx := context.Background()
+	if err := CheckPersonalDataHolderByPhone(ctx, newMemBook(), "+43 660 1234567"); err != nil {
+		t.Fatalf("a correct holder failed the phone round: %v", err)
+	}
+	for name, c := range map[string]struct {
+		book *memBook
+		want string
+	}{
+		"says erased, keeps the rows":      {&memBook{rows: newMemBook().rows, lie: true}, "still returns"},
+		"counts again on the second run":   {&memBook{rows: newMemBook().rows, recount: true}, "second erase"},
+		"answers about another phone too":  {&memBook{rows: newMemBook().rows, leakPhone: true}, "not asked about"},
+		"names the address, not the phone": {&memBook{rows: newMemBook().rows, byEmail: true}, "not asked about"},
+	} {
+		err := CheckPersonalDataHolderByPhone(ctx, c.book, "0043 660 1234567")
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: got %v, want an error saying %q", name, err, c.want)
+		}
+	}
+	if err := CheckPersonalDataHolderByPhone(ctx, newMemBook(), "0660 7654321"); err == nil ||
+		!strings.Contains(err.Error(), "found nothing") {
+		t.Errorf("an empty phone round passed: %v", err)
+	}
+	if err := CheckPersonalDataHolderByPhone(ctx, newMemBook(), "12"); err == nil ||
+		!strings.Contains(err.Error(), "not a phone") {
+		t.Errorf("a phone that normalises to nothing was checked: %v", err)
 	}
 }

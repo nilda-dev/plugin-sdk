@@ -172,3 +172,122 @@ func TestThePrivacyWireIsTheDocumentedOne(t *testing.T) {
 		}
 	}
 }
+
+// B31 (plugin-booking's close-out D17): a phone is compared by ONE rule, booking's blocklist rule moved here so Core,
+// booking and every plugin compare alike — the digits, a leading 00 dropped, 6 to 20 digits or nothing. Exact on that
+// normal form and never fuzzy: an erase that matched the wrong guest cannot be taken back. The national and the
+// international form of one number are two numbers to this rule, on purpose; Core's screen asks for both.
+func TestNormalizePrivacyPhoneIsBookingsRule(t *testing.T) {
+	for in, want := range map[string]string{
+		"+43 660 1234567":         "436601234567",
+		"0043 660 1234567":        "436601234567",
+		"0660 1234567":            "06601234567",
+		"(0660) 123-45-67":        "06601234567",
+		"tel: +43 660 1234567 ab": "436601234567",
+		"12345":                   "",
+		"123456":                  "123456",
+		"12345678901234567890":    "12345678901234567890",
+		"123456789012345678901":   "",
+		"":                        "",
+		"no digits at all":        "",
+		"00 12345":                "",
+	} {
+		if got := NormalizePrivacyPhone(in); got != want {
+			t.Errorf("NormalizePrivacyPhone(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// A record names the ONE contact it matched, and it must be one the request asked about: a record naming neither
+// cannot be matched to what the erase later says, one naming both claims a match the plugin did not make, and one
+// about a phone nobody asked about is somebody else's data on its way into a stranger's archive.
+func TestAPrivacyRecordNamesOneAskedContact(t *testing.T) {
+	req := PrivacyRequest{Emails: []string{"guest@example.com"}, Phones: []string{"436601234567"}}
+	for name, r := range map[string]PrivacyRecord{
+		"neither":        {Kind: "booking", ID: "b1"},
+		"both":           {Kind: "booking", ID: "b1", Email: "guest@example.com", Phone: "436601234567"},
+		"an unasked one": {Kind: "booking", ID: "b1", Phone: "436609999999"},
+	} {
+		if err := (PrivacyExport{Records: []PrivacyRecord{r}}).Validate(req); err == nil {
+			t.Errorf("%s: a record naming %q / %q passed", name, r.Email, r.Phone)
+		}
+	}
+	for name, r := range map[string]PrivacyRecord{
+		"an asked phone":                {Kind: "booking", ID: "b1", Phone: "436601234567"},
+		"an asked phone, as typed":      {Kind: "booking", ID: "b1", Phone: "+43 660 1234567"},
+		"an asked address, as before":   {Kind: "booking", ID: "b2", Email: "guest@example.com"},
+		"an asked address, other cases": {Kind: "booking", ID: "b3", Email: " Guest@Example.com"},
+	} {
+		if err := (PrivacyExport{Records: []PrivacyRecord{r}}).Validate(req); err != nil {
+			t.Errorf("%s: refused: %v", name, err)
+		}
+	}
+	// An unasked phone refuses the WHOLE answer, as an unasked address does.
+	bad := PrivacyExport{Records: []PrivacyRecord{
+		{Kind: "booking", ID: "b1", Phone: "436601234567"},
+		{Kind: "booking", ID: "b2", Phone: "436609999999"},
+	}}
+	if err := bad.Validate(req); err == nil || !strings.Contains(err.Error(), "not asked about") {
+		t.Errorf("an answer with one record about another phone passed: %v", err)
+	}
+	// A phone that normalises to nothing is never a match, not even for a request that also normalises to nothing.
+	if (PrivacyRequest{Phones: []string{"12"}}).AskedPhone("12") {
+		t.Error("a phone too short to be one matched")
+	}
+	if !req.AskedPhone("+43 (660) 123 45 67") || req.AskedPhone("0660 1234567") {
+		t.Error("AskedPhone does not compare by NormalizePrivacyPhone")
+	}
+}
+
+// Core sends phones as the operator typed them; the SDK hands the holder their normal form, and drops what is no phone
+// at all, so a holder never matches a row against "".
+func TestDispatchNormalisesPhones(t *testing.T) {
+	g := &guestBook{answer: PrivacyExport{Records: []PrivacyRecord{{Kind: "booking", ID: "b1", Phone: "436601234567",
+		Data: map[string]any{"name": "Lena"}}}}}
+	out, handled, err := dispatchProvided(context.Background(), g, HookPrivacyExport,
+		[]byte(`{"phones":["+43 660 1234567","12","0660 1234567",""],"request_id":"r1"}`))
+	if !handled || err != nil {
+		t.Fatalf("privacy.export by phone: handled=%v err=%v", handled, err)
+	}
+	if len(g.asked) != 1 || !slices.Equal(g.asked[0].Phones, []string{"436601234567", "06601234567"}) {
+		t.Fatalf("the holder was not handed the phones' normal forms: %+v", g.asked)
+	}
+	if len(g.asked[0].Emails) != 0 {
+		t.Errorf("a phone-only request grew an address: %+v", g.asked[0].Emails)
+	}
+	if !strings.Contains(string(out), `"phone":"436601234567"`) || strings.Contains(string(out), `"email"`) {
+		t.Errorf("a phone record is not written as the phone it matched: %s", out)
+	}
+	g.erased = PrivacyErasure{Erased: 1}
+	if _, handled, err := dispatchProvided(context.Background(), g, HookPrivacyErase,
+		[]byte(`{"phones":["0043 660 1234567"],"request_id":"r2"}`)); !handled || err != nil {
+		t.Fatalf("privacy.erase by phone: handled=%v err=%v", handled, err)
+	}
+	if !slices.Equal(g.asked[1].Phones, []string{"436601234567"}) {
+		t.Errorf("the erase was not handed the phone's normal form: %+v", g.asked[1].Phones)
+	}
+}
+
+// Additive both ways: a Core built before phones sends none, and its request still decodes into this one; nothing
+// is asked by phone then, so a holder that matches by phone finds nothing.
+func TestAnOlderCoreSendsNoPhones(t *testing.T) {
+	var req PrivacyRequest
+	dec := json.NewDecoder(strings.NewReader(`{"emails":["guest@example.com"],"request_id":"r1"}`))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		t.Fatalf("an older Core's request does not decode: %v", err)
+	}
+	if req.Phones != nil {
+		t.Errorf("an older Core's request carries phones: %v", req.Phones)
+	}
+	for _, p := range []string{"", "436601234567", "+43 660 1234567"} {
+		if req.AskedPhone(p) {
+			t.Errorf("AskedPhone(%q) is true for a request that names no phone", p)
+		}
+	}
+	// And this SDK writes no phones key to an older plugin when there are none.
+	b, err := json.Marshal(PrivacyRequest{Emails: []string{"guest@example.com"}, RequestID: "r1"})
+	if err != nil || strings.Contains(string(b), "phones") {
+		t.Errorf("a request without phones writes a phones key: %s (%v)", b, err)
+	}
+}
