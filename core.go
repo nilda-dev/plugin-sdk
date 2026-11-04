@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/grpc/metadata"
+
 	"github.com/nilda-dev/plugin-sdk/contract"
 )
 
@@ -224,6 +226,11 @@ func (c *Core) Emit(ctx context.Context, eventType string, data any) error {
 	raw, err := json.Marshal(data)
 	if err != nil {
 		return err
+	}
+	// An HTTP header cannot mark an event, which travels over gRPC: the call it is emitted for rides the call's
+	// metadata instead, under CallHeader's name (gRPC lowercases it: x-nilda-call).
+	if id := CallOf(ctx).RequestID; id != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, CallHeader, id)
 	}
 	_, err = c.host.EmitEvent(ctx, &contract.EmitEventRequest{Type: eventType, DataJson: raw})
 	return err

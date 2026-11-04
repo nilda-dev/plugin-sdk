@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.56.0 — unreleased (privacy requests by phone)
+## v0.57.0 — unreleased (privacy requests by phone)
 
 - `PrivacyRequest.Phones` (`"phones"`, omitted when empty): numbers an operator holding `privacy.manage` typed for a
   guest who booked with a phone and no address. A phone is never verified, so Core sends one only from that operator.
@@ -24,6 +24,15 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
   this one had an address, so none of them changes.
 - `nildatest.CheckPersonalDataHolderByPhone(ctx, h, phone)`: the export, erase, export, erase round asked by phone.
 - Additive both ways: an older Core sends no `phones` and an older plugin ignores them. Needs the Core that sends them.
+
+## v0.56.0 — 2026-11-04 (Core quiets a plugin's own API calls and events made while serving an importer call)
+
+- `CallHeader` (`"X-Nilda-Call"`): inside a hook call whose request Core named (`CallOf(ctx).RequestID`), every request
+  the API client makes with that `ctx` — any verb, any scheme — carries the id on this header, and `Core.Emit` puts the
+  same id in `EmitEvent`'s gRPC metadata under `x-nilda-call`. Outside a call, or in one Core did not name, neither is
+  sent. Core uses it to keep quiet the callbacks a plugin makes while serving an importer call; it names a call only
+  while that call is in flight. Nothing to change in a plugin that passes its call's `ctx` on. Needs the Core that
+  reads it; an older Core ignores the header and the metadata.
 
 ## v0.55.0 — 2026-11-04 (a form can pick a file)
 
