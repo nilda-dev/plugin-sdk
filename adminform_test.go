@@ -87,3 +87,15 @@ func TestTheFormVocabularyExtendsTheSettingsOne(t *testing.T) {
 		}
 	}
 }
+
+// A form can pick a FILE — any one media item, a document or an archive as much as a picture — as a downloadable
+// product's "file to sell" (WooCommerce's "Downloadable files"). Without it a plugin form could hold only a picture.
+func TestAFormCanPickAFile(t *testing.T) {
+	found := false
+	for _, ty := range FormFieldTypes() {
+		found = found || ty == FormFile
+	}
+	if !found || FormFile != FieldFile {
+		t.Errorf("FormFile = %q in FormFieldTypes: %v; want the widget vocabulary's file type", FormFile, found)
+	}
+}

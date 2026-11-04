@@ -186,6 +186,7 @@ const FilterChoice
 const FilterPeriod
 const FormDate
 const FormDateTime
+const FormFile
 const FormGallery
 const FormImage
 const FormMoney

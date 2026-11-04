@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.55.0 — unreleased (privacy requests by phone)
+## v0.56.0 — unreleased (privacy requests by phone)
 
 - `PrivacyRequest.Phones` (`"phones"`, omitted when empty): numbers an operator holding `privacy.manage` typed for a
   guest who booked with a phone and no address. A phone is never verified, so Core sends one only from that operator.
@@ -24,6 +24,12 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
   this one had an address, so none of them changes.
 - `nildatest.CheckPersonalDataHolderByPhone(ctx, h, phone)`: the export, erase, export, erase round asked by phone.
 - Additive both ways: an older Core sends no `phones` and an older plugin ignores them. Needs the Core that sends them.
+
+## v0.55.0 — 2026-11-04 (a form can pick a file)
+
+- `FormFile` (`"file"`, the widget vocabulary's `FieldFile`) is a form field type: one Core media id of any kind — the
+  file a downloadable product sells, as WooCommerce's "Downloadable files" picks it. Core's picker for it offers the
+  library's private files too. Needs the Core that draws it.
 
 ## v0.54.0 — 2026-11-04 (a file that is sold is private, and a plugin's whole admin can be translated)
 

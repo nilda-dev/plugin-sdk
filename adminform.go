@@ -30,6 +30,10 @@ const (
 	FormDateTime = FieldDateTime // RFC 3339, in the site's time zone on screen
 	FormImage    = FieldImage    // one Core media id
 	FormGallery  = FieldGallery  // Core media ids, in order; the first is the main one
+	// FormFile is one Core media id of any kind — a document, an archive, a picture: the file a downloadable product
+	// sells, as WooCommerce's "Downloadable files" picks it. Core's picker for it offers the library's private files
+	// too (MediaItem.Private), since a file a plugin sells is one it makes private.
+	FormFile = FieldFile
 	// FormRepeater is a group of rows the owner adds, reorders and removes — the sizes of a product, the tiers of a
 	// price. Its sub-fields are FormField.Fields, one level deep. The value is a list of objects.
 	FormRepeater = FieldRepeater
@@ -47,7 +51,7 @@ const (
 
 // FormFieldTypes returns every type a form field may declare, sorted. Core holds its own list equal to it.
 func FormFieldTypes() []string {
-	out := append(SettingFieldTypes(), FormDate, FormDateTime, FormImage, FormGallery, FormRepeater,
+	out := append(SettingFieldTypes(), FormDate, FormDateTime, FormImage, FormFile, FormGallery, FormRepeater,
 		FormMoney, FormTags, FormReference, FormStat)
 	sort.Strings(out)
 	return out

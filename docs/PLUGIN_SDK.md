@@ -1596,7 +1596,7 @@ nothing is written until you answer. Declare the form on the list page:
     ] } }
 ```
 
-The types are the settings ones, plus `date`, `datetime`, `image`, `gallery` and `repeater` from the widget
+The types are the settings ones, plus `date`, `datetime`, `image`, `file`, `gallery` and `repeater` from the widget
 vocabulary, plus `money` (minor units on the wire), `tags`, `reference` (rows of another of your list pages) and
 `stat` (a figure you fill) — `nilda.FormFieldTypes()`. Subscribe `nilda.AdminFormLoadHook` and
 `nilda.AdminFormSaveHook` and route both with `nilda.DispatchAdminForm(ctx, hook, payload, p.loadForm, p.saveForm)`:
