@@ -261,6 +261,11 @@ func (a *API) do(ctx context.Context, method, path string, payload []byte, conte
 	if a.idempotencyKey != "" {
 		req.Header.Set("Idempotency-Key", a.idempotencyKey)
 	}
+	// The call this request is made for, on every scheme: the base is Core's own address, and the id is a label
+	// Core reads to keep an importer's callbacks quiet, not a secret (CallHeader).
+	if id := CallOf(ctx).RequestID; id != "" {
+		req.Header.Set(CallHeader, id)
+	}
 	return a.http.Do(req)
 }
 

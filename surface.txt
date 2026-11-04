@@ -25,6 +25,7 @@ const BadgeGold
 const BadgeGreen
 const BadgeGrey
 const BadgeWarn
+const CallHeader
 const CallerKindAI
 const CallerKindImporter
 const CallerKindMCP
