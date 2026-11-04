@@ -8,7 +8,24 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.56.0 — unreleased (Core quiets a plugin's own API calls and events made while serving an importer call)
+## v0.57.0 — unreleased (privacy requests by phone)
+
+- `PrivacyRequest.Phones` (`"phones"`, omitted when empty): numbers an operator holding `privacy.manage` typed for a
+  guest who booked with a phone and no address. A phone is never verified, so Core sends one only from that operator.
+  Each is in the one normal form `NormalizePrivacyPhone` writes — the ASCII digits, a leading `00` dropped, `""` below
+  6 or above 20 digits (booking's blocklist rule, moved here so Core and every plugin compare alike). Exact on that form,
+  never a suffix or a fuzzy match: an erasure that matched another guest cannot be taken back. It guesses no country, so
+  `+43 660 1234567` and `0660 1234567` are two numbers and Core's screen asks for both. `DispatchPrivacyHook` hands a
+  holder the normal forms and drops an entry that is no phone.
+- `PrivacyRequest.AskedPhone(phone)`: the match, by that rule; `""` is never asked about.
+- `PrivacyRecord.Phone` (`"phone"`): the request phone a record matched. A record names exactly one of `Email` or
+  `Phone`, one the request asked about; `PrivacyExport.Validate` refuses a record naming neither, both, or an unasked
+  one, and refuses the whole answer for it. `Email` is now omitted from the wire when empty — every valid answer before
+  this one had an address, so none of them changes.
+- `nildatest.CheckPersonalDataHolderByPhone(ctx, h, phone)`: the export, erase, export, erase round asked by phone.
+- Additive both ways: an older Core sends no `phones` and an older plugin ignores them. Needs the Core that sends them.
+
+## v0.56.0 — 2026-11-04 (Core quiets a plugin's own API calls and events made while serving an importer call)
 
 - `CallHeader` (`"X-Nilda-Call"`): inside a hook call whose request Core named (`CallOf(ctx).RequestID`), every request
   the API client makes with that `ctx` — any verb, any scheme — carries the id on this header, and `Core.Emit` puts the

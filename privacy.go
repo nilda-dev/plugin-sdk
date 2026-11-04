@@ -18,7 +18,7 @@ import (
 // read your tables, because it cannot know which column is a person. So, granted `personal_data`, you answer two
 // hooks Core sends itself:
 //
-//	privacy.export  your records for the addresses in the request, each labelled with the address it matched
+//	privacy.export  your records for the addresses and phones in the request, each labelled with the one it matched
 //	privacy.erase   erase or anonymise them, and say what you KEPT (facts the law makes you keep, anonymised) and what
 //	                you HELD (records an open dispute keeps whole), each with its basis
 //
@@ -27,7 +27,8 @@ import (
 // you did not declare held is reported to the owner as not erased.
 //
 // Core sends only addresses it is entitled to send: a signed-in person's own verified ones, or the one an operator
-// holding privacy.manage typed. Never store them for anything else.
+// holding privacy.manage typed. A phone is never verified, so only that operator types one. Never store them for
+// anything else.
 
 // The two hooks.
 const (
@@ -62,10 +63,15 @@ const (
 	maxKeptFields   = 32
 )
 
-// PrivacyRequest is what Core asks about: one or more email addresses, already trimmed and lower-cased, and the
-// request's id (the same on the erase and on the export that checks it), for your own log.
+// PrivacyRequest is what Core asks about: email addresses, already trimmed and lower-cased, phone numbers in their
+// NormalizePrivacyPhone form, and the request's id (the same on the erase and on the export that checks it), for your
+// own log. Either list may be empty; a Core older than phones sends none.
 type PrivacyRequest struct {
-	Emails    []string `json:"emails"`
+	Emails []string `json:"emails"`
+	// Phones are numbers an operator holding privacy.manage typed for a guest — never a verified contact, so Core does
+	// not send one for a person's own request. The national and the international form of one number are two entries:
+	// NormalizePrivacyPhone does not guess a country code, so Core's screen asks for both.
+	Phones    []string `json:"phones,omitempty"`
 	RequestID string   `json:"request_id"`
 }
 
@@ -84,14 +90,56 @@ func (r PrivacyRequest) Asked(email string) bool {
 // NormalizePrivacyEmail is the one rule an address is compared by: trimmed and lower-cased.
 func NormalizePrivacyEmail(email string) string { return strings.ToLower(strings.TrimSpace(email)) }
 
+// AskedPhone reports whether phone is one of the request's phones, compared by NormalizePrivacyPhone. A phone that
+// normalises to "" is never asked about.
+func (r PrivacyRequest) AskedPhone(phone string) bool {
+	p := NormalizePrivacyPhone(phone)
+	if p == "" {
+		return false
+	}
+	for _, a := range r.Phones {
+		if NormalizePrivacyPhone(a) == p {
+			return true
+		}
+	}
+	return false
+}
+
+// The bounds of a phone number's normal form, in digits.
+const (
+	minPrivacyPhoneDigits = 6
+	maxPrivacyPhoneDigits = 20
+)
+
+// NormalizePrivacyPhone is the one rule a phone number is compared by: its ASCII digits, a leading "00" dropped, and
+// "" when fewer than 6 or more than 20 digits remain. "+43 660 1234567" and "0043 660 1234567" are one number
+// (436601234567); "0660 1234567" is another (06601234567), because the rule never guesses a country. It is exact on
+// purpose — never a suffix or a fuzzy match: an erasure that matched the wrong guest cannot be taken back. Match your
+// rows by this form (booking's blocklist uses the same rule).
+func NormalizePrivacyPhone(phone string) string {
+	var digits strings.Builder
+	for _, r := range phone {
+		if r >= '0' && r <= '9' {
+			digits.WriteRune(r)
+		}
+	}
+	out := strings.TrimPrefix(digits.String(), "00")
+	if len(out) < minPrivacyPhoneDigits || len(out) > maxPrivacyPhoneDigits {
+		return ""
+	}
+	return out
+}
+
 // PrivacyRecord is one thing you keep about the person, as they should read it.
 type PrivacyRecord struct {
 	// Kind is what it is, in your words: "booking", "waitlist", "blocklist".
 	Kind string `json:"kind"`
 	// ID is your record's id — the same one an erasure names in Kept or Held.
 	ID string `json:"id"`
-	// Email is the request address this record matched. Core refuses an answer naming one it did not ask about.
-	Email string `json:"email"`
+	// Email is the request address this record matched, or Phone the request phone: exactly one of the two. Core
+	// refuses an answer naming one it did not ask about.
+	Email string `json:"email,omitempty"`
+	Phone string `json:"phone,omitempty"`
 	// Data is the record itself: what the person gave you and what you noted about them.
 	Data map[string]any `json:"data"`
 }
@@ -110,11 +158,16 @@ func (e PrivacyExport) Validate(req PrivacyRequest) error {
 		if err := checkPrivacyRef(r.Kind, r.ID); err != nil {
 			return fmt.Errorf("nilda: privacy record %d: %w", i, err)
 		}
-		if strings.TrimSpace(r.Email) == "" {
-			return fmt.Errorf("nilda: privacy record %d (%s %s) names no address", i, r.Kind, r.ID)
-		}
-		if !req.Asked(r.Email) {
+		email, phone := strings.TrimSpace(r.Email) != "", strings.TrimSpace(r.Phone) != ""
+		switch {
+		case !email && !phone:
+			return fmt.Errorf("nilda: privacy record %d (%s %s) names no address and no phone", i, r.Kind, r.ID)
+		case email && phone:
+			return fmt.Errorf("nilda: privacy record %d (%s %s) names an address and a phone: name the one it matched", i, r.Kind, r.ID)
+		case email && !req.Asked(r.Email):
 			return fmt.Errorf("nilda: privacy record %d (%s %s) is about an address Core was not asked about", i, r.Kind, r.ID)
+		case phone && !req.AskedPhone(r.Phone):
+			return fmt.Errorf("nilda: privacy record %d (%s %s) is about a phone Core was not asked about", i, r.Kind, r.ID)
 		}
 	}
 	return nil
@@ -211,7 +264,7 @@ func checkPrivacyBasis(basis, note string) error {
 // Implement it on your Handler and declare `personal_data`; Serve subscribes privacy.export and privacy.erase and
 // answers them, checking your answer before Core does.
 type PersonalDataHolder interface {
-	// ExportPersonalData returns every record you keep for the request's addresses.
+	// ExportPersonalData returns every record you keep for the request's addresses and phones.
 	ExportPersonalData(ctx context.Context, req PrivacyRequest) (PrivacyExport, error)
 	// ErasePersonalData erases or anonymises them, and names what it kept or held and why. Called again with the same
 	// request, it must change nothing more.
@@ -231,6 +284,16 @@ func DispatchPrivacyHook(ctx context.Context, h PersonalDataHolder, hook string,
 	for i, e := range req.Emails {
 		req.Emails[i] = NormalizePrivacyEmail(e)
 	}
+	phones := req.Phones[:0]
+	for _, p := range req.Phones {
+		if n := NormalizePrivacyPhone(p); n != "" {
+			phones = append(phones, n)
+		}
+	}
+	if len(phones) == 0 {
+		phones = nil
+	}
+	req.Phones = phones
 	if hook == HookPrivacyExport {
 		res, err := h.ExportPersonalData(ctx, req)
 		if err != nil {
