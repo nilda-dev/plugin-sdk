@@ -97,15 +97,17 @@ func TestTheGuidesNumbersAndNamesAreCores(t *testing.T) {
 	manifest := core("internal", "plugin", "schema_manifest.go")
 	// Core's f6609f820 (2026-10-30): one string's bound is the longest text a page declares — its help — and is
 	// counted in characters (it was 400, counted with len(), so in bytes).
-	for _, c := range []string{"maxTranslationLocales = 12", "maxTranslationStrings = 300", "maxTranslationLen     = maxDeclaredHelpLen",
-		"maxDeclaredHelpLen = 500", "maxTranslationBytes = 128 << 10"} {
+	for _, c := range []string{"maxTranslationLocales = 12", "maxTranslationStrings = 1500", "maxTranslationLen     = maxDeclaredHelpLen",
+		"maxDeclaredHelpLen = 500", "maxTranslationLocaleBytes = 192 << 10", "maxTranslationBytes = 1 << 20"} {
 		has(manifest, "internal/plugin/schema_manifest.go", c)
 	}
 	has(manifest, "internal/plugin/schema_manifest.go",
 		"if utf8.RuneCountInString(src) > maxTranslationLen || utf8.RuneCountInString(translated) > maxTranslationLen {")
-	// …while the whole block's bound is still len() of the bytes.
-	has(manifest, "internal/plugin/schema_manifest.go", "total += len(src) + len(translated)")
-	says(guide, "PLUGIN_SDK.md", "12 languages, 300 strings each, 500 characters a string, source or translation — and 128 KiB for all of it together")
+	// …while a language's and the whole block's bounds are still len() of the bytes, and an admin receives one language.
+	has(manifest, "internal/plugin/schema_manifest.go", "size += len(src) + len(translated)")
+	has(coreSource(t, "internal", "plugin", "adminpages.go"), "internal/plugin/adminpages.go", "man.Translations[locale]")
+	says(guide, "PLUGIN_SDK.md", "12 languages, 1500 strings each, 500 characters a string, source")
+	says(guide, "PLUGIN_SDK.md", "192 KiB a language, and 1 MiB for all of them together as stored")
 	says(guide, "PLUGIN_SDK.md", "The string bound is counted in characters, not bytes")
 
 	// A field type's choices.

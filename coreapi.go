@@ -3,7 +3,6 @@ package nilda
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -521,8 +520,13 @@ type MediaItem struct {
 	Height *int   `json:"height,omitempty"`
 	Alt    string `json:"alt_text"`
 	Status string `json:"status"`
-	// URL is the file's address on the site, a path ("/api/v1/media/…/file?c=…") — what a page links to.
-	URL       string    `json:"url"`
+	// URL is the file's address on the site, a path ("/api/v1/media/…/file?c=…") — what a page links to. A private
+	// item's is not that public address: it opens only for a signed-in person allowed to see the library.
+	URL string `json:"url"`
+	// Private is true for a file Core serves to nobody on its public address — a file that is sold (a paid
+	// download), opened only through MediaFile by a plugin with media.read and by staff in the library. Set it with
+	// SetMediaPrivate.
+	Private   bool      `json:"private"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -554,9 +558,9 @@ type MediaBytes struct {
 	Disposition string
 }
 
-// MediaFile opens a media item's bytes — `media.read`. Core's API has no file route: it reads the item (GET
-// /media/{id}) and fetches the file at the address Core answered, on Core's own host (the address a page draws it
-// from). Close what it answers. A file Core will not serve is an *APIError.
+// MediaFile opens a media item's bytes — `media.read`. It reads the item (GET /media/{id}), then the ORIGINAL file
+// through the API's own file route (GET /media/{id}/file) with the plugin's token, so a private item opens too —
+// the one a plugin sells. Close what it answers. A file Core will not serve is an *APIError.
 func (a *API) MediaFile(ctx context.Context, id string) (*MediaBytes, error) {
 	if a == nil {
 		return nil, errNoAPI
@@ -565,26 +569,30 @@ func (a *API) MediaFile(ctx context.Context, id string) (*MediaBytes, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !strings.HasPrefix(m.URL, "/") || strings.HasPrefix(m.URL, "//") {
-		return nil, fmt.Errorf("nilda: Core answered the media item %s with the address %q, not one on its own host", id, m.URL)
-	}
-	base, err := url.Parse(a.baseURL)
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base.Scheme+"://"+base.Host+m.URL, nil)
-	if err != nil {
-		return nil, err
-	}
-	res, err := a.http.Do(req)
+	path := "/media/" + url.PathEscape(id) + "/file"
+	res, err := a.do(ctx, http.MethodGet, path, nil, "")
 	if err != nil {
 		return nil, err
 	}
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return nil, a.readResponse(res, http.MethodGet, m.URL, nil)
+		return nil, a.readResponse(res, http.MethodGet, path, nil)
 	}
 	return &MediaBytes{ReadCloser: res.Body, Item: m, ContentType: res.Header.Get("Content-Type"),
 		Size: res.ContentLength, Disposition: res.Header.Get("Content-Disposition")}, nil
+}
+
+// SetMediaPrivate makes a media item private, or public again — PATCH /media/{id}, `media.write`. A private item is
+// served to nobody on its public address: set it on a file you sell before you deliver it. Core refuses to make
+// private a file a page, a post or a setting shows (it would break them), with an *APIError that names them; upload a
+// copy for the sale instead. It answers the item as Core now holds it.
+func (a *API) SetMediaPrivate(ctx context.Context, id string, private bool) (MediaItem, error) {
+	var out struct {
+		Data MediaItem `json:"data"`
+	}
+	if err := a.Patch(ctx, "/media/"+url.PathEscape(id), map[string]bool{"private": private}, &out); err != nil {
+		return MediaItem{}, err
+	}
+	return out.Data, nil
 }
 
 func contentPath(contentType, id string) string {

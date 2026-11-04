@@ -87,11 +87,14 @@ const (
 	// MaxManifestTranslationLocales bounds the languages translations declares: a count.
 	MaxManifestTranslationLocales = 12
 	// MaxManifestTranslationStrings bounds one language's strings: a count.
-	MaxManifestTranslationStrings = 300
+	MaxManifestTranslationStrings = 1500
 	// MaxManifestTranslationLen bounds one string, its source and its translation each: characters.
 	MaxManifestTranslationLen = 500
-	// MaxManifestTranslationBytes bounds every source and translation of every language together: bytes.
-	MaxManifestTranslationBytes = 128 << 10
+	// MaxManifestTranslationLocaleBytes bounds one language's sources and translations together — what an admin reading
+	// in it receives: bytes.
+	MaxManifestTranslationLocaleBytes = 192 << 10
+	// MaxManifestTranslationBytes bounds every source and translation of every language together, as stored: bytes.
+	MaxManifestTranslationBytes = 1 << 20
 
 	// The rest of what the plugin adds to the site (`editor_commands`, `fields`, `auth_providers`, `webhook_paths`,
 	// `form_replacements`, `search`).

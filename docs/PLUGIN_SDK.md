@@ -741,9 +741,10 @@ locale code) is not here — the pattern is the rule, and `nilda plugin check` s
 | `MaxManifestPickSentenceLen` | 120 characters | the sentence a mobile.pick chip writes in the chat box |
 | `MaxManifestPickEffectLen` | 160 characters | a mobile.pick action's effect, what visitors will see change |
 | `MaxManifestTranslationLocales` | 12 | the languages translations declares |
-| `MaxManifestTranslationStrings` | 300 | one language's strings |
+| `MaxManifestTranslationStrings` | 1,500 | one language's strings |
 | `MaxManifestTranslationLen` | 500 characters | one string, its source and its translation each |
-| `MaxManifestTranslationBytes` | 128 KiB | every source and translation of every language together |
+| `MaxManifestTranslationLocaleBytes` | 192 KiB | one language's sources and translations together |
+| `MaxManifestTranslationBytes` | 1 MiB | every source and translation of every language together |
 | `MaxManifestEditorCommands` | 24 | editor_commands |
 | `MaxManifestCommandKeywords` | 16 | one editor command's keywords |
 | `MaxManifestEditorCommandContentBytes` | 32 KiB | one editor command's content |
@@ -2654,12 +2655,12 @@ What it never touches is a KEY. Your action still arrives as `refund` whatever l
 in, the stored value of a choice is still the declared one, and your section's place in the sidebar is keyed
 by your plugin key — so a translated name cannot scatter somebody's arrangement.
 
-Bounded, because a manifest is downloaded, stored and read on every admin page load: 12 languages, 300
-strings each, 500 characters a string, source or translation — and 128 KiB for all of it together, which binds
-first: twelve full languages of full-length strings would be far larger. The string bound is counted in
+Bounded, because an admin's browser receives its own language's table with your section on every admin page load
+(Core sends that one language, never the others): 12 languages, 1500 strings each, 500 characters a string, source
+or translation — 192 KiB a language, and 1 MiB for all of them together as stored. The string bound is counted in
 characters, not bytes: it is the longest text a page declares (a field's `help`), so whatever fits there fits its
-translation, a Persian or Arabic one as much as an English one. The 128 KiB is counted in bytes, where a Persian or
-Arabic letter takes two. Past any of those the package is refused at install rather than quietly truncated.
+translation, a Persian or Arabic one as much as an English one. The 192 KiB and the 1 MiB are counted in bytes,
+where a Persian or Arabic letter takes two. Past any of those the package is refused at install rather than quietly truncated.
 
 **You ship no JavaScript into the admin.** You declare; Core draws the controls. Every other CMS extends its
 admin by injecting code — a WordPress plugin enqueues a script, a Strapi plugin ships React — and pays for it
@@ -2811,7 +2812,8 @@ JSON. Each answers Core's `{"data": …}` unwrapped into structs carrying only f
 | `HoldingPages(ctx, widget)` → `[]nilda.HoldingPage`, published first, at most 50 (30 asks a minute) | `GET /layouts/holding?widget=` | `content.read` |
 | `SetLayout(ctx, contentType, id, tree, basedOn)` → `nilda.LayoutWrite` | `PUT /content/{type}/{id}/layout` | `content.write` |
 | `PublishContent(ctx, contentType, id)` → `nilda.PublishResult` | `POST /content/{type}/{id}/publish` | `content.write` |
-| `Media(ctx, id)` → `nilda.MediaItem`; `MediaFile(ctx, id)` → `*nilda.MediaBytes`, the bytes open with Core's headers | `GET /media/{id}`, then the file's address | `media.read` |
+| `Media(ctx, id)` → `nilda.MediaItem`; `MediaFile(ctx, id)` → `*nilda.MediaBytes`, the bytes open with Core's headers | `GET /media/{id}`, then `GET /media/{id}/file` | `media.read` |
+| `SetMediaPrivate(ctx, id, private)` → `nilda.MediaItem` | `PATCH /media/{id}` | `media.write` |
 
 **`SetContentTerms` is the merge Core's PUT does not do.** Core's `PUT /content/{type}/{id}/terms` replaces an item's
 terms across EVERY taxonomy, so sending only your taxonomy's ids takes off the categories and tags a person gave the item
@@ -2828,12 +2830,16 @@ page, whose working version holds it until it is published. Pass the answer's `L
 **An account's status** is `nilda.UserStatusActive`, `UserStatusPending`, `UserStatusSuspended` or `UserStatusBanned`;
 `EmailVerifiedAt` is nil until the account confirmed its address.
 
-**A media file.** Core's REST API has no file route: `MediaFile` reads the item and fetches the file at the address Core
-answers (`/api/v1/media/{id}/file`, on Core's own host — the address a page draws it from), and refuses one elsewhere.
-What it answers is a `nilda.MediaBytes`: the open bytes (read, then `Close`), the `Item`, the `ContentType` and `Size`
-Core served, and its `Disposition` — `attachment` with the file's name for anything but a raster image, which Core shows
-inline. A plugin that hands the file on to its own visitor (a paid download) copies those three headers, and sets an
-attachment header of its own when `Disposition` is empty.
+**A media file.** `MediaFile` reads the item, then the original bytes through the API's own file route
+(`GET /media/{id}/file`) with your token. What it answers is a `nilda.MediaBytes`: the open bytes (read, then `Close`),
+the `Item`, the `ContentType` and `Size` Core served, and its `Disposition` — always `attachment` with the file's name.
+A plugin that hands the file on to its own visitor (a paid download) copies those three headers.
+
+**A file you sell is private.** A library file is public: anyone holding `/api/v1/media/{id}/file` opens it, no sign-in,
+because that is how a page shows a picture. So before you deliver a file for money, `SetMediaPrivate(ctx, id, true)`:
+Core then answers "not found" on the public address (every size of it), and only `MediaFile` (a plugin with
+`media.read`) and staff in the library open it. Core refuses to make private a file a page, a post or a setting
+shows — it would break them — with a 422 that names them; ask the owner to upload a copy for the sale.
 
 **In a test**, `nildatest.NewSite()` serves all of these from memory as Core answers them — the full-replace PUT, the 403
 for a scope your capabilities lack, the 422 for a body `nilda.CheckBody` refuses or a tree that is not one, the 409 for a
