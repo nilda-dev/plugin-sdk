@@ -33,6 +33,15 @@ type CallInfo struct {
 	CallerKind string
 }
 
+// CallHeader is the HTTP header on which the API client names the call it is serving (v0.56.0): inside a hook call
+// whose request Core named (CallOf(ctx).RequestID), every request a plugin makes through core.API() with that ctx
+// carries the id, and an event it emits with that ctx (Core.Emit) carries the same id in its gRPC metadata, under
+// the key x-nilda-call. Core reads it to keep the callbacks a plugin makes while serving one of Core's own calls —
+// an importer's — quiet: Core does not answer them as if somebody else had changed the site. It names a call only
+// while that call is in flight; once the call returns, Core finds nothing under the id, and the request is treated
+// as any other. A label, not a secret — like X-Nilda-Plugin, it says nothing a plugin's token does not.
+const CallHeader = "X-Nilda-Call"
+
 // The caller kinds Core sends (CallInfo.CallerKind, Ability.Callers). A kind names a door, never a person.
 const (
 	// CallerKindAI is the site's assistant: the panel's chat, the app's, or Core's admin tools pressing a button or

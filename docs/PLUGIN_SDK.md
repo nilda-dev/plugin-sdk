@@ -2742,6 +2742,15 @@ is what `CallerKind` then answers — and `Services.SetAgentTier` sets what `Age
 Neither says who the PERSON was (see abilities, above). Log `RequestID` beside your own lines: one search in the
 owner's log then finds both halves of a failure.
 
+**What you send back names the call too** (`CallHeader`, v0.56.0). Pass the call's `ctx` on, and every request
+`core.API()` makes with it carries the call's `RequestID` on the header `CallHeader` (`X-Nilda-Call`), and every
+`core.Emit` the same id in the event's gRPC metadata (key `x-nilda-call`: an HTTP header cannot mark an event, which
+travels over gRPC). Core reads it to keep quiet what a plugin does while serving one of Core's own calls — an
+importer writing a catalogue through your abilities does not set off the reactions an owner's own edit would. Nothing
+to do but keep the `ctx`: a request made with `context.Background()`, or after the call returned, names nothing and is
+treated as any other. It is a label, not a secret (like `X-Nilda-Plugin`), and is sent on every scheme. A Core that
+does not read it ignores both.
+
 ### What Core sends you: its events, the storefront's wire, a kept-data export (unreleased)
 
 **Core's own events.** Subscribe by name (the `events` capability, at `Init`): `nilda.EventContentCreated`,
