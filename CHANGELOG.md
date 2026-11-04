@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.57.0 — unreleased (privacy requests by phone)
+## v0.57.0 — 2026-11-04 (privacy requests by phone)
 
 - `PrivacyRequest.Phones` (`"phones"`, omitted when empty): numbers an operator holding `privacy.manage` typed for a
   guest who booked with a phone and no address. A phone is never verified, so Core sends one only from that operator.
