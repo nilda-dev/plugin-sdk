@@ -444,6 +444,7 @@ const RatesNoService
 const RatesOK
 const RatesUnavailable
 const RefundPending
+const RefundReasonFraudulent
 const RefundRejected
 const RefundRequested
 const RefundResolved

@@ -1049,9 +1049,10 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
   keeps a late one (as a kept method arriving after the money is kept): one verdict per payment, the processor's.
 - **Reported, never decided on by Core.** Core keeps and passes the verdict; holding an order, telling the owner, a
   refund marked fraudulent (Stripe's `reason=fraudulent`, which feeds the merchant's Radar block lists) are the shop's
-  and the gateway's (plan 10.3, steps F2-F3).
+  and the gateway's (plan 10.3, steps F2-F3). A consumer marks such a refund with the reason `RefundReasonFraudulent`
+  (`"fraudulent"`, exactly); plugin-stripe 0.8.1 sends Stripe `reason=fraudulent` for it and nothing for any other reason.
 - **Inside `payments/v1`, experimental**: every field optional, so a gateway or a consumer built before ignores it. The
-  truth tests skip the session's `risk` until Core lands step F1 (`coreahead_test.go`).
+  Core landed step F1 in core #181, so the truth tests hold the session's `risk` too.
 
 ### Express buttons' decisions (commerce plan 10.2, step X1, recorded 2026-11-05)
 
