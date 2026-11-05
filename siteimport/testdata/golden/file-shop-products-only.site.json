@@ -1,0 +1,186 @@
+{
+  "identity": {
+    "title": "Harbour Shop"
+  },
+  "authors": {
+    "admin": {
+      "login": "admin",
+      "name": "admin"
+    }
+  },
+  "vocabularies": [
+    {
+      "key": "category",
+      "hierarchical": true
+    },
+    {
+      "key": "post_tag"
+    }
+  ],
+  "media": [
+    {
+      "source_id": "#media:35",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/sunglasses.jpg",
+      "alt": "Sunglasses",
+      "title": "Sunglasses"
+    },
+    {
+      "source_id": "#media:36",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/hoodie-with-pocket.jpg",
+      "alt": "Hoodie with Pocket",
+      "title": "Hoodie with Pocket"
+    },
+    {
+      "source_id": "#media:37",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/hoodie-with-zipper.jpg",
+      "alt": "Hoodie with Zipper",
+      "title": "Hoodie with Zipper"
+    },
+    {
+      "source_id": "#media:38",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/long-sleeve-tee.jpg",
+      "alt": "Long Sleeve Tee",
+      "title": "Long Sleeve Tee"
+    },
+    {
+      "source_id": "#media:39",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/polo.jpg",
+      "alt": "Polo",
+      "title": "Polo"
+    },
+    {
+      "source_id": "#media:40",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/album.jpg",
+      "alt": "Album",
+      "title": "Album"
+    },
+    {
+      "source_id": "#media:41",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/single.jpg",
+      "alt": "Single",
+      "title": "Single"
+    },
+    {
+      "source_id": "#media:42",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/t-shirt-with-logo.jpg",
+      "alt": "T-Shirt with Logo",
+      "title": "T-Shirt with Logo"
+    },
+    {
+      "source_id": "#media:43",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/beanie-with-logo.jpg",
+      "alt": "Beanie with Logo",
+      "title": "Beanie with Logo"
+    },
+    {
+      "source_id": "#media:44",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/logo-collection.jpg",
+      "alt": "Logo Collection",
+      "title": "Logo Collection"
+    },
+    {
+      "source_id": "#media:45",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/wordpress-pennant.jpg",
+      "alt": "WordPress Pennant",
+      "title": "WordPress Pennant"
+    },
+    {
+      "source_id": "#media:46",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/v-neck-t-shirt.jpg",
+      "alt": "V-Neck T-Shirt",
+      "title": "V-Neck T-Shirt"
+    },
+    {
+      "source_id": "#media:47",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/hoodie.jpg",
+      "alt": "Hoodie",
+      "title": "Hoodie"
+    },
+    {
+      "source_id": "#media:48",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/hoodie-with-logo.jpg",
+      "alt": "Hoodie with Logo",
+      "title": "Hoodie with Logo"
+    },
+    {
+      "source_id": "#media:49",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/t-shirt.jpg",
+      "alt": "T-Shirt",
+      "title": "T-Shirt"
+    },
+    {
+      "source_id": "#media:50",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/beanie.jpg",
+      "alt": "Beanie",
+      "title": "Beanie"
+    },
+    {
+      "source_id": "#media:51",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/belt.jpg",
+      "alt": "Belt",
+      "title": "Belt"
+    },
+    {
+      "source_id": "#media:52",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/cap.jpg",
+      "alt": "Cap",
+      "title": "Cap"
+    },
+    {
+      "source_id": "#media:56",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/linen-scarf.jpg",
+      "alt": "Linen Scarf (alt)",
+      "title": "Linen Scarf"
+    },
+    {
+      "source_id": "#media:65",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/canvas-bag.jpg",
+      "alt": "Canvas Bag (alt)",
+      "title": "Canvas Bag"
+    },
+    {
+      "source_id": "#media:68",
+      "url": "{{HOME}}/wp-content/uploads/2026/11/linen-apron.jpg",
+      "alt": "Linen Apron (alt)",
+      "title": "Linen Apron"
+    }
+  ],
+  "media_policy": {
+    "library": [
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/sunglasses.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/hoodie-with-pocket.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/hoodie-with-zipper.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/long-sleeve-tee.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/polo.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/album.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/single.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/t-shirt-with-logo.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/beanie-with-logo.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/logo-collection.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/wordpress-pennant.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/v-neck-t-shirt.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/hoodie.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/hoodie-with-logo.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/t-shirt.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/beanie.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/belt.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/cap.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/linen-scarf.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/canvas-bag.jpg",
+      "%7B%7BHOME%7D%7D/wp-content/uploads/2026/11/linen-apron.jpg"
+    ]
+  },
+  "items": null,
+  "not_carried": [
+    {
+      "kind": "post_type",
+      "name": "product",
+      "count": 29,
+      "reason": "nc_type_later"
+    }
+  ],
+  "warnings": [
+    "The old site is called “Harbour Shop” with the tagline “”. This import did not change your site's name — set it in Settings if you want it.",
+    "29 × post type “product” was not imported: it waits for a later step of the migration (shop, forms or page builder)."
+  ]
+}

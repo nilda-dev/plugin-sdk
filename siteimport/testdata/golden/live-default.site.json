@@ -1,0 +1,302 @@
+{
+  "base_url": "https://example.test",
+  "site_key": "example.test",
+  "identity": {
+    "title": "Harbour Blog",
+    "tagline": "Notes from the harbour",
+    "timezone": "Europe/Vienna",
+    "gmt_offset": 2
+  },
+  "authors": {
+    "1": {
+      "login": "1",
+      "name": "Site Admin",
+      "source_id": "example.test#author:1"
+    },
+    "2": {
+      "login": "2",
+      "name": "Sub One",
+      "source_id": "example.test#author:2"
+    }
+  },
+  "vocabularies": [
+    {
+      "key": "category",
+      "name": "Categories",
+      "hierarchical": true,
+      "types": [
+        "post"
+      ]
+    },
+    {
+      "key": "post_tag",
+      "name": "Tags",
+      "types": [
+        "post"
+      ]
+    },
+    {
+      "key": "genre",
+      "name": "Genre",
+      "types": [
+        "post"
+      ]
+    }
+  ],
+  "terms": [
+    {
+      "source_id": "example.test#term:category:1",
+      "vocab": "category",
+      "name": "Uncategorized",
+      "slug": "uncategorized",
+      "link": "https://example.test/category/uncategorized/"
+    },
+    {
+      "source_id": "example.test#term:category:5",
+      "vocab": "category",
+      "name": "News",
+      "slug": "news",
+      "description": "What happened",
+      "link": "https://example.test/category/news/"
+    },
+    {
+      "source_id": "example.test#term:category:6",
+      "vocab": "category",
+      "name": "Local",
+      "slug": "local",
+      "parent_source_id": "example.test#term:category:5",
+      "link": "https://example.test/category/news/local/"
+    },
+    {
+      "source_id": "example.test#term:post_tag:9",
+      "vocab": "post_tag",
+      "name": "Intro",
+      "slug": "intro",
+      "link": "https://example.test/tag/intro/"
+    },
+    {
+      "source_id": "example.test#term:genre:12",
+      "vocab": "genre",
+      "name": "G1",
+      "slug": "g1",
+      "link": "https://example.test/genre/g1/"
+    }
+  ],
+  "media": [
+    {
+      "source_id": "example.test#media:41",
+      "url": "https://example.test/wp-content/uploads/a.png",
+      "alt": "Harbour",
+      "caption": "Morning at the pier",
+      "title": "Harbour & boats",
+      "mime_type": "image/png",
+      "size": 68,
+      "sizes": [
+        "https://example.test/wp-content/uploads/a-300x200.png"
+      ]
+    },
+    {
+      "source_id": "example.test#media:42",
+      "url": "https://example.test/wp-content/uploads/menu.pdf",
+      "title": "Menu",
+      "mime_type": "application/pdf",
+      "size": 312
+    }
+  ],
+  "media_policy": {
+    "own_hosts": [
+      "127.0.0.1"
+    ],
+    "library": [
+      "https://example.test/wp-content/uploads/a.png",
+      "https://example.test/wp-content/uploads/menu.pdf"
+    ],
+    "authenticated": true
+  },
+  "items": [
+    {
+      "source_id": "example.test#101",
+      "type": "post",
+      "title": "Post 101",
+      "slug": "post-101",
+      "permalink": "https://example.test/2026/10/post-101/",
+      "body_html": "<!-- wp:paragraph -->\n<p>Hello <strong>world</strong>.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:image {\"id\":71,\"sizeSlug\":\"large\",\"linkDestination\":\"none\"} -->\n<figure class=\"wp-block-image size-large\"><img src=\"https://example.test/wp-content/uploads/2026/10/a.jpg\" alt=\"A\" class=\"wp-image-71\"/></figure>\n<!-- /wp:image -->\n\n<!-- wp:latest-posts {\"postsToShow\":3} /-->",
+      "source_status": "published",
+      "published_at": "2026-10-01T07:00:00Z",
+      "author_key": "1",
+      "term_refs": [
+        {
+          "vocab": "category",
+          "source_id": "example.test#term:category:6",
+          "name": "Local"
+        },
+        {
+          "vocab": "post_tag",
+          "source_id": "example.test#term:post_tag:9",
+          "name": "Intro"
+        },
+        {
+          "vocab": "genre",
+          "source_id": "example.test#term:genre:12",
+          "name": "G1"
+        }
+      ],
+      "featured_url": "https://example.test/wp-content/uploads/a.png",
+      "comments": [
+        {
+          "source_id": "301",
+          "parent_source_id": "0",
+          "author_name": "User 301",
+          "author_email": "user301@example.test",
+          "body": "Comment 301",
+          "approved": true,
+          "created_at": "2026-10-03T08:00:00Z"
+        },
+        {
+          "source_id": "302",
+          "parent_source_id": "301",
+          "author_name": "User 302",
+          "author_email": "admin@example.test",
+          "body": "Comment 302",
+          "approved": true,
+          "created_at": "2026-10-03T08:00:00Z"
+        },
+        {
+          "source_id": "303",
+          "parent_source_id": "0",
+          "author_name": "User 303",
+          "author_email": "user303@example.test",
+          "body": "Comment 303",
+          "approved": false,
+          "created_at": "2026-10-03T08:00:00Z"
+        }
+      ]
+    },
+    {
+      "source_id": "example.test#102",
+      "type": "post",
+      "title": "Post 102",
+      "slug": "scheduled-post",
+      "body_html": "<!-- wp:paragraph -->\n<p>Hello <strong>world</strong>.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:image {\"id\":71,\"sizeSlug\":\"large\",\"linkDestination\":\"none\"} -->\n<figure class=\"wp-block-image size-large\"><img src=\"https://example.test/wp-content/uploads/2026/10/a.jpg\" alt=\"A\" class=\"wp-image-71\"/></figure>\n<!-- /wp:image -->\n\n<!-- wp:latest-posts {\"postsToShow\":3} /-->",
+      "source_status": "scheduled",
+      "scheduled_at": "2026-12-24T07:00:00Z",
+      "author_key": "1",
+      "term_refs": [
+        {
+          "vocab": "category",
+          "source_id": "example.test#term:category:5",
+          "name": "News"
+        }
+      ]
+    },
+    {
+      "source_id": "example.test#103",
+      "type": "post",
+      "title": "Post 103",
+      "body_html": "<!-- wp:paragraph -->\n<p>Hello <strong>world</strong>.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:image {\"id\":71,\"sizeSlug\":\"large\",\"linkDestination\":\"none\"} -->\n<figure class=\"wp-block-image size-large\"><img src=\"https://example.test/wp-content/uploads/2026/10/a.jpg\" alt=\"A\" class=\"wp-image-71\"/></figure>\n<!-- /wp:image -->\n\n<!-- wp:latest-posts {\"postsToShow\":3} /-->",
+      "source_status": "draft",
+      "author_key": "1",
+      "term_refs": [
+        {
+          "vocab": "category",
+          "source_id": "example.test#term:category:5",
+          "name": "News"
+        }
+      ]
+    },
+    {
+      "source_id": "example.test#104",
+      "type": "post",
+      "title": "Post 104",
+      "slug": "post-104",
+      "body_html": "<!-- wp:paragraph -->\n<p>Hidden</p>\n<!-- /wp:paragraph -->",
+      "source_status": "draft",
+      "author_key": "1",
+      "term_refs": [
+        {
+          "vocab": "category",
+          "source_id": "example.test#term:category:5",
+          "name": "News"
+        }
+      ]
+    },
+    {
+      "source_id": "example.test#105",
+      "type": "post",
+      "title": "Post 105",
+      "slug": "post-105",
+      "body_html": "<p>Classic editor content, no block comments.</p>",
+      "source_status": "draft",
+      "author_key": "1",
+      "term_refs": [
+        {
+          "vocab": "category",
+          "source_id": "example.test#term:category:5",
+          "name": "News"
+        }
+      ]
+    },
+    {
+      "source_id": "example.test#201",
+      "type": "page",
+      "title": "Team",
+      "slug": "team",
+      "permalink": "https://example.test/about/team/",
+      "body_html": "<!-- wp:paragraph --><p>Team</p><!-- /wp:paragraph -->",
+      "source_status": "published",
+      "published_at": "2026-09-01T07:00:00Z",
+      "parent_source_id": "example.test#200",
+      "menu_order": 3,
+      "author_key": "1"
+    }
+  ],
+  "not_carried": [
+    {
+      "kind": "post_type",
+      "name": "wpforms",
+      "count": 2,
+      "reason": "nc_type_later"
+    },
+    {
+      "kind": "field",
+      "name": "media caption",
+      "count": 1,
+      "reason": "nc_caption"
+    },
+    {
+      "kind": "field",
+      "name": "media title",
+      "count": 1,
+      "reason": "nc_media_title"
+    },
+    {
+      "kind": "flag",
+      "name": "sticky",
+      "count": 1,
+      "reason": "nc_sticky"
+    },
+    {
+      "kind": "flag",
+      "name": "private",
+      "count": 1,
+      "reason": "nc_private"
+    },
+    {
+      "kind": "field",
+      "name": "comment type pingback",
+      "count": 1,
+      "reason": "nc_comment_type"
+    }
+  ],
+  "warnings": [
+    "1 published post was password-protected in WordPress. Nilda has no per-post password, so it was imported as a draft rather than made public — publish it if it should be open to everyone.",
+    "The old site is called “Harbour Blog” with the tagline “Notes from the harbour”. This import did not change your site's name — set it in Settings if you want it.",
+    "Post types a plugin keeps out of the REST API cannot be seen by a live read; the export file carries them.",
+    "2 × post type “wpforms” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
+    "1 comment of type “pingback” was not imported: Nilda imports reader comments only.",
+    "1 media file had a caption or description, which Nilda's media library does not keep.",
+    "1 media file had a title of its own, which Nilda's media library does not keep.",
+    "1 item was private on the old site and arrived as a draft: publish it if it should be public.",
+    "1 sticky post arrived as an ordinary post: Nilda has no sticky posts."
+  ]
+}

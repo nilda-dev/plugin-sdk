@@ -1,0 +1,669 @@
+{
+  "identity": {
+    "title": "Harbour Studio",
+    "tagline": "Boats and buildings"
+  },
+  "authors": {
+    "admin": {
+      "login": "admin",
+      "name": "Site Admin"
+    }
+  },
+  "vocabularies": [
+    {
+      "key": "category",
+      "hierarchical": true
+    },
+    {
+      "key": "post_tag"
+    },
+    {
+      "key": "portfolio_cat",
+      "types": [
+        "portfolio"
+      ]
+    }
+  ],
+  "terms": [
+    {
+      "source_id": "#term:category:5",
+      "vocab": "category",
+      "name": "News",
+      "slug": "news",
+      "seo": {
+        "origin": "rankmath",
+        "description": "News from the harbour"
+      }
+    },
+    {
+      "source_id": "#term:post_tag:7",
+      "vocab": "post_tag",
+      "name": "Boats",
+      "slug": "boats"
+    },
+    {
+      "source_id": "#term:portfolio_cat:30",
+      "vocab": "portfolio_cat",
+      "name": "Interior",
+      "slug": "interior",
+      "seo": {
+        "origin": "rankmath",
+        "title": "Interior work"
+      }
+    }
+  ],
+  "media": [
+    {
+      "source_id": "#media:41",
+      "url": "{{home}}/wp-content/uploads/harbour.png",
+      "alt": "Harbour",
+      "title": "Harbour"
+    }
+  ],
+  "media_policy": {
+    "library": [
+      "%7B%7Bhome%7D%7D/wp-content/uploads/harbour.png"
+    ]
+  },
+  "types": [
+    {
+      "key": "portfolio",
+      "name": "portfolio",
+      "taxonomies": [
+        "portfolio_cat"
+      ],
+      "count": 2
+    },
+    {
+      "key": "jetpack-portfolio",
+      "name": "jetpack-portfolio",
+      "count": 1
+    }
+  ],
+  "field_groups": [
+    {
+      "source_id": "#fieldgroup:group_project",
+      "title": "Project details",
+      "origin": "acf",
+      "types": [
+        "portfolio"
+      ],
+      "fields": [
+        {
+          "source_id": "#field:field_client",
+          "key": "field_client",
+          "name": "client",
+          "label": "Client",
+          "type": "text"
+        },
+        {
+          "source_id": "#field:field_year",
+          "key": "field_year",
+          "name": "year",
+          "label": "Year",
+          "type": "number"
+        },
+        {
+          "source_id": "#field:field_gallery",
+          "key": "field_gallery",
+          "name": "gallery",
+          "label": "Gallery",
+          "type": "gallery"
+        },
+        {
+          "source_id": "#field:field_related",
+          "key": "field_related",
+          "name": "related",
+          "label": "Related",
+          "type": "relationship",
+          "targets": [
+            "post"
+          ]
+        },
+        {
+          "source_id": "#field:field_services",
+          "key": "field_services",
+          "name": "services",
+          "label": "Services",
+          "type": "repeater",
+          "sub": [
+            {
+              "source_id": "#field:field_services_name",
+              "key": "field_services_name",
+              "name": "name",
+              "label": "Name",
+              "type": "text"
+            }
+          ]
+        },
+        {
+          "source_id": "#field:field_pin",
+          "key": "field_pin",
+          "name": "pin",
+          "label": "Pin",
+          "type": "password"
+        },
+        {
+          "source_id": "#field:field_location",
+          "key": "field_location",
+          "name": "location",
+          "label": "Location",
+          "type": "google_map"
+        },
+        {
+          "source_id": "#field:field_choice",
+          "key": "field_choice",
+          "name": "choice",
+          "label": "Choice",
+          "type": "select",
+          "choices": [
+            {
+              "value": "a",
+              "label": "Alpha"
+            },
+            {
+              "value": "b",
+              "label": "Beta"
+            }
+          ]
+        },
+        {
+          "source_id": "#field:field_featured",
+          "key": "field_featured",
+          "name": "featured",
+          "label": "Featured",
+          "type": "true_false"
+        }
+      ]
+    }
+  ],
+  "menus": [
+    {
+      "source_id": "#menu:40",
+      "name": "Main",
+      "origin": "classic",
+      "items": [
+        {
+          "source_id": "#menuitem:701",
+          "order": 1,
+          "label": "Home",
+          "kind": "url",
+          "url": "/"
+        },
+        {
+          "source_id": "#menuitem:702",
+          "order": 2,
+          "kind": "content",
+          "target_source_id": "201",
+          "target_type": "page"
+        },
+        {
+          "source_id": "#menuitem:703",
+          "parent_source_id": "#menuitem:702",
+          "order": 1,
+          "label": "A",
+          "kind": "url",
+          "url": "/a"
+        },
+        {
+          "source_id": "#menuitem:704",
+          "parent_source_id": "#menuitem:703",
+          "order": 1,
+          "label": "B",
+          "kind": "url",
+          "url": "/b"
+        },
+        {
+          "source_id": "#menuitem:705",
+          "parent_source_id": "#menuitem:704",
+          "order": 1,
+          "label": "C",
+          "kind": "url",
+          "url": "/c"
+        },
+        {
+          "source_id": "#menuitem:706",
+          "parent_source_id": "#menuitem:705",
+          "order": 1,
+          "label": "D",
+          "kind": "url",
+          "url": "/d"
+        },
+        {
+          "source_id": "#menuitem:707",
+          "order": 3,
+          "kind": "term",
+          "target_source_id": "#term:category:5",
+          "target_type": "category"
+        },
+        {
+          "source_id": "#menuitem:708",
+          "order": 4,
+          "kind": "content",
+          "target_source_id": "301",
+          "target_type": "portfolio"
+        },
+        {
+          "source_id": "#menuitem:709",
+          "order": 5,
+          "label": "Shop",
+          "kind": "url",
+          "url": "https://shop.other.example/",
+          "open_new": true,
+          "css_classes": [
+            "cta",
+            "pb-hidden"
+          ]
+        },
+        {
+          "source_id": "#menuitem:710",
+          "order": 6,
+          "label": "Bad",
+          "kind": "url",
+          "url": "javascript:alert(1)"
+        },
+        {
+          "source_id": "#menuitem:712",
+          "parent_source_id": "#menuitem:713",
+          "order": 7,
+          "label": "Loop one",
+          "kind": "url",
+          "url": "/loop-one"
+        },
+        {
+          "source_id": "#menuitem:713",
+          "parent_source_id": "#menuitem:712",
+          "order": 8,
+          "label": "Loop two",
+          "kind": "url",
+          "url": "/loop-two"
+        }
+      ]
+    },
+    {
+      "source_id": "#menu:41",
+      "name": "Footer links",
+      "origin": "classic",
+      "items": [
+        {
+          "source_id": "#menuitem:711",
+          "order": 1,
+          "label": "Legacy",
+          "kind": "url",
+          "url": "{{home}}/legacy-page/"
+        }
+      ]
+    },
+    {
+      "source_id": "#navigation:720",
+      "name": "Header navigation",
+      "origin": "block",
+      "items": [
+        {
+          "source_id": "#navigation:720:1",
+          "order": 1,
+          "label": "About",
+          "kind": "content",
+          "target_source_id": "201",
+          "target_type": "page",
+          "url": "{{home}}/about/"
+        },
+        {
+          "source_id": "#navigation:720:2",
+          "order": 2,
+          "label": "Work",
+          "kind": "url",
+          "url": "/portfolio/"
+        },
+        {
+          "source_id": "#navigation:720:3",
+          "parent_source_id": "#navigation:720:2",
+          "order": 3,
+          "label": "Lighthouse",
+          "kind": "content",
+          "target_source_id": "301",
+          "target_type": "portfolio",
+          "url": "{{home}}/portfolio/lighthouse/"
+        }
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "source_id": "#redirect:srm:801",
+      "origin": "srm",
+      "from": "/old-contact",
+      "to": "/about/",
+      "code": 301,
+      "enabled": true
+    },
+    {
+      "source_id": "#redirect:srm:802",
+      "origin": "srm",
+      "from": "/blog/(.*)",
+      "to": "/news/$1",
+      "code": 301,
+      "regex": true,
+      "enabled": true
+    },
+    {
+      "source_id": "#redirect:srm:803",
+      "origin": "srm",
+      "from": "/",
+      "to": "/about/",
+      "code": 301,
+      "enabled": true
+    },
+    {
+      "source_id": "#redirect:srm:804",
+      "origin": "srm",
+      "from": "/login",
+      "to": "https://evil.example/login",
+      "code": 302,
+      "enabled": true
+    },
+    {
+      "source_id": "#redirect:srm:805",
+      "origin": "srm",
+      "from": "/temp",
+      "to": "/about/",
+      "code": 307,
+      "enabled": true
+    },
+    {
+      "source_id": "#redirect:srm:806",
+      "origin": "srm",
+      "from": "/shop/old",
+      "to": "/about/",
+      "code": 301,
+      "enabled": true
+    },
+    {
+      "source_id": "#redirect:srm:807",
+      "origin": "srm",
+      "from": "/news-feed*",
+      "to": "/",
+      "code": 301,
+      "regex": true,
+      "enabled": true
+    }
+  ],
+  "plugins": [
+    "yoast",
+    "rankmath",
+    "seopress",
+    "acf"
+  ],
+  "blocks": [
+    {
+      "source_id": "#block:501",
+      "title": "Reusable note",
+      "markup": "<!-- wp:paragraph --><p>A note.</p><!-- /wp:paragraph -->",
+      "synced": true
+    }
+  ],
+  "custom_css": {
+    "theme": "twentytwentyfive",
+    "css": "body { color: #123456; }"
+  },
+  "theme": {
+    "stylesheet": "",
+    "templates": [
+      {
+        "source_id": "#template://single",
+        "kind": "template",
+        "slug": "single",
+        "source": "custom",
+        "markup": "<!-- wp:post-content /-->"
+      }
+    ]
+  },
+  "items": [
+    {
+      "source_id": "101",
+      "type": "post",
+      "title": "Hello",
+      "slug": "hello",
+      "permalink": "{{home}}/hello/",
+      "body_html": "<!-- wp:paragraph --><p>Our first post.</p><!-- /wp:paragraph -->",
+      "source_status": "published",
+      "published_at": "2026-09-01T09:00:00Z",
+      "author_key": "admin",
+      "term_refs": [
+        {
+          "vocab": "category",
+          "source_id": "#term:category:5",
+          "name": "News",
+          "slug": "news"
+        },
+        {
+          "vocab": "post_tag",
+          "source_id": "#term:post_tag:7",
+          "name": "Boats",
+          "slug": "boats"
+        }
+      ],
+      "seo": {
+        "origin": "yoast",
+        "title": "%%title%% %%sep%% %%sitename%%",
+        "description": "Our first post",
+        "canonical": "{{home}}/hello/",
+        "focus_keyword": "harbour",
+        "og_image_source_id": "#media:41",
+        "cornerstone": true,
+        "unmapped": [
+          "twitter"
+        ]
+      }
+    },
+    {
+      "source_id": "102",
+      "type": "post",
+      "title": "Second",
+      "slug": "second",
+      "permalink": "{{home}}/second/",
+      "body_html": "<!-- wp:paragraph --><p>The second post.</p><!-- /wp:paragraph -->",
+      "source_status": "published",
+      "published_at": "2026-09-02T09:00:00Z",
+      "author_key": "admin",
+      "seo": {
+        "origin": "rankmath",
+        "title": "Second — custom title",
+        "canonical": "https://other.example/x",
+        "focus_keyword": "boats",
+        "secondary_keywords": [
+          "harbour"
+        ],
+        "noindex": true
+      }
+    },
+    {
+      "source_id": "201",
+      "type": "page",
+      "title": "About",
+      "slug": "about",
+      "permalink": "{{home}}/about/",
+      "body_html": "<!-- wp:paragraph --><p>Who we are.</p><!-- /wp:paragraph -->",
+      "source_status": "published",
+      "published_at": "2026-09-01T09:00:00Z",
+      "menu_order": 1,
+      "author_key": "admin",
+      "seo": {
+        "origin": "seopress",
+        "title": "About Harbour",
+        "noindex": true
+      }
+    },
+    {
+      "source_id": "202",
+      "type": "page",
+      "title": "Old offer",
+      "slug": "old-offer",
+      "permalink": "{{home}}/old-offer/",
+      "body_html": "<!-- wp:paragraph --><p>An offer that ended.</p><!-- /wp:paragraph -->",
+      "source_status": "published",
+      "published_at": "2026-09-01T09:00:00Z",
+      "menu_order": 2,
+      "author_key": "admin"
+    },
+    {
+      "source_id": "301",
+      "type": "portfolio",
+      "title": "Lighthouse",
+      "slug": "lighthouse",
+      "permalink": "{{home}}/portfolio/lighthouse/",
+      "body_html": "<!-- wp:paragraph --><p>A lighthouse restoration.</p><!-- /wp:paragraph -->",
+      "source_status": "published",
+      "published_at": "2026-09-05T10:00:00Z",
+      "author_key": "admin",
+      "term_refs": [
+        {
+          "vocab": "portfolio_cat",
+          "source_id": "#term:portfolio_cat:30",
+          "name": "Interior",
+          "slug": "interior"
+        }
+      ],
+      "values": {
+        "client": "Port Authority",
+        "featured": "1",
+        "gallery": [
+          "41"
+        ],
+        "pin": "1234",
+        "related": [
+          "101"
+        ],
+        "services": [
+          {
+            "name": "Survey"
+          },
+          {
+            "name": "Repair"
+          }
+        ],
+        "year": "2024"
+      }
+    },
+    {
+      "source_id": "302",
+      "type": "portfolio",
+      "title": "Boathouse",
+      "slug": "boathouse",
+      "body_html": "<!-- wp:paragraph --><p>A boathouse, not yet public.</p><!-- /wp:paragraph -->",
+      "source_status": "draft",
+      "published_at": "2026-09-01T09:00:00Z",
+      "author_key": "admin"
+    },
+    {
+      "source_id": "303",
+      "type": "jetpack-portfolio",
+      "title": "Dock",
+      "slug": "dock",
+      "permalink": "{{home}}/portfolio/dock/",
+      "body_html": "<!-- wp:paragraph --><p>A dock.</p><!-- /wp:paragraph -->",
+      "source_status": "published",
+      "published_at": "2026-09-07T10:00:00Z",
+      "author_key": "admin"
+    }
+  ],
+  "not_carried": [
+    {
+      "kind": "meta",
+      "name": "",
+      "count": 3,
+      "reason": "nc_meta_private"
+    },
+    {
+      "kind": "redirect",
+      "name": "",
+      "count": 1,
+      "reason": "nc_redirect_post"
+    },
+    {
+      "kind": "meta",
+      "name": "",
+      "count": 1,
+      "reason": "nc_meta_secret",
+      "detail": "stripe_secret_key"
+    },
+    {
+      "kind": "meta",
+      "name": "",
+      "count": 3,
+      "reason": "nc_meta_unmapped",
+      "detail": "author_bio, plain_note, faq"
+    },
+    {
+      "kind": "meta",
+      "name": "",
+      "count": 1,
+      "reason": "nc_meta_builder",
+      "detail": "Elementor"
+    },
+    {
+      "kind": "post_type",
+      "name": "feedback",
+      "count": 1,
+      "reason": "nc_type_personal"
+    },
+    {
+      "kind": "post_type",
+      "name": "product",
+      "count": 1,
+      "reason": "nc_type_later"
+    },
+    {
+      "kind": "post_type",
+      "name": "wpforms",
+      "count": 1,
+      "reason": "nc_type_later"
+    },
+    {
+      "kind": "field",
+      "name": "",
+      "count": 1,
+      "reason": "nc_acf_options"
+    },
+    {
+      "kind": "seo",
+      "name": "",
+      "count": 1,
+      "reason": "nc_seo_term_yoast"
+    },
+    {
+      "kind": "seo",
+      "name": "",
+      "count": 1,
+      "reason": "nc_seo_sitewide"
+    },
+    {
+      "kind": "redirect",
+      "name": "Rank Math",
+      "count": 1,
+      "reason": "nc_redirect_store"
+    },
+    {
+      "kind": "menu",
+      "name": "html",
+      "count": 1,
+      "reason": "nc_nav_block"
+    }
+  ],
+  "warnings": [
+    "The old site is called “Harbour Studio” with the tagline “Boats and buildings”. This import did not change your site's name — set it in Settings if you want it.",
+    "3 private plugin values (names starting with “_”) were not imported.",
+    "3 custom values belong to no field group and were not imported: author_bio, plain_note, faq",
+    "Values on ACF options pages are kept outside posts, where neither door reaches; set them again by hand.",
+    "1 page-builder layout (Elementor) waits for the page-builder step; the page came across with its text.",
+    "1 value looks like a secret (a key, a token or a password) and was not copied: stripe_secret_key",
+    "1 post sent visitors elsewhere on the old site (an SEO plugin setting); here the post is served itself — add the redirect under SEO › Redirects if you still want it.",
+    "The SEO plugin's site-wide title patterns and settings were not imported: set them under SEO › Settings.",
+    "Yoast keeps category and tag SEO titles where neither the export file nor the WordPress API reaches; set them again on each category.",
+    "Rank Math keeps its redirects where neither the export file nor the WordPress API reaches. Export the list from that plugin and add the ones you need under SEO › Redirects.",
+    "1 × post type “feedback” was not imported: it holds form entries or requests from people, which an import does not copy.",
+    "1 navigation block of type “html” has no menu link in Nilda and was left out.",
+    "1 × post type “product” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
+    "1 × post type “wpforms” was not imported: it waits for a later step of the migration (shop, forms or page builder)."
+  ]
+}
