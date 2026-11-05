@@ -8,7 +8,20 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.58.0 — unreleased (write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3)
+## v0.58.0 — unreleased (write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3; paperless return labels — commerce plan 10.9b)
+
+- SHIPPING: PAPERLESS RETURN LABELS, EXPERIMENTAL (commerce plan 10.9b; `shipping.go`, `docs/SHIPPING.md` §3 "Return
+  labels, and paperless ones"). `LabelRequest.Paperless` (`"paperless"`, only with `Return` — `Validate` refuses it on an
+  outbound label) asks a service listing `CarrierSupportPaperlessReturns` (`"paperless_returns"`) for a return the buyer
+  drops off with a code instead of a printout; a carrier that cannot answers with a printed `return_label`, never a
+  refusal. `LabelResult.DropOffCode` (`"drop_off_code"`, one plain line of 1 to 64 characters, on a `purchased` label only)
+  is the code shown at the counter (ShipEngine's `handoff_code`); a QR to scan is a document of the new kind `"return_qr"`
+  (`png` or `pdf`, never `zpl`) — Shippo's `qr_code_url` (`extra.qr_code_requested`, docs.goshippo.com
+  spec/shippoapi/public-api.yaml, read 2026-11-05) and Sendcloud's labelless return (`delivery_option`
+  `drop_off_labelless`, `functionalities.labelless`, sendcloud.dev/.openapi/v3/returns/openapi.yaml, read 2026-11-05).
+  `LabelResult.ValidateFor(req)` refuses either on a label not asked as a return; `CarrierMethods` and
+  `Services.CreateShippingLabel` run it. `nildatest.StubCarrier.Paperless` gives a `DROP-…` code and a `return_qr`, and the
+  stub's return labels are now `return_label` documents.
 
 - PAYMENTS: THE PROCESSOR'S RISK VERDICT, EXPERIMENTAL (commerce plan 10.3, step F1; `paymentrisk.go`, `docs/PAYMENTS.md`
   §4 "The processor's risk verdict", §5 "Reading the processor's risk verdict" and "Risk's decisions"). `PaymentRisk`

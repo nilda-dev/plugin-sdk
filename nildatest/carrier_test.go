@@ -68,3 +68,42 @@ func TestStubCarrierDrivenThroughServe(t *testing.T) {
 		t.Fatal("a label with no carrier named was sent")
 	}
 }
+
+// A return label asked paperless of a carrier that gives one comes back as a code and a QR to show at the drop-off
+// point; asked of one that cannot, or asked printed, it is a return label to print — never a refusal (v0.58.0).
+func TestStubCarrierGivesAPaperlessReturn(t *testing.T) {
+	ctx := context.Background()
+	desk := NewServices()
+	post := NewStubCarrier("Stub Post", nilda.CarrierRate{Service: "standard", Title: "Standard", AmountMinor: 490, Currency: "EUR"})
+	post.Paperless = true
+	plain := NewStubCarrier("Plain Post", nilda.CarrierRate{Service: "standard", Title: "Standard", AmountMinor: 490, Currency: "EUR"})
+	desk.Provider("stubpost", post)
+	desk.Provider("plainpost", plain)
+	core, _, srv := desk.Core("shop", nilda.ContractShippingCarrier)
+	defer srv.Close()
+	ship := core.API().Services()
+
+	d, err := post.DescribeCarrier(ctx)
+	if err != nil || !nilda.Supports(d.Services[0].Supports, nilda.CarrierSupportPaperlessReturns) {
+		t.Fatalf("a paperless carrier does not say so: %+v %v", d, err)
+	}
+	ret := nilda.LabelRequest{Key: "return-1042-1", Service: "standard", Origin: addr("AT"), Destination: addr("DE"),
+		Parcels: []nilda.Parcel{{WeightGrams: 800}}, Return: true, Paperless: true}
+	got, err := ship.CreateShippingLabel(ctx, "stubpost", ret)
+	if err != nil || got.Status != nilda.LabelPurchased || got.DropOffCode == "" || len(got.Documents) != 1 ||
+		got.Documents[0].Kind != "return_qr" {
+		t.Fatalf("a paperless return: %+v %v", got, err)
+	}
+	for name, c := range map[string]struct {
+		provider  string
+		paperless bool
+	}{"asked of a carrier that cannot": {"plainpost", true}, "asked printed": {"stubpost", false}} {
+		req := ret
+		req.Key, req.Paperless = "return-"+name, c.paperless
+		got, err := ship.CreateShippingLabel(ctx, c.provider, req)
+		if err != nil || got.Status != nilda.LabelPurchased || got.DropOffCode != "" || len(got.Documents) != 1 ||
+			got.Documents[0].Kind != "return_label" {
+			t.Errorf("a return %s: %+v %v", name, got, err)
+		}
+	}
+}

@@ -29,6 +29,9 @@ type StubCarrier struct {
 	Down bool
 	// Events are what Track reports, oldest first.
 	Events []nilda.TrackEvent
+	// Paperless makes its services offer paperless returns (nilda.CarrierSupportPaperlessReturns): a return label asked
+	// Paperless comes back as a drop-off code and a return_qr document instead of a label to print (v0.58.0).
+	Paperless bool
 
 	mu      sync.Mutex
 	labels  map[string]nilda.LabelResult // by request Key
@@ -79,9 +82,12 @@ func (c *StubCarrier) DescribeCarrier(ctx context.Context) (nilda.CarrierDescrip
 	}
 	d := nilda.CarrierDescription{Name: c.Name, Services: []nilda.CarrierService{}}
 	for _, r := range c.Quotes {
-		d.Services = append(d.Services, nilda.CarrierService{Key: r.Service, Label: r.Title, Test: true,
-			Supports: []string{nilda.CarrierSupportRates, nilda.CarrierSupportLabels, nilda.CarrierSupportVoid,
-				nilda.CarrierSupportTrack}})
+		supports := []string{nilda.CarrierSupportRates, nilda.CarrierSupportLabels, nilda.CarrierSupportVoid,
+			nilda.CarrierSupportTrack}
+		if c.Paperless {
+			supports = append(supports, nilda.CarrierSupportReturns, nilda.CarrierSupportPaperlessReturns)
+		}
+		d.Services = append(d.Services, nilda.CarrierService{Key: r.Service, Label: r.Title, Test: true, Supports: supports})
 	}
 	return d, nil
 }
@@ -113,7 +119,8 @@ func (c *StubCarrier) Rates(ctx context.Context, req nilda.RatesRequest) (nilda.
 	return nilda.RatesResult{Status: nilda.RatesOK, Rates: out}, nil
 }
 
-// CreateLabel buys a label once per Key.
+// CreateLabel buys a label once per Key: a return label's document is a return_label, or — asked Paperless of a carrier
+// set Paperless — a drop-off code and a return_qr.
 func (c *StubCarrier) CreateLabel(ctx context.Context, req nilda.LabelRequest) (nilda.LabelResult, error) {
 	if err := c.wait(ctx); err != nil {
 		return nilda.LabelResult{}, err
@@ -129,8 +136,17 @@ func (c *StubCarrier) CreateLabel(ctx context.Context, req nilda.LabelRequest) (
 	c.nextRef++
 	c.bought++
 	ref := fmt.Sprintf("stub_%d", c.nextRef)
+	doc := nilda.DocumentData("label", "pdf", []byte("%PDF-1.4 stub label "+ref))
 	l := nilda.LabelResult{Status: nilda.LabelPurchased, ProviderRef: ref, TrackingNumber: fmt.Sprintf("TEST%08d", c.nextRef),
-		CarrierName: c.Name, Service: req.Service, Documents: []nilda.DocumentRef{nilda.DocumentData("label", "pdf", []byte("%PDF-1.4 stub label "+ref))}}
+		CarrierName: c.Name, Service: req.Service}
+	switch {
+	case req.Return && req.Paperless && c.Paperless:
+		l.DropOffCode = fmt.Sprintf("DROP-%04d", c.nextRef)
+		doc = nilda.DocumentData("return_qr", "png", []byte("stub QR "+l.DropOffCode))
+	case req.Return:
+		doc.Kind = "return_label"
+	}
+	l.Documents = []nilda.DocumentRef{doc}
 	c.labels[req.Key] = l
 	return l, nil
 }

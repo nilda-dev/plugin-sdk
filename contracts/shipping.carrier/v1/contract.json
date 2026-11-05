@@ -551,6 +551,9 @@
           "return": {
             "type": "boolean"
           },
+          "paperless": {
+            "type": "boolean"
+          },
           "options": {
             "type": "object",
             "additionalProperties": {
@@ -628,6 +631,9 @@
               "null",
               "string"
             ]
+          },
+          "drop_off_code": {
+            "type": "string"
           },
           "failure_code": {
             "type": "string"

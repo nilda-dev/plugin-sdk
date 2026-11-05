@@ -47,11 +47,15 @@ const (
 	CarrierSupportReturns   = "returns"
 	CarrierSupportSignature = "signature"
 	CarrierSupportInsurance = "insurance"
+	// CarrierSupportPaperlessReturns: the service's return label can be a code or a QR the buyer shows at a drop-off
+	// point instead of a label they print (v0.58.0, EXPERIMENTAL; LabelRequest.Paperless, LabelResult.DropOffCode, the
+	// return_qr document).
+	CarrierSupportPaperlessReturns = "paperless_returns"
 )
 
 var carrierSupports = map[string]bool{CarrierSupportRates: true, CarrierSupportLabels: true, CarrierSupportVoid: true,
 	CarrierSupportTrack: true, CarrierSupportCustoms: true, CarrierSupportReturns: true, CarrierSupportSignature: true,
-	CarrierSupportInsurance: true}
+	CarrierSupportInsurance: true, CarrierSupportPaperlessReturns: true}
 
 // The failure codes a carrier result may carry — a closed set, so the shop can act on each.
 const (
@@ -242,14 +246,19 @@ type LabelRequest struct {
 	// Reference is the order's number, printed on the label for the merchant.
 	Reference string `json:"reference,omitempty"`
 	// Return asks for a return label: the receiver sends to the origin.
-	Return  bool              `json:"return,omitempty"`
-	Options map[string]string `json:"options,omitempty"` // "signature": "true", "insurance_minor": "5000"
-	Test    bool              `json:"test,omitempty"`
+	Return bool `json:"return,omitempty"`
+	// Paperless asks, for a return label only, for one the buyer needs no printer for: a code or a QR shown at the
+	// carrier's drop-off point (LabelResult.DropOffCode, a return_qr document), where the service gives one
+	// (CarrierSupportPaperlessReturns). A carrier that cannot answers with a printed label, as without it — never a
+	// refusal (v0.58.0, EXPERIMENTAL).
+	Paperless bool              `json:"paperless,omitempty"`
+	Options   map[string]string `json:"options,omitempty"` // "signature": "true", "insurance_minor": "5000"
+	Test      bool              `json:"test,omitempty"`
 }
 
 // DocumentRef is one document of a shipment — by URL, or its bytes (at most 1 MiB) in standard base64.
 type DocumentRef struct {
-	Kind   string `json:"kind"`   // label, customs_invoice, cn23, return_label
+	Kind   string `json:"kind"`   // label, customs_invoice, cn23, return_label, return_qr
 	Format string `json:"format"` // pdf, png, zpl
 	URL    string `json:"url,omitempty"`
 	// Data is the document itself, base64 (RFC 4648 standard encoding) — a string in the contract's schema, which is
@@ -270,7 +279,8 @@ func (d DocumentRef) Bytes() ([]byte, error) {
 	return base64.StdEncoding.DecodeString(d.Data)
 }
 
-var documentKinds = map[string]bool{"label": true, "customs_invoice": true, "cn23": true, "return_label": true}
+var documentKinds = map[string]bool{"label": true, "customs_invoice": true, "cn23": true, "return_label": true,
+	"return_qr": true}
 var documentFormats = map[string]bool{"pdf": true, "png": true, "zpl": true}
 
 // The statuses of a label.
@@ -292,8 +302,13 @@ type LabelResult struct {
 	Currency       string        `json:"currency,omitempty"`
 	Documents      []DocumentRef `json:"documents,omitempty"`
 	DeliveryBy     *time.Time    `json:"delivery_by,omitempty"`
-	FailureCode    string        `json:"failure_code,omitempty"`
-	FailureMessage string        `json:"failure_message,omitempty"`
+	// DropOffCode is the code a return label is, for a carrier that gives one: the buyer shows it or reads it out at
+	// the drop-off point and the counter prints the label (v0.58.0, EXPERIMENTAL) — ShipEngine's handoff_code. A QR to
+	// scan travels as a document of kind return_qr (Shippo's qr_code_url, Sendcloud's labelless return). Only on a
+	// purchased return label; one plain line of at most 64 characters.
+	DropOffCode    string `json:"drop_off_code,omitempty"`
+	FailureCode    string `json:"failure_code,omitempty"`
+	FailureMessage string `json:"failure_message,omitempty"`
 }
 
 // VoidRequest is label.void's request.
@@ -547,6 +562,8 @@ func (r LabelRequest) Validate() error {
 		return fmt.Errorf("nilda: a label request has a key of 1 to %d characters — it is what makes asking again buy one label", maxCarrierKey)
 	case strings.TrimSpace(r.Service) == "":
 		return errors.New("nilda: a label request names the service")
+	case r.Paperless && !r.Return:
+		return errors.New("nilda: only a return label is asked paperless — the buyer drops it off with a code")
 	}
 	return validShipment(r.Origin, r.Destination, r.Parcels, r.Customs)
 }
@@ -558,9 +575,11 @@ func validDocuments(ds []DocumentRef) error {
 	for i, d := range ds {
 		switch {
 		case !documentKinds[d.Kind]:
-			return fmt.Errorf("nilda: document %d's kind is label, customs_invoice, cn23 or return_label, got %q", i+1, d.Kind)
+			return fmt.Errorf("nilda: document %d's kind is label, customs_invoice, cn23, return_label or return_qr, got %q", i+1, d.Kind)
 		case !documentFormats[d.Format]:
 			return fmt.Errorf("nilda: document %d's format is pdf, png or zpl, got %q", i+1, d.Format)
+		case d.Kind == "return_qr" && d.Format == "zpl":
+			return fmt.Errorf("nilda: document %d is a return QR the buyer shows from a phone or a page: png or pdf, not zpl", i+1)
 		case (d.URL == "") == (d.Data == ""):
 			return fmt.Errorf("nilda: document %d carries a url or its data, exactly one", i+1)
 		case len(d.Data) > base64.StdEncoding.EncodedLen(maxDocumentBytes):
@@ -601,6 +620,15 @@ func (r LabelResult) Validate() error {
 	}
 	if r.TrackingURL != "" && !strings.HasPrefix(r.TrackingURL, "https://") {
 		return errors.New("nilda: a tracking_url is https")
+	}
+	if r.DropOffCode != "" {
+		switch {
+		case r.Status != LabelPurchased:
+			return errors.New("nilda: a drop-off code is on a purchased label only")
+		case strings.TrimSpace(r.DropOffCode) == "" || utf8.RuneCountInString(r.DropOffCode) > maxDropOffCode ||
+			!plainLine(r.DropOffCode):
+			return fmt.Errorf("nilda: a drop-off code is one plain line of 1 to %d characters", maxDropOffCode)
+		}
 	}
 	return validDocuments(r.Documents)
 }
@@ -760,7 +788,14 @@ func CarrierMethods(c Carrier) []ServiceMethod {
 			if err := req.Validate(); err != nil {
 				return LabelResult{}, err
 			}
-			return checked(c.CreateLabel(ctx, req))
+			res, err := c.CreateLabel(ctx, req)
+			if err != nil {
+				return res, err
+			}
+			if err := res.ValidateFor(req); err != nil {
+				return LabelResult{}, err
+			}
+			return res, nil
 		}),
 		Serves(ContractShippingCarrier, CarrierLabelVoid, func(ctx context.Context, req VoidRequest) (VoidResult, error) {
 			if err := req.Validate(); err != nil {
@@ -849,8 +884,10 @@ func (s *Services) CreateShippingLabel(ctx context.Context, provider string, req
 		return LabelResult{}, err
 	}
 	var out LabelResult
-	err := s.callOne(ctx, provider, CarrierLabelCreate, req, req.Key, &out)
-	return out, err
+	if err := s.callOne(ctx, provider, CarrierLabelCreate, req, req.Key, &out); err != nil {
+		return out, err
+	}
+	return out, out.ValidateFor(req)
 }
 
 // VoidShippingLabel asks the carrier that bought a label to cancel it.
@@ -910,4 +947,28 @@ func (s *Services) callOne(ctx context.Context, provider, method string, req any
 		return fmt.Errorf("nilda: the answer of %s %s does not decode: %w", provider, method, err)
 	}
 	return out.Validate()
+}
+
+// maxDropOffCode is the longest drop-off code, in characters: a code a person reads out at a counter.
+const maxDropOffCode = 64
+
+// ValidateFor is Validate with the request the answer is for (v0.58.0): a drop-off code and a return QR belong to a
+// return label (LabelRequest.Return) — on an outbound one they are a carrier's mistake the shop would mail a buyer.
+// CarrierMethods and Services.CreateShippingLabel run it on every label answer.
+func (r LabelResult) ValidateFor(req LabelRequest) error {
+	if err := r.Validate(); err != nil {
+		return err
+	}
+	if req.Return {
+		return nil
+	}
+	if r.DropOffCode != "" {
+		return errors.New("nilda: a drop-off code is on a return label only; this label was not asked as a return")
+	}
+	for i, d := range r.Documents {
+		if d.Kind == "return_qr" {
+			return fmt.Errorf("nilda: document %d is a return QR, and this label was not asked as a return", i+1)
+		}
+	}
+	return nil
 }

@@ -62,6 +62,25 @@ with the same key.
 
 **Documents** travel by `https` URL or as their bytes in base64 (`DocumentData`, `Bytes`), at most 1 MiB.
 
+**Return labels, and paperless ones** (v0.58.0, EXPERIMENTAL). `LabelRequest.Return` asks for a label the buyer sends
+back to the shop (the destination sends to the origin); its document is a `return_label`. Add `Paperless` to ask for one
+the buyer needs no printer for, on a service whose `Supports` lists `paperless_returns` (`CarrierSupportPaperlessReturns`):
+answer it with what the carrier gives —
+
+- a **QR to scan** at the drop-off point: a document of kind `return_qr`, `png` or `pdf` (never `zpl`: the buyer shows it
+  from a phone or a page). Shippo returns one as `qr_code_url` when the shipment asked `extra.qr_code_requested` (USPS
+  domestic and Evri UK only); Sendcloud's labelless return (`delivery_option: drop_off_labelless`, an option whose
+  `functionalities.labelless` is true) brings its QR as the parcel's label document. A carrier's link may be a signed
+  one that lapses: send the bytes (`DocumentData`) when you can, and the shop keeps whatever it receives.
+- a **code to show or read out**: `LabelResult.DropOffCode`, one plain line of at most 64 characters — the counter
+  prints the label from it (ShipEngine calls it the `handoff_code`).
+
+Either, both, or — when the carrier gives neither for this parcel — a `return_label` to print as without `Paperless`:
+never a refusal. The tracking number and `provider_ref` are the same as any label's. A drop-off code or a `return_qr` on
+a label not asked as a return, or a code on one not `purchased`, never leaves the carrier: `LabelResult.ValidateFor`
+(run by `CarrierMethods` and by the shop's `CreateShippingLabel`) refuses it. The shop puts the code and the QR in the
+return-label mail.
+
 **Test or live.** Set `CarrierService.Test` while the plugin holds the carrier's test credentials; the shop stamps it
 on every label and never ships one or tells a customer about it. `TestHint` says what test mode means, by language.
 
@@ -84,5 +103,6 @@ rate when it has none. Never ask a carrier inside a database transaction.
 ## 5. Testing
 
 `nildatest.NewStubCarrier(name, rates...)` is a carrier in memory: rates for its services, a label once per key,
-void, tracking through `Events`, `Latency` and `Down` to make it slow or broken. Install it on
+void, tracking through `Events`, `Latency` and `Down` to make it slow or broken, and `Paperless` to make its return labels
+paperless when asked (a `DROP-…` code and a `return_qr`). Install it on
 `nildatest.NewServices()` beside the plugin under test (`SERVICES.md` §6).

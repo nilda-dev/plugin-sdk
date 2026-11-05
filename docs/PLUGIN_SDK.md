@@ -2998,6 +2998,10 @@ shop. `docs/SHIPPING.md` is the whole of it; `_examples/carrier` is a working on
   `CreateShippingLabel`, `VoidShippingLabel`, `TrackShipment` and `ShippingDocuments`.
 - **A carrier's "no" is a result**: a status and a failure code (`CarrierNoService`, `CarrierUnavailable`, …), never an
   error; a `Rates` past its 4 seconds answers `unavailable` by itself.
+- **A paperless return** (v0.58.0, EXPERIMENTAL): a `LabelRequest` with `Return` and `Paperless` asks a service listing
+  `CarrierSupportPaperlessReturns` for a return the buyer needs no printer for; the label comes back with a
+  `LabelResult.DropOffCode` to show at the drop-off point and/or a `return_qr` document. `LabelResult.ValidateFor(req)`
+  refuses both on a label not asked as a return (`CarrierMethods` and `CreateShippingLabel` run it).
 
 ### The shop's catalogue (`shop.catalog/v1`)
 

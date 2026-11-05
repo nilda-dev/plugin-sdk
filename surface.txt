@@ -82,6 +82,7 @@ const CarrierRatesBudget
 const CarrierSupportCustoms
 const CarrierSupportInsurance
 const CarrierSupportLabels
+const CarrierSupportPaperlessReturns
 const CarrierSupportRates
 const CarrierSupportReturns
 const CarrierSupportSignature
@@ -1012,6 +1013,7 @@ field LabelRequest.Destination ShipAddress json:destination
 field LabelRequest.Key string json:key
 field LabelRequest.Options map[string]string json:options
 field LabelRequest.Origin ShipAddress json:origin
+field LabelRequest.Paperless bool json:paperless
 field LabelRequest.Parcels []Parcel json:parcels
 field LabelRequest.RateRef string json:rate_ref
 field LabelRequest.Reference string json:reference
@@ -1023,6 +1025,7 @@ field LabelResult.CostMinor int64 json:cost_minor
 field LabelResult.Currency string json:currency
 field LabelResult.DeliveryBy *time.Time json:delivery_by
 field LabelResult.Documents []DocumentRef json:documents
+field LabelResult.DropOffCode string json:drop_off_code
 field LabelResult.FailureCode string json:failure_code
 field LabelResult.FailureMessage string json:failure_message
 field LabelResult.ProviderRef string json:provider_ref
@@ -2053,6 +2056,7 @@ method (ExpressPayer) Validate() (error)
 method (ExpressRequest) Validate() (error)
 method (LabelRequest) Validate() (error)
 method (LabelResult) Validate() (error)
+method (LabelResult) ValidateFor(LabelRequest) (error)
 method (LinkTarget) Validate(string) (error)
 method (Parcel) Validate() (error)
 method (PaymentAddress) Validate() (error)

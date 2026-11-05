@@ -46,6 +46,7 @@ field StubCarrier.Down bool
 field StubCarrier.Events []nilda.TrackEvent
 field StubCarrier.Latency time.Duration
 field StubCarrier.Name string
+field StubCarrier.Paperless bool
 field StubCarrier.Quotes []nilda.CarrierRate
 field StubGateway.CaptureErr error
 field StubGateway.CaptureResult nilda.PaymentCaptureResult
