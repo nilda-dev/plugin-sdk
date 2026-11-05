@@ -452,9 +452,14 @@ type PaymentRefundParams struct {
 	// AmountMinor may be less than the session's: a partial refund. Core refuses a refund that would take the
 	// session's refunds — resolved and still in flight — past what was paid.
 	AmountMinor int64 `json:"amount_minor"`
-	// Reason, at most 500 characters, is kept on the refund for the site owner.
+	// Reason, at most 500 characters, is kept on the refund for the site owner. A refund given because the payment was
+	// fraud says exactly RefundReasonFraudulent: a gateway that can tell its processor (Stripe's reason=fraudulent,
+	// which feeds the merchant's Radar block lists) does; any other reason is the owner's words only.
 	Reason string `json:"reason,omitempty"`
 }
+
+// RefundReasonFraudulent is the refund reason that marks a refund given because the payment was fraud.
+const RefundReasonFraudulent = "fraudulent"
 
 // Validate refuses a refund that is not positive or whose reason is past its bound or holds a NUL.
 func (p PaymentRefundParams) Validate() error {

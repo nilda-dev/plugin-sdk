@@ -23,11 +23,7 @@ var aheadOfCore = map[string]struct {
 	// Core landed X2b (the reprice hook and route, the session's client_action) in core #178 and the bridge's
 	// shown_total, shipping_option and press in the same PR (core ba8a428bf).
 
-	// Commerce plan 10.3, step F1 (v0.58.0, EXPERIMENTAL): the processor's risk verdict, reported on a hold or a
-	// resolution and kept on the session. Core's F1 adds Risk to its Resolution, Authorization and Session (after
-	// ResolvedAt, as PAYMENTS.md's list puts it), validates it as PaymentRisk.Validate does and keeps the first one.
-	"session risk": {step: "commerce plan 10.3 F1 (Core)", file: []string{"internal", "payments", "types.go"},
-		probe: `json:"risk,omitempty"`},
+	// Core landed the session's risk (plan 10.3 F1) in core #181.
 }
 
 // coreLacks reports whether item is SDK surface Core does not serve yet (aheadOfCore).
