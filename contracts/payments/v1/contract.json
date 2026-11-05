@@ -384,6 +384,29 @@
                   "string"
                 ]
               },
+              "risk": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "level": {
+                    "type": "string"
+                  },
+                  "score": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "level"
+                ]
+              },
               "capture": {
                 "type": "string"
               },
@@ -765,6 +788,29 @@
                   "string"
                 ]
               },
+              "risk": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "level": {
+                    "type": "string"
+                  },
+                  "score": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "level"
+                ]
+              },
               "capture": {
                 "type": "string"
               },
@@ -1045,6 +1091,29 @@
                 "type": [
                   "null",
                   "string"
+                ]
+              },
+              "risk": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "level": {
+                    "type": "string"
+                  },
+                  "score": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "level"
                 ]
               },
               "capture": {
@@ -1334,6 +1403,29 @@
                 "type": [
                   "null",
                   "string"
+                ]
+              },
+              "risk": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "level": {
+                    "type": "string"
+                  },
+                  "score": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "level"
                 ]
               },
               "capture": {
@@ -1628,6 +1720,29 @@
                   "string"
                 ]
               },
+              "risk": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "level": {
+                    "type": "string"
+                  },
+                  "score": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "level"
+                ]
+              },
               "capture": {
                 "type": "string"
               },
@@ -1908,6 +2023,29 @@
                 "type": [
                   "null",
                   "string"
+                ]
+              },
+              "risk": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "level": {
+                    "type": "string"
+                  },
+                  "score": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "level"
                 ]
               },
               "capture": {
@@ -2216,6 +2354,29 @@
                   "string"
                 ]
               },
+              "risk": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "level": {
+                    "type": "string"
+                  },
+                  "score": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "level"
+                ]
+              },
               "capture": {
                 "type": "string"
               },
@@ -2488,6 +2649,29 @@
                 "type": [
                   "null",
                   "string"
+                ]
+              },
+              "risk": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "level": {
+                    "type": "string"
+                  },
+                  "score": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "level"
                 ]
               },
               "capture": {
@@ -2807,6 +2991,29 @@
                 "type": [
                   "null",
                   "string"
+                ]
+              },
+              "risk": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "level": {
+                    "type": "string"
+                  },
+                  "score": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "level"
                 ]
               },
               "capture": {
@@ -3152,6 +3359,29 @@
                 "type": [
                   "null",
                   "string"
+                ]
+              },
+              "risk": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "level": {
+                    "type": "string"
+                  },
+                  "score": {
+                    "type": [
+                      "null",
+                      "integer"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "level"
                 ]
               },
               "capture": {

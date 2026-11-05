@@ -46,6 +46,8 @@ field StubCarrier.Down bool
 field StubCarrier.Events []nilda.TrackEvent
 field StubCarrier.Latency time.Duration
 field StubCarrier.Name string
+field StubCarrier.Paperless bool
+field StubCarrier.Points []nilda.ServicePoint
 field StubCarrier.Quotes []nilda.CarrierRate
 field StubGateway.CaptureErr error
 field StubGateway.CaptureResult nilda.PaymentCaptureResult
@@ -176,8 +178,10 @@ method (*StubCarrier) Asked() ([]nilda.RatesRequest)
 method (*StubCarrier) Bought() (int)
 method (*StubCarrier) CreateLabel(context.Context, nilda.LabelRequest) (nilda.LabelResult, error)
 method (*StubCarrier) DescribeCarrier(context.Context) (nilda.CarrierDescription, error)
+method (*StubCarrier) LabelsAsked() ([]nilda.LabelRequest)
 method (*StubCarrier) Rates(context.Context, nilda.RatesRequest) (nilda.RatesResult, error)
 method (*StubCarrier) ServiceMethods() ([]nilda.ServiceMethod)
+method (*StubCarrier) ServicePoints(context.Context, nilda.ServicePointsRequest) (nilda.ServicePointsResult, error)
 method (*StubCarrier) Track(context.Context, nilda.TrackRequest) (nilda.TrackResult, error)
 method (*StubCarrier) VoidLabel(context.Context, nilda.VoidRequest) (nilda.VoidResult, error)
 method (*StubGateway) CapturePayment(context.Context, nilda.PaymentCaptureRequest) (nilda.PaymentCaptureResult, error)

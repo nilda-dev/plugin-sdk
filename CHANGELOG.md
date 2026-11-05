@@ -8,7 +8,58 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.58.0 — unreleased (write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2)
+## v0.58.0 — unreleased (write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3; paperless return labels — commerce plan 10.9b; service points — commerce plan 10.9)
+
+- SHIPPING: SERVICE POINTS, EXPERIMENTAL (commerce plan 10.9, step S7; `shippingpoints.go`, `docs/SHIPPING.md` §3
+  "Service points"). `shipping.carrier/v1` gains the method `service_points` (`CarrierServicePointsGet`, agent `read`,
+  described EXPERIMENTAL): `ServicePointsRequest` (`service`, `country`, `postal_code`, `city`, `line1`, `latitude`,
+  `longitude`, `limit` 1 to `MaxServicePoints` = 50, 0 for `DefaultServicePoints` = 10, `locale`; a country alone is
+  refused) answered by `ServicePointsResult` (`points` nearest first, or a failure code; none is "nothing near") of
+  `ServicePoint`s (`id`, `name`, `carrier`, `kind` — `ServicePointShop`/`Locker`/`PostOffice`/`Depot`, `parcel_shop`,
+  `locker`, `post_office`, `depot` — `address`, `latitude`, `longitude`, `distance_meters`, `hours` of
+  `ServicePointHours{day, opens, closes}`, `requires_post_number`). A carrier implements `CarrierServicePoints`; without
+  it the method answers `unsupported`. `CarrierSupportServicePoints` (`"service_points"`) marks a service that delivers to
+  a point; `CarrierRate.NeedsServicePoint` (`"needs_service_point"`) its rates, offered only to a shop that sets
+  `RatesRequest.ServicePoints` (`"service_points"`); `RatesRequest.ServicePoint` and `LabelRequest.ServicePoint`
+  (`ChosenServicePoint{id, post_number}`) carry the buyer's choice. A new failure code, `CarrierInvalidServicePoint`
+  (`"invalid_service_point"`). `CarrierMethods` refuses a point service from a carrier that cannot list points, a point
+  rate the shop did not ask for, a points answer past its limit, and answers a label for a point service with no point,
+  or a point on a door service, `rejected` / `invalid_service_point` without asking the carrier to buy; a return label
+  names no point. The shop calls `Services.ShippingServicePoints(ctx, provider, req)` — one carrier, the point rate's.
+  Read 2026-11-05: Sendcloud's Service Points API v3 and its shipments' `to_service_point`; Shippo's API has no point
+  search. `nildatest.StubCarrier.Points` lists points for its point services (`NeedsServicePoint` quotes) and
+  `LabelsAsked` records label requests.
+- Additive: a carrier built before is answered `unsupported` by `service_points`; a shop built before sets no
+  `service_points` and is offered no point rate. Core relays the method once it is built on this release (its contract
+  book reads this file); its agent tool is `shipping.carrier.v1.service_points`.
+
+- SHIPPING: PAPERLESS RETURN LABELS, EXPERIMENTAL (commerce plan 10.9b; `shipping.go`, `docs/SHIPPING.md` §3 "Return
+  labels, and paperless ones"). `LabelRequest.Paperless` (`"paperless"`, only with `Return` — `Validate` refuses it on an
+  outbound label) asks a service listing `CarrierSupportPaperlessReturns` (`"paperless_returns"`) for a return the buyer
+  drops off with a code instead of a printout; a carrier that cannot answers with a printed `return_label`, never a
+  refusal. `LabelResult.DropOffCode` (`"drop_off_code"`, one plain line of 1 to 64 characters, on a `purchased` label only)
+  is the code shown at the counter (ShipEngine's `handoff_code`); a QR to scan is a document of the new kind `"return_qr"`
+  (`png` or `pdf`, never `zpl`) — Shippo's `qr_code_url` (`extra.qr_code_requested`, docs.goshippo.com
+  spec/shippoapi/public-api.yaml, read 2026-11-05) and Sendcloud's labelless return (`delivery_option`
+  `drop_off_labelless`, `functionalities.labelless`, sendcloud.dev/.openapi/v3/returns/openapi.yaml, read 2026-11-05).
+  `LabelResult.ValidateFor(req)` refuses either on a label not asked as a return; `CarrierMethods` and
+  `Services.CreateShippingLabel` run it. `nildatest.StubCarrier.Paperless` gives a `DROP-…` code and a `return_qr`, and the
+  stub's return labels are now `return_label` documents.
+
+- PAYMENTS: THE PROCESSOR'S RISK VERDICT, EXPERIMENTAL (commerce plan 10.3, step F1; `paymentrisk.go`, `docs/PAYMENTS.md`
+  §4 "The processor's risk verdict", §5 "Reading the processor's risk verdict" and "Risk's decisions"). `PaymentRisk`
+  (`{"level","score","reason"}`): `Level` one of `RiskNormal`, `RiskElevated`, `RiskHighest`, `RiskNotAssessed`,
+  `RiskUnknown` (`"normal"`, `"elevated"`, `"highest"`, `"not_assessed"`, `"unknown"` — Stripe Radar's
+  `outcome.risk_level`, docs.stripe.com/api/charges/object, read 2026-11-05), `Score *int` 0 to 100 (Stripe's
+  `outcome.risk_score`; never beside not_assessed or unknown), `Reason` one plain line of at most 200 characters.
+  `PaymentResolution.Risk` and `PaymentAuthorization.Risk` (`"risk"`) carry it from the gateway; their `Validate` — run
+  by the client before it sends — refuses any other level, a score out of range or on a payment nobody assessed, and a
+  reason that is not one plain line. `PaymentSession.Risk` (`"risk"`): Core keeps the FIRST verdict a hold or a
+  resolution reports, never moves or clears it, keeps a late one and tells the consumer. Nil means the gateway did not
+  say — not `not_assessed`.
+- `nildatest.Payments` keeps it as Core will (`TestTheKitKeepsTheRiskOnTheSession`, `TestTheHoldCarriesTheRisk`).
+- Additive and SDK-first: Core keeps it from plan 10.3's step F1 (`coreahead_test.go` lists the session's `risk`); an
+  older Core ignores the field, so a gateway may send it today and nothing is kept until then.
 
 - PAYMENTS AND THE SHOP: EXPRESS WALLET BUTTONS, EXPERIMENTAL (commerce plan 10.2, step X1; `paymentexpress.go`,
   `commerceexpress.go`, `docs/PAYMENTS.md` §4 "Express wallet buttons" and §5 "Express checkout and re-pricing",

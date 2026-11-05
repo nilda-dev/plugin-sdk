@@ -73,17 +73,21 @@ const CarrierDescribe
 const CarrierDocumentsGet
 const CarrierInvalidAddress
 const CarrierInvalidParcel
+const CarrierInvalidServicePoint
 const CarrierLabelCreate
 const CarrierLabelVoid
 const CarrierNoService
 const CarrierNotVoidable
 const CarrierRates
 const CarrierRatesBudget
+const CarrierServicePointsGet
 const CarrierSupportCustoms
 const CarrierSupportInsurance
 const CarrierSupportLabels
+const CarrierSupportPaperlessReturns
 const CarrierSupportRates
 const CarrierSupportReturns
+const CarrierSupportServicePoints
 const CarrierSupportSignature
 const CarrierSupportTrack
 const CarrierSupportVoid
@@ -124,6 +128,7 @@ const ContractShopOrders
 const ContractStable
 const CredentialStripeConfirmationToken
 const CredentialStripeSPT
+const DefaultServicePoints
 const DeliverableKey
 const DeliverableLink
 const DeliverablesDescribe
@@ -367,6 +372,7 @@ const MaxPriceGroupLength
 const MaxPrivacyRecords
 const MaxRecommendationWhy
 const MaxRecommendations
+const MaxServicePoints
 const MaxSetupSteps
 const MaxTrashID
 const MaxTrashKind
@@ -441,6 +447,11 @@ const RefundRejected
 const RefundRequested
 const RefundResolved
 const ReportRowKey
+const RiskElevated
+const RiskHighest
+const RiskNormal
+const RiskNotAssessed
+const RiskUnknown
 const ScreenEmail
 const ScreenMenus
 const ScreenPages
@@ -449,6 +460,10 @@ const ScreenPlugins
 const ScreenPrivacy
 const ScreenSettings
 const ServiceHookPrefix
+const ServicePointDepot
+const ServicePointLocker
+const ServicePointPostOffice
+const ServicePointShop
 const SettingBoolean
 const SettingColor
 const SettingEmail
@@ -650,6 +665,7 @@ field CarrierRate.DaysMax int json:days_max
 field CarrierRate.DaysMin int json:days_min
 field CarrierRate.DeliveryBy *time.Time json:delivery_by
 field CarrierRate.ExpiresAt *time.Time json:expires_at
+field CarrierRate.NeedsServicePoint bool json:needs_service_point
 field CarrierRate.PickupRequired bool json:pickup_required
 field CarrierRate.ProviderRef string json:provider_ref
 field CarrierRate.Service string json:service
@@ -718,6 +734,8 @@ field CatalogVariant.ShownSalePriceMinor *int64 json:shown_sale_price_minor
 field CatalogVariant.Title string json:title
 field CatalogVariant.UnitPricing *CatalogUnitPricing json:unit_pricing
 field CatalogVariant.WeightGrams *int64 json:weight_grams
+field ChosenServicePoint.ID string json:id
+field ChosenServicePoint.PostNumber string json:post_number
 field CommerceEndpoints.Account string json:account
 field CommerceEndpoints.AddToCart string json:add_to_cart
 field CommerceEndpoints.Cart string json:cart
@@ -1007,17 +1025,20 @@ field LabelRequest.Destination ShipAddress json:destination
 field LabelRequest.Key string json:key
 field LabelRequest.Options map[string]string json:options
 field LabelRequest.Origin ShipAddress json:origin
+field LabelRequest.Paperless bool json:paperless
 field LabelRequest.Parcels []Parcel json:parcels
 field LabelRequest.RateRef string json:rate_ref
 field LabelRequest.Reference string json:reference
 field LabelRequest.Return bool json:return
 field LabelRequest.Service string json:service
+field LabelRequest.ServicePoint *ChosenServicePoint json:service_point
 field LabelRequest.Test bool json:test
 field LabelResult.CarrierName string json:carrier_name
 field LabelResult.CostMinor int64 json:cost_minor
 field LabelResult.Currency string json:currency
 field LabelResult.DeliveryBy *time.Time json:delivery_by
 field LabelResult.Documents []DocumentRef json:documents
+field LabelResult.DropOffCode string json:drop_off_code
 field LabelResult.FailureCode string json:failure_code
 field LabelResult.FailureMessage string json:failure_message
 field LabelResult.ProviderRef string json:provider_ref
@@ -1148,6 +1169,7 @@ field PaymentAuthorization.AmountMinor int64 json:amount_minor
 field PaymentAuthorization.Currency string json:currency
 field PaymentAuthorization.ExpiresAt *time.Time json:expires_at
 field PaymentAuthorization.ProviderRef string json:provider_ref
+field PaymentAuthorization.Risk *PaymentRisk json:risk
 field PaymentCaptureRequest.AmountMinor int64 json:amount_minor
 field PaymentCaptureRequest.IdempotencyKey string json:idempotency_key
 field PaymentCaptureRequest.Session PaymentSession json:session
@@ -1286,7 +1308,11 @@ field PaymentResolution.AmountMinor int64 json:amount_minor
 field PaymentResolution.Currency string json:currency
 field PaymentResolution.Instrument string json:instrument
 field PaymentResolution.ProviderRef string json:provider_ref
+field PaymentResolution.Risk *PaymentRisk json:risk
 field PaymentResolution.Saved *PaymentSaved json:saved
+field PaymentRisk.Level string json:level
+field PaymentRisk.Reason string json:reason
+field PaymentRisk.Score *int json:score
 field PaymentSaved.ExpiresAt *time.Time json:expires_at
 field PaymentSaved.Label string json:label
 field PaymentSaved.Token string json:token
@@ -1322,6 +1348,7 @@ field PaymentSession.Reference string json:reference
 field PaymentSession.RefundedMinor int64 json:refunded_minor
 field PaymentSession.ResolvedAt *time.Time json:resolved_at
 field PaymentSession.ReturnURL string json:return_url
+field PaymentSession.Risk *PaymentRisk json:risk
 field PaymentSession.Save *PaymentMandate json:save
 field PaymentSession.SavedMethod string json:saved_method
 field PaymentSession.ShippingAddress *PaymentAddress json:shipping_address
@@ -1436,6 +1463,8 @@ field RatesRequest.Locale string json:locale
 field RatesRequest.Origin ShipAddress json:origin
 field RatesRequest.Parcels []Parcel json:parcels
 field RatesRequest.Quote string json:quote
+field RatesRequest.ServicePoint *ChosenServicePoint json:service_point
+field RatesRequest.ServicePoints bool json:service_points
 field RatesRequest.Services []string json:services
 field RatesResult.FailureCode string json:failure_code
 field RatesResult.FailureMessage string json:failure_message
@@ -1540,6 +1569,31 @@ field ServiceMethod.Handle func(ctx context.Context, input json.RawMessage) (any
 field ServiceMethod.Method string
 field ServiceMiss.Provider string json:provider
 field ServiceMiss.Reason string json:reason
+field ServicePoint.Address ShipAddress json:address
+field ServicePoint.Carrier string json:carrier
+field ServicePoint.DistanceMeters *int64 json:distance_meters
+field ServicePoint.Hours []ServicePointHours json:hours
+field ServicePoint.ID string json:id
+field ServicePoint.Kind string json:kind
+field ServicePoint.Latitude *float64 json:latitude
+field ServicePoint.Longitude *float64 json:longitude
+field ServicePoint.Name string json:name
+field ServicePoint.RequiresPostNumber bool json:requires_post_number
+field ServicePointHours.Closes string json:closes
+field ServicePointHours.Day string json:day
+field ServicePointHours.Opens string json:opens
+field ServicePointsRequest.City string json:city
+field ServicePointsRequest.Country string json:country
+field ServicePointsRequest.Latitude *float64 json:latitude
+field ServicePointsRequest.Limit int json:limit
+field ServicePointsRequest.Line1 string json:line1
+field ServicePointsRequest.Locale string json:locale
+field ServicePointsRequest.Longitude *float64 json:longitude
+field ServicePointsRequest.PostalCode string json:postal_code
+field ServicePointsRequest.Service string json:service
+field ServicePointsResult.FailureCode string json:failure_code
+field ServicePointsResult.FailureMessage string json:failure_message
+field ServicePointsResult.Points []ServicePoint json:points
 field ServiceResult.Answers []ServiceAnswer json:answers
 field ServiceResult.Contract string json:contract
 field ServiceResult.Fallback string json:fallback
@@ -1849,6 +1903,7 @@ imethod Carrier.DescribeCarrier(context.Context) (CarrierDescription, error)
 imethod Carrier.Rates(context.Context, RatesRequest) (RatesResult, error)
 imethod Carrier.VoidLabel(context.Context, VoidRequest) (VoidResult, error)
 imethod CarrierDocuments.Documents(context.Context, DocumentsRequest) (DocumentsResult, error)
+imethod CarrierServicePoints.ServicePoints(context.Context, ServicePointsRequest) (ServicePointsResult, error)
 imethod CarrierTracker.Track(context.Context, TrackRequest) (TrackResult, error)
 imethod CatalogProvider.CatalogPage(context.Context, CatalogPageRequest) (CatalogPage, error)
 imethod CatalogProvider.CatalogProduct(context.Context, CatalogProductRequest) (CatalogProductResult, error)
@@ -2010,6 +2065,7 @@ method (*Services) DeliveredSKUs(context.Context) (map[string]bool, error)
 method (*Services) OrderDeliverables(context.Context, DeliverablesRequest) ([]DeliveredItem, int, error)
 method (*Services) ShippingDocuments(context.Context, string, DocumentsRequest) (DocumentsResult, error)
 method (*Services) ShippingRates(context.Context, RatesRequest, ServiceCallOptions) ([]CarrierRatesAnswer, []ServiceMiss, error)
+method (*Services) ShippingServicePoints(context.Context, string, ServicePointsRequest) (ServicePointsResult, error)
 method (*Services) ShopOrder(context.Context, string) (ShopOrderResult, error)
 method (*Services) TrackShipment(context.Context, string, TrackRequest) (TrackResult, error)
 method (*Services) VoidShippingLabel(context.Context, string, VoidRequest) (VoidResult, error)
@@ -2022,6 +2078,7 @@ method (CatalogProduct) Validate() (error)
 method (CatalogProductRequest) Validate() (error)
 method (CatalogProductResult) Validate() (error)
 method (CatalogVariant) Validate() (error)
+method (ChosenServicePoint) Validate() (error)
 method (ClientAction) GoString() (string)
 method (ClientAction) String() (string)
 method (ContractMethod) ValidateInput([]byte) (error)
@@ -2042,6 +2099,7 @@ method (ExpressPayer) Validate() (error)
 method (ExpressRequest) Validate() (error)
 method (LabelRequest) Validate() (error)
 method (LabelResult) Validate() (error)
+method (LabelResult) ValidateFor(LabelRequest) (error)
 method (LinkTarget) Validate(string) (error)
 method (Parcel) Validate() (error)
 method (PaymentAddress) Validate() (error)
@@ -2060,6 +2118,7 @@ method (PaymentRefundParams) Validate() (error)
 method (PaymentRejection) Validate() (error)
 method (PaymentReprice) Validate() (error)
 method (PaymentResolution) Validate() (error)
+method (PaymentRisk) Validate() (error)
 method (PaymentSaved) GoString() (string)
 method (PaymentSaved) String() (string)
 method (PaymentSaved) Validate() (error)
@@ -2078,6 +2137,10 @@ method (ServiceAnswer) Decode(any) (error)
 method (ServiceContract) AssistantTools() ([]string)
 method (ServiceContract) Experimental() (bool)
 method (ServiceContract) Method(string) (ContractMethod, bool)
+method (ServicePoint) Validate() (error)
+method (ServicePointsRequest) Validate() (error)
+method (ServicePointsResult) Validate() (error)
+method (ServicePointsResult) ValidateFor(ServicePointsRequest) (error)
 method (SetupStatus) Validate() (error)
 method (ShipAddress) Validate() (error)
 method (ShopOrder) Validate() (error)
@@ -2134,6 +2197,7 @@ type CarrierDocuments
 type CarrierRate
 type CarrierRatesAnswer
 type CarrierService
+type CarrierServicePoints
 type CarrierTracker
 type CatalogDescription
 type CatalogPage
@@ -2144,6 +2208,7 @@ type CatalogProductResult
 type CatalogProvider
 type CatalogUnitPricing
 type CatalogVariant
+type ChosenServicePoint
 type Class
 type ClientAction
 type Commerce
@@ -2273,6 +2338,7 @@ type PaymentRepriceRequest
 type PaymentRepriceResult
 type PaymentRepricer
 type PaymentResolution
+type PaymentRisk
 type PaymentSaved
 type PaymentSavedToken
 type PaymentSession
@@ -2328,6 +2394,10 @@ type ServiceCallOptions
 type ServiceContract
 type ServiceMethod
 type ServiceMiss
+type ServicePoint
+type ServicePointHours
+type ServicePointsRequest
+type ServicePointsResult
 type ServiceProvider
 type ServiceResult
 type Services

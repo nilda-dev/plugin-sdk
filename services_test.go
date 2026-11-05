@@ -158,7 +158,9 @@ func TestAContractToolNameCanNeverBeAPluginsAbility(t *testing.T) {
 		}
 	}
 	ship, _ := ContractNamed(ContractShippingCarrier)
-	if got := strings.Join(ship.AssistantTools(), ","); got != "shipping.carrier.v1.describe,shipping.carrier.v1.rates,shipping.carrier.v1.track" {
+	// service_points (v0.58.0) is a read, like rates: "where can DHL deliver near Wien 1010?" is the owner's question too.
+	if got := strings.Join(ship.AssistantTools(), ","); got != "shipping.carrier.v1.describe,shipping.carrier.v1.rates,"+
+		"shipping.carrier.v1.track,shipping.carrier.v1.service_points" {
 		t.Fatalf("shipping's assistant tools = %s", got)
 	}
 	pay, _ := ContractNamed("payments/v1")

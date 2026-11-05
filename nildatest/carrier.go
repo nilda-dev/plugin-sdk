@@ -29,13 +29,20 @@ type StubCarrier struct {
 	Down bool
 	// Events are what Track reports, oldest first.
 	Events []nilda.TrackEvent
+	// Paperless makes its services offer paperless returns (nilda.CarrierSupportPaperlessReturns): a return label asked
+	// Paperless comes back as a drop-off code and a return_qr document instead of a label to print (v0.58.0).
+	Paperless bool
+	// Points are the service points its point services deliver to, nearest first (v0.58.0): a rate in Quotes with
+	// NeedsServicePoint is a point service.
+	Points []nilda.ServicePoint
 
-	mu      sync.Mutex
-	labels  map[string]nilda.LabelResult // by request Key
-	voided  map[string]bool              // by provider ref
-	bought  int
-	asked   []nilda.RatesRequest
-	nextRef int
+	mu          sync.Mutex
+	labels      map[string]nilda.LabelResult // by request Key
+	voided      map[string]bool              // by provider ref
+	bought      int
+	asked       []nilda.RatesRequest
+	labelsAsked []nilda.LabelRequest
+	nextRef     int
 }
 
 // NewStubCarrier is a carrier quoting rates for its services.
@@ -79,9 +86,15 @@ func (c *StubCarrier) DescribeCarrier(ctx context.Context) (nilda.CarrierDescrip
 	}
 	d := nilda.CarrierDescription{Name: c.Name, Services: []nilda.CarrierService{}}
 	for _, r := range c.Quotes {
-		d.Services = append(d.Services, nilda.CarrierService{Key: r.Service, Label: r.Title, Test: true,
-			Supports: []string{nilda.CarrierSupportRates, nilda.CarrierSupportLabels, nilda.CarrierSupportVoid,
-				nilda.CarrierSupportTrack}})
+		supports := []string{nilda.CarrierSupportRates, nilda.CarrierSupportLabels, nilda.CarrierSupportVoid,
+			nilda.CarrierSupportTrack}
+		if c.Paperless {
+			supports = append(supports, nilda.CarrierSupportReturns, nilda.CarrierSupportPaperlessReturns)
+		}
+		if r.NeedsServicePoint {
+			supports = append(supports, nilda.CarrierSupportServicePoints)
+		}
+		d.Services = append(d.Services, nilda.CarrierService{Key: r.Service, Label: r.Title, Test: true, Supports: supports})
 	}
 	return d, nil
 }
@@ -103,6 +116,9 @@ func (c *StubCarrier) Rates(ctx context.Context, req nilda.RatesRequest) (nilda.
 	}
 	var out []nilda.CarrierRate
 	for _, r := range c.Quotes {
+		if r.NeedsServicePoint && !req.ServicePoints && req.ServicePoint == nil {
+			continue // a point delivery only to a shop that can let the buyer choose a point
+		}
 		if len(on) == 0 || on[r.Service] {
 			out = append(out, r)
 		}
@@ -113,24 +129,39 @@ func (c *StubCarrier) Rates(ctx context.Context, req nilda.RatesRequest) (nilda.
 	return nilda.RatesResult{Status: nilda.RatesOK, Rates: out}, nil
 }
 
-// CreateLabel buys a label once per Key.
+// CreateLabel buys a label once per Key: a return label's document is a return_label, or — asked Paperless of a carrier
+// set Paperless — a drop-off code and a return_qr.
 func (c *StubCarrier) CreateLabel(ctx context.Context, req nilda.LabelRequest) (nilda.LabelResult, error) {
 	if err := c.wait(ctx); err != nil {
 		return nilda.LabelResult{}, err
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.labelsAsked = append(c.labelsAsked, req)
 	if l, ok := c.labels[req.Key]; ok {
 		return l, nil
 	}
 	if c.Down {
 		return nilda.LabelResult{Status: nilda.LabelRejected, FailureCode: nilda.CarrierUnavailable}, nil
 	}
+	if req.ServicePoint != nil && !c.listed(req.ServicePoint.ID) {
+		return nilda.LabelResult{Status: nilda.LabelRejected, FailureCode: nilda.CarrierInvalidServicePoint,
+			FailureMessage: "no such service point"}, nil
+	}
 	c.nextRef++
 	c.bought++
 	ref := fmt.Sprintf("stub_%d", c.nextRef)
+	doc := nilda.DocumentData("label", "pdf", []byte("%PDF-1.4 stub label "+ref))
 	l := nilda.LabelResult{Status: nilda.LabelPurchased, ProviderRef: ref, TrackingNumber: fmt.Sprintf("TEST%08d", c.nextRef),
-		CarrierName: c.Name, Service: req.Service, Documents: []nilda.DocumentRef{nilda.DocumentData("label", "pdf", []byte("%PDF-1.4 stub label "+ref))}}
+		CarrierName: c.Name, Service: req.Service}
+	switch {
+	case req.Return && req.Paperless && c.Paperless:
+		l.DropOffCode = fmt.Sprintf("DROP-%04d", c.nextRef)
+		doc = nilda.DocumentData("return_qr", "png", []byte("stub QR "+l.DropOffCode))
+	case req.Return:
+		doc.Kind = "return_label"
+	}
+	l.Documents = []nilda.DocumentRef{doc}
 	c.labels[req.Key] = l
 	return l, nil
 }
@@ -161,4 +192,48 @@ func (c *StubCarrier) Track(ctx context.Context, _ nilda.TrackRequest) (nilda.Tr
 		return nilda.TrackResult{Status: nilda.TrackLabelPrinted}, nil
 	}
 	return nilda.TrackResult{Status: c.Events[len(c.Events)-1].Status, Events: c.Events}, nil
+}
+
+// LabelsAsked is every label request it was asked, oldest first.
+func (c *StubCarrier) LabelsAsked() []nilda.LabelRequest {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return append([]nilda.LabelRequest(nil), c.labelsAsked...)
+}
+
+// ServicePoints lists the nearest Points of a point service, as many as asked; a carrier with no point service answers
+// "unsupported", one asked of a service that is not one "no_service".
+func (c *StubCarrier) ServicePoints(ctx context.Context, req nilda.ServicePointsRequest) (nilda.ServicePointsResult, error) {
+	if err := c.wait(ctx); err != nil {
+		return nilda.ServicePointsResult{}, err
+	}
+	if c.Down {
+		return nilda.ServicePointsResult{FailureCode: nilda.CarrierUnavailable}, nil
+	}
+	anyPoint, this := false, false
+	for _, r := range c.Quotes {
+		anyPoint = anyPoint || r.NeedsServicePoint
+		this = this || (r.NeedsServicePoint && r.Service == req.Service)
+	}
+	switch {
+	case !anyPoint:
+		return nilda.ServicePointsResult{FailureCode: nilda.CarrierUnsupported, FailureMessage: "this carrier delivers to no service point"}, nil
+	case !this:
+		return nilda.ServicePointsResult{FailureCode: nilda.CarrierNoService, FailureMessage: req.Service + " delivers to no service point"}, nil
+	}
+	limit := req.Limit
+	if limit == 0 {
+		limit = nilda.DefaultServicePoints
+	}
+	return nilda.ServicePointsResult{Points: append([]nilda.ServicePoint(nil), c.Points[:min(limit, len(c.Points))]...)}, nil
+}
+
+// listed reports whether it listed the point; the caller holds c.mu.
+func (c *StubCarrier) listed(id string) bool {
+	for _, p := range c.Points {
+		if p.ID == id {
+			return true
+		}
+	}
+	return false
 }

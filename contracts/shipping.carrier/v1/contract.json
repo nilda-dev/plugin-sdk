@@ -1,6 +1,6 @@
 {
   "name": "shipping.carrier/v1",
-  "description": "Shipping a parcel: a carrier plugin — an aggregator such as Sendcloud or Shippo, or one carrier's own API, on the merchant's own account — describes its services, quotes rates, buys and voids labels, tracks parcels and fetches a label's documents again. The shop keeps every record (SHIPPING.md).",
+  "description": "Shipping a parcel: a carrier plugin — an aggregator such as Sendcloud or Shippo, or one carrier's own API, on the merchant's own account — describes its services, quotes rates, buys and voids labels, tracks parcels, fetches a label's documents again and lists the service points it delivers to. The shop keeps every record (SHIPPING.md).",
   "methods": [
     {
       "name": "describe",
@@ -277,6 +277,26 @@
           },
           "locale": {
             "type": "string"
+          },
+          "service_points": {
+            "type": "boolean"
+          },
+          "service_point": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "post_number": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ]
           }
         },
         "required": [
@@ -344,6 +364,9 @@
                   "items": {
                     "type": "string"
                   }
+                },
+                "needs_service_point": {
+                  "type": "boolean"
                 }
               },
               "required": [
@@ -551,6 +574,26 @@
           "return": {
             "type": "boolean"
           },
+          "paperless": {
+            "type": "boolean"
+          },
+          "service_point": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "post_number": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ]
+          },
           "options": {
             "type": "object",
             "additionalProperties": {
@@ -628,6 +671,9 @@
               "null",
               "string"
             ]
+          },
+          "drop_off_code": {
+            "type": "string"
           },
           "failure_code": {
             "type": "string"
@@ -799,6 +845,180 @@
               "required": [
                 "kind",
                 "format"
+              ]
+            }
+          },
+          "failure_code": {
+            "type": "string"
+          },
+          "failure_message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "service_points",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. The service points — parcel shops, lockers, post offices — one point service delivers to near a place, nearest first and bounded, for the buyer to choose one.",
+      "retry_class": "failure",
+      "fallback": "skip",
+      "idempotent": true,
+      "agent": "read",
+      "input": {
+        "type": "object",
+        "properties": {
+          "service": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "postal_code": {
+            "type": "string"
+          },
+          "city": {
+            "type": "string"
+          },
+          "line1": {
+            "type": "string"
+          },
+          "latitude": {
+            "type": [
+              "null",
+              "number"
+            ]
+          },
+          "longitude": {
+            "type": [
+              "null",
+              "number"
+            ]
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "locale": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "service",
+          "country"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "points": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "carrier": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "address": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "company": {
+                      "type": "string"
+                    },
+                    "line1": {
+                      "type": "string"
+                    },
+                    "line2": {
+                      "type": "string"
+                    },
+                    "city": {
+                      "type": "string"
+                    },
+                    "region": {
+                      "type": "string"
+                    },
+                    "postal_code": {
+                      "type": "string"
+                    },
+                    "country": {
+                      "type": "string"
+                    },
+                    "phone": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "country"
+                  ]
+                },
+                "latitude": {
+                  "type": [
+                    "null",
+                    "number"
+                  ]
+                },
+                "longitude": {
+                  "type": [
+                    "null",
+                    "number"
+                  ]
+                },
+                "distance_meters": {
+                  "type": [
+                    "null",
+                    "integer"
+                  ]
+                },
+                "hours": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "day": {
+                        "type": "string"
+                      },
+                      "opens": {
+                        "type": "string"
+                      },
+                      "closes": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "day",
+                      "opens",
+                      "closes"
+                    ]
+                  }
+                },
+                "requires_post_number": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "address"
               ]
             }
           },

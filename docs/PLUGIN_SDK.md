@@ -2291,7 +2291,11 @@ whose parameter type, `PaymentGatewayPlugin`, is both. Its three methods take an
 `nilda.PaymentResolution`, `Reject` with a `nilda.PaymentRejection`, `MarkPending`, `Confirm`,
 `ResolveRefund`, `RejectRefund`. A resolution may name what the payer paid with (`Instrument`, one of the
 `nilda.Instrument…` constants: card, sepa_debit, bank_transfer, wallet, other); the session keeps it with `ResolvedAt`,
-the moment it first resolved (v0.39.0).
+the moment it first resolved (v0.39.0). A resolution or a hold (`PaymentAuthorization`) may carry the processor's risk verdict
+(`Risk`, a `nilda.PaymentRisk`: `Level` one of `nilda.RiskNormal`, `RiskElevated`, `RiskHighest`, `RiskNotAssessed`,
+`RiskUnknown` — Stripe Radar's words — an optional `Score` 0 to 100 and the processor's `Reason`); Core keeps the first
+one reported on the session (`PaymentSession.Risk`) and a consumer reads it there (v0.58.0, EXPERIMENTAL, commerce plan
+10.3; PAYMENTS.md §4 "The processor's risk verdict").
 
 A **consumer** implements `nilda.PaymentConsumer` — `ConfirmPayment(ctx, nilda.PaymentSession)` answering a
 `nilda.PaymentConfirmResult`, `PaymentUpdated(ctx, nilda.PaymentSession)` and
@@ -2994,6 +2998,16 @@ shop. `docs/SHIPPING.md` is the whole of it; `_examples/carrier` is a working on
   `CreateShippingLabel`, `VoidShippingLabel`, `TrackShipment` and `ShippingDocuments`.
 - **A carrier's "no" is a result**: a status and a failure code (`CarrierNoService`, `CarrierUnavailable`, …), never an
   error; a `Rates` past its 4 seconds answers `unavailable` by itself.
+- **A paperless return** (v0.58.0, EXPERIMENTAL): a `LabelRequest` with `Return` and `Paperless` asks a service listing
+  `CarrierSupportPaperlessReturns` for a return the buyer needs no printer for; the label comes back with a
+  `LabelResult.DropOffCode` to show at the drop-off point and/or a `return_qr` document. `LabelResult.ValidateFor(req)`
+  refuses both on a label not asked as a return (`CarrierMethods` and `CreateShippingLabel` run it).
+- **Service points** (v0.58.0, EXPERIMENTAL): a service listing `CarrierSupportServicePoints` delivers to a point the buyer
+  chooses; its carrier implements `CarrierServicePoints` (`ServicePoints`: a `ServicePointsRequest` answered by a
+  `ServicePointsResult` of `ServicePoint`s with `ServicePointHours`, at most `MaxServicePoints`, `DefaultServicePoints`
+  when no limit is asked). The shop sets `RatesRequest.ServicePoints` to be offered rates with `NeedsServicePoint`, asks
+  `Services.ShippingServicePoints` of that rate's carrier, and sends the choice as `LabelRequest.ServicePoint` (a
+  `ChosenServicePoint`); a label that does not fit its service is `rejected`, `CarrierInvalidServicePoint`.
 
 ### The shop's catalogue (`shop.catalog/v1`)
 

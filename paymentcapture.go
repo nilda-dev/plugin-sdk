@@ -81,11 +81,18 @@ type PaymentAuthorization struct {
 	// a hold nobody captured once it has passed. Absent, Core assumes seven days — a card's hold online, the shortest of
 	// the common ones — and the same hold reported again with a deadline corrects it.
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	// Risk is the processor's risk verdict on the payment it holds (v0.58.0, EXPERIMENTAL, paymentrisk.go): a processor
+	// scores a card when it authorises it, so the hold is where the verdict first arrives. Nil when the gateway does not
+	// report one.
+	Risk *PaymentRisk `json:"risk,omitempty"`
 }
 
 // Validate refuses a hold with no positive amount, no currency ISO 4217 knows, or a reference past its bound.
 func (a PaymentAuthorization) Validate() error {
 	if err := validAmount(a.AmountMinor, strings.ToUpper(strings.TrimSpace(a.Currency))); err != nil {
+		return err
+	}
+	if err := validRisk(a.Risk); err != nil {
 		return err
 	}
 	return validProviderRef(a.ProviderRef)
