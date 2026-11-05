@@ -30,6 +30,7 @@ type methodDef struct {
 
 type contractDef struct {
 	name, description string
+	status            string
 	methods           []methodDef
 }
 
@@ -220,12 +221,12 @@ const deliverablesAgentReason = "what was delivered is shown to its buyer; the o
 
 // contractDefs is every contract this module defines.
 var contractDefs = []contractDef{paymentsV1, shippingCarrierV1, shopCatalogV1, shopOrdersV1,
-	shopDeliverablesV1}
+	shopDeliverablesV1, siteReaderV1}
 
 // render builds a contract file from its definition.
 func (d contractDef) render(t *testing.T) []byte {
 	t.Helper()
-	c := ServiceContract{Name: d.name, Description: d.description}
+	c := ServiceContract{Name: d.name, Description: d.description, Status: d.status}
 	for _, md := range d.methods {
 		m := md.row
 		if m.Agent == "" {
@@ -243,7 +244,11 @@ func (d contractDef) render(t *testing.T) []byte {
 
 func schemaOf(t *testing.T, v any) json.RawMessage {
 	t.Helper()
-	s, err := jsonschema.ForType(reflect.TypeOf(v), nil)
+	// json.RawMessage is any JSON value (a reader's piece holds members of the site; an input holds the owner's field values), not
+	// the array of bytes the default translation would make of it.
+	s, err := jsonschema.ForType(reflect.TypeOf(v), &jsonschema.ForOptions{
+		TypeSchemas: map[reflect.Type]*jsonschema.Schema{reflect.TypeOf(json.RawMessage(nil)): {}},
+	})
 	if err != nil {
 		t.Fatalf("inferring the schema of %T: %v", v, err)
 	}
@@ -518,3 +523,38 @@ func TestNoContractTypeCarriesBytes(t *testing.T) {
 		}
 	}
 }
+
+// siteReaderV1 is a plugin that reads another platform's site and hands Core's importer pieces of it (SITE_READER.md). Only Core
+// asks, one named provider, so a failure blocks: a read half-delivered is not a read. Experimental until its first plugin ships on it.
+var siteReaderV1 = contractDef{
+	name:   ContractSiteReader,
+	status: ContractExperimental,
+	description: "A plugin that READS another platform's site — a WordPress export file or a live WordPress, later Shopify, Wix, " +
+		"Squarespace — and hands Core's importer a neutral description of it (package siteimport, Core's snapshot version 4) in " +
+		"pieces; Core checks every piece, writes the site as drafts and keeps the report, the publish act and the undo (SITE_READER.md).",
+	methods: []methodDef{
+		{ContractMethod{Name: SiteReaderSources, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: siteReaderAgentReason,
+			Description: "The platforms this plugin reads and, for each, the fields the owner fills in (a file, an address, an application password, a choice) as a description Core draws on its Importer screen."},
+			SiteReaderSourcesRequest{}, SiteReaderSourcesAnswer{}},
+		{ContractMethod{Name: SiteReaderStart, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block", BudgetMS: 5000,
+			Idempotent: true, Agent: "none", AgentReason: siteReaderAgentReason,
+			Description: "Begin one read of one source with the owner's input; the same idempotency key returns the same read. A read nobody asks for in 30 minutes is dropped, and everything the plugin held for it with it — the owner's password included."},
+			SiteReaderStartRequest{}, SiteReaderStartAnswer{}},
+		{ContractMethod{Name: SiteReaderFeed, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block", BudgetMS: 5000,
+			Idempotent: true, Agent: "none", AgentReason: siteReaderAgentReason,
+			Description: "One chunk, in order, of the export file the owner uploaded: Core holds the file and hands it over, the plugin has no door to Core's uploads. last closes the file; a repeated seq is accepted once."},
+			SiteReaderFeedRequest{}, SiteReaderFeedAnswer{}},
+		{ContractMethod{Name: SiteReaderNext, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block", BudgetMS: 15000,
+			Idempotent: true, Agent: "none", AgentReason: siteReaderAgentReason,
+			Description: "The piece with this sequence number: members of the neutral Site in snapshot encoding, progress, and the plugin's losses as codes with data. A repeat of the same seq returns the same piece; a plugin restarted since start answers reader_restarted, never last. A piece is at most 4 MiB, one element at most 1 MiB."},
+			SiteReaderNextRequest{}, SiteReaderPiece{}},
+		{ContractMethod{Name: SiteReaderCancel, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: siteReaderAgentReason,
+			Description: "Stop a read and drop everything the plugin holds for it."},
+			SiteReaderCancelRequest{}, SiteReaderCancelAnswer{}},
+	},
+}
+
+const siteReaderAgentReason = "the owner starts a read from Core's Importer screen and the assistant's import tools drive the same job; " +
+	"this is how Core asks the reader plugin, and no other plugin or tool may start a read with an owner's password"

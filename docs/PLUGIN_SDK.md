@@ -3010,6 +3010,24 @@ shop. `docs/SHIPPING.md` is the whole of it; `_examples/carrier` is a working on
   `Services.ShippingServicePoints` of that rate's carrier, and sends the choice as `LabelRequest.ServicePoint` (a
   `ChosenServicePoint`); a label that does not fit its service is `rejected`, `CarrierInvalidServicePoint`.
 
+### Reading another platform's site (`site.reader/v1`, experimental)
+
+A plugin that READS a platform — a WordPress export file or a live WordPress first, later Shopify, Wix, Squarespace — provides
+`site.reader/v1` (`nilda.ContractSiteReader`; the full description is `docs/SITE_READER.md`). **Only Core's importer asks it**, one named
+provider, fallback `block`; every method is agent class `none`. The plugin answers in pieces of the neutral model in package
+`siteimport`; Core checks, caps and cleans every piece and does the writing.
+
+- `sources` (`SiteReaderSourcesRequest` → `SiteReaderSourcesAnswer`: a `SiteReaderSource` per platform, each with its `SiteReaderField`s and
+  `SiteReaderChoice`s) — what the owner fills in; Core draws it.
+- `start` (`SiteReaderStartRequest` → `SiteReaderStartAnswer`) — begin one read; the same idempotency key returns the same read.
+- `feed` (`SiteReaderFeedRequest` → `SiteReaderFeedAnswer`) — the uploaded file, in order, in chunks of at most `SiteReaderChunkMax`.
+- `next` (`SiteReaderNextRequest` → `SiteReaderPiece`, with `SiteReaderProgress` and `SiteReaderLoss`es as codes with data) — the piece with
+  this sequence number; a repeat returns the same piece; after a restart the error is `SiteReaderRestarted`, never "last".
+- `cancel` (`SiteReaderCancelRequest` → `SiteReaderCancelAnswer`) — stop and drop what the plugin holds.
+
+Bounds: `SiteReaderPieceMax`, `SiteReaderElementMax`, `SiteReaderIdleMinutes`; the snapshot version is `SiteReaderSnapshotVersion`; the kinds
+are `SiteSourceFile`, `SiteSourceLive` and `SiteFieldText`, `SiteFieldURL`, `SiteFieldSecret`, `SiteFieldFile`, `SiteFieldChoice`.
+
 ### The shop's catalogue (`shop.catalog/v1`)
 
 The shop provides it; a channel plugin — a Google Merchant feed, a marketplace, an AI agent's catalogue — requires it

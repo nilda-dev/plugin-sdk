@@ -1,0 +1,328 @@
+{
+  "name": "site.reader/v1",
+  "description": "A plugin that READS another platform's site — a WordPress export file or a live WordPress, later Shopify, Wix, Squarespace — and hands Core's importer a neutral description of it (package siteimport, Core's snapshot version 4) in pieces; Core checks every piece, writes the site as drafts and keeps the report, the publish act and the undo (SITE_READER.md).",
+  "methods": [
+    {
+      "name": "sources",
+      "answered_by": "provider",
+      "description": "The platforms this plugin reads and, for each, the fields the owner fills in (a file, an address, an application password, a choice) as a description Core draws on its Importer screen.",
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner starts a read from Core's Importer screen and the assistant's import tools drive the same job; this is how Core asks the reader plugin, and no other plugin or tool may start a read with an owner's password",
+      "input": {
+        "type": "object",
+        "properties": {
+          "locale": {
+            "type": "string"
+          }
+        }
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "snapshot_version": {
+            "type": "integer"
+          },
+          "sources": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "platform": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "fields": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "type": "string"
+                      },
+                      "required": {
+                        "type": "boolean"
+                      },
+                      "choices": {
+                        "type": [
+                          "null",
+                          "array"
+                        ],
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "value": {
+                              "type": "string"
+                            },
+                            "label": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "value",
+                            "label"
+                          ]
+                        }
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "label",
+                      "type"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "platform",
+                "kind",
+                "fields"
+              ]
+            }
+          }
+        },
+        "required": [
+          "snapshot_version",
+          "sources"
+        ]
+      }
+    },
+    {
+      "name": "start",
+      "answered_by": "provider",
+      "description": "Begin one read of one source with the owner's input; the same idempotency key returns the same read. A read nobody asks for in 30 minutes is dropped, and everything the plugin held for it with it — the owner's password included.",
+      "budget_ms": 5000,
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner starts a read from Core's Importer screen and the assistant's import tools drive the same job; this is how Core asks the reader plugin, and no other plugin or tool may start a read with an owner's password",
+      "input": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "input": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "locale": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "input"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "read_id": {
+            "type": "string"
+          },
+          "snapshot_version": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "read_id",
+          "snapshot_version"
+        ]
+      }
+    },
+    {
+      "name": "feed",
+      "answered_by": "provider",
+      "description": "One chunk, in order, of the export file the owner uploaded: Core holds the file and hands it over, the plugin has no door to Core's uploads. last closes the file; a repeated seq is accepted once.",
+      "budget_ms": 5000,
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner starts a read from Core's Importer screen and the assistant's import tools drive the same job; this is how Core asks the reader plugin, and no other plugin or tool may start a read with an owner's password",
+      "input": {
+        "type": "object",
+        "properties": {
+          "read_id": {
+            "type": "string"
+          },
+          "seq": {
+            "type": "integer"
+          },
+          "chunk": {
+            "type": "string"
+          },
+          "last": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "read_id",
+          "seq",
+          "chunk"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "accepted": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "accepted"
+        ]
+      }
+    },
+    {
+      "name": "next",
+      "answered_by": "provider",
+      "description": "The piece with this sequence number: members of the neutral Site in snapshot encoding, progress, and the plugin's losses as codes with data. A repeat of the same seq returns the same piece; a plugin restarted since start answers reader_restarted, never last. A piece is at most 4 MiB, one element at most 1 MiB.",
+      "budget_ms": 15000,
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner starts a read from Core's Importer screen and the assistant's import tools drive the same job; this is how Core asks the reader plugin, and no other plugin or tool may start a read with an owner's password",
+      "input": {
+        "type": "object",
+        "properties": {
+          "read_id": {
+            "type": "string"
+          },
+          "seq": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "read_id",
+          "seq"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "seq": {
+            "type": "integer"
+          },
+          "snapshot_version": {
+            "type": "integer"
+          },
+          "last": {
+            "type": "boolean"
+          },
+          "piece": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "progress": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "phase": {
+                "type": "string"
+              },
+              "done": {
+                "type": "integer"
+              },
+              "total": {
+                "type": "integer"
+              }
+            }
+          },
+          "losses": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer"
+                },
+                "data": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              },
+              "required": [
+                "code"
+              ]
+            }
+          }
+        },
+        "required": [
+          "seq",
+          "snapshot_version",
+          "last",
+          "piece"
+        ]
+      }
+    },
+    {
+      "name": "cancel",
+      "answered_by": "provider",
+      "description": "Stop a read and drop everything the plugin holds for it.",
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner starts a read from Core's Importer screen and the assistant's import tools drive the same job; this is how Core asks the reader plugin, and no other plugin or tool may start a read with an owner's password",
+      "input": {
+        "type": "object",
+        "properties": {
+          "read_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "read_id"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok"
+        ]
+      }
+    }
+  ],
+  "status": "experimental"
+}

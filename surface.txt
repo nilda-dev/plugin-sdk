@@ -126,6 +126,7 @@ const ContractShippingCarrier
 const ContractShopCatalog
 const ContractShopDeliverables
 const ContractShopOrders
+const ContractSiteReader
 const ContractStable
 const CredentialStripeConfirmationToken
 const CredentialStripeSPT
@@ -478,6 +479,24 @@ const SettingText
 const SettingTextarea
 const SettingURL
 const SetupStatusHook
+const SiteFieldChoice
+const SiteFieldFile
+const SiteFieldSecret
+const SiteFieldText
+const SiteFieldURL
+const SiteReaderCancel
+const SiteReaderChunkMax
+const SiteReaderElementMax
+const SiteReaderFeed
+const SiteReaderIdleMinutes
+const SiteReaderNext
+const SiteReaderPieceMax
+const SiteReaderRestarted
+const SiteReaderSnapshotVersion
+const SiteReaderSources
+const SiteReaderStart
+const SiteSourceFile
+const SiteSourceLive
 const StockAlertAlready
 const StockAlertRefused
 const StockAlertSubscribed
@@ -1651,6 +1670,47 @@ field Site.Description string json:description
 field Site.Locale string json:locale
 field Site.Timezone string json:timezone
 field Site.Title string json:title
+field SiteReaderCancelAnswer.OK bool json:ok
+field SiteReaderCancelRequest.ReadID string json:read_id
+field SiteReaderChoice.Label string json:label
+field SiteReaderChoice.Value string json:value
+field SiteReaderFeedAnswer.Accepted int json:accepted
+field SiteReaderFeedRequest.Chunk string json:chunk
+field SiteReaderFeedRequest.Last bool json:last
+field SiteReaderFeedRequest.ReadID string json:read_id
+field SiteReaderFeedRequest.Seq int json:seq
+field SiteReaderField.Choices []SiteReaderChoice json:choices
+field SiteReaderField.Label string json:label
+field SiteReaderField.Name string json:name
+field SiteReaderField.Required bool json:required
+field SiteReaderField.Type string json:type
+field SiteReaderLoss.Code string json:code
+field SiteReaderLoss.Count int json:count
+field SiteReaderLoss.Data map[string]json.RawMessage json:data
+field SiteReaderNextRequest.ReadID string json:read_id
+field SiteReaderNextRequest.Seq int json:seq
+field SiteReaderPiece.Last bool json:last
+field SiteReaderPiece.Losses []SiteReaderLoss json:losses
+field SiteReaderPiece.Piece map[string]json.RawMessage json:piece
+field SiteReaderPiece.Progress *SiteReaderProgress json:progress
+field SiteReaderPiece.Seq int json:seq
+field SiteReaderPiece.SnapshotVersion int json:snapshot_version
+field SiteReaderProgress.Done int json:done
+field SiteReaderProgress.Phase string json:phase
+field SiteReaderProgress.Total int json:total
+field SiteReaderSource.Fields []SiteReaderField json:fields
+field SiteReaderSource.Key string json:key
+field SiteReaderSource.Kind string json:kind
+field SiteReaderSource.Label string json:label
+field SiteReaderSource.Platform string json:platform
+field SiteReaderSourcesAnswer.SnapshotVersion int json:snapshot_version
+field SiteReaderSourcesAnswer.Sources []SiteReaderSource json:sources
+field SiteReaderSourcesRequest.Locale string json:locale
+field SiteReaderStartAnswer.ReadID string json:read_id
+field SiteReaderStartAnswer.SnapshotVersion int json:snapshot_version
+field SiteReaderStartRequest.Input map[string]json.RawMessage json:input
+field SiteReaderStartRequest.Locale string json:locale
+field SiteReaderStartRequest.Source string json:source
 field StockAlertRequest.ConsentText string json:consent_text
 field StockAlertRequest.Email string json:email
 field StockAlertRequest.Locale string json:locale
@@ -2411,6 +2471,21 @@ type ShopOrderLine
 type ShopOrderRequest
 type ShopOrderResult
 type Site
+type SiteReaderCancelAnswer
+type SiteReaderCancelRequest
+type SiteReaderChoice
+type SiteReaderFeedAnswer
+type SiteReaderFeedRequest
+type SiteReaderField
+type SiteReaderLoss
+type SiteReaderNextRequest
+type SiteReaderPiece
+type SiteReaderProgress
+type SiteReaderSource
+type SiteReaderSourcesAnswer
+type SiteReaderSourcesRequest
+type SiteReaderStartAnswer
+type SiteReaderStartRequest
 type StockAlertRequest
 type StockAlertResult
 type TableExport
