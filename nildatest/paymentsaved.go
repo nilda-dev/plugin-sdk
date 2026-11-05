@@ -98,13 +98,22 @@ func (p *Payments) chargeSaved(ctx context.Context, consumer string, params nild
 	if err != nil {
 		return nilda.PaymentSession{}, err
 	}
+	// Never on a method that now takes cards only at its readers: nobody stands at the till, as Core refuses.
+	if nilda.Supports(nilda.SupportsOf(offered), nilda.SupportCardPresent) {
+		return nilda.PaymentSession{}, invalid("%q of %q now takes cards only at a reader; a kept payment method is not "+
+			"charged through it", kept.Method, kept.Gateway)
+	}
+	// Which kind of merchant-initiated charge this is, from what the payer's agreement is for (paymentinperson.go).
+	p.mu.Lock()
+	kind := p.chargeKind(m)
+	p.mu.Unlock()
 	now := p.clock().UTC()
 	expires := now.Add(sessionLifetime)
 	s := &nilda.PaymentSession{
 		ID: newID(), Consumer: consumer, Gateway: kept.Gateway, Method: kept.Method, Reference: params.Reference,
 		AmountMinor: params.AmountMinor, Currency: currency, Status: nilda.PaymentCreated, Test: kept.Test,
 		Description: params.Description, Email: kept.Email, Fulfilment: params.Fulfilment,
-		ShippingAddress: params.ShippingAddress, ChargedSaved: kept.ID, OffSession: nilda.OffSessionOf(kept.Mandate),
+		ShippingAddress: params.ShippingAddress, ChargedSaved: kept.ID, OffSession: kind,
 		Supports:  nilda.SupportsOf(offered),
 		ExpiresAt: &expires, CreatedAt: now, UpdatedAt: now,
 	}

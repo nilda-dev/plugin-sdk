@@ -286,6 +286,9 @@
                   },
                   "interval_count": {
                     "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -658,6 +661,9 @@
                   },
                   "interval_count": {
                     "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -934,6 +940,9 @@
                   },
                   "interval_count": {
                     "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -1217,6 +1226,9 @@
                   },
                   "interval_count": {
                     "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -1503,6 +1515,9 @@
                   },
                   "interval_count": {
                     "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -1778,6 +1793,9 @@
                   },
                   "interval_count": {
                     "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -2046,6 +2064,9 @@
                   },
                   "interval_count": {
                     "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -2359,6 +2380,9 @@
                   },
                   "interval_count": {
                     "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -2698,6 +2722,9 @@
                   },
                   "interval_count": {
                     "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
                   }
                 },
                 "required": [

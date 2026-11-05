@@ -365,7 +365,21 @@ any other method. A gateway that lists it implements **`nilda.PaymentCapturer`**
 3. **Void** (`payment.void`) calls off a payment still waiting at its reader: cancel the reader's action and the payment
    at the processor (Stripe: `cancel_action`, then cancel the PaymentIntent) and answer `rejected` — or `resolved` with
    the amount if the payer had already paid. Your own word that the reader's action was cancelled, arriving first, is
-   that void (`Reject` with `cancelled`): Core ends the session `voided`.
+   that void (`Reject` with `cancelled`): Core ends the session `voided`. A void may come before your start answer has
+   reached Core (the till's Cancel pressed at once): Core keeps it and asks it the moment your start answers `pending`.
+4. **A reader action that timed out is a `Reject`.** When the processor says the reader gave up (no card presented, the
+   reader's own timeout, Stripe's `terminal.reader.action_failed`), report it — `cancelled` for the payer's or the reader's
+   cancel, `provider_unavailable` for a reader that lost its connection, after you looked the PaymentIntent up (Stripe:
+   "fetch the PaymentIntent status to verify if the payment is successfully authorized"). Never leave it pending: a
+   reader can be left "in_progress" with no webhook at all (Stripe, "Missing webhooks"), so Core gives every reader's
+   payment a **deadline** — your start answer's `ExpiresAt`, at most 30 minutes away, or five minutes when you name none —
+   and past it asks you to look (`payment.sync`), then sends `payment.void` itself. A void you leave unanswered eight
+   times (about two hours, with the usual backoff) is left `pending` for a person on Settings → Payments, logged as an
+   error; a person's reject of a payment still waiting at its reader asks the void first, too.
+
+A reader's `ID` and `Label` are one plain line: no control character (a newline forges a log line) and no
+bidirectional override or isolate (U+202A–U+202E, U+2066–U+2069), which would show staff a name that is not the
+reader's. Core and `DispatchPaymentGatewayHook` refuse a describe answer with one, and a session naming one.
 
 Not in it: keeping a card taken at a till for later, a delegated credential, a reader the till device drives itself
 through the processor's own SDK (Stripe's Tap to Pay — your route may hand the till app a connection token; nothing of it
@@ -647,7 +661,10 @@ s, err = pay.Void(ctx, "cancel-"+sale.ID, s.ID) // the till's Cancel, while it w
 ```
 
   A declined card ends the session `rejected`; another card is another attempt, a new key. A void answers as for a hold:
-  `rejected` with `voided`, or `resolved` if the payer had paid a moment before.
+  `rejected` with `voided`, or `resolved` if the payer had paid a moment before. A void sent while the start is still on
+  its way answers the session `created` with `void_requested`: Core hands it to the reader once the gateway answers, and
+  `PaymentUpdated` says how it ends. A payment nobody finishes at the reader is called off by Core after a few minutes
+  (`rejected`, `voided`); `void_requested` is never left beside a payment that ended another way.
 
 ### An agent paying for its buyer (v0.20.0)
 
@@ -678,8 +695,12 @@ strong customer authentication when the method is kept, later charges out of its
    that the charge is inside the mandate: its currency, at most its amount (or `max_amount_minor`), a pre-order's one
    charge once, a subscription's no sooner than its interval after the last (two days' grace, for month ends); creates a session with `ChargedSaved` set; and hands the token to the gateway in the
    start request (`PaymentStartRequest.Saved`) — never to you. The session says which kind of merchant-initiated charge it
-   is, **`OffSession`**: `recurring` when the mandate names an interval (a subscription's renewal), `unscheduled` when it
-   names none (a pre-order's charge at shipment) — Core sets it from the mandate (`nilda.OffSessionOf`), never you. The
+   is, **`OffSession`**, from what the mandate is FOR: `recurring` for a subscription's renewal, `unscheduled` for a
+   pre-order's charge at shipment, and for an update the kind of the agreement it replaces — Core sets it from the
+   mandate it keeps (`nilda.OffSessionOf`), never you, and never from an interval you wrote. A pre-order's mandate names
+   no interval; an update's names, in **`Replaces`**, the kept method (its `SavedMethod`) whose agreement it replaces —
+   one of yours — and an interval exactly when that agreement is a recurring one. A kept method is never charged on a
+   method that now lists `card_present` (422): nobody stands at the till. The
    gateway tells its processor (Stripe: `off_session` `recurring` or `one_off`; PayPal: `stored_credential.payment_type`
    `RECURRING` or `UNSCHEDULED`), which is how the charge is flagged out of strong customer authentication's scope,
    charges with the payer absent and answers `resolved`, `pending` or `rejected`. `authentication_required` is not a decline: the payer's bank wants
@@ -786,6 +807,7 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
 | a kept method's `label` | 100 characters | Nilda's choice |
 | a mandate's `interval_count` | 1–365 | Nilda's choice |
 | a method's `readers` | at most 100, each id at most 255 bytes, each label 1–100 characters | Nilda's choice: a shop with a hundred tills runs more than one site |
+| a reader's payment waits | its start answer's `expires_at`, at most 30 minutes; 5 minutes when none; then looked up and voided, a void asked at most 8 times | Nilda's choice: past a payer's seconds and Stripe's two-minute offline mark |
 | `Idempotency-Key` | 255 bytes | Core's, which is Stripe's |
 | any payment text — a reference, a reason, an address, a label, a `provider_ref`, a key | no NUL character | Postgres keeps one in neither text nor jsonb |
 | a session nothing decided | 24 hours, unless the gateway says | Stripe Checkout's own default |
@@ -822,6 +844,19 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
   the charge out of SCA's scope (PSD2; EBA Q&A 2018_4031). Core derives it from the mandate it keeps (an interval:
   recurring; none: unscheduled), so no consumer chooses which exemption its charge claims. Additive to `payments/v1`: a
   gateway built before it ignores the field and charges as before (it already knew a `Saved` start is off-session).
+- **The kind is the agreement's purpose, not its interval** (review 2026-11-05). The first cut read the interval, which
+  the consumer writes: a pre-order naming one claimed "recurring". Now a subscription is recurring, a pre-order
+  unscheduled, an update the kind of the agreement it replaces (`Replaces`, a kept method of the same consumer, followed
+  back through earlier updates). A new mandate cannot say otherwise (`Validate`); a pre-order Core kept with an interval
+  before this reads as kept and charges unscheduled, and an update kept before `Replaces` existed is read by its interval,
+  the rhythm Core holds its charges to.
+- **A reader's payment is never pending for ever** (review 2026-11-05). The expiry closes only created and redirected
+  sessions, and a reader can stay "in_progress" with no webhook (Stripe, "Missing webhooks", read 2026-11-05). So a
+  reader's payment has a deadline (five minutes, or the gateway's up to thirty: past the seconds a payer takes and the two
+  minutes after which Stripe calls a silent reader offline), past which Core looks it up and calls it off; a void nobody
+  answers is left for a person after eight asks, as a kept method's unanswered charge is after 20 hours. The till's Cancel
+  before the start's answer is kept, not refused; a report that ends a payment drops a void asked of it; a person's
+  reject asks the reader to stop first.
 - **A card in person is a session sent to a named reader.** The market's server-side shape: Stripe Terminal's
   server-driven `process_payment_intent` on a reader id (docs.stripe.com/terminal/payments/collect-card-payment, read
   2026-11-05), Adyen's cloud Terminal API on a POIID, Square's Terminal API on a `device_id`. The gateway lists its

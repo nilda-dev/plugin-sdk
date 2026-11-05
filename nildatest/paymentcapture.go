@@ -87,7 +87,9 @@ func (p *Payments) capture(ctx context.Context, caller, id string, amount int64)
 }
 
 // void is Core's Void: the consumer's own authorized session's hold let go — or its payment still waiting at a card
-// reader called off (v0.58.0, door D5).
+// reader called off (v0.58.0, door D5). A reader's payment whose start the gateway has not answered yet records the
+// till's Cancel, handed to the reader the moment the start answers (voidAskAfter); a void Core stopped asking is asked
+// again.
 func (p *Payments) void(ctx context.Context, caller, id string) (nilda.PaymentSession, error) {
 	if err := p.may(caller, "payment_session"); err != nil {
 		return nilda.PaymentSession{}, err
@@ -105,27 +107,39 @@ func (p *Payments) void(ctx context.Context, caller, id string) (nilda.PaymentSe
 	case s.CaptureRequestedMinor > 0:
 		p.mu.Unlock()
 		return nilda.PaymentSession{}, &apiError{http.StatusConflict, "CONFLICT", "this payment's capture was asked; it cannot be voided"}
-	case s.VoidRequested:
+	case s.VoidRequested && !p.voidGivenUp(*s):
+	case s.Status == nilda.PaymentCreated && s.Reader != "":
+		s.VoidRequested = true // asked before the start's answer: kept until it arrives
+		s.UpdatedAt = time.Now().UTC()
+		defer p.mu.Unlock()
+		return *s, nil
 	case !voidable(*s):
 		p.mu.Unlock()
 		return nilda.PaymentSession{}, conflict(s)
 	default:
 		s.VoidRequested = true
 		s.UpdatedAt = time.Now().UTC()
-		p.holdDue[id] = true
+		p.holdDue[id], p.holdAsks[id] = true, 0
 	}
 	p.mu.Unlock()
 	return p.askHold(ctx, id)
 }
 
 // askHold asks the gateway the capture or void a session is owed, once at a time, and applies its answer. No answer
-// keeps it owed — Deliver asks again, with the same key — and is a 503, as in Core.
+// keeps it owed — Deliver asks again, with the same key — and is a 503, as in Core. As in Core (capture.go askHold),
+// nothing is asked of a session that is no longer authorized — nor, for a void, still waiting at its reader: the ask
+// is dropped, so a void whose answer was lost is never sent for a payment the payer has paid meanwhile. A reader's
+// void unanswered maxReaderVoidAsks times is left for a person.
 func (p *Payments) askHold(ctx context.Context, id string) (nilda.PaymentSession, error) {
 	p.mu.Lock()
 	s := p.sessions[id]
 	if !p.holdDue[id] {
 		defer p.mu.Unlock()
 		return *s, nil // answered meanwhile
+	}
+	if p.holdMoot(s) {
+		defer p.mu.Unlock()
+		return *s, nil
 	}
 	if p.asking[id] {
 		p.mu.Unlock()
@@ -164,12 +178,23 @@ func (p *Payments) askHold(ctx context.Context, id string) (nilda.PaymentSession
 		err = ErrNotSubscribed
 	}
 	if err != nil {
+		p.mu.Lock()
+		if s.Reader != "" && s.CaptureRequestedMinor == 0 {
+			if p.holdAsks[id]++; p.holdAsks[id] >= maxReaderVoidAsks {
+				delete(p.holdDue, id) // a reader that will not stop: left pending, its void asked, for a person (Decide)
+			}
+		}
+		p.mu.Unlock()
 		return unanswered(err)
 	}
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.holdMoot(s) {
+		return *s, nil // settled while the gateway was asked: its answer is about a payment that is over
+	}
 	delete(p.holdDue, id)
+	delete(p.holdAsks, id)
 	if hook == nilda.HookPaymentCapture {
 		var res nilda.PaymentCaptureResult
 		if err := json.Unmarshal(out, &res); err != nil {
@@ -195,6 +220,18 @@ func (p *Payments) askHold(ctx context.Context, id string) (nilda.PaymentSession
 	}
 	p.takeAnswer(s, nilda.PaymentResolved, res.AmountMinor, res.ProviderRef, "", "")
 	return *s, nil
+}
+
+// holdMoot is Core's check before and after it asks (capture.go askHold): a session no longer authorized, and not a
+// void still able to let it go, owes the gateway nothing — the ask is dropped and the void forgotten. Callers hold p.mu.
+func (p *Payments) holdMoot(s *nilda.PaymentSession) bool {
+	if s.Status == nilda.PaymentAuthorized || (s.VoidRequested && voidable(*s)) {
+		return false
+	}
+	delete(p.holdDue, s.ID)
+	delete(p.holdAsks, s.ID)
+	s.VoidRequested = false
+	return true
 }
 
 // takeAnswer applies what the processor said about a hold's money: resolved at what it took (a different amount from

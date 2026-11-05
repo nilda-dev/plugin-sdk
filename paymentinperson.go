@@ -3,6 +3,7 @@ package nilda
 import (
 	"fmt"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -72,9 +73,9 @@ func validReaders(m PaymentMethod) error {
 		if err := validReaderID(r.ID); err != nil {
 			return fmt.Errorf("nilda: payment.describe: method %q: %w", m.Key, err)
 		}
-		if strings.TrimSpace(r.Label) == "" || utf8.RuneCountInString(r.Label) > maxReaderLabel || !noNUL(r.Label) {
-			return fmt.Errorf("nilda: payment.describe: method %q: a reader has a label of 1 to %d characters, with no NUL",
-				m.Key, maxReaderLabel)
+		if strings.TrimSpace(r.Label) == "" || utf8.RuneCountInString(r.Label) > maxReaderLabel || !plainLine(r.Label) {
+			return fmt.Errorf("nilda: payment.describe: method %q: a reader has a label of 1 to %d characters, one plain "+
+				"line with no control or direction-changing character", m.Key, maxReaderLabel)
 		}
 		if seen[r.ID] {
 			return fmt.Errorf("nilda: payment.describe: method %q lists the reader %q twice", m.Key, r.ID)
@@ -84,12 +85,22 @@ func validReaders(m PaymentMethod) error {
 	return nil
 }
 
-// validReaderID is the rule for a reader's id, listed or named by a session: 1 to 255 bytes, not blank, no NUL.
+// validReaderID is the rule for a reader's id, listed or named by a session: 1 to 255 bytes, not blank, one plain line.
 func validReaderID(id string) error {
-	if strings.TrimSpace(id) == "" || len(id) > maxProviderRef || !noNUL(id) {
-		return fmt.Errorf("a reader's id is 1 to %d bytes, not blank, with no NUL", maxProviderRef)
+	if strings.TrimSpace(id) == "" || len(id) > maxProviderRef || !plainLine(id) {
+		return fmt.Errorf("a reader's id is 1 to %d bytes, not blank, with no control or direction-changing character",
+			maxProviderRef)
 	}
 	return nil
+}
+
+// plainLine reports whether v is text staff read as it is (v0.58.0, review 2026-11-05): no control character — a NUL,
+// a tab, a newline that forges a second log line — and no bidirectional embedding, override or isolate (U+202A–U+202E,
+// U+2066–U+2069), which shows a reader's name as something it is not (CVE-2021-42574, "Trojan Source"). Core's rule.
+func plainLine(v string) bool {
+	return !strings.ContainsFunc(v, func(r rune) bool {
+		return unicode.IsControl(r) || (r >= '\u202a' && r <= '\u202e') || (r >= '\u2066' && r <= '\u2069')
+	})
 }
 
 // validInPerson holds an in-person session's parameters to what a till can do: a reader named by its id, and neither a

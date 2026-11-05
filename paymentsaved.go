@@ -61,9 +61,21 @@ const (
 	OffSessionUnscheduled = "unscheduled"
 )
 
-// OffSessionOf is the kind of every charge under m: recurring when the mandate names an interval, unscheduled when it
-// names none. Core stamps it on each charge's session from the mandate it keeps; no consumer sets it.
-func OffSessionOf(m PaymentMandate) string {
+// OffSessionOf is the kind of every charge under m, from what the agreement is FOR — never from an interval the
+// consumer chose to write (review 2026-11-05): a subscription's charges are recurring, a pre-order's unscheduled, and an
+// update's are the kind of the agreement it replaces — replaced, which Core reads from the kept method m.Replaces
+// names. An update kept before it named one (replaced "") is read by its interval, the rhythm Core holds its charges
+// to. Core stamps it on each charge's session from the mandate it keeps; no consumer sets it.
+func OffSessionOf(m PaymentMandate, replaced string) string {
+	switch m.Purpose {
+	case MandateSubscription:
+		return OffSessionRecurring
+	case MandatePreOrder:
+		return OffSessionUnscheduled
+	}
+	if replaced == OffSessionRecurring || replaced == OffSessionUnscheduled {
+		return replaced
+	}
 	if m.Interval != "" {
 		return OffSessionRecurring
 	}
@@ -100,10 +112,14 @@ type PaymentMandate struct {
 	AmountRule     string `json:"amount_rule,omitempty"`
 	MaxAmountMinor int64  `json:"max_amount_minor,omitempty"`
 	Currency       string `json:"currency"`
-	// Interval and IntervalCount are a subscription's rhythm (every IntervalCount Intervals); empty for a pre-order's
-	// one later charge.
+	// Interval and IntervalCount are a subscription's rhythm (every IntervalCount Intervals); never on a pre-order's
+	// one later charge (v0.58.0). An update names one exactly when the agreement it replaces is a recurring one.
 	Interval      string `json:"interval,omitempty"`
 	IntervalCount int    `json:"interval_count,omitempty"`
+	// Replaces is, on an update (and only there), the kept method — its PaymentSession.SavedMethod — whose agreement
+	// this one replaces (v0.58.0): one of yours, which Core checks. The update's charges are of that agreement's kind
+	// (OffSessionOf).
+	Replaces string `json:"replaces,omitempty"`
 }
 
 // Validate refuses a mandate that does not record what the payer agreed to.
@@ -127,6 +143,18 @@ func (m PaymentMandate) Validate() error {
 	}
 	if utf8.RuneCountInString(m.AmountRule) > maxPaymentText {
 		return fmt.Errorf("nilda: a mandate's amount rule is at most %d characters", maxPaymentText)
+	}
+	// What decides the charges' kind (OffSessionOf) is the purpose, so a new mandate's other fields cannot say otherwise
+	// (v0.58.0, review 2026-11-05). A mandate Core kept before this rule is read as it was kept, never refused.
+	switch {
+	case m.Purpose == MandatePreOrder && (m.Interval != "" || m.IntervalCount != 0):
+		return fmt.Errorf("nilda: a pre-order's agreement is one charge when it ships; it names no interval")
+	case m.Purpose == MandateUpdate && strings.TrimSpace(m.Replaces) == "":
+		return fmt.Errorf("nilda: an update names the kept payment method whose agreement it replaces")
+	case m.Purpose != MandateUpdate && m.Replaces != "":
+		return fmt.Errorf("nilda: only an update replaces a kept payment method's agreement")
+	case len(m.Replaces) > maxProviderRef || !noNUL(m.Replaces):
+		return fmt.Errorf("nilda: a kept payment method's id is at most %d bytes, with no NUL", maxProviderRef)
 	}
 	switch m.Interval {
 	case "":

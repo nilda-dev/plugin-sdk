@@ -71,6 +71,9 @@ type Payments struct {
 	// right now — Core asks under the session's lock (paymentcapture.go).
 	holdDue map[string]bool
 	asking  map[string]bool
+	// holdAsks counts the unanswered asks of a reader's void: after maxReaderVoidAsks it is left for a person, as Core
+	// leaves it (paymentinperson.go).
+	holdAsks map[string]int
 }
 
 // Delivery is one attempt to tell a consumer about a change.
@@ -136,6 +139,7 @@ func NewPayments() *Payments {
 		saved:     map[string]*savedMethod{},
 		holdDue:   map[string]bool{},
 		asking:    map[string]bool{},
+		holdAsks:  map[string]int{},
 	}
 }
 
@@ -307,7 +311,21 @@ func (p *Payments) Decide(id, decision, note string) (nilda.PaymentSession, erro
 	if strings.IndexByte(note, 0) >= 0 {
 		return nilda.PaymentSession{}, fmt.Errorf("nildatest: text in a payment may not hold a NUL character")
 	}
+	// A payment still waiting at its card reader is called off THERE first, as Core does: the void's answer ends it, and
+	// no answer is an error with the void still owed. One whose void the kit stopped asking is the person's to close.
 	p.mu.Lock()
+	if s, ok := p.sessions[id]; ok && decision == "reject" && s.Reader != "" && voidable(*s) && !p.voidGivenUp(*s) {
+		p.mu.Unlock()
+		out, err := p.callOffReader(context.Background(), id)
+		if err != nil {
+			return nilda.PaymentSession{}, fmt.Errorf("nildatest: the card reader's gateway did not answer the call to "+
+				"stop it; the payment stays pending until it answers: %w", err)
+		}
+		if out.Status != nilda.PaymentPending {
+			return out, nil
+		}
+		p.mu.Lock()
+	}
 	defer p.mu.Unlock()
 	s, ok := p.sessions[id]
 	if !ok {
@@ -331,6 +349,7 @@ func (p *Payments) Decide(id, decision, note string) (nilda.PaymentSession, erro
 		}
 		s.FailureCode, s.FailureMessage = "", ""
 		p.move(s, nilda.PaymentResolved)
+		p.voidAskAfter(s, nilda.PaymentPending)
 		return *s, nil
 	}
 	code := nilda.PaymentFailCancelled
@@ -339,6 +358,7 @@ func (p *Payments) Decide(id, decision, note string) (nilda.PaymentSession, erro
 	}
 	s.FailureCode, s.FailureMessage = code, note
 	p.move(s, nilda.PaymentRejected)
+	p.voidAskAfter(s, nilda.PaymentPending)
 	return *s, nil
 }
 
@@ -695,6 +715,10 @@ func (p *Payments) createSession(ctx context.Context, consumer string, params ni
 	if err := mayKeep(m, params); err != nil {
 		return nilda.PaymentSession{}, err
 	}
+	// An update keeps the kind and rhythm of the agreement it replaces, a method this consumer kept, as Core refuses.
+	if err := p.keepsRhythm(consumer, params.Save); err != nil {
+		return nilda.PaymentSession{}, err
+	}
 	// In person only through a method that takes cards at a reader, at one of its readers; and such a method takes no
 	// session without one, as Core refuses (v0.58.0, door D5).
 	if err := atReader(m, params); err != nil {
@@ -731,23 +755,50 @@ func (p *Payments) createSession(ctx context.Context, consumer string, params ni
 
 	res, err := p.start(ctx, snapshot, params.Credential)
 	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.applyStart(s, res, err, now)
+	// The till's Cancel sent before this answer: handed to the reader now, or dropped (voidAskAfter), as Core does.
+	p.voidAskAfter(s, nilda.PaymentCreated)
+	handOn := s.VoidRequested && p.holdDue[s.ID]
+	out := *s
+	p.mu.Unlock()
+	if handOn {
+		if got, err := p.askHold(ctx, s.ID); err == nil {
+			return got, nil
+		}
+		out, _ = p.GetSession(s.ID) // an unanswered void stays owed; the till hears the payment as it stands
+	}
+	return out, nil
+}
+
+// applyStart records the gateway's start answer, as Core's applyStart does. Callers hold p.mu.
+func (p *Payments) applyStart(s *nilda.PaymentSession, res nilda.PaymentStartResult, err error, now time.Time) {
 	if s.Status != nilda.PaymentCreated {
 		// The gateway reported an outcome before its start answer arrived — its processor settled at once.
 		// That report is the truth; the start answer describes a moment already past.
-		return *s, nil
+		return
 	}
+	defer func() {
+		if s.Reader != "" && s.Status == nilda.PaymentPending {
+			// A payment waiting at its reader waits minutes, not the day a page is given (paymentinperson.go).
+			var at *time.Time
+			if err == nil {
+				at = res.ExpiresAt
+			}
+			t := readerDeadline(now, at)
+			s.ExpiresAt = &t
+		}
+	}()
 	if err != nil && s.Reader != "" {
 		// The amount may be on the reader, and the payer's card on it: held pending and looked up (Sync), as Core does —
 		// never closed as "nothing was charged", which would send the till to take the money twice.
 		p.move(s, nilda.PaymentPending)
-		return *s, nil
+		return
 	}
 	if err == nil && s.Reader != "" && res.Status == nilda.PaymentRedirected {
 		// The payer is at a reader: a gateway that answers with a page sent nothing to it.
 		s.FailureCode, s.FailureMessage = nilda.PaymentFailInvalidRequest, "the payer is at a card reader, not on a page; nothing was charged"
 		p.move(s, nilda.PaymentRejected)
-		return *s, nil
+		return
 	}
 	if err != nil {
 		// The gateway did not answer. The session is closed, and the consumer can offer the payer another try.
@@ -756,7 +807,7 @@ func (p *Payments) createSession(ctx context.Context, consumer string, params ni
 		s.FailureCode = nilda.PaymentFailProviderUnavailable
 		s.FailureMessage = ""
 		p.move(s, nilda.PaymentRejected)
-		return *s, nil
+		return
 	}
 	s.ProviderRef = res.ProviderRef
 	if res.ExpiresAt != nil && res.ExpiresAt.After(now) {
@@ -770,7 +821,6 @@ func (p *Payments) createSession(ctx context.Context, consumer string, params ni
 		s.FailureCode, s.FailureMessage = res.FailureCode, res.FailureMessage
 	}
 	p.move(s, res.Status)
-	return *s, nil
 }
 
 func (p *Payments) start(ctx context.Context, s nilda.PaymentSession, cred *nilda.PaymentCredential) (nilda.PaymentStartResult, error) {
@@ -918,125 +968,135 @@ func (p *Payments) report(ctx context.Context, caller, id, verb string, body []b
 			"payment right now: answer the hook — its answer is the report — rather than reporting from inside it"}
 	}
 
-	switch verb {
-	case "authorize":
-		return p.authorize(s, body)
+	// A report that ends what a void was asked to let go drops the void; one that leaves a start's cancel waiting at its
+	// reader hands it on (Core's voidAskAfter).
+	was := s.Status
+	out, err := func() (any, error) {
+		switch verb {
+		case "authorize":
+			return p.authorize(s, body)
 
-	case "resolve":
-		var r nilda.PaymentResolution
-		if err := json.Unmarshal(body, &r); err != nil {
-			return nil, invalid("the body is not a resolution: %v", err)
-		}
-		if err := r.Validate(); err != nil {
-			return nil, invalid("%v", err)
-		}
-		// Nothing below writes to the session until the report is known to apply: a refused report changes
-		// nothing, not even the processor's reference.
-		// Core's normalisation (strings.ToUpper(strings.TrimSpace(...))) before the comparison: " eur" is EUR there.
-		took := reportedMoney{amount: r.AmountMinor, currency: strings.ToUpper(strings.TrimSpace(r.Currency))}
-		// A capture asked for is what the processor must say it took (v0.58.0); otherwise the payment's amount.
-		if took.amount != expectedAmount(*s) || took.currency != s.Currency {
-			// The processor took something other than what was asked. Neither paid nor unpaid: a person
-			// decides, so the session is held where the consumer ships nothing.
-			if s.Status != nilda.PaymentPending && !nilda.PaymentCanMove(s.Status, nilda.PaymentPending) {
-				return nil, conflict(s)
+		case "resolve":
+			var r nilda.PaymentResolution
+			if err := json.Unmarshal(body, &r); err != nil {
+				return nil, invalid("the body is not a resolution: %v", err)
 			}
-			// The same mismatch again — the processor's redelivery — changes nothing, as in Core. What the
-			// processor reported is the owner's to read (Settings → Payments), not the wire's: no failure message.
-			if s.Status == nilda.PaymentPending && s.FailureCode == nilda.PaymentFailAmountMismatch && p.reported[s.ID] == took {
+			if err := r.Validate(); err != nil {
+				return nil, invalid("%v", err)
+			}
+			// Nothing below writes to the session until the report is known to apply: a refused report changes
+			// nothing, not even the processor's reference.
+			// Core's normalisation (strings.ToUpper(strings.TrimSpace(...))) before the comparison: " eur" is EUR there.
+			took := reportedMoney{amount: r.AmountMinor, currency: strings.ToUpper(strings.TrimSpace(r.Currency))}
+			// A capture asked for is what the processor must say it took (v0.58.0); otherwise the payment's amount.
+			if took.amount != expectedAmount(*s) || took.currency != s.Currency {
+				// The processor took something other than what was asked. Neither paid nor unpaid: a person
+				// decides, so the session is held where the consumer ships nothing.
+				if s.Status != nilda.PaymentPending && !nilda.PaymentCanMove(s.Status, nilda.PaymentPending) {
+					return nil, conflict(s)
+				}
+				// The same mismatch again — the processor's redelivery — changes nothing, as in Core. What the
+				// processor reported is the owner's to read (Settings → Payments), not the wire's: no failure message.
+				if s.Status == nilda.PaymentPending && s.FailureCode == nilda.PaymentFailAmountMismatch && p.reported[s.ID] == took {
+					return *s, nil
+				}
+				p.reported[s.ID] = took
+				if r.ProviderRef != "" {
+					s.ProviderRef = r.ProviderRef
+				}
+				s.FailureCode, s.FailureMessage = nilda.PaymentFailAmountMismatch, ""
+				if !p.move(s, nilda.PaymentPending) {
+					// Already pending: the status is the same, the reason is not — the consumer hears it.
+					s.UpdatedAt = time.Now().UTC()
+					p.owe(owed{session: s.ID})
+				}
 				return *s, nil
 			}
-			p.reported[s.ID] = took
+			if s.Status != nilda.PaymentResolved && !nilda.PaymentCanMove(s.Status, nilda.PaymentResolved) {
+				return nil, conflict(s)
+			}
+			if r.Saved != nil && s.Save == nil {
+				return nil, invalid("this session keeps no payment method; it was not created with Save")
+			}
+			if r.ProviderRef != "" && s.Status != nilda.PaymentResolved {
+				s.ProviderRef = r.ProviderRef
+			}
+			if s.Status == nilda.PaymentResolved {
+				// The kept method may arrive after the money (a capture event before the order that names it): kept
+				// then, and the consumer told — as Core does.
+				if r.Saved != nil && s.Save != nil && s.SavedMethod == "" {
+					p.keep(s, r.Saved)
+					s.UpdatedAt = time.Now().UTC()
+					p.owe(owed{session: s.ID})
+				}
+				return *s, nil
+			}
+			p.keep(s, r.Saved)
+			// A captured hold resolves at what was taken: AmountMinor becomes it, and a refund is bounded by it.
+			s.AmountMinor = expectedAmount(*s)
+			// What the payer paid with and when the money arrived: kept from the first resolution, as Core does.
+			s.Instrument = r.Instrument
+			now := time.Now().UTC()
+			s.ResolvedAt = &now
+			return p.apply(s, nilda.PaymentResolved)
+
+		case "reject":
+			var r nilda.PaymentRejection
+			if err := json.Unmarshal(body, &r); err != nil {
+				return nil, invalid("the body is not a rejection: %v", err)
+			}
+			if err := r.Validate(); err != nil {
+				return nil, invalid("%v", err)
+			}
+			if s.Status == nilda.PaymentRejected {
+				return *s, nil // the same verdict again: nothing to change
+			}
+			if !nilda.PaymentCanMove(s.Status, nilda.PaymentRejected) {
+				return nil, conflict(s)
+			}
 			if r.ProviderRef != "" {
 				s.ProviderRef = r.ProviderRef
 			}
-			s.FailureCode, s.FailureMessage = nilda.PaymentFailAmountMismatch, ""
-			if !p.move(s, nilda.PaymentPending) {
-				// Already pending: the status is the same, the reason is not — the consumer hears it.
-				s.UpdatedAt = time.Now().UTC()
-				p.owe(owed{session: s.ID})
+			s.FailureCode, s.FailureMessage = r.FailureCode, r.FailureMessage
+			// A hold whose void was asked that the processor reports cancelled or lapsed IS that void, whose answer was lost:
+			// it ends as the void's answer ends it, and the void is no longer owed (Core's Reject).
+			if voidable(*s) && s.VoidRequested &&
+				(r.FailureCode == nilda.PaymentFailCancelled || r.FailureCode == nilda.PaymentFailExpired) {
+				s.FailureCode, s.FailureMessage, s.VoidRequested = nilda.PaymentFailVoided, "", false
+				delete(p.holdDue, id)
 			}
-			return *s, nil
-		}
-		if s.Status != nilda.PaymentResolved && !nilda.PaymentCanMove(s.Status, nilda.PaymentResolved) {
-			return nil, conflict(s)
-		}
-		if r.Saved != nil && s.Save == nil {
-			return nil, invalid("this session keeps no payment method; it was not created with Save")
-		}
-		if r.ProviderRef != "" && s.Status != nilda.PaymentResolved {
-			s.ProviderRef = r.ProviderRef
-		}
-		if s.Status == nilda.PaymentResolved {
-			// The kept method may arrive after the money (a capture event before the order that names it): kept
-			// then, and the consumer told — as Core does.
-			if r.Saved != nil && s.Save != nil && s.SavedMethod == "" {
-				p.keep(s, r.Saved)
-				s.UpdatedAt = time.Now().UTC()
-				p.owe(owed{session: s.ID})
-			}
-			return *s, nil
-		}
-		p.keep(s, r.Saved)
-		// A captured hold resolves at what was taken: AmountMinor becomes it, and a refund is bounded by it.
-		s.AmountMinor = expectedAmount(*s)
-		// What the payer paid with and when the money arrived: kept from the first resolution, as Core does.
-		s.Instrument = r.Instrument
-		now := time.Now().UTC()
-		s.ResolvedAt = &now
-		return p.apply(s, nilda.PaymentResolved)
+			return p.apply(s, nilda.PaymentRejected)
 
-	case "reject":
-		var r nilda.PaymentRejection
-		if err := json.Unmarshal(body, &r); err != nil {
-			return nil, invalid("the body is not a rejection: %v", err)
-		}
-		if err := r.Validate(); err != nil {
-			return nil, invalid("%v", err)
-		}
-		if s.Status == nilda.PaymentRejected {
-			return *s, nil // the same verdict again: nothing to change
-		}
-		if !nilda.PaymentCanMove(s.Status, nilda.PaymentRejected) {
-			return nil, conflict(s)
-		}
-		if r.ProviderRef != "" {
-			s.ProviderRef = r.ProviderRef
-		}
-		s.FailureCode, s.FailureMessage = r.FailureCode, r.FailureMessage
-		// A hold whose void was asked that the processor reports cancelled or lapsed IS that void, whose answer was lost:
-		// it ends as the void's answer ends it, and the void is no longer owed (Core's Reject).
-		if voidable(*s) && s.VoidRequested &&
-			(r.FailureCode == nilda.PaymentFailCancelled || r.FailureCode == nilda.PaymentFailExpired) {
-			s.FailureCode, s.FailureMessage, s.VoidRequested = nilda.PaymentFailVoided, "", false
-			delete(p.holdDue, id)
-		}
-		return p.apply(s, nilda.PaymentRejected)
-
-	case "pending":
-		var r struct {
-			ProviderRef string `json:"provider_ref"`
-		}
-		if len(body) > 0 {
-			if err := json.Unmarshal(body, &r); err != nil {
-				return nil, invalid("the body is not a pending report: %v", err)
+		case "pending":
+			var r struct {
+				ProviderRef string `json:"provider_ref"`
 			}
+			if len(body) > 0 {
+				if err := json.Unmarshal(body, &r); err != nil {
+					return nil, invalid("the body is not a pending report: %v", err)
+				}
+			}
+			if len(r.ProviderRef) > maxProviderRef {
+				return nil, invalid("a processor's reference is at most %d bytes", maxProviderRef)
+			}
+			if s.Status == nilda.PaymentPending {
+				return *s, nil // already pending: nothing changes, the reference included (Core's MarkPending)
+			}
+			if !nilda.PaymentCanMove(s.Status, nilda.PaymentPending) {
+				return nil, conflict(s)
+			}
+			if r.ProviderRef != "" {
+				s.ProviderRef = r.ProviderRef
+			}
+			return p.apply(s, nilda.PaymentPending)
 		}
-		if len(r.ProviderRef) > maxProviderRef {
-			return nil, invalid("a processor's reference is at most %d bytes", maxProviderRef)
-		}
-		if s.Status == nilda.PaymentPending {
-			return *s, nil // already pending: nothing changes, the reference included (Core's MarkPending)
-		}
-		if !nilda.PaymentCanMove(s.Status, nilda.PaymentPending) {
-			return nil, conflict(s)
-		}
-		if r.ProviderRef != "" {
-			s.ProviderRef = r.ProviderRef
-		}
-		return p.apply(s, nilda.PaymentPending)
+		return nil, notFound("no such report %q", verb)
+	}()
+	p.voidAskAfter(s, was)
+	if _, ok := out.(nilda.PaymentSession); ok && err == nil {
+		return *s, nil
 	}
-	return nil, notFound("no such report %q", verb)
+	return out, err
 }
 
 // checkReport refuses a malformed report body, before any session is read — Core's order.

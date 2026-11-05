@@ -12,9 +12,15 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
 
 - PAYMENTS, DOOR D5 — WHICH KIND OF MERCHANT-INITIATED CHARGE (`paymentsaved.go`, `docs/PAYMENTS.md` §5 "A method kept for
   later" and "Door D5's decisions"). `PaymentSession.OffSession` (`"off_session"`): on every charge of a kept method
-  (`ChargeSaved`) Core sets `OffSessionRecurring` (`"recurring"`, the mandate names an interval) or `OffSessionUnscheduled`
-  (`"unscheduled"`, it names none) — `OffSessionOf(PaymentMandate)` — and the gateway's `StartPaymentWithSaved` reads it
-  to tell its processor (Stripe's `off_session` `recurring` / `one_off`). `""` on every session a payer is present for.
+  (`ChargeSaved`) Core sets `OffSessionRecurring` (`"recurring"`) or `OffSessionUnscheduled` (`"unscheduled"`) from what
+  the mandate is FOR — a subscription's charges recurring, a pre-order's unscheduled, an update's the kind of the agreement
+  it replaces — `OffSessionOf(PaymentMandate, replaced string)` — and the gateway's `StartPaymentWithSaved` reads it to
+  tell its processor (Stripe's `off_session` `recurring` / `one_off`). `""` on every session a payer is present for.
+  `PaymentMandate.Replaces` (`"replaces"`): an update names the kept method whose agreement it replaces (one of the
+  consumer's — Core answers 404 otherwise) and names an interval exactly when that agreement is a recurring one.
+  `PaymentMandate.Validate` refuses, on a NEW mandate, a pre-order naming an interval, an update naming nothing it
+  replaces and `Replaces` on anything else; a mandate Core kept before is read as it was kept (review 2026-11-05: the
+  first cut read the interval, which the consumer writes, so a pre-order naming one claimed "recurring").
   The rest of the door was already here (v0.30.0): the consumer holds the kept method's id, Core the token; the charge is
   keyed and inside the mandate; a decline is a result. `nildatest` sets it, and `StubGateway.SavedSessions` records the
   sessions its kept-method charges were for.
@@ -26,7 +32,15 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
   address, no `Save`, no `Credential`; Core refuses a reader the method does not list and an online session on a
   `card_present` method. The gateway answers its start `pending`; an answer with a page is closed `rejected`,
   `invalid_request`; a lost answer is held `pending` and looked up. `Payments.Void` also calls off a session still
-  waiting at its reader (`pending`, not held for a person). Inside `payments/v1`, optional fields only an in-person
+  waiting at its reader (`pending`, not held for a person) — and, sent before the start answered (`created`), is recorded
+  and handed to the reader once it answers, never a 409. A reader's payment has a deadline (the start answer's
+  `ExpiresAt`, at most 30 minutes; five minutes when it names none): past it Core asks `payment.sync`, then voids it
+  itself; a void unanswered eight times is left `pending` for a person, whose reject of a payment still waiting at its
+  reader asks the void first. A gateway REJECTS a reader action that timed out at the processor. A report that ends a
+  session drops a void asked of it (`void_requested` is never beside `resolved`), and a void is never asked of a session
+  no longer voidable. A reader's id and label are one plain line: no control character, no bidirectional override or
+  isolate (U+202A–U+202E, U+2066–U+2069). A kept method is never charged on a method that lists `card_present`.
+  `nildatest.Payments.ExpireReader` runs Core's deadline for one reader's payment. Inside `payments/v1`, optional fields only an in-person
   gateway meets, and outside its no-breaking promise until a till built by Nilda ships green on them. `nildatest` holds
   the same rules.
 - Additive: an older Core takes no in-person session (it reads no `reader`, so a session without a return address is

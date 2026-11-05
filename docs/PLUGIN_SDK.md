@@ -2350,11 +2350,13 @@ processor unchanged.
 
 **v0.58.0 also builds commerce's door D5** (PAYMENTS.md §4–§5, "Door D5's decisions"): a charge of a kept method says which
 kind of merchant-initiated charge it is — `PaymentSession.OffSession`, `nilda.OffSessionRecurring` or
-`nilda.OffSessionUnscheduled`, which Core sets from the mandate by `nilda.OffSessionOf` — for the gateway to tell its
-processor (Stripe's `off_session`). And, EXPERIMENTAL, a card taken in person: a method listing `nilda.SupportCardPresent`
+`nilda.OffSessionUnscheduled`, which Core sets from what the mandate is for by `nilda.OffSessionOf` (an update names the
+kept method it replaces, `PaymentMandate.Replaces`, and takes its kind) — for the gateway to tell its processor (Stripe's
+`off_session`). And, EXPERIMENTAL, a card taken in person: a method listing `nilda.SupportCardPresent`
 lists its card readers (`PaymentMethod.Readers`, each a `nilda.PaymentReader`, passed to consumers on
 `PaymentOption.Readers`); a till starts a session with `PaymentSessionParams.Reader` and no return address, the gateway
-answers it pending, and the till's cancel is `Void`. Such a gateway implements `nilda.PaymentCapturer`.
+answers it pending, and the till's cancel is `Void`; a payment left waiting is looked up and voided by Core after its
+deadline (five minutes, or the gateway's up to thirty). Such a gateway implements `nilda.PaymentCapturer`.
 
 **v0.10.5 adds** a test-mode hint (PAYMENTS.md §3): a gateway holding its processor's test keys sets
 `PaymentMethod.TestHint` beside `Test` — how a payer pays in test mode, by language — and a consumer shows

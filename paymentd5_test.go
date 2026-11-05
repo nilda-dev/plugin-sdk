@@ -10,20 +10,73 @@ import (
 // DOOR D5 (commerce plan 2026-11-05 §1J): a charge with the payer absent says which kind of merchant-initiated charge it
 // is, and a card taken in person at a reader is a session of its own kind.
 
-// A kept method's charge is recurring when the mandate the payer accepted names a schedule, and unscheduled when it
-// names none — the card schemes' two merchant-initiated kinds, Stripe's off_session recurring and one_off.
-func TestAMandatesChargesAreRecurringOnlyOnASchedule(t *testing.T) {
+// A kept method's charge says what the payer's agreement is FOR (review 2026-11-05): a subscription's renewal is
+// recurring, a pre-order's charge at shipment unscheduled — whatever interval the mandate carries, which the consumer
+// writes — and an update's is the kind of the agreement it replaces. An update kept before it named one is read by its
+// interval, the rhythm Core holds its charges to.
+func TestAChargesKindIsWhatTheMandateIsFor(t *testing.T) {
 	for _, c := range []struct {
-		m    PaymentMandate
-		want string
+		m        PaymentMandate
+		replaced string
+		want     string
 	}{
-		{PaymentMandate{Purpose: MandateSubscription, Interval: IntervalMonth, IntervalCount: 1}, OffSessionRecurring},
-		{PaymentMandate{Purpose: MandatePreOrder}, OffSessionUnscheduled},
-		{PaymentMandate{Purpose: MandateUpdate, Interval: IntervalYear, IntervalCount: 1}, OffSessionRecurring},
-		{PaymentMandate{Purpose: MandateUpdate}, OffSessionUnscheduled},
+		{PaymentMandate{Purpose: MandateSubscription, Interval: IntervalMonth, IntervalCount: 1}, "", OffSessionRecurring},
+		{PaymentMandate{Purpose: MandatePreOrder}, "", OffSessionUnscheduled},
+		{PaymentMandate{Purpose: MandatePreOrder, Interval: IntervalMonth, IntervalCount: 1}, "", OffSessionUnscheduled},
+		{PaymentMandate{Purpose: MandateUpdate, Replaces: "pm_1"}, OffSessionRecurring, OffSessionRecurring},
+		{PaymentMandate{Purpose: MandateUpdate, Replaces: "pm_1", Interval: IntervalYear, IntervalCount: 1}, OffSessionUnscheduled, OffSessionUnscheduled},
+		{PaymentMandate{Purpose: MandateUpdate, Interval: IntervalYear, IntervalCount: 1}, "", OffSessionRecurring},
+		{PaymentMandate{Purpose: MandateUpdate}, "", OffSessionUnscheduled},
 	} {
-		if got := OffSessionOf(c.m); got != c.want {
-			t.Errorf("OffSessionOf(%+v) = %q, want %q", c.m, got, c.want)
+		if got := OffSessionOf(c.m, c.replaced); got != c.want {
+			t.Errorf("OffSessionOf(%+v, %q) = %q, want %q", c.m, c.replaced, got, c.want)
+		}
+	}
+}
+
+// A new mandate cannot steer its kind: a pre-order names no interval, an update names the kept method it replaces,
+// and nothing else names one.
+func TestANewMandateCannotSteerItsKind(t *testing.T) {
+	base := PaymentMandate{Purpose: MandatePreOrder, Text: "€4.50 when it ships.", AmountMinor: 450, Currency: "EUR"}
+	if err := base.Validate(); err != nil {
+		t.Fatalf("a pre-order was refused: %v", err)
+	}
+	upd := base
+	upd.Purpose, upd.Replaces = MandateUpdate, "01a0d2d2-64f9-79c4-b460-0369f4fce253"
+	if err := upd.Validate(); err != nil {
+		t.Fatalf("an update naming what it replaces was refused: %v", err)
+	}
+	for name, change := range map[string]func(*PaymentMandate){
+		"a pre-order with an interval":   func(m *PaymentMandate) { m.Interval, m.IntervalCount = IntervalMonth, 1 },
+		"an update replacing nothing":    func(m *PaymentMandate) { m.Purpose = MandateUpdate },
+		"a pre-order replacing a method": func(m *PaymentMandate) { m.Replaces = "01a0d2d2-64f9-79c4-b460-0369f4fce253" },
+		"an update replacing a NUL":      func(m *PaymentMandate) { m.Purpose, m.Replaces = MandateUpdate, "a\x00" },
+	} {
+		m := base
+		change(&m)
+		if err := m.Validate(); err == nil {
+			t.Errorf("%s was accepted", name)
+		}
+	}
+}
+
+// A reader's id and label are one plain line: no control character (a newline forges a log line) and no direction
+// override or isolate (U+202A–U+202E, U+2066–U+2069), which shows staff a name that is not the reader's.
+func TestAReadersNameIsOnePlainLine(t *testing.T) {
+	for _, bad := range []string{"\n", "\t", "\u202e", "\u202a", "\u2066", "\u2069", "\x7f"} {
+		m := readerMethod()
+		m.Readers = []PaymentReader{{ID: "tmr_1", Label: "Front" + bad + "counter"}}
+		if err := validMethods([]PaymentMethod{m}); err == nil {
+			t.Errorf("a reader labelled %q was accepted", m.Readers[0].Label)
+		}
+		m.Readers = []PaymentReader{{ID: "tmr" + bad + "1", Label: "Front"}}
+		if err := validMethods([]PaymentMethod{m}); err == nil {
+			t.Errorf("a reader with the id %q was accepted", m.Readers[0].ID)
+		}
+		p := inPerson()
+		p.Reader = "tmr" + bad + "1"
+		if err := p.Validate(); err == nil {
+			t.Errorf("a session at the reader %q was accepted", p.Reader)
 		}
 	}
 }
