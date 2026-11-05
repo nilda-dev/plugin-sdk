@@ -10,6 +10,10 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
 
 ## v0.58.0 — unreleased (write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3; paperless return labels — commerce plan 10.9b; service points — commerce plan 10.9)
 
+- IMPORT CAPABILITY (site-import S4; `capabilities.go`). `CapImport` (`import`): a plugin that brings a site over from another
+  platform may use Core's `/api/rest/v1/plugin-import` door — first, a lookup of what earlier imports already made on this site
+  (a page, a term, a file, by the old site's id) so a re-run makes nothing twice. Plugin-only, shown to the owner at install.
+  Needs a Core that knows the capability; an older Core refuses a manifest that declares it.
 - SHIPPING: SERVICE POINTS, EXPERIMENTAL (commerce plan 10.9, step S7; `shippingpoints.go`, `docs/SHIPPING.md` §3
   "Service points"). `shipping.carrier/v1` gains the method `service_points` (`CarrierServicePointsGet`, agent `read`,
   described EXPERIMENTAL): `ServicePointsRequest` (`service`, `country`, `postal_code`, `city`, `line1`, `latitude`,

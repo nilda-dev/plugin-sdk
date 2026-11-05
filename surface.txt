@@ -41,6 +41,7 @@ const CapEmail
 const CapEvents
 const CapField
 const CapHooks
+const CapImport
 const CapKV
 const CapMediaRead
 const CapMediaWrite

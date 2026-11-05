@@ -40,7 +40,7 @@ func TestTheCapabilitiesAreCoresOwn(t *testing.T) {
 		core = append(core, values[n])
 	}
 	ours := []string{CapAbilities, CapAdminPage, CapAuthProvider, CapCommerce, CapContentRead, CapContentWrite,
-		CapDatastore, CapEmail, CapEvents, CapField, CapHooks, CapKV, CapMediaRead, CapMediaWrite, CapMenusRead,
+		CapDatastore, CapEmail, CapEvents, CapField, CapHooks, CapImport, CapKV, CapMediaRead, CapMediaWrite, CapMenusRead,
 		CapMenusWrite, CapPaymentGateway, CapPaymentSession, CapPersonalData, CapRenderAssets, CapRoute, CapSchedule,
 		CapSearchProvider, CapSecrets, CapServiceConsumer, CapServiceProvider, CapSiteFiles, CapTaxonomyRead,
 		CapTaxonomyWrite, CapTrash, CapUsersRead, CapVisitorTools, CapWidget}
