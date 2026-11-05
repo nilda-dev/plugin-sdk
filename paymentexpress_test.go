@@ -418,7 +418,8 @@ func TestAPartialWalletAddressCarriesNoStreetOrName(t *testing.T) {
 		}
 	}
 	done := ExpressRequest{Step: ExpressStepComplete, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart, Press: "p1",
-		Payer: payer, Credential: &PaymentCredential{Type: CredentialStripeConfirmationToken, Token: "ctoken_1"}}
+		Payer: payer, Credential: &PaymentCredential{Type: CredentialStripeConfirmationToken, Token: "ctoken_1"},
+		ShownTotal: &ExpressTotal{AmountMinor: 4990, Currency: "EUR"}}
 	if err := done.Validate(); err != nil {
 		t.Errorf("the payer arrives whole with complete: %v", err)
 	}
@@ -430,13 +431,15 @@ func TestAnExpressRequestCarriesWhatItsStepNeeds(t *testing.T) {
 	payer := &ExpressPayer{Email: "mia@example.test"}
 	token := &PaymentCredential{Type: CredentialStripeConfirmationToken, Token: "ctoken_1"}
 	item := &ExpressItem{Product: "WHEEL-28", Options: map[string]string{"size": "28"}, Quantity: 1}
+	shown := &ExpressTotal{AmountMinor: 48490, Currency: "EUR"}
 	good := map[string]ExpressRequest{
 		"a quote of the cart, no address yet": {Step: ExpressStepQuote, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart},
 		"a quote of one product":              {Step: ExpressStepQuote, Gateway: "stripe", Method: "wallet", Source: ExpressFromProduct, Item: item, Address: &WalletAddress{Country: "AT", PostalCode: "8010"}},
-		"a re-price of an order kind":         {Step: ExpressStepQuote, Gateway: "paypal", Method: "paypal", Source: ExpressFromCart, Session: "s1", ShippingOption: "dhl", Address: &WalletAddress{Country: "DE"}},
+		"a re-price of an order kind":         {Step: ExpressStepQuote, Gateway: "paypal", Method: "paypal", Source: ExpressFromCart, Press: "p-1", Session: "s1", ShippingOption: "dhl", Address: &WalletAddress{Country: "DE"}},
 		"an order kind's start":               {Step: ExpressStepStart, Gateway: "paypal", Method: "paypal", Source: ExpressFromCart, Press: "p-1"},
-		"a token kind's complete":             {Step: ExpressStepComplete, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart, Press: "p-1", Payer: payer, Credential: token},
+		"a token kind's complete":             {Step: ExpressStepComplete, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart, Press: "p-1", Payer: payer, Credential: token, ShippingOption: "dhl", ShownTotal: shown},
 		"an order kind's complete":            {Step: ExpressStepComplete, Gateway: "paypal", Method: "paypal", Source: ExpressFromCart, Press: "p-1", Payer: payer, Session: "s1"},
+		"an order kind's complete, shown":     {Step: ExpressStepComplete, Gateway: "paypal", Method: "paypal", Source: ExpressFromCart, Press: "p-1", Payer: payer, Session: "s1", ShippingOption: "dhl", ShownTotal: shown},
 	}
 	for name, r := range good {
 		if err := r.Validate(); err != nil {
@@ -453,14 +456,24 @@ func TestAnExpressRequestCarriesWhatItsStepNeeds(t *testing.T) {
 		"a start with no press":          {Step: ExpressStepStart, Gateway: "paypal", Method: "paypal", Source: ExpressFromCart},
 		"a start naming a session":       {Step: ExpressStepStart, Gateway: "paypal", Method: "paypal", Source: ExpressFromCart, Press: "p", Session: "s1"},
 		"a credential with a quote":      {Step: ExpressStepQuote, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart, Credential: token},
-		"a complete with no press":       {Step: ExpressStepComplete, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart, Payer: payer, Credential: token},
-		"a complete with no payer":       {Step: ExpressStepComplete, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart, Press: "p", Credential: token},
-		"a complete with no email":       {Step: ExpressStepComplete, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart, Press: "p", Payer: &ExpressPayer{}, Credential: token},
+		"a complete with no press":       {Step: ExpressStepComplete, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart, Payer: payer, Credential: token, ShownTotal: shown},
+		"a complete with no payer":       {Step: ExpressStepComplete, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart, Press: "p", Credential: token, ShownTotal: shown},
+		"a complete with no email":       {Step: ExpressStepComplete, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart, Press: "p", Payer: &ExpressPayer{}, Credential: token, ShownTotal: shown},
 		"a complete with both":           {Step: ExpressStepComplete, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart, Press: "p", Payer: payer, Credential: token, Session: "s1"},
 		"a complete with neither":        {Step: ExpressStepComplete, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart, Press: "p", Payer: payer},
 		"a press that is not url-safe":   {Step: ExpressStepStart, Gateway: "paypal", Method: "paypal", Source: ExpressFromCart, Press: "p 1"},
-		"a credential with no token":     {Step: ExpressStepComplete, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart, Press: "p", Payer: payer, Credential: &PaymentCredential{Type: CredentialStripeConfirmationToken}},
+		"a credential with no token":     {Step: ExpressStepComplete, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart, Press: "p", Payer: payer, Credential: &PaymentCredential{Type: CredentialStripeConfirmationToken}, ShownTotal: shown},
 		"a delivery option on two lines": {Step: ExpressStepQuote, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart, ShippingOption: "a\nb"},
+		// A quote after a start re-prices the start's session, so it carries the start's press: the shop keys the session
+		// it re-prices by the press, never by a session id alone, which any page could send.
+		"a re-price with no press": {Step: ExpressStepQuote, Gateway: "paypal", Method: "paypal", Source: ExpressFromCart, Session: "s1", Address: &WalletAddress{Country: "DE"}},
+		// The total the sheet showed the payer: required with a token kind's complete, where nothing binds the charge to
+		// what the payer read but this; a real amount in a real currency; and only with complete.
+		"a token complete with no shown total": {Step: ExpressStepComplete, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart, Press: "p", Payer: payer, Credential: token},
+		"a shown total of nothing":             {Step: ExpressStepComplete, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart, Press: "p", Payer: payer, Credential: token, ShownTotal: &ExpressTotal{Currency: "EUR"}},
+		"a shown total in no currency":         {Step: ExpressStepComplete, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart, Press: "p", Payer: payer, Credential: token, ShownTotal: &ExpressTotal{AmountMinor: 48490, Currency: "euro"}},
+		"a shown total with a quote":           {Step: ExpressStepQuote, Gateway: "stripe", Method: "wallet", Source: ExpressFromCart, ShownTotal: shown},
+		"a shown total with a start":           {Step: ExpressStepStart, Gateway: "paypal", Method: "paypal", Source: ExpressFromCart, Press: "p", ShownTotal: shown},
 	}
 	for name, r := range bad {
 		if err := r.Validate(); err == nil {
@@ -511,5 +524,77 @@ func TestAnExpressAnswerIsOneTheWidgetCanDraw(t *testing.T) {
 		if err := a.Validate(); err == nil {
 			t.Errorf("%s went through", name)
 		}
+	}
+}
+
+// The review of X1: the complete of a token kind carried nothing of what the payer READ, so a basket re-priced between
+// the last quote and the confirm (a price changed, a delivery option gone) charged an amount the sheet never showed. The
+// complete now carries the sheet's total, on the wire as Core's bridge sends it, and the shop answers total_changed
+// (nothing charged) on any difference from its re-quote at the final address.
+func TestACompleteCarriesTheTotalTheSheetShowed(t *testing.T) {
+	t.Parallel()
+	r, err := DecodeExpressRequest(strings.NewReader(`{"step":"complete","gateway":"stripe","method":"wallet","source":"cart",` +
+		`"press":"p-1","shipping_option":"dhl","shown_total":{"amount_minor":48490,"currency":"EUR"},` +
+		`"payer":{"email":"mia@example.test"},"credential":{"type":"stripe.confirmation_token","token":"ctoken_1"}}`))
+	if err != nil {
+		t.Fatalf("a token kind's complete with the total it showed: %v", err)
+	}
+	if r.ShownTotal == nil || *r.ShownTotal != (ExpressTotal{AmountMinor: 48490, Currency: "EUR"}) || r.ShippingOption != "dhl" {
+		t.Errorf("decoded %+v, shipping option %q", r.ShownTotal, r.ShippingOption)
+	}
+	if _, err := DecodeExpressRequest(strings.NewReader(`{"step":"complete","gateway":"stripe","method":"wallet","source":"cart",` +
+		`"press":"p-1","shown_total":{"amount_minor":48490,"currency":"EUR","label":"Total"},` +
+		`"payer":{"email":"mia@example.test"},"credential":{"type":"stripe.confirmation_token","token":"ctoken_1"}}`)); err == nil {
+		t.Error("a shown total with a field it does not know was read")
+	}
+}
+
+// total_changed is an answer the widget can draw: the shop's new total beside the buttons, and nothing that proceeds —
+// no status, no client action, no page to go to — because nothing was charged.
+func TestATotalChangedAnswerChargesNothing(t *testing.T) {
+	t.Parallel()
+	changed := ExpressAnswer{Available: true, Code: ExpressTotalChanged, Message: "The total changed to €489.90. Please check it and pay again.",
+		Currency: "EUR", TotalMinor: 48990, Total: "€489.90",
+		ShippingOptions: []PaymentShippingOption{{ID: "dhl", Label: "DHL", AmountMinor: 990, Selected: true}}}
+	if err := changed.Validate(); err != nil {
+		t.Fatalf("total_changed with the new total: %v", err)
+	}
+	order := changed
+	order.Session = "s1" // an order kind's session stays open: the payer may approve the new amount
+	if err := order.Validate(); err != nil {
+		t.Errorf("total_changed naming the order kind's open session: %v", err)
+	}
+	for name, change := range map[string]func(a *ExpressAnswer){
+		"an unknown code":                 func(a *ExpressAnswer) { a.Code = "price_changed" },
+		"not available":                   func(a *ExpressAnswer) { a.Available = false },
+		"no new total":                    func(a *ExpressAnswer) { a.TotalMinor = 0 },
+		"a status":                        func(a *ExpressAnswer) { a.Status = PaymentResolved },
+		"a client action":                 func(a *ExpressAnswer) { a.Status, a.ClientAction = PaymentRedirected, "pi_1_secret_2" },
+		"a page to go to":                 func(a *ExpressAnswer) { a.RedirectURL = "https://pay.test/x" },
+		"the order's page":                func(a *ExpressAnswer) { a.OrderURL = "https://site.test/shop/orders/o1" },
+		"no words for the shopper at all": func(a *ExpressAnswer) { a.Message = "" },
+	} {
+		a := changed
+		change(&a)
+		if err := a.Validate(); err == nil {
+			t.Errorf("total_changed with %s went through", name)
+		}
+	}
+}
+
+// Serve hands payment.reprice to the gateway's RepricePayment, as it hands every other payment hook: subscribed and then
+// left to the author's HandleHook, a PayPal window's every address change would fail.
+func TestServeHandsARepriceToTheRepricer(t *testing.T) {
+	t.Parallel()
+	type repricer struct {
+		plainOnly
+		*repricingGateway
+	}
+	g := &repricingGateway{reprice: PaymentRepriceResult{Repriced: true}}
+	open := PaymentSession{ID: "s1", AmountMinor: 4900, Currency: "EUR", Status: PaymentRedirected, Supports: []string{SupportReprice}}
+	out, handled, err := dispatchProvided(context.Background(), repricer{repricingGateway: g}, HookPaymentReprice,
+		repricePayload(t, open, 5390))
+	if err != nil || !handled || string(out) != `{"repriced":true}` || len(g.asked) != 1 {
+		t.Fatalf("payment.reprice through Serve: %s handled=%v err=%v asked=%d", out, handled, err, len(g.asked))
 	}
 }

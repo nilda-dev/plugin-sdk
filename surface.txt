@@ -168,6 +168,7 @@ const ExpressStepComplete
 const ExpressStepQuote
 const ExpressStepStart
 const ExpressToken
+const ExpressTotalChanged
 const FieldBoolean
 const FieldCheckbox
 const FieldColor
@@ -505,6 +506,7 @@ const WidgetButton
 const WidgetCart
 const WidgetCartCount
 const WidgetCheckout
+const WidgetExpressCheckout
 const WidgetPostContent
 const WidgetProductField
 const WidgetProductGallery
@@ -878,6 +880,7 @@ field ExchangeRateSet.Source string json:source
 field ExpressAnswer.Available bool json:available
 field ExpressAnswer.Capture string json:capture
 field ExpressAnswer.ClientAction ClientAction json:client_action
+field ExpressAnswer.Code string json:code
 field ExpressAnswer.Currency string json:currency
 field ExpressAnswer.Lines []ExpressLine json:lines
 field ExpressAnswer.Message string json:message
@@ -910,8 +913,11 @@ field ExpressRequest.Payer *ExpressPayer json:payer
 field ExpressRequest.Press string json:press
 field ExpressRequest.Session string json:session
 field ExpressRequest.ShippingOption string json:shipping_option
+field ExpressRequest.ShownTotal *ExpressTotal json:shown_total
 field ExpressRequest.Source string json:source
 field ExpressRequest.Step string json:step
+field ExpressTotal.AmountMinor int64 json:amount_minor
+field ExpressTotal.Currency string json:currency
 field FieldChoice.Label string json:label
 field FieldChoice.Value string json:value
 field FieldChoicesRequest.Field string json:field
@@ -2183,6 +2189,7 @@ type ExpressItem
 type ExpressLine
 type ExpressPayer
 type ExpressRequest
+type ExpressTotal
 type FieldChoice
 type FieldChoicesRequest
 type FieldChoicesResponse

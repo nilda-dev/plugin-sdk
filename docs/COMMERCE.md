@@ -104,16 +104,30 @@ cookie goes with it. Leave it empty and Core draws no buttons.
 
 | step | when | carries | you do |
 |---|---|---|---|
-| `quote` | the buttons are drawn; the wallet shows an address; the payer picks a delivery option | `source` (`cart`, or `product` with its `item`), the PARTIAL `address`, `shipping_option`; for a PayPal-like session, its `session` | price the basket for that address: `total_minor`, `total` (your words), `lines`, `shipping_options` (one `selected`), `capture`, the `notice` beside the buttons and `terms_url`. With a `session`, also re-price it (`Payments.Reprice`) |
+| `quote` | the buttons are drawn; the wallet shows an address; the payer picks a delivery option | `source` (`cart`, or `product` with its `item`), the PARTIAL `address`, `shipping_option`; after a `start`, its `session` AND its `press` | price the basket for that address: `total_minor`, `total` (your words), `lines`, `shipping_options` (one `selected`), `capture`, the `notice` beside the buttons and `terms_url`. With a `session`, also re-price it (`Payments.Reprice`) — the session the start keyed by that `press`, never one found by its id alone |
 | `start` | a PayPal-like button is pressed (kind `order`) | the quote's fields and the `press` | place the order and start the session keyed by the press; answer its `session`, `status` and `client_action` (the PayPal order the buttons need) |
-| `complete` | the payer confirmed in the sheet | the `press`, the `payer` (email, name, phone, final addresses) and the wallet's `credential` (kind `token`) or the `session` the start made (kind `order`) | `token`: place the order with the payer's details and create the session with the credential, keyed by the press. `order`: record the payer on the start's order before the gateway asks you to confirm. Answer `status`, `client_action` (3D Secure) and `order_url` |
+| `complete` | the payer confirmed in the sheet | the `press`, the `payer` (email, name, phone, final addresses), the `shipping_option` the payer chose, the `shown_total` the sheet showed (`{"amount_minor","currency"}`, `ExpressTotal`) and the wallet's `credential` (kind `token`) or the `session` the start made (kind `order`) | re-quote at the payer's FINAL address with that option; any difference from `shown_total` → answer `code: "total_changed"` (below), charge nothing. Else `token`: place the order with the payer's details and create the session with the credential, keyed by the press. `order`: record the payer on the start's order before the gateway asks you to confirm. Answer `status`, `client_action` (3D Secure) and `order_url` |
 
 - **Before the payer confirms, nothing personal travels.** A wallet shows a partial address — Stripe: "the shipping
   address in the US can only contain a city, state, and ZIP code"; PayPal: city, state, country code, postal code — and
   `WalletAddress` carries exactly those four, nothing else. `DecodeExpressRequest` refuses a street or a name inside it,
   and `Validate` refuses a `payer` or a `credential` with `quote` or `start`, and a partial address with `complete`.
 - **One press, one order.** `press` is minted by Core's bridge per press; use it as the order's and the session's key, so
-  a browser that sends `complete` twice makes one order and one charge.
+  a browser that sends `complete` twice makes one order and one charge. Every quote after a `start` carries the start's
+  press beside its `session`, and **you require the press whenever `session` is set** (`Validate` refuses a request
+  naming a session without one): re-price only the session your start keyed by that press, so a page that learned a
+  session id cannot re-price another payer's order.
+- **The payer pays what the sheet showed, or nothing.** `complete` carries `shown_total`, the total the wallet's sheet
+  showed when the payer confirmed — REQUIRED with a `credential` (kind `token`: nothing else ties the charge to what the
+  payer read), optional with a `session` (kind `order`: the session's amount, re-priced while the payer chose, binds it;
+  compare it when it comes). The final address can price differently from the partial one the last quote saw (a street
+  outside a delivery zone, a region's tax), and a price can change between the quote and the press. So re-quote at the
+  final address and the chosen `shipping_option`, and on ANY difference — amount or currency — answer
+  `{"available": true, "code": "total_changed", "message": …, "total_minor", "total", "lines", "shipping_options", …}`
+  with the new total and nothing else: no session created, no order placed or confirmed, no `status`, `client_action`,
+  `redirect_url` or `order_url` (`ExpressAnswer.Validate` holds this; `nilda.ExpressTotalChanged`), with HTTP 409 — Core's
+  bridge hands a 4xx's body to the gateway's script as it is. The script ends the sheet unpaid, says so and asks a fresh
+  quote, so the new total stands beside the buttons (`docs/PAYMENTS.md` §4, "The page bridge"); paying it is a new press.
 - **Not available is an answer.** Answer `available: false` (and a `message` the shopper reads) for a basket the wallet
   cannot complete honestly: one that needs a tick the sheet cannot give — a download's consent, a pre-order's terms — or a
   payment it cannot take, an invoice. Core then draws no buttons.

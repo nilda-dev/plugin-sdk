@@ -817,3 +817,47 @@ func TestDoorD5sRulesAreCores(t *testing.T) {
 		t.Errorf("PAYMENTS.md §7 does not say %q", want)
 	}
 }
+
+// The page bridge PAYMENTS.md teaches a gateway's express script is Core's as built (internal/pagebuilder/
+// expresswidget.go, pbExpressRuntime): where the script registers, the event that tells the bridge it did, and every
+// member of the host its mount is handed — a member the guide names and Core's host lacks is a call that throws on the
+// payer's page. What the bridge forwards to the shop with complete is held too: a field the SDK asks for that the bridge
+// drops reaches no shop (the one Core has not landed is in coreahead_test.go).
+func TestTheExpressBridgeIsCores(t *testing.T) {
+	// The bridge is one Go string written as many: join its pieces back into the script the page runs.
+	src := regexp.MustCompile("`\\s*\\+\\s*`").ReplaceAllString(coreSource(t, "internal", "pagebuilder", "expresswidget.go"), "")
+	doc := strings.Join(strings.Fields(readText(t, "docs/PAYMENTS.md")), " ")
+	for _, s := range []string{"window.nilda.express.gateways", "nilda:express-gateway"} {
+		if !strings.Contains(doc, s) {
+			t.Errorf("PAYMENTS.md does not teach %s", s)
+		}
+	}
+	if !strings.Contains(src, "N=window.nilda=window.nilda||{},X=N.express=N.express||{},G=X.gateways=X.gateways||{}") {
+		t.Error("core's bridge no longer reads window.nilda.express.gateways — repoint this guard and the guide")
+	}
+	if !strings.Contains(src, "document.addEventListener('nilda:express-gateway'") {
+		t.Error("core's bridge no longer listens for nilda:express-gateway — repoint this guard and the guide")
+	}
+	block := upTo(t, src[strings.Index(src, "return {element:"):], "function load(", "core's bridge host")
+	var core []string
+	for _, m := range regexp.MustCompile(`(?:\{|,)(\w+):`).FindAllStringSubmatch(block, -1) {
+		core = append(core, m[1])
+	}
+	const marker = "The host is `{"
+	i := strings.Index(doc, marker)
+	if i < 0 {
+		t.Fatalf("PAYMENTS.md no longer lists %q", marker)
+	}
+	var listed []string
+	for _, f := range strings.Split(upTo(t, doc[i+len(marker):], "}", "PAYMENTS.md's host"), ",") {
+		listed = append(listed, strings.TrimSpace(f))
+	}
+	if got, want := strings.Join(core, ","), strings.Join(listed, ","); got != want {
+		t.Errorf("core's bridge hands a mount %s; PAYMENTS.md lists %s", got, want)
+	}
+	for _, f := range []string{"shipping_option", "shown_total"} {
+		if !strings.Contains(src, f) && !coreLacks("bridge "+f) {
+			t.Errorf("core's bridge never sends %s to the shop", f)
+		}
+	}
+}
