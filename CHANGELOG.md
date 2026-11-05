@@ -10,6 +10,10 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
 
 ## v0.58.0 — unreleased (write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3; paperless return labels — commerce plan 10.9b; service points — commerce plan 10.9)
 
+- SITE READER, EXPERIMENTAL (site-import stage 2, card K1; `sitereader.go`, `docs/SITE_READER.md`). The contract `site.reader/v1`: a plugin that
+  reads another platform's site answers `sources`, `start`, `feed`, `next` and `cancel` with pieces of the `siteimport` model; only Core's
+  importer asks, one named provider, fallback `block`, agent class `none`. Sequence numbers make a retry return the same piece; a restarted
+  plugin answers `reader_restarted`; the owner's password is held in memory for the read only. Needs the next tag; Core's side is card K2.
 - SITE MODEL, EXPERIMENTAL (site-import stage 2, card X0a; package `siteimport`). The neutral description of a site that a
   reader plugin hands to Core's importer — `Site` and its parts — and Core's streaming snapshot encoding (`Encode`, `Decode`), copied from
   Core's `internal/importer` with its json tags unchanged. The shape follows Core's snapshot version (4), not this module's. Core's nine golden
