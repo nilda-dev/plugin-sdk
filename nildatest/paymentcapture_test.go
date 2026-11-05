@@ -248,6 +248,38 @@ func TestALateHoldAfterACaptureOrVoidWasAskedMovesNothingInTheKit(t *testing.T) 
 	}
 }
 
+// A void whose answer was lost, then the processor's own word that the hold is gone (cancelled, or lapsed), ends the
+// session as the void's answer would: rejected, voided, and the void no longer owed (Core's Reject). A hold nobody asked
+// to void that the processor cancels stays the processor's word.
+func TestAProcessorsCancelOfAHoldWhoseVoidWasAskedIsTheVoidInTheKit(t *testing.T) {
+	ctx := context.Background()
+	for _, reported := range []string{nilda.PaymentFailCancelled, nilda.PaymentFailExpired} {
+		w, s := holding(t)
+		w.gw.VoidErr = errors.New("the processor did not answer")
+		if _, err := w.shopAPI.Void(ctx, "v1", s.ID); httpStatus(t, err) != http.StatusServiceUnavailable {
+			t.Fatalf("a void nobody answered: %v", err)
+		}
+		got, err := w.gwAPI.Reject(ctx, s.ID, nilda.PaymentRejection{FailureCode: reported})
+		if err != nil || got.Status != nilda.PaymentRejected || got.FailureCode != nilda.PaymentFailVoided || got.VoidRequested {
+			t.Fatalf("the processor's %s of a hold whose void was asked: %+v, %v", reported, got, err)
+		}
+		asked := len(w.gw.Voided)
+		w.gw.VoidErr = nil
+		w.pay.Deliver(ctx)
+		if len(w.gw.Voided) != asked {
+			t.Fatalf("the void was asked again after the processor said the hold was gone (%s)", reported)
+		}
+		if again, err := w.shopAPI.Void(ctx, "v2", s.ID); err != nil || again.FailureCode != nilda.PaymentFailVoided {
+			t.Fatalf("the consumer's retry of its void: %+v, %v", again, err)
+		}
+	}
+	w, s := holding(t)
+	if got, err := w.gwAPI.Reject(ctx, s.ID, nilda.PaymentRejection{FailureCode: nilda.PaymentFailCancelled}); err != nil ||
+		got.FailureCode != nilda.PaymentFailCancelled {
+		t.Fatalf("a hold the processor cancelled unasked: %+v, %v", got, err)
+	}
+}
+
 // A session held for a person (the processor reported taking another amount) is money taken: a hold is refused and the
 // reported amount stays, as in Core.
 func TestAHoldNeverErasesMoneyTheProcessorReportedInTheKit(t *testing.T) {

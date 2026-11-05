@@ -42,6 +42,9 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
   another amount or currency is 422 on an `authorized` session too; once a capture or void was asked a hold report
   moves nothing (the same hold while `authorized`, 409 after — never a slow capture back to `authorized`); and a
   session held for a person (`amount_mismatch`) is 409, its reported amount kept. `nildatest` holds the same rules.
+- A void whose answer was lost (Core's `Reject`, `docs/PAYMENTS.md` §4): a gateway's `cancelled` or `expired` on an
+  `authorized` session whose void was asked ends it as the void's answer would — `rejected`, `voided`, the void no
+  longer owed — so the consumer hears it was voided. `nildatest` holds the same rule.
 - The reserved payment names shrink to `partial_capture` (multicapture, which the contract does not do).
 - Additive: an older Core answers the three routes 404 and ignores `capture` — it takes the money at once — so read the
   session's `capture` back: one that does not say `manual` holds nothing. Needs the Core built on this release.
