@@ -20,12 +20,8 @@ var aheadOfCore = map[string]struct {
 	file  []string // where in Core it will be
 	probe string   // what that file says once it is there
 }{
-	// Core's X2b landed the hook, the route and the session's client_action (core c2f2bf795); X2a the bridge. The
-	// review of X1 then asked the bridge for the total the wallet's sheet showed, sent with complete
-	// (ExpressRequest.ShownTotal) — Core's next X2a step.
-	"bridge shown_total": {"plan 10.2 X2a, the review's fix: the bridge forwards the total the sheet showed the payer " +
-		"(complete's shown_total, with its shipping_option) and sends the start's press on every quote naming a session",
-		[]string{"internal", "pagebuilder", "expresswidget.go"}, "shown_total"},
+	// Empty: Core landed X2b (the reprice hook and route, the session's client_action) in core #178 and the bridge's
+	// shown_total, shipping_option and press in the same PR (core ba8a428bf).
 }
 
 // coreLacks reports whether item is SDK surface Core does not serve yet (aheadOfCore).
