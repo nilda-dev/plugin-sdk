@@ -54,11 +54,6 @@ const (
 // a gateway that implements PaymentCapturer; a describe answer that says otherwise is refused (DispatchPaymentGatewayHook).
 const SupportManualCapture = "manual_capture"
 
-// SupportCardPresent (EXPERIMENTAL: a token only, nothing in Core acts on it yet) — the method takes a card in person,
-// at a point of sale (a terminal the gateway drives). A consumer may read it to offer the method at a till rather
-// than online; how such a payment starts is not in the contract yet, and the token's meaning may change before it is.
-const SupportCardPresent = "card_present"
-
 // PaymentFailVoided — Core's: the consumer let the hold go (Payments.Void). Like amount_mismatch and consumer_refused,
 // a gateway reporting it is refused: a hold the PROCESSOR dropped is reported as cancelled or expired.
 const PaymentFailVoided = "voided"

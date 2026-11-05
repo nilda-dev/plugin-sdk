@@ -11,7 +11,9 @@ declares either. **v0.10.4** adds, all additively (`paymentmore.go`): what a met
 session; the payer's addresses; disputes; refunds reversed after success and refunds made at the processor; the
 `payment.sync` pull path; a gateway's own secrets kept by Core; and the site's address handed to every plugin
 at `Init`. **v0.58.0** adds holding the money and taking it later — authorise, then capture or void
-(`paymentcapture.go`; §4 "Holding the money", §5 "Take the money later"). A route a Core before it does not have
+(`paymentcapture.go`; §4 "Holding the money", §5 "Take the money later") — and commerce's door D5: the kind of
+merchant-initiated charge a kept method's charge is (`OffSession`, `paymentsaved.go`) and, EXPERIMENTAL, a card taken in
+person at a reader (`paymentinperson.go`; §4 "A card at a reader", §5 "In person, and with nobody there"). A route a Core before it does not have
 answers 404, and a hook nobody subscribed to is never sent.
 
 ## 1. The shape
@@ -340,6 +342,49 @@ look first (`payment.sync`, if you implement `PaymentSyncer`): a capture made at
 it. A session still `authorized` afterwards ends `rejected`, `expired`. While the gateway cannot look, Core waits and
 asks again — for at most three days past the deadline, after which the processor has let the hold go anyway.
 
+### A card at a reader (v0.58.0, EXPERIMENTAL)
+
+A method whose `Supports` lists **`card_present`** (`nilda.SupportCardPresent`) takes a card in person, at one of the
+card readers it lists in **`Readers`** (`nilda.PaymentReader{ID, Label}`: the processor's id, "tmr_…", and the name the
+staff know, "Front counter"). List the readers your owner registered with you — from your settings, never a live probe at
+describe — and list the method only once there is one: Core refuses a `card_present` method with no reader and readers on
+any other method. A gateway that lists it implements **`nilda.PaymentCapturer`**: the till's Cancel is a void, and
+`DispatchPaymentGatewayHook` refuses a describe answer listing `card_present` from a gateway that is not one.
+
+1. **Start.** An in-person session names its reader (`s.Reader`) and has no return address. Send the amount to that
+   reader (Stripe Terminal, server-driven: a PaymentIntent with `card_present`, then
+   `POST /v1/terminal/readers/{reader}/process_payment_intent`) and answer **`pending`** with your reference: the payer
+   decides at the reader. A reader offline or busy is `rejected` (`provider_unavailable`). An answer with a page is
+   refused: Core closes the session `rejected`, `invalid_request` — nothing reached the reader. An answer that never
+   arrives may have the payer's card on the reader, so Core holds the session `pending` and looks it up (`payment.sync`),
+   never closes it as "nothing was charged".
+2. **The outcome**, from your webhook as for any session (Stripe: `terminal.reader.action_succeeded` / `action_failed`,
+   and the PaymentIntent's own events): `Resolve`, `Reject` (`declined` for a refused card — cancel that PaymentIntent at
+   the processor; the till starts a new session for another card — `cancelled` for the payer's cancel on the reader), or
+   `Authorize` for a session asked with `capture` `manual` (Stripe: `capture_method=manual`; capture within two days).
+3. **Void** (`payment.void`) calls off a payment still waiting at its reader: cancel the reader's action and the payment
+   at the processor (Stripe: `cancel_action`, then cancel the PaymentIntent) and answer `rejected` — or `resolved` with
+   the amount if the payer had already paid. Your own word that the reader's action was cancelled, arriving first, is
+   that void (`Reject` with `cancelled`): Core ends the session `voided`. A void may come before your start answer has
+   reached Core (the till's Cancel pressed at once): Core keeps it and asks it the moment your start answers `pending`.
+4. **A reader action that timed out is a `Reject`.** When the processor says the reader gave up (no card presented, the
+   reader's own timeout, Stripe's `terminal.reader.action_failed`), report it — `cancelled` for the payer's or the reader's
+   cancel, `provider_unavailable` for a reader that lost its connection, after you looked the PaymentIntent up (Stripe:
+   "fetch the PaymentIntent status to verify if the payment is successfully authorized"). Never leave it pending: a
+   reader can be left "in_progress" with no webhook at all (Stripe, "Missing webhooks"), so Core gives every reader's
+   payment a **deadline** — your start answer's `ExpiresAt`, at most 30 minutes away, or five minutes when you name none —
+   and past it asks you to look (`payment.sync`), then sends `payment.void` itself. A void you leave unanswered eight
+   times (about two hours, with the usual backoff) is left `pending` for a person on Settings → Payments, logged as an
+   error; a person's reject of a payment still waiting at its reader asks the void first, too.
+
+A reader's `ID` and `Label` are one plain line: no control character (a newline forges a log line) and no
+bidirectional override or isolate (U+202A–U+202E, U+2066–U+2069), which would show staff a name that is not the
+reader's. Core and `DispatchPaymentGatewayHook` refuse a describe answer with one, and a session naming one.
+
+Not in it: keeping a card taken at a till for later, a delegated credential, a reader the till device drives itself
+through the processor's own SDK (Stripe's Tap to Pay — your route may hand the till app a connection token; nothing of it
+crosses Core), and payments a reader stores while offline.
+
 ### The webhook
 
 ```go
@@ -597,11 +642,29 @@ s, err = pay.Void(ctx, "cancel-"+order.ID, s.ID)                                
 ### In person, and with nobody there
 
 - **With nobody there** — a merchant-initiated charge, the payer absent — is the kept method's charge
-  (`Payments.ChargeSaved`, below, v0.30.0): Core holds the token, the consumer never sees it, and the charge must
-  stay inside the mandate the payer accepted.
-- **In person** — a card at a point of sale — is not in the contract yet. `card_present` (`nilda.SupportCardPresent`)
-  is reserved as the token a method will list for it, and is EXPERIMENTAL: nothing in Core acts on it, and its meaning
-  may change before a point of sale is built (commerce's phase 2).
+  (`Payments.ChargeSaved`, below, v0.30.0): Core holds the token, the consumer holds only the kept method's id (the
+  mandate's reference), and the charge must stay inside the mandate the payer accepted. Each charge carries your
+  idempotency key and says its kind (`OffSession`, v0.58.0); a decline is the session `rejected`, never an error.
+- **In person** — a card at a till (v0.58.0, EXPERIMENTAL: inside `payments/v1`, outside its no-breaking promise until
+  a till built by Nilda ships green on it). Offer, at the till and never online, a method whose `Supports` lists
+  `card_present`; its `Readers` are the card readers you may name. Start a session with `Reader` set and no return
+  address — Core refuses one at a reader the method does not list, an online session on such a method, and `Save` or
+  `Credential` beside a reader:
+
+```go
+s, err := pay.CreateSession(ctx, sale.ID+"#"+strconv.Itoa(sale.Attempt), nilda.PaymentSessionParams{
+	Gateway: opt.Gateway, Method: opt.Method, Reference: sale.ID, AmountMinor: sale.TotalMinor, Currency: "EUR",
+	Reader: opt.Readers[0].ID,
+})
+// s.Status == nilda.PaymentPending: the amount is on the reader. PaymentUpdated says how it ends.
+s, err = pay.Void(ctx, "cancel-"+sale.ID, s.ID) // the till's Cancel, while it waits there: rejected, voided
+```
+
+  A declined card ends the session `rejected`; another card is another attempt, a new key. A void answers as for a hold:
+  `rejected` with `voided`, or `resolved` if the payer had paid a moment before. A void sent while the start is still on
+  its way answers the session `created` with `void_requested`: Core hands it to the reader once the gateway answers, and
+  `PaymentUpdated` says how it ends. A payment nobody finishes at the reader is called off by Core after a few minutes
+  (`rejected`, `voided`); `void_requested` is never left beside a payment that ended another way.
 
 ### An agent paying for its buyer (v0.20.0)
 
@@ -631,8 +694,16 @@ strong customer authentication when the method is kept, later charges out of its
    Currency, …})`: no page, no return address. Core checks the method is yours, not forgotten and still offered, and
    that the charge is inside the mandate: its currency, at most its amount (or `max_amount_minor`), a pre-order's one
    charge once, a subscription's no sooner than its interval after the last (two days' grace, for month ends); creates a session with `ChargedSaved` set; and hands the token to the gateway in the
-   start request (`PaymentStartRequest.Saved`) — never to you. The gateway charges with the payer absent and
-   answers `resolved`, `pending` or `rejected`. `authentication_required` is not a decline: the payer's bank wants
+   start request (`PaymentStartRequest.Saved`) — never to you. The session says which kind of merchant-initiated charge it
+   is, **`OffSession`**, from what the mandate is FOR: `recurring` for a subscription's renewal, `unscheduled` for a
+   pre-order's charge at shipment, and for an update the kind of the agreement it replaces — Core sets it from the
+   mandate it keeps (`nilda.OffSessionOf`), never you, and never from an interval you wrote. A pre-order's mandate names
+   no interval; an update's names, in **`Replaces`**, the kept method (its `SavedMethod`) whose agreement it replaces —
+   one of yours — and an interval exactly when that agreement is a recurring one. A kept method is never charged on a
+   method that now lists `card_present` (422): nobody stands at the till. The
+   gateway tells its processor (Stripe: `off_session` `recurring` or `one_off`; PayPal: `stored_credential.payment_type`
+   `RECURRING` or `UNSCHEDULED`), which is how the charge is flagged out of strong customer authentication's scope,
+   charges with the payer absent and answers `resolved`, `pending` or `rejected`. `authentication_required` is not a decline: the payer's bank wants
    them present, so send them a link to pay on-session and keep the method. A charge whose answer was lost may have
    been made, so it is held `pending` — never closed as "nothing was charged" — and Core asks the gateway again, the
    same start for the same session, for up to 20 hours; the gateway makes the charge idempotent by the session's id,
@@ -650,7 +721,7 @@ Hooks arrive over the plugin protocol (docs/ANY_LANGUAGE.md) with these JSON pay
 
 | hook | to | payload in | answer |
 |---|---|---|---|
-| `payment.describe` | gateway | `{}` | `{"methods":[{"key","label","description","currencies","refunds","test","test_hint","supports"}]}` |
+| `payment.describe` | gateway | `{}` | `{"methods":[{"key","label","description","currencies","refunds","test","test_hint","supports","credential_types","readers"}]}` — a reader is `{"id","label"}` |
 | `payment.start` | gateway | `{"session":{…}}` | `{"status","redirect_url","provider_ref","expires_at","failure_code","failure_message"}` |
 | `payment.refund` | gateway | `{"refund":{…},"session":{…}}` | `{"status","provider_ref","failure_code","failure_message"}` |
 | `payment.session.confirm` | consumer | `{"session":{…}}` | `{"proceed","reason"}` |
@@ -664,7 +735,7 @@ Hooks arrive over the plugin protocol (docs/ANY_LANGUAGE.md) with these JSON pay
 
 A session is `{"id","consumer","gateway","method","reference","amount_minor","currency","status","test",
 "description","return_url","cancel_url","redirect_url","provider_ref","failure_code","failure_message",
-"email","locale","supports","fulfilment","billing_address","shipping_address","expires_at","save","saved_method","charged_saved","instrument","resolved_at",
+"email","locale","supports","fulfilment","billing_address","shipping_address","reader","expires_at","save","saved_method","charged_saved","off_session","instrument","resolved_at",
 "capture","authorized_minor","authorization_expires_at","capture_requested_minor","void_requested","refunded_minor",
 "created_at","updated_at"}`; a refund is `{"id","session","amount_minor","currency","status","reason",
 "provider_ref","failure_code","failure_message","external","reversed_at","created_at","updated_at"}`; an address
@@ -677,9 +748,9 @@ Calls into Core, under `/api/rest/v1`, with the plugin's token; answers inside `
 
 | call | who | body | answer |
 |---|---|---|---|
-| `GET /payments/methods?currency=EUR` | consumer | — | `[{"gateway","method","label","description","refunds","test","test_hint","supports"}]` |
+| `GET /payments/methods?currency=EUR` | consumer | — | `[{"gateway","method","label","description","refunds","test","test_hint","supports","credential_types","readers"}]` |
 | `GET /payments/readiness?currency=EUR` | consumer | — | `{"gateways":[{"key","name","enabled"}],"methods_on","test"}` (v0.42.0) |
-| `POST /payments/sessions` + `Idempotency-Key` | consumer | `{"gateway","method","reference","amount_minor","currency","description","return_url","cancel_url","email","locale","fulfilment","billing_address","shipping_address","credential","save","capture"}` | 201, the session |
+| `POST /payments/sessions` + `Idempotency-Key` | consumer | `{"gateway","method","reference","amount_minor","currency","description","return_url","cancel_url","email","locale","fulfilment","billing_address","shipping_address","reader","credential","save","capture"}` | 201, the session |
 | `POST /payments/sessions/{id}/capture` + `Idempotency-Key` | consumer | `{"amount_minor"}` | the session as the gateway left it (v0.58.0) |
 | `POST /payments/sessions/{id}/void` + `Idempotency-Key` | consumer | — | the session as the gateway left it (v0.58.0) |
 | `GET /payments/sessions/{id}` | either side of it | — | the session |
@@ -735,6 +806,8 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
 | a kept method's `token` | 1,024 bytes | Nilda's choice: a processor's ids are under a hundred |
 | a kept method's `label` | 100 characters | Nilda's choice |
 | a mandate's `interval_count` | 1–365 | Nilda's choice |
+| a method's `readers` | at most 100, each id at most 255 bytes, each label 1–100 characters | Nilda's choice: a shop with a hundred tills runs more than one site |
+| a reader's payment waits | its start answer's `expires_at`, at most 30 minutes; 5 minutes when none; then looked up and voided, a void asked at most 8 times | Nilda's choice: past a payer's seconds and Stripe's two-minute offline mark |
 | `Idempotency-Key` | 255 bytes | Core's, which is Stripe's |
 | any payment text — a reference, a reason, an address, a label, a `provider_ref`, a key | no NUL character | Postgres keeps one in neither text nor jsonb |
 | a session nothing decided | 24 hours, unless the gateway says | Stripe Checkout's own default |
@@ -758,3 +831,39 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
   way until v0.20.0 built them, and `capture` and `void` until v0.58.0.)
 - **No money arithmetic in Core** beyond comparing amounts and summing refunds. Prices, tax and rounding stay
   the consumer's.
+
+### Door D5's decisions (commerce plan 2026-11-05 §1J, recorded 2026-11-05)
+
+- **What already was the door.** The merchant-initiated charge with the mandate's reference held by the consumer and the
+  token held by Core alone is `ChargeSaved` (v0.30.0): Core checks the mandate, the charge carries the consumer's
+  idempotency key, `authentication_required` and a decline are results, and a lost answer is held `pending` and asked
+  again under the same session. D5 added only what was missing.
+- **The charge says its kind, and Core decides it.** Every processor asks whether a merchant-initiated charge is
+  recurring or unscheduled — Stripe's `off_session` `recurring` / `one_off` (docs.stripe.com/api/payment_intents/create,
+  read 2026-11-05), PayPal's `stored_credential.payment_type`, Adyen's `recurringProcessingModel` — and it is what flags
+  the charge out of SCA's scope (PSD2; EBA Q&A 2018_4031). Core derives it from the mandate it keeps (an interval:
+  recurring; none: unscheduled), so no consumer chooses which exemption its charge claims. Additive to `payments/v1`: a
+  gateway built before it ignores the field and charges as before (it already knew a `Saved` start is off-session).
+- **The kind is the agreement's purpose, not its interval** (review 2026-11-05). The first cut read the interval, which
+  the consumer writes: a pre-order naming one claimed "recurring". Now a subscription is recurring, a pre-order
+  unscheduled, an update the kind of the agreement it replaces (`Replaces`, a kept method of the same consumer, followed
+  back through earlier updates). A new mandate cannot say otherwise (`Validate`); a pre-order Core kept with an interval
+  before this reads as kept and charges unscheduled, and an update kept before `Replaces` existed is read by its interval,
+  the rhythm Core holds its charges to.
+- **A reader's payment is never pending for ever** (review 2026-11-05). The expiry closes only created and redirected
+  sessions, and a reader can stay "in_progress" with no webhook (Stripe, "Missing webhooks", read 2026-11-05). So a
+  reader's payment has a deadline (five minutes, or the gateway's up to thirty: past the seconds a payer takes and the two
+  minutes after which Stripe calls a silent reader offline), past which Core looks it up and calls it off; a void nobody
+  answers is left for a person after eight asks, as a kept method's unanswered charge is after 20 hours. The till's Cancel
+  before the start's answer is kept, not refused; a report that ends a payment drops a void asked of it; a person's
+  reject asks the reader to stop first.
+- **A card in person is a session sent to a named reader.** The market's server-side shape: Stripe Terminal's
+  server-driven `process_payment_intent` on a reader id (docs.stripe.com/terminal/payments/collect-card-payment, read
+  2026-11-05), Adyen's cloud Terminal API on a POIID, Square's Terminal API on a `device_id`. The gateway lists its
+  readers on the method, answers `pending`, and the outcome arrives as for any session; the till's Cancel is the
+  existing void, so no new hook and no new state. A reader driven by the processor's SDK on the till device (Tap to Pay)
+  stays between the gateway and the till app.
+- **Why inside `payments/v1` and still experimental.** `payments/v1` carries every live sale and cannot be marked
+  experimental as a whole (`WRITE_COMMANDS.md` §5 marks a contract file); the in-person fields are optional and only a
+  gateway that lists `card_present` ever meets them, so they extend it compatibly — and are named EXPERIMENTAL here and in
+  their Go doc until the till (plugin P17) ships green on them.

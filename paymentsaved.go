@@ -46,6 +46,42 @@ const (
 	MandateUpdate       = "update"       // the payer replaces the method a mandate already covers
 )
 
+// WHICH KIND OF MERCHANT-INITIATED CHARGE a kept method's charge is (PaymentSession.OffSession, v0.58.0; commerce's
+// door D5). The card schemes' stored-credential rules name two kinds a merchant starts with the payer absent, and each
+// processor asks which one it is: Stripe's off_session takes "recurring" or "one_off" (docs.stripe.com/api/
+// payment_intents/create, read 2026-11-05), PayPal's stored_credential.payment_type RECURRING or UNSCHEDULED, Adyen's
+// recurringProcessingModel Subscription or UnscheduledCardOnFile. Both are out of strong customer authentication's
+// scope when they stay inside the mandate the payer authenticated (PSD2; EBA Q&A 2018_4031): the processor flags them
+// so, and the payer's bank may still ask for the payer (PaymentFailAuthenticationRequired).
+const (
+	// OffSessionRecurring — on a schedule the payer agreed to: a subscription's renewal. Stripe: off_session=recurring.
+	OffSessionRecurring = "recurring"
+	// OffSessionUnscheduled — at a moment the agreement names an event for, not a date: a pre-order charged when it
+	// ships. Stripe: off_session=one_off.
+	OffSessionUnscheduled = "unscheduled"
+)
+
+// OffSessionOf is the kind of every charge under m, from what the agreement is FOR — never from an interval the
+// consumer chose to write (review 2026-11-05): a subscription's charges are recurring, a pre-order's unscheduled, and an
+// update's are the kind of the agreement it replaces — replaced, which Core reads from the kept method m.Replaces
+// names. An update kept before it named one (replaced "") is read by its interval, the rhythm Core holds its charges
+// to. Core stamps it on each charge's session from the mandate it keeps; no consumer sets it.
+func OffSessionOf(m PaymentMandate, replaced string) string {
+	switch m.Purpose {
+	case MandateSubscription:
+		return OffSessionRecurring
+	case MandatePreOrder:
+		return OffSessionUnscheduled
+	}
+	if replaced == OffSessionRecurring || replaced == OffSessionUnscheduled {
+		return replaced
+	}
+	if m.Interval != "" {
+		return OffSessionRecurring
+	}
+	return OffSessionUnscheduled
+}
+
 // Mandate intervals: PaymentMandate.Interval.
 const (
 	IntervalDay   = "day"
@@ -76,10 +112,14 @@ type PaymentMandate struct {
 	AmountRule     string `json:"amount_rule,omitempty"`
 	MaxAmountMinor int64  `json:"max_amount_minor,omitempty"`
 	Currency       string `json:"currency"`
-	// Interval and IntervalCount are a subscription's rhythm (every IntervalCount Intervals); empty for a pre-order's
-	// one later charge.
+	// Interval and IntervalCount are a subscription's rhythm (every IntervalCount Intervals); never on a pre-order's
+	// one later charge (v0.58.0). An update names one exactly when the agreement it replaces is a recurring one.
 	Interval      string `json:"interval,omitempty"`
 	IntervalCount int    `json:"interval_count,omitempty"`
+	// Replaces is, on an update (and only there), the kept method — its PaymentSession.SavedMethod — whose agreement
+	// this one replaces (v0.58.0): one of yours, which Core checks. The update's charges are of that agreement's kind
+	// (OffSessionOf).
+	Replaces string `json:"replaces,omitempty"`
 }
 
 // Validate refuses a mandate that does not record what the payer agreed to.
@@ -103,6 +143,18 @@ func (m PaymentMandate) Validate() error {
 	}
 	if utf8.RuneCountInString(m.AmountRule) > maxPaymentText {
 		return fmt.Errorf("nilda: a mandate's amount rule is at most %d characters", maxPaymentText)
+	}
+	// What decides the charges' kind (OffSessionOf) is the purpose, so a new mandate's other fields cannot say otherwise
+	// (v0.58.0, review 2026-11-05). A mandate Core kept before this rule is read as it was kept, never refused.
+	switch {
+	case m.Purpose == MandatePreOrder && (m.Interval != "" || m.IntervalCount != 0):
+		return fmt.Errorf("nilda: a pre-order's agreement is one charge when it ships; it names no interval")
+	case m.Purpose == MandateUpdate && strings.TrimSpace(m.Replaces) == "":
+		return fmt.Errorf("nilda: an update names the kept payment method whose agreement it replaces")
+	case m.Purpose != MandateUpdate && m.Replaces != "":
+		return fmt.Errorf("nilda: only an update replaces a kept payment method's agreement")
+	case len(m.Replaces) > maxProviderRef || !noNUL(m.Replaces):
+		return fmt.Errorf("nilda: a kept payment method's id is at most %d bytes, with no NUL", maxProviderRef)
 	}
 	switch m.Interval {
 	case "":
@@ -222,7 +274,9 @@ func (p PaymentChargeParams) Validate() error {
 // with Save it asks the processor to keep the method — the payer is there, and their bank authenticates them — and
 // reports it with the resolution (PaymentResolution.Saved). Then:
 //
-//   - StartPaymentWithSaved charges a kept method with the payer absent: a merchant-initiated charge. Answer resolved
+//   - StartPaymentWithSaved charges a kept method with the payer absent: a merchant-initiated charge, of the kind
+//     s.OffSession names (OffSessionRecurring or OffSessionUnscheduled) — tell the processor so (Stripe: off_session
+//     "recurring" or "one_off"), which is how it flags the charge out of SCA's scope. Answer resolved
 //     when the processor took the money, pending when it is deciding, rejected when it will not —
 //     PaymentFailAuthenticationRequired when the bank wants the payer present, declined for a card that is refused.
 //     There is no page to redirect to. Never store, log or echo the token. A charge whose answer you did not get may

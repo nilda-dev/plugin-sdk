@@ -203,9 +203,9 @@ func TestThePaymentNumbersInTheGuideAreCores(t *testing.T) {
 		{calls, "internal/plugin/calltable.go", "HookPaymentCapture: {budget: PaymentHookBudget, errorIsAnswer: true}, " +
 			"HookPaymentVoid: {budget: PaymentHookBudget, errorIsAnswer: true},"},
 		{service, "internal/payments/service.go", "Lifetime: sessionLifetime,"},
-		// Core's 625bc5d33 (2026-10-30) added credential_type before expires_at, and its migration 0377 (v0.58.0) capture_mode
-		// after it; the expiry is still the database's now() plus the lifetime.
-		{queries, "internal/db/queries/payments.sql", "save, charged_saved_id, credential_type, expires_at, capture_mode ) VALUES ( $1, $2, $3, $4, $5, $6, $7, " +
+		// Core's 625bc5d33 (2026-10-30) added credential_type before expires_at, its migration 0377 (v0.58.0) capture_mode
+		// after it, and 0378 (door D5) off_session and reader; the expiry is still the database's now() plus the lifetime.
+		{queries, "internal/db/queries/payments.sql", "save, charged_saved_id, credential_type, expires_at, capture_mode, off_session, reader ) VALUES ( $1, $2, $3, $4, $5, $6, $7, " +
 			"'created', $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, sqlc.narg('save'), sqlc.narg('charged_saved_id'), " +
 			"sqlc.arg('credential_type'), now() + sqlc.arg('lifetime')::interval,"},
 	} {
@@ -717,5 +717,90 @@ func TestAHoldReportsRulesAreCores(t *testing.T) {
 		if !strings.Contains(doc, want) {
 			t.Errorf("PAYMENTS.md §4 does not say %q", want)
 		}
+	}
+}
+
+// Door D5 (v0.58.0) held to Core: the two kinds of merchant-initiated charge and the rule that picks one from the
+// mandate, stamped by Core on every charge of a kept method; the in-person token and the readers' bounds; and what a void
+// may let go — read where Core decides each (internal/payments/inperson.go, saved.go, capture.go), with the kit's half.
+func TestDoorD5sRulesAreCores(t *testing.T) {
+	flat := func(s string) string { return strings.Join(strings.Fields(s), " ") }
+	inperson := flat(corePaymentsSource(t, "internal", "payments", "inperson.go"))
+	saved := flat(corePaymentsSource(t, "internal", "payments", "saved.go"))
+	capture := flat(corePaymentsSource(t, "internal", "payments", "capture.go"))
+	kit := flat(readText(t, "nildatest/paymentinperson.go"))
+	kitSaved := flat(readText(t, "nildatest/paymentsaved.go"))
+	kitCapture := flat(readText(t, "nildatest/paymentcapture.go"))
+	sdkSaved := flat(readText(t, "paymentsaved.go"))
+	sdkInPerson := flat(readText(t, "paymentinperson.go"))
+	kind := "case MandateSubscription: return OffSessionRecurring case MandatePreOrder: return OffSessionUnscheduled } " +
+		"if replaced == OffSessionRecurring || replaced == OffSessionUnscheduled { return replaced } " +
+		"if m.Interval != \"\" { return OffSessionRecurring } return OffSessionUnscheduled"
+	plain := `return unicode.IsControl(r) || (r >= '\u202a' && r <= '\u202e') || (r >= '\u2066' && r <= '\u2069')`
+	for _, c := range []struct{ src, file, want string }{
+		{inperson, "inperson.go", `OffSessionRecurring = "` + OffSessionRecurring + `" OffSessionUnscheduled = "` + OffSessionUnscheduled + `"`},
+		// The kind is the mandate's purpose (review 2026-11-05), the SDK's rule word for word.
+		{inperson, "inperson.go", strings.NewReplacer("MandateSubscription", "mandateSubscription", "MandatePreOrder", "mandatePreOrder").Replace(kind)},
+		{sdkSaved, "paymentsaved.go", kind},
+		// A new mandate cannot steer it: the same refusals, in the same words.
+		{inperson, "inperson.go", `case m.Purpose == mandatePreOrder && (m.Interval != "" || m.IntervalCount != 0): return apperr.ValidationMsg("a pre-order's agreement is one charge when it ships; it names no interval", nil)`},
+		{sdkSaved, "paymentsaved.go", `case m.Purpose == MandatePreOrder && (m.Interval != "" || m.IntervalCount != 0): return fmt.Errorf("nilda: a pre-order's agreement is one charge when it ships; it names no interval")`},
+		{inperson, "inperson.go", `return apperr.ValidationMsg("an update names the kept payment method whose agreement it replaces", nil)`},
+		{sdkSaved, "paymentsaved.go", `return fmt.Errorf("nilda: an update names the kept payment method whose agreement it replaces")`},
+		{inperson, "inperson.go", `return apperr.ValidationMsg("only an update replaces a kept payment method's agreement", nil)`},
+		{sdkSaved, "paymentsaved.go", `return fmt.Errorf("nilda: only an update replaces a kept payment method's agreement")`},
+		{inperson, "inperson.go", "if (m.Interval != \"\") != (kind == OffSessionRecurring) {"},
+		{kit, "nildatest/paymentinperson.go", "if (m.Interval != \"\") != (p.chargeKind(replaced) == nilda.OffSessionRecurring) {"},
+		{saved, "saved.go", "kind, err := chargeKind(ctx, q, kept)"},
+		{saved, "saved.go", "OffSession: kind,"},
+		{kitSaved, "nildatest/paymentsaved.go", "kind := p.chargeKind(m)"},
+		{kitSaved, "nildatest/paymentsaved.go", "OffSession: kind,"},
+		{inperson, "inperson.go", "maxReplaced = 16"},
+		{kit, "nildatest/paymentinperson.go", "maxReplaced = 16"},
+		{inperson, "inperson.go", `const SupportCardPresent = "` + SupportCardPresent + `"`},
+		{inperson, "inperson.go", "maxReaders = " + itoa(maxReaders) + " maxReaderLabel = " + itoa(maxReaderLabel)},
+		// A reader's name is one plain line, on both sides.
+		{inperson, "inperson.go", "return strings.TrimSpace(id) != \"\" && len(id) <= maxProviderRef && plainLine(id)"},
+		{inperson, "inperson.go", plain},
+		{sdkInPerson, "paymentinperson.go", plain},
+		{sdkInPerson, "paymentinperson.go", "if strings.TrimSpace(id) == \"\" || len(id) > maxProviderRef || !plainLine(id) {"},
+		{inperson, "inperson.go", "utf8.RuneCountInString(r.Label) > maxReaderLabel || !plainLine(r.Label) {"},
+		{sdkInPerson, "paymentinperson.go", "utf8.RuneCountInString(r.Label) > maxReaderLabel || !plainLine(r.Label) {"},
+		// What a void may let go, and when it is no longer owed.
+		{inperson, "inperson.go", "return cur.Status == StatusAuthorized || (cur.Status == StatusPending && cur.Reader != \"\" && cur.FailureCode != FailAmountMismatch)"},
+		{capture, "capture.go", "case !voidable(cur): return false, conflict(cur.Status)"},
+		{capture, "capture.go", "return voidable(cur) && cur.VoidRequested &&"},
+		{capture, "capture.go", "if cur.Status != StatusAuthorized && !(cur.VoidRequested && voidable(cur)) {"},
+		{kitCapture, "nildatest/paymentcapture.go", "if s.Status == nilda.PaymentAuthorized || (s.VoidRequested && voidable(*s)) { return false }"},
+		{capture, "capture.go", "case cur.Status == StatusCreated && cur.Reader != \"\":"},
+		{kitCapture, "nildatest/paymentcapture.go", "case s.Status == nilda.PaymentCreated && s.Reader != \"\":"},
+		{kit, "nildatest/paymentinperson.go", "return s.Status == nilda.PaymentAuthorized || (s.Status == nilda.PaymentPending && s.Reader != \"\" && s.FailureCode != nilda.PaymentFailAmountMismatch)"},
+		// A reader left waiting: Core's figures, the kit's too.
+		{inperson, "inperson.go", "readerWait = 5 * time.Minute"},
+		{kit, "nildatest/paymentinperson.go", "readerWait = 5 * time.Minute"},
+		{inperson, "inperson.go", "maxReaderWait = 30 * time.Minute"},
+		{kit, "nildatest/paymentinperson.go", "maxReaderWait = 30 * time.Minute"},
+		{inperson, "inperson.go", "maxReaderVoidAsks = 8"},
+		{kit, "nildatest/paymentinperson.go", "maxReaderVoidAsks = 8"},
+		{capture, "capture.go", "next.HoldAskAttempts >= maxReaderVoidAsks"},
+		{kitCapture, "nildatest/paymentcapture.go", "p.holdAsks[id] >= maxReaderVoidAsks"},
+	} {
+		if !strings.Contains(c.src, c.want) {
+			t.Errorf("%s no longer says %q — re-read door D5 on both sides", c.file, c.want)
+		}
+	}
+	// The SDK's rule is the one Core's words state: the purpose decides; an update is the kind it replaces.
+	if OffSessionOf(PaymentMandate{Purpose: MandatePreOrder, Interval: IntervalWeek}, "") != OffSessionUnscheduled ||
+		OffSessionOf(PaymentMandate{Purpose: MandateSubscription}, "") != OffSessionRecurring ||
+		OffSessionOf(PaymentMandate{Purpose: MandateUpdate}, OffSessionRecurring) != OffSessionRecurring {
+		t.Error("OffSessionOf no longer reads the mandate's purpose as Core does")
+	}
+	if maxProviderRef != 255 {
+		t.Errorf("a reader's id is bounded by maxProviderRef, now %d; PAYMENTS.md §7 says 255 bytes", maxProviderRef)
+	}
+	doc := flat(readText(t, "docs/PAYMENTS.md"))
+	if want := "| a method's `readers` | at most " + itoa(maxReaders) + ", each id at most 255 bytes, each label 1–" +
+		itoa(maxReaderLabel) + " characters |"; !strings.Contains(doc, want) {
+		t.Errorf("PAYMENTS.md §7 does not say %q", want)
 	}
 }

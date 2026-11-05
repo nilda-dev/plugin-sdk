@@ -73,6 +73,27 @@
                   "items": {
                     "type": "string"
                   }
+                },
+                "readers": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "label"
+                    ]
+                  }
                 }
               },
               "required": [
@@ -227,6 +248,9 @@
                   }
                 }
               },
+              "reader": {
+                "type": "string"
+              },
               "expires_at": {
                 "type": [
                   "null",
@@ -262,6 +286,9 @@
                   },
                   "interval_count": {
                     "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -274,6 +301,9 @@
                 "type": "string"
               },
               "charged_saved": {
+                "type": "string"
+              },
+              "off_session": {
                 "type": "string"
               },
               "instrument": {
@@ -593,6 +623,9 @@
                   }
                 }
               },
+              "reader": {
+                "type": "string"
+              },
               "expires_at": {
                 "type": [
                   "null",
@@ -628,6 +661,9 @@
                   },
                   "interval_count": {
                     "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -640,6 +676,9 @@
                 "type": "string"
               },
               "charged_saved": {
+                "type": "string"
+              },
+              "off_session": {
                 "type": "string"
               },
               "instrument": {
@@ -863,6 +902,9 @@
                   }
                 }
               },
+              "reader": {
+                "type": "string"
+              },
               "expires_at": {
                 "type": [
                   "null",
@@ -898,6 +940,9 @@
                   },
                   "interval_count": {
                     "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -910,6 +955,9 @@
                 "type": "string"
               },
               "charged_saved": {
+                "type": "string"
+              },
+              "off_session": {
                 "type": "string"
               },
               "instrument": {
@@ -1140,6 +1188,9 @@
                   }
                 }
               },
+              "reader": {
+                "type": "string"
+              },
               "expires_at": {
                 "type": [
                   "null",
@@ -1175,6 +1226,9 @@
                   },
                   "interval_count": {
                     "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -1187,6 +1241,9 @@
                 "type": "string"
               },
               "charged_saved": {
+                "type": "string"
+              },
+              "off_session": {
                 "type": "string"
               },
               "instrument": {
@@ -1420,6 +1477,9 @@
                   }
                 }
               },
+              "reader": {
+                "type": "string"
+              },
               "expires_at": {
                 "type": [
                   "null",
@@ -1455,6 +1515,9 @@
                   },
                   "interval_count": {
                     "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -1467,6 +1530,9 @@
                 "type": "string"
               },
               "charged_saved": {
+                "type": "string"
+              },
+              "off_session": {
                 "type": "string"
               },
               "instrument": {
@@ -1689,6 +1755,9 @@
                   }
                 }
               },
+              "reader": {
+                "type": "string"
+              },
               "expires_at": {
                 "type": [
                   "null",
@@ -1724,6 +1793,9 @@
                   },
                   "interval_count": {
                     "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -1736,6 +1808,9 @@
                 "type": "string"
               },
               "charged_saved": {
+                "type": "string"
+              },
+              "off_session": {
                 "type": "string"
               },
               "instrument": {
@@ -1951,6 +2026,9 @@
                   }
                 }
               },
+              "reader": {
+                "type": "string"
+              },
               "expires_at": {
                 "type": [
                   "null",
@@ -1986,6 +2064,9 @@
                   },
                   "interval_count": {
                     "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -1998,6 +2079,9 @@
                 "type": "string"
               },
               "charged_saved": {
+                "type": "string"
+              },
+              "off_session": {
                 "type": "string"
               },
               "instrument": {
@@ -2258,6 +2342,9 @@
                   }
                 }
               },
+              "reader": {
+                "type": "string"
+              },
               "expires_at": {
                 "type": [
                   "null",
@@ -2293,6 +2380,9 @@
                   },
                   "interval_count": {
                     "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -2305,6 +2395,9 @@
                 "type": "string"
               },
               "charged_saved": {
+                "type": "string"
+              },
+              "off_session": {
                 "type": "string"
               },
               "instrument": {
@@ -2591,6 +2684,9 @@
                   }
                 }
               },
+              "reader": {
+                "type": "string"
+              },
               "expires_at": {
                 "type": [
                   "null",
@@ -2626,6 +2722,9 @@
                   },
                   "interval_count": {
                     "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -2638,6 +2737,9 @@
                 "type": "string"
               },
               "charged_saved": {
+                "type": "string"
+              },
+              "off_session": {
                 "type": "string"
               },
               "instrument": {

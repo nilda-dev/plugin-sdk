@@ -56,6 +56,7 @@ field StubGateway.Forgotten []string
 field StubGateway.Methods []nilda.PaymentMethod
 field StubGateway.Refund nilda.PaymentRefundResult
 field StubGateway.SavedCharged []string
+field StubGateway.SavedSessions []nilda.PaymentSession
 field StubGateway.SavedStart nilda.PaymentStartResult
 field StubGateway.Start nilda.PaymentStartResult
 field StubGateway.VoidErr error
@@ -120,6 +121,7 @@ method (*Payments) Deliveries() ([]Delivery)
 method (*Payments) Disputes() ([]nilda.PaymentDispute)
 method (*Payments) Expire(string) (error)
 method (*Payments) ExpireHold(context.Context, string) (error)
+method (*Payments) ExpireReader(context.Context, string) (error)
 method (*Payments) ForgetSavedMethod(context.Context, string, string) (nilda.SavedPaymentMethod, error)
 method (*Payments) Gateway(string, nilda.PaymentGateway)
 method (*Payments) GetDispute(string) (nilda.PaymentDispute, bool)
