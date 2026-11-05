@@ -70,6 +70,11 @@ const (
 	// risk team is reviewing. Also a session Core holds for a PERSON (FailureCode amount_mismatch). Not a
 	// failure: cancelling the order behind a pending payment cancels a live payment.
 	PaymentPending = "pending"
+	// PaymentAuthorized — the processor HOLDS the money and has not taken it (v0.58.0, paymentcapture.go): a session
+	// asked with Capture "manual". The consumer takes it (Payments.Capture) or lets it go (Payments.Void); a hold
+	// nobody captured by AuthorizationExpiresAt ends rejected, FailureCode expired. Not paid: ship against it, never
+	// book it as money.
+	PaymentAuthorized = "authorized"
 	// PaymentResolved — the money is there.
 	PaymentResolved = "resolved"
 	// PaymentRejected — it ended without money; FailureCode says how.
@@ -90,7 +95,8 @@ const (
 
 // Why a session or a refund ended without money — the FailureCode, a closed set. The first five — and
 // PaymentFailAuthenticationRequired, beside the kept methods it is about (paymentsaved.go) — are a GATEWAY's to
-// report; the last two are Core's, and a gateway reporting one is refused.
+// report; the last two — and PaymentFailVoided, beside the holds it is about (paymentcapture.go) — are Core's, and a
+// gateway reporting one is refused.
 const (
 	// PaymentFailDeclined — the processor said no: a card declined, a bank refused.
 	PaymentFailDeclined = "declined"
@@ -113,7 +119,7 @@ const (
 	PaymentFailConsumerRefused = "consumer_refused"
 )
 
-// gatewayFailureCodes are the codes a gateway may report; the other two are Core's own verdicts.
+// gatewayFailureCodes are the codes a gateway may report; the other three are Core's own verdicts.
 var gatewayFailureCodes = []string{PaymentFailDeclined, PaymentFailCancelled, PaymentFailProviderUnavailable,
 	PaymentFailInvalidRequest, PaymentFailExpired, PaymentFailAuthenticationRequired}
 
@@ -127,12 +133,15 @@ var gatewayFailureCodes = []string{PaymentFailDeclined, PaymentFailCancelled, Pa
 // the session is refused with 409 Conflict.
 var (
 	paymentMoves = map[string][]string{
-		PaymentCreated:    {PaymentRedirected, PaymentPending, PaymentResolved, PaymentRejected, PaymentExpired},
-		PaymentRedirected: {PaymentPending, PaymentResolved, PaymentRejected, PaymentExpired},
+		PaymentCreated:    {PaymentRedirected, PaymentPending, PaymentAuthorized, PaymentResolved, PaymentRejected, PaymentExpired},
+		PaymentRedirected: {PaymentPending, PaymentAuthorized, PaymentResolved, PaymentRejected, PaymentExpired},
 		// Not to expired: the processor has a pending payment, so the processor decides it — or a person does.
-		PaymentPending: {PaymentResolved, PaymentRejected},
-		// A late payment is still money: heard, never dropped.
-		PaymentExpired: {PaymentPending, PaymentResolved},
+		PaymentPending: {PaymentAuthorized, PaymentResolved, PaymentRejected},
+		// A hold is captured (resolved), captured slowly (pending), or let go or lapsed (rejected: voided, expired).
+		// Never to expired: its deadline is the processor's, and Core asks the gateway before it closes one.
+		PaymentAuthorized: {PaymentPending, PaymentResolved, PaymentRejected},
+		// A late payment is still money: heard, never dropped — and so is a late hold.
+		PaymentExpired: {PaymentPending, PaymentAuthorized, PaymentResolved},
 	}
 	refundMoves = map[string][]string{
 		RefundRequested: {RefundPending, RefundResolved, RefundRejected},
@@ -255,6 +264,16 @@ type PaymentSession struct {
 	// set once, never moved by a repeated report. v0.39.0.
 	Instrument string     `json:"instrument,omitempty"`
 	ResolvedAt *time.Time `json:"resolved_at,omitempty"`
+	// Capture is when the session takes the money: CaptureAutomatic, or CaptureManual for one held first (v0.58.0,
+	// paymentcapture.go). AuthorizedMinor is what the processor holds, once it does, and AuthorizationExpiresAt its
+	// deadline to capture. CaptureRequestedMinor is the capture the consumer asked for; the session resolves at it —
+	// AmountMinor becomes what was taken, so a refund is bounded by it. VoidRequested is set once the consumer let the
+	// hold go and the gateway has not yet said it did.
+	Capture                string     `json:"capture"`
+	AuthorizedMinor        int64      `json:"authorized_minor,omitempty"`
+	AuthorizationExpiresAt *time.Time `json:"authorization_expires_at,omitempty"`
+	CaptureRequestedMinor  int64      `json:"capture_requested_minor,omitempty"`
+	VoidRequested          bool       `json:"void_requested,omitempty"`
 	// RefundedMinor is the sum of the session's RESOLVED refunds.
 	RefundedMinor int64     `json:"refunded_minor"`
 	CreatedAt     time.Time `json:"created_at"`
@@ -316,6 +335,10 @@ type PaymentSessionParams struct {
 	// 0: the payer only sets the method up (a pre-order paid at shipment, a card replaced). The resolved session
 	// carries SavedMethod.
 	Save *PaymentMandate `json:"save,omitempty"`
+	// Capture is CaptureManual to have the processor HOLD the money for a later Payments.Capture (v0.58.0); "" or
+	// CaptureAutomatic takes it at once. Manual only on a method that lists SupportManualCapture — Core refuses it on
+	// any other — and never for a session that only keeps a method.
+	Capture string `json:"capture,omitempty"`
 }
 
 // Validate refuses what Core refuses without asking anything: a missing gateway, method or reference, an
@@ -367,6 +390,9 @@ func (p PaymentSessionParams) Validate() error {
 		return fmt.Errorf("nilda: %q is not a language tag (\"de\", \"pt-BR\")", p.Locale)
 	}
 	if err := validFulfilment(p.Fulfilment); err != nil {
+		return err
+	}
+	if err := validCapture(p.Capture, p.AmountMinor); err != nil {
 		return err
 	}
 	if p.Credential != nil {
@@ -628,6 +654,16 @@ func DispatchPaymentGatewayHook(ctx context.Context, _ *Core, g PaymentGateway, 
 		if err := validMethods(methods); err != nil {
 			return nil, true, err
 		}
+		// A method that says it holds money belongs to a gateway that can be asked to capture it: listed by any other,
+		// every manual session through it would be a hold nobody can take.
+		if _, capturer := g.(PaymentCapturer); !capturer {
+			for _, m := range methods {
+				if Supports(m.Supports, SupportManualCapture) {
+					return nil, true, fmt.Errorf("nilda: payment.describe: method %q supports %s, and this gateway "+
+						"does not implement PaymentCapturer — nothing could take what it holds", m.Key, SupportManualCapture)
+				}
+			}
+		}
 		b, err := json.Marshal(PaymentDescribeResponse{Methods: methods})
 		return b, true, err
 
@@ -729,6 +765,9 @@ func DispatchPaymentGatewayHook(ctx context.Context, _ *Core, g PaymentGateway, 
 			return nil, true, err
 		}
 		return []byte(`{}`), true, nil
+
+	case HookPaymentCapture, HookPaymentVoid:
+		return dispatchCaptureHook(ctx, g, hook, payload)
 	}
 	return nil, false, nil
 }

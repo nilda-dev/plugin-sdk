@@ -2339,6 +2339,15 @@ with `nilda.PaymentChargeParams`) and forgets (`ForgetSavedMethod`). A gateway t
 as a `nilda.PaymentForgetRequest` (`payment.saved.forget`). A charge the payer's bank wants them present for is
 rejected with `authentication_required`.
 
+**v0.58.0 adds holding the money, then taking it** (PAYMENTS.md §4–§5): a consumer sends
+`PaymentSessionParams.Capture` `nilda.CaptureManual` on a method that lists `nilda.SupportManualCapture`; the gateway
+reports the hold, a `nilda.PaymentAuthorization`, with `Authorize`, and the session is `nilda.PaymentAuthorized`; the
+consumer takes it with `Capture` (one capture, at most what is held) or lets it go with `Void` (`nilda.PaymentFailVoided`).
+A gateway that holds implements `nilda.PaymentCapturer`: Core asks it under the session's lock with a
+`nilda.PaymentCaptureRequest` (`payment.capture`, answered with a `nilda.PaymentCaptureResult`) or a
+`nilda.PaymentVoidRequest` (`payment.void`, a `nilda.PaymentVoidResult`), whose idempotency key it passes to the
+processor unchanged. `nilda.SupportCardPresent` is an experimental token for a card taken in person.
+
 **v0.10.5 adds** a test-mode hint (PAYMENTS.md §3): a gateway holding its processor's test keys sets
 `PaymentMethod.TestHint` beside `Test` — how a payer pays in test mode, by language — and a consumer shows
 `PaymentOption.TestHint` beside the method, in its own language with `nilda.TestHintFor` (English when the gateway

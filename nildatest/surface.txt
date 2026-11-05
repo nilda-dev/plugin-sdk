@@ -47,6 +47,9 @@ field StubCarrier.Events []nilda.TrackEvent
 field StubCarrier.Latency time.Duration
 field StubCarrier.Name string
 field StubCarrier.Quotes []nilda.CarrierRate
+field StubGateway.CaptureErr error
+field StubGateway.CaptureResult nilda.PaymentCaptureResult
+field StubGateway.Captured []nilda.PaymentCaptureRequest
 field StubGateway.Charged []nilda.PaymentCredential
 field StubGateway.CredentialStart nilda.PaymentStartResult
 field StubGateway.Forgotten []string
@@ -55,6 +58,9 @@ field StubGateway.Refund nilda.PaymentRefundResult
 field StubGateway.SavedCharged []string
 field StubGateway.SavedStart nilda.PaymentStartResult
 field StubGateway.Start nilda.PaymentStartResult
+field StubGateway.VoidErr error
+field StubGateway.VoidResult nilda.PaymentVoidResult
+field StubGateway.Voided []nilda.PaymentVoidRequest
 field TrashEntry.ExpiresAfter time.Duration
 field TrashEntry.Name string
 field TrashEntry.RequestID string
@@ -113,6 +119,7 @@ method (*Payments) Deliver(context.Context) (int)
 method (*Payments) Deliveries() ([]Delivery)
 method (*Payments) Disputes() ([]nilda.PaymentDispute)
 method (*Payments) Expire(string) (error)
+method (*Payments) ExpireHold(context.Context, string) (error)
 method (*Payments) ForgetSavedMethod(context.Context, string, string) (nilda.SavedPaymentMethod, error)
 method (*Payments) Gateway(string, nilda.PaymentGateway)
 method (*Payments) GetDispute(string) (nilda.PaymentDispute, bool)
@@ -167,12 +174,14 @@ method (*StubCarrier) Rates(context.Context, nilda.RatesRequest) (nilda.RatesRes
 method (*StubCarrier) ServiceMethods() ([]nilda.ServiceMethod)
 method (*StubCarrier) Track(context.Context, nilda.TrackRequest) (nilda.TrackResult, error)
 method (*StubCarrier) VoidLabel(context.Context, nilda.VoidRequest) (nilda.VoidResult, error)
+method (*StubGateway) CapturePayment(context.Context, nilda.PaymentCaptureRequest) (nilda.PaymentCaptureResult, error)
 method (*StubGateway) DescribePayments(context.Context) ([]nilda.PaymentMethod, error)
 method (*StubGateway) ForgetSaved(context.Context, string) (error)
 method (*StubGateway) RefundPayment(context.Context, nilda.PaymentRefund, nilda.PaymentSession) (nilda.PaymentRefundResult, error)
 method (*StubGateway) StartPayment(context.Context, nilda.PaymentSession) (nilda.PaymentStartResult, error)
 method (*StubGateway) StartPaymentWithCredential(context.Context, nilda.PaymentSession, nilda.PaymentCredential) (nilda.PaymentStartResult, error)
 method (*StubGateway) StartPaymentWithSaved(context.Context, nilda.PaymentSession, string) (nilda.PaymentStartResult, error)
+method (*StubGateway) VoidPayment(context.Context, nilda.PaymentVoidRequest) (nilda.PaymentVoidResult, error)
 method (*Trash) Core(string, ...string) (*nilda.Core, *Host, *httptest.Server)
 method (*Trash) Items(string) ([]TrashEntry)
 method (*Trash) Purge(context.Context, string, HookFunc, TrashEntry) (error)

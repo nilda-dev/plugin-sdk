@@ -19,13 +19,21 @@ import (
 // it refuses — so a change here is a change to what every gateway and every consumer may see.
 func TestThePaymentStateMachineIsTheOneWritten(t *testing.T) {
 	t.Parallel()
-	statuses := []string{PaymentCreated, PaymentRedirected, PaymentPending, PaymentResolved, PaymentRejected, PaymentExpired}
+	// "authorized" is written as its word, not its constant: the table below is what the contract promises, and a
+	// constant renamed under it would carry the test along with it.
+	statuses := []string{PaymentCreated, PaymentRedirected, PaymentPending, "authorized", PaymentResolved, PaymentRejected, PaymentExpired}
 	allowed := map[string]bool{
-		"created>redirected": true, "created>pending": true, "created>resolved": true, "created>rejected": true,
-		"created>expired":    true,
-		"redirected>pending": true, "redirected>resolved": true, "redirected>rejected": true, "redirected>expired": true,
-		"pending>resolved": true, "pending>rejected": true, // a pending payment is the processor's to decide
-		"expired>pending": true, "expired>resolved": true, // money after the expiry is still money
+		"created>redirected": true, "created>pending": true, "created>authorized": true, "created>resolved": true,
+		"created>rejected": true, "created>expired": true,
+		"redirected>pending": true, "redirected>authorized": true, "redirected>resolved": true, "redirected>rejected": true,
+		"redirected>expired": true,
+		// a pending payment is the processor's to decide — and it may decide to hold the money first
+		"pending>authorized": true, "pending>resolved": true, "pending>rejected": true,
+		// a hold is captured (resolved), captured slowly (pending), or voided or lapsed (rejected) — never expired by
+		// the page's clock: its own deadline is the processor's
+		"authorized>pending": true, "authorized>resolved": true, "authorized>rejected": true,
+		// money after the expiry is still money, and so is a hold
+		"expired>pending": true, "expired>authorized": true, "expired>resolved": true,
 	}
 	for _, from := range statuses {
 		for _, to := range statuses {
@@ -176,6 +184,7 @@ func TestTheWireNamesAreTheContract(t *testing.T) {
 	full := PaymentSession{ID: "i", Consumer: "c", Gateway: "g", Method: "m", Reference: "r", AmountMinor: 1,
 		Currency: "EUR", Status: "s", Test: true, Description: "d", ReturnURL: "u", CancelURL: "u", RedirectURL: "u",
 		ProviderRef: "p", FailureCode: "f", FailureMessage: "f", Email: "e", Locale: "l", ExpiresAt: &at,
+		Capture: CaptureManual, AuthorizedMinor: 1, AuthorizationExpiresAt: &at, CaptureRequestedMinor: 1, VoidRequested: true,
 		RefundedMinor: 1, CreatedAt: at, UpdatedAt: at}
 	refund := PaymentRefund{ID: "i", Session: "s", AmountMinor: 1, Currency: "EUR", Status: "s", Reason: "r",
 		ProviderRef: "p", FailureCode: "f", FailureMessage: "f", CreatedAt: at, UpdatedAt: at}
@@ -183,9 +192,10 @@ func TestTheWireNamesAreTheContract(t *testing.T) {
 		v    any
 		want string
 	}{
-		"PaymentSession": {full, "amount_minor cancel_url consumer created_at currency description email expires_at " +
+		"PaymentSession": {full, "amount_minor authorization_expires_at authorized_minor cancel_url capture " +
+			"capture_requested_minor consumer created_at currency description email expires_at " +
 			"failure_code failure_message gateway id locale method provider_ref redirect_url reference refunded_minor " +
-			"return_url status test updated_at"},
+			"return_url status test updated_at void_requested"},
 		"PaymentRefund": {refund, "amount_minor created_at currency failure_code failure_message id provider_ref " +
 			"reason session status updated_at"},
 		"PaymentMethod": {PaymentMethod{Key: "k", Label: "l", Description: "d", Currencies: []string{"EUR"},
@@ -193,8 +203,8 @@ func TestTheWireNamesAreTheContract(t *testing.T) {
 		"PaymentOption": {PaymentOption{Gateway: "g", Method: "m", Label: "l", Description: "d", Refunds: true,
 			Test: true, TestHint: map[string]string{"en": "h"}}, "description gateway label method refunds test test_hint"},
 		"PaymentSessionParams": {PaymentSessionParams{Gateway: "g", Method: "m", Reference: "r", AmountMinor: 1,
-			Currency: "EUR", Description: "d", ReturnURL: "u", CancelURL: "u", Email: "e", Locale: "l"},
-			"amount_minor cancel_url currency description email gateway locale method reference return_url"},
+			Currency: "EUR", Description: "d", ReturnURL: "u", CancelURL: "u", Email: "e", Locale: "l", Capture: CaptureManual},
+			"amount_minor cancel_url capture currency description email gateway locale method reference return_url"},
 		"PaymentRefundParams": {PaymentRefundParams{AmountMinor: 1, Reason: "r"}, "amount_minor reason"},
 		"PaymentResolution": {PaymentResolution{AmountMinor: 1, Currency: "EUR", ProviderRef: "p"},
 			"amount_minor currency provider_ref"},
@@ -211,6 +221,14 @@ func TestTheWireNamesAreTheContract(t *testing.T) {
 		"PaymentConfirmRequest":   {PaymentConfirmRequest{}, "session"},
 		"PaymentSessionUpdate":    {PaymentSessionUpdate{}, "session"},
 		"PaymentRefundUpdate":     {PaymentRefundUpdate{}, "refund session"},
+		// v0.58.0: a hold, and what Core asks of the gateway that holds it.
+		"PaymentAuthorization": {PaymentAuthorization{AmountMinor: 1, Currency: "EUR", ProviderRef: "p", ExpiresAt: &at},
+			"amount_minor currency expires_at provider_ref"},
+		"PaymentCaptureRequest": {PaymentCaptureRequest{AmountMinor: 1, IdempotencyKey: "k"}, "amount_minor idempotency_key session"},
+		"PaymentCaptureResult": {PaymentCaptureResult{Status: "s", AmountMinor: 1, ProviderRef: "p", FailureCode: "f",
+			FailureMessage: "m"}, "amount_minor failure_code failure_message provider_ref status"},
+		"PaymentVoidRequest": {PaymentVoidRequest{IdempotencyKey: "k"}, "idempotency_key session"},
+		"PaymentVoidResult":  {PaymentVoidResult{Status: "s", AmountMinor: 1, ProviderRef: "p"}, "amount_minor provider_ref status"},
 	} {
 		if got := strings.Join(jsonKeys(t, c.v), " "); got != c.want {
 			t.Errorf("%s marshals to keys %q, want %q", name, got, c.want)
