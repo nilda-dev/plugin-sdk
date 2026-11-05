@@ -329,6 +329,12 @@ same capture arrives afterwards and changes nothing. **An answer you do not have
 processor could not be reached, or did not say. Core keeps the capture (or void) asked and asks again, with the same
 key, until it is answered — the error is an answer, not counted against your plugin, as for a refund.
 
+**A void whose answer was lost.** When the processor's own word that the hold is gone arrives first (Stripe's
+`payment_intent.canceled`, PayPal's `PAYMENT.AUTHORIZATION.VOIDED`), report it as you would any cancel —
+`Reject` with `cancelled`, or `expired` for a lapse. On an `authorized` session whose void was asked, Core ends it as
+the void's answer would: `rejected`, `voided`, and the void is no longer owed — so the consumer that let the hold go
+hears that it was voided, never that the payer cancelled.
+
 **A hold past its deadline.** When `authorization_expires_at` passes and nobody captured, Core asks the gateway to
 look first (`payment.sync`, if you implement `PaymentSyncer`): a capture made at the processor is money, so report
 it. A session still `authorized` afterwards ends `rejected`, `expired`. While the gateway cannot look, Core waits and

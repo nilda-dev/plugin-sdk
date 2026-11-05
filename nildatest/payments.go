@@ -987,6 +987,13 @@ func (p *Payments) report(ctx context.Context, caller, id, verb string, body []b
 			s.ProviderRef = r.ProviderRef
 		}
 		s.FailureCode, s.FailureMessage = r.FailureCode, r.FailureMessage
+		// A hold whose void was asked that the processor reports cancelled or lapsed IS that void, whose answer was lost:
+		// it ends as the void's answer ends it, and the void is no longer owed (Core's Reject).
+		if s.Status == nilda.PaymentAuthorized && s.VoidRequested &&
+			(r.FailureCode == nilda.PaymentFailCancelled || r.FailureCode == nilda.PaymentFailExpired) {
+			s.FailureCode, s.FailureMessage, s.VoidRequested = nilda.PaymentFailVoided, "", false
+			delete(p.holdDue, id)
+		}
 		return p.apply(s, nilda.PaymentRejected)
 
 	case "pending":
