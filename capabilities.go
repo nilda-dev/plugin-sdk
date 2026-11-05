@@ -15,6 +15,7 @@ const (
 	CapEvents          = "events"
 	CapField           = "field"
 	CapHooks           = "hooks"
+	CapImport          = "import"
 	CapKV              = "kv"
 	CapMediaRead       = "media.read"
 	CapMediaWrite      = "media.write"

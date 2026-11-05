@@ -413,6 +413,7 @@ Declared in the manifest, approved by the site owner at install, enforced by Cor
 | `visitor_tools` | let visitors' own AI agents read and submit through your public actions — see "What a visitor's own AI agent may do" (Core from the release built on SDK v0.18.0) |
 | `site_files` | answer at `/agents.md` or `/.well-known/<name>` at the site's root — see "Files at the site's root" (the same release) |
 | `personal_data` | answer the site's privacy requests about the people in your own tables: hand over and erase a person's records by email — see "Answering privacy requests" (Core from the release built on the SDK version that carries `privacy.go`) |
+| `import` | bring a site over from another platform: Core's import door `/plugin-import` tells you what earlier imports already made on this site (a page, a term, a file, by the old site's id), so a re-run makes nothing twice. Plugin-only; the owner sees it at install. Needs a Core that knows the `import` capability |
 | `trash` | put what you delete into the site's one recycle bin: Core lists it with its own items, asks you to bring one back, and tells you when one is gone for good — see "The site's recycle bin" (Core from the release built on the SDK version that carries `trash.go`) |
 
 That is the whole list. Every entry is dispatched by Core and has a surface in this SDK; there is nothing
