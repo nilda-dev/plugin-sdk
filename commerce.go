@@ -396,6 +396,11 @@ type CommerceEndpoints struct {
 	// page's language. Either way Core links the site's privacy notice beside it, and the form sends the sentence it
 	// showed with the request (`consent_text`), so what the shopper agreed to can be kept. From v0.23.0.
 	StockAlertConsent string `json:"stock_alert_consent,omitempty"`
+	// Express is a POST taking an ExpressRequest as JSON and answering an ExpressAnswer as JSON: the express wallet
+	// buttons' one door into your checkout (v0.58.0, EXPERIMENTAL, commerceexpress.go). Core's express widget calls it
+	// from the visitor's browser, on your route, so your basket's cookie goes with it. Set it only while the shop offers
+	// express checkout; empty, Core draws no wallet buttons.
+	Express string `json:"express,omitempty"`
 }
 
 // Commerce is the interface a shop plugin implements.

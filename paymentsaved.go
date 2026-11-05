@@ -49,8 +49,10 @@ const (
 // WHICH KIND OF MERCHANT-INITIATED CHARGE a kept method's charge is (PaymentSession.OffSession, v0.58.0; commerce's
 // door D5). The card schemes' stored-credential rules name two kinds a merchant starts with the payer absent, and each
 // processor asks which one it is: Stripe's off_session takes "recurring" or "one_off" (docs.stripe.com/api/
-// payment_intents/create, read 2026-11-05), PayPal's stored_credential.payment_type RECURRING or UNSCHEDULED, Adyen's
-// recurringProcessingModel Subscription or UnscheduledCardOnFile. Both are out of strong customer authentication's
+// payment_intents/create, read 2026-11-05), PayPal's card stored_credential.payment_type RECURRING or UNSCHEDULED (Orders
+// v2 schema 2.36, read 2026-11-05: payment_type exists only on a card's stored credential — a PayPal wallet's has
+// payment_initiator, usage and usage_pattern, which must match its setup token, so a wallet's kind is not sent yet,
+// plugin-paypal's open item P-13), Adyen's recurringProcessingModel Subscription or UnscheduledCardOnFile. Both are out of strong customer authentication's
 // scope when they stay inside the mandate the payer authenticated (PSD2; EBA Q&A 2018_4031): the processor flags them
 // so, and the payer's bank may still ask for the payer (PaymentFailAuthenticationRequired).
 const (

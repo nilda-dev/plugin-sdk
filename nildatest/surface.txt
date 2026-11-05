@@ -55,6 +55,9 @@ field StubGateway.CredentialStart nilda.PaymentStartResult
 field StubGateway.Forgotten []string
 field StubGateway.Methods []nilda.PaymentMethod
 field StubGateway.Refund nilda.PaymentRefundResult
+field StubGateway.RepriceErr error
+field StubGateway.RepriceResult nilda.PaymentRepriceResult
+field StubGateway.Repriced []nilda.PaymentRepriceRequest
 field StubGateway.SavedCharged []string
 field StubGateway.SavedSessions []nilda.PaymentSession
 field StubGateway.SavedStart nilda.PaymentStartResult
@@ -127,6 +130,7 @@ method (*Payments) Gateway(string, nilda.PaymentGateway)
 method (*Payments) GetDispute(string) (nilda.PaymentDispute, bool)
 method (*Payments) GetRefund(string) (nilda.PaymentRefund, bool)
 method (*Payments) GetSession(string) (nilda.PaymentSession, bool)
+method (*Payments) Reprice(context.Context, string, string, nilda.PaymentReprice) (nilda.PaymentSession, error)
 method (*Payments) SavedMethod(string) (nilda.SavedPaymentMethod, bool)
 method (*Payments) SavedToken(string) (string)
 method (*Payments) Secret(string, string) (string, bool)
@@ -180,6 +184,7 @@ method (*StubGateway) CapturePayment(context.Context, nilda.PaymentCaptureReques
 method (*StubGateway) DescribePayments(context.Context) ([]nilda.PaymentMethod, error)
 method (*StubGateway) ForgetSaved(context.Context, string) (error)
 method (*StubGateway) RefundPayment(context.Context, nilda.PaymentRefund, nilda.PaymentSession) (nilda.PaymentRefundResult, error)
+method (*StubGateway) RepricePayment(context.Context, nilda.PaymentRepriceRequest) (nilda.PaymentRepriceResult, error)
 method (*StubGateway) StartPayment(context.Context, nilda.PaymentSession) (nilda.PaymentStartResult, error)
 method (*StubGateway) StartPaymentWithCredential(context.Context, nilda.PaymentSession, nilda.PaymentCredential) (nilda.PaymentStartResult, error)
 method (*StubGateway) StartPaymentWithSaved(context.Context, nilda.PaymentSession, string) (nilda.PaymentStartResult, error)

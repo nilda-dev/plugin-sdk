@@ -501,6 +501,12 @@ var providerHooks = []struct {
 		_, is := h.(PaymentCapturer)
 		return gw && is
 	}, []string{HookPaymentCapture, HookPaymentVoid}},
+	// payment.reprice only for a gateway whose open orders can be re-priced before the payer approves (PaymentRepricer).
+	{"PaymentRepricer", func(h Handler) bool {
+		_, gw := h.(PaymentGateway)
+		_, is := h.(PaymentRepricer)
+		return gw && is
+	}, []string{HookPaymentReprice}},
 	{"PaymentDisputeConsumer", func(h Handler) bool {
 		_, c := h.(PaymentConsumer)
 		_, is := h.(PaymentDisputeConsumer)

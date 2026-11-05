@@ -2358,6 +2358,20 @@ lists its card readers (`PaymentMethod.Readers`, each a `nilda.PaymentReader`, p
 answers it pending, and the till's cancel is `Void`; a payment left waiting is looked up and voided by Core after its
 deadline (five minutes, or the gateway's up to thirty). Such a gateway implements `nilda.PaymentCapturer`.
 
+**v0.58.0 also adds, EXPERIMENTAL, express wallet buttons** (commerce plan 10.2; PAYMENTS.md §4 "Express wallet buttons",
+§5 "Express checkout and re-pricing"): a method says how its buttons are drawn, `PaymentMethod.Express` — a
+`nilda.PaymentExpress` of a kind (`nilda.ExpressToken`, Stripe's sheet and its token; `nilda.ExpressOrder`, PayPal's order
+from the press), the script on the gateway's own route, the processor's origins by directive (`nilda.PaymentExpressOrigins`)
+and a PUBLIC configuration that refuses anything shaped or named like a secret — passed to consumers on
+`PaymentOption.Express`. A start may answer `redirected` with a `nilda.ClientAction` (`PaymentStartResult.ClientAction`,
+kept on `PaymentSession.ClientAction` while redirected; it never prints) instead of, or beside, a page; a wallet's token is a
+credential of type `nilda.CredentialStripeConfirmationToken`; and a consumer re-prices an open session before its payer
+approves with `Payments.Reprice` (a `nilda.PaymentReprice` with its `nilda.PaymentShippingOption`s), which Core asks of a
+gateway that implements `nilda.PaymentRepricer` and whose method lists `nilda.SupportReprice` — `nilda.HookPaymentReprice`,
+a `nilda.PaymentRepriceRequest` answered by a `nilda.PaymentRepriceResult`. `nildatest.Payments.Reprice` and
+`nildatest.StubGateway`'s `RepricePayment` (`RepriceResult`, `RepriceErr`, `Repriced`) are the kit's side. Core serves the
+re-price, its hook and the session's client action from the Core of plan 10.2's step X2b.
+
 **v0.10.5 adds** a test-mode hint (PAYMENTS.md §3): a gateway holding its processor's test keys sets
 `PaymentMethod.TestHint` beside `Test` — how a payer pays in test mode, by language — and a consumer shows
 `PaymentOption.TestHint` beside the method, in its own language with `nilda.TestHintFor` (English when the gateway
@@ -3009,6 +3023,18 @@ The shop takes them on its product page and keeps them itself: it sets `Commerce
 record of what the shopper agreed to — and the `Requester`, the shop's `VisitorKey`, to limit requests by; `Validate`),
 answered by a `StockAlertResult` (`StockAlertSubscribed`, `StockAlertAlready`, `StockAlertRefused`). The
 `stock.alerts/v1` contract that handed them to a plugin of their own was removed in v0.47.0 (commerce DR-19).
+
+### Express checkout (the shop's own endpoint, v0.58.0, EXPERIMENTAL)
+
+The wallet buttons reach the shop's checkout through one endpoint of its own, `CommerceEndpoints.Express` (COMMERCE.md §6):
+Core's express widget posts an `ExpressRequest` there — a step (`ExpressStepQuote`, `ExpressStepStart`,
+`ExpressStepComplete`), what it buys (`ExpressFromCart`, or `ExpressFromProduct` with an `ExpressItem`), the wallet's
+partial `WalletAddress` (country, region, city, postal code — never a street or a name), the chosen delivery option, the
+press that keys the order, and with `complete` the `ExpressPayer` and the wallet's credential or the session the start
+made — read with `DecodeExpressRequest`, which refuses an unknown field. The shop answers an `ExpressAnswer`: whether it
+takes the basket by express, its total in minor units and in its own words, the sheet's `ExpressLine`s and delivery
+options, the capture mode, the terms line beside the buttons, and after `start` or `complete` the session's status, its
+client action and the order's page.
 
 ### Orders, and what a plugin delivers for them (`shop.orders/v1`, `shop.deliverables/v1`; from v0.24.0)
 

@@ -74,6 +74,10 @@ type Payments struct {
 	// holdAsks counts the unanswered asks of a reader's void: after maxReaderVoidAsks it is left for a person, as Core
 	// leaves it (paymentinperson.go).
 	holdAsks map[string]int
+	// approved are the sessions whose payer's approval reached Core (the gateway asked Confirm), and credentialed the
+	// ones a delegated credential started: neither is re-priced (paymentexpress.go).
+	approved     map[string]bool
+	credentialed map[string]bool
 }
 
 // Delivery is one attempt to tell a consumer about a change.
@@ -140,6 +144,9 @@ func NewPayments() *Payments {
 		holdDue:   map[string]bool{},
 		asking:    map[string]bool{},
 		holdAsks:  map[string]int{},
+
+		approved:     map[string]bool{},
+		credentialed: map[string]bool{},
 	}
 }
 
@@ -384,7 +391,8 @@ func (p *Payments) routes(caller string) http.Handler {
 		}
 		body, _ := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 		ctx := r.Context()
-		if p.savedRoutes(w, r, caller, parts, body) || p.captureRoutes(w, r, caller, parts, body) {
+		if p.savedRoutes(w, r, caller, parts, body) || p.captureRoutes(w, r, caller, parts, body) ||
+			p.repriceRoutes(w, r, caller, parts, body) {
 			return
 		}
 		switch {
@@ -612,7 +620,7 @@ func (p *Payments) methods(ctx context.Context, currency string) ([]nilda.Paymen
 			if takes(m, code) {
 				opts = append(opts, nilda.PaymentOption{Gateway: key, Method: m.Key, Label: m.Label,
 					Description: m.Description, Refunds: m.Refunds, Test: m.Test, Supports: nilda.SupportsOf(m),
-					CredentialTypes: m.CredentialTypes, Readers: m.Readers})
+					CredentialTypes: m.CredentialTypes, Readers: m.Readers, Express: m.Express})
 			}
 		}
 	}
@@ -750,6 +758,9 @@ func (p *Payments) createSession(ctx context.Context, consumer string, params ni
 	p.mu.Lock()
 	p.sessions[s.ID] = s
 	p.order = append(p.order, s.ID)
+	if params.Credential != nil {
+		p.credentialed[s.ID] = true // its type is the session's record in Core (credential_type), never the token
+	}
 	snapshot := *s
 	p.mu.Unlock()
 
@@ -817,6 +828,7 @@ func (p *Payments) applyStart(s *nilda.PaymentSession, res nilda.PaymentStartRes
 	switch res.Status {
 	case nilda.PaymentRedirected:
 		s.RedirectURL = res.RedirectURL
+		s.ClientAction = res.ClientAction // kept while the session is redirected (move drops it)
 	case nilda.PaymentRejected:
 		s.FailureCode, s.FailureMessage = res.FailureCode, res.FailureMessage
 	}
@@ -849,6 +861,9 @@ func (p *Payments) move(s *nilda.PaymentSession, to string) bool {
 		return false
 	}
 	s.Status = to
+	if to != nilda.PaymentRedirected {
+		s.ClientAction = "" // the payer's page needs it only while the session waits there
+	}
 	s.UpdatedAt = time.Now().UTC()
 	p.owe(owed{session: s.ID})
 	return true
@@ -1165,6 +1180,10 @@ func (p *Payments) confirm(ctx context.Context, s nilda.PaymentSession) (any, er
 	if s.Status != nilda.PaymentCreated && s.Status != nilda.PaymentRedirected && s.Status != nilda.PaymentPending {
 		return nil, conflict(&s)
 	}
+	// The payer approved at the processor: the amount they approved is the amount, so the session is re-priced no more.
+	p.mu.Lock()
+	p.approved[s.ID] = true
+	p.mu.Unlock()
 	c, ok := p.installedConsumer(s.Consumer)
 	if !ok {
 		return nil, &apiError{http.StatusServiceUnavailable, "UNAVAILABLE",
@@ -1553,6 +1572,12 @@ type StubGateway struct {
 	VoidResult    nilda.PaymentVoidResult
 	VoidErr       error
 	Voided        []nilda.PaymentVoidRequest
+	// RepriceResult answers every payment.reprice (PaymentRepricer, v0.58.0 EXPERIMENTAL) — the zero value says the
+	// processor's order now asks the new amount; one with a FailureMessage and Repriced false is the processor's refusal —
+	// unless RepriceErr is set: no answer. Repriced records what it was asked, in order.
+	RepriceResult nilda.PaymentRepriceResult
+	RepriceErr    error
+	Repriced      []nilda.PaymentRepriceRequest
 }
 
 // StartPaymentWithSaved answers with SavedStart and records the token.

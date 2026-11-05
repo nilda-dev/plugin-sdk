@@ -364,7 +364,7 @@ func TestTheHookGrantsInitResultNamesAreCores(t *testing.T) {
 		for hook := range grantOf {
 			used = used || matches(pattern, hook)
 		}
-		if !used {
+		if !used && !coreLacks("hook "+pattern) { // SDK-first surface (coreahead_test.go)
 			t.Errorf("InitResult.Hooks names %s, which core's filterHooks has no case for", pattern)
 		}
 	}
