@@ -472,7 +472,7 @@ locale, gateway, method, kind, quote, start, complete, done, available}`:
 | `gateway`, `method`, `kind` | which method this is, and `token` or `order` |
 | `quote(req)` | `req` `{address?, shipping_option?}` (a PARTIAL address only) → a promise of the shop's `ExpressAnswer`. The bridge adds the step, gateway, method, source and — on a product page — the product, the shopper's variation answers and quantity from the page's add-to-cart row; after a `start`, the start's `session` and `press`. An available answer's total and terms line are written beside the buttons |
 | `start(req)` | kind `order`: the payer pressed. Same `req` → the answer with the `session` and its `client_action` (the order id your buttons' order promise resolves to). Mints a NEW press and forgets any earlier session |
-| `complete(req)` | the payer confirmed: `req` `{payer, credential?, shipping_option, shown_total}` — the `ExpressPayer`, kind `token`'s wallet token (`{"type": "stripe.confirmation_token", "token"}`), the delivery option the payer chose and the total the sheet showed them (`{amount_minor, currency}`). Kind `token`: every call is a NEW press; kind `order`: the start's press and session. An answer `code: "total_changed"` charged nothing: end the sheet unpaid, call `done` with it, and `quote` again so the new total stands beside the buttons. (Core's bridge forwards `shipping_option` and `shown_total` from plan 10.2's next X2a step: `coreahead_test.go`) |
+| `complete(req)` | the payer confirmed: `req` `{payer, credential?, shipping_option, shown_total}` — the `ExpressPayer`, kind `token`'s wallet token (`{"type": "stripe.confirmation_token", "token"}`), the delivery option the payer chose and the total the sheet showed them (`{amount_minor, currency}`). Kind `token`: every call is a NEW press; kind `order`: the start's press and session. An answer `code: "total_changed"` charged nothing: end the sheet unpaid, call `done` with it, and `quote` again so the new total stands beside the buttons. |
 | `done(outcome)` | the payment ended in the browser, `{ok, status, message, order_url}`: `ok` sends the payer to `order_url` (this site only); otherwise `message`, or the widget's own error text, is said in the placement's live region, and a `token` kind's next `complete` is a new press |
 | `available(on)` | whether you draw a button here (the wallet may have none on this device); when no method of a placement is on, the placement hides |
 
@@ -1027,7 +1027,7 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
 - **Why inside `payments/v1` and experimental**: every field is optional, so a gateway or consumer built before ignores
   them; they are named EXPERIMENTAL here and in their Go doc until the shop and a gateway built by Nilda ship green on them.
   The truth tests that read Core skip exactly what Core has not landed yet (`coreahead_test.go`) and fail once it has:
-  the hook, the route and the session's `client_action` landed in Core's X2b; the bridge's `shown_total` is still listed.
+  the hook, the route and the session's `client_action` landed in Core's X2b and the bridge's `shown_total` with them (core #178): the list is empty.
 - **The review of X1 (2026-11-05): the payer pays what the sheet showed, or nothing.** `complete` carries `shown_total`
   (`ExpressTotal`, `{"amount_minor","currency"}` — nested, so the amount never travels without its currency), required
   with a token kind's credential, optional with an order kind's session, whose re-priced amount already binds it; the shop
