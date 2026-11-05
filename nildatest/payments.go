@@ -1107,6 +1107,11 @@ func (p *Payments) report(ctx context.Context, caller, id, verb string, body []b
 		}
 		return nil, notFound("no such report %q", verb)
 	}()
+	// The processor's risk verdict rides a hold or a resolution Core accepted (v0.58.0, EXPERIMENTAL): kept once, the
+	// consumer told when it is all that changed (paymentrisk.go).
+	if err == nil && (verb == "authorize" || verb == "resolve") && keepRisk(s, reportedRisk(body)) {
+		p.owe(owed{session: s.ID})
+	}
 	p.voidAskAfter(s, was)
 	if _, ok := out.(nilda.PaymentSession); ok && err == nil {
 		return *s, nil

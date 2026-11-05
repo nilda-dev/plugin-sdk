@@ -8,7 +8,22 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.58.0 — unreleased (write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2)
+## v0.58.0 — unreleased (write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3)
+
+- PAYMENTS: THE PROCESSOR'S RISK VERDICT, EXPERIMENTAL (commerce plan 10.3, step F1; `paymentrisk.go`, `docs/PAYMENTS.md`
+  §4 "The processor's risk verdict", §5 "Reading the processor's risk verdict" and "Risk's decisions"). `PaymentRisk`
+  (`{"level","score","reason"}`): `Level` one of `RiskNormal`, `RiskElevated`, `RiskHighest`, `RiskNotAssessed`,
+  `RiskUnknown` (`"normal"`, `"elevated"`, `"highest"`, `"not_assessed"`, `"unknown"` — Stripe Radar's
+  `outcome.risk_level`, docs.stripe.com/api/charges/object, read 2026-11-05), `Score *int` 0 to 100 (Stripe's
+  `outcome.risk_score`; never beside not_assessed or unknown), `Reason` one plain line of at most 200 characters.
+  `PaymentResolution.Risk` and `PaymentAuthorization.Risk` (`"risk"`) carry it from the gateway; their `Validate` — run
+  by the client before it sends — refuses any other level, a score out of range or on a payment nobody assessed, and a
+  reason that is not one plain line. `PaymentSession.Risk` (`"risk"`): Core keeps the FIRST verdict a hold or a
+  resolution reports, never moves or clears it, keeps a late one and tells the consumer. Nil means the gateway did not
+  say — not `not_assessed`.
+- `nildatest.Payments` keeps it as Core will (`TestTheKitKeepsTheRiskOnTheSession`, `TestTheHoldCarriesTheRisk`).
+- Additive and SDK-first: Core keeps it from plan 10.3's step F1 (`coreahead_test.go` lists the session's `risk`); an
+  older Core ignores the field, so a gateway may send it today and nothing is kept until then.
 
 - PAYMENTS AND THE SHOP: EXPRESS WALLET BUTTONS, EXPERIMENTAL (commerce plan 10.2, step X1; `paymentexpress.go`,
   `commerceexpress.go`, `docs/PAYMENTS.md` §4 "Express wallet buttons" and §5 "Express checkout and re-pricing",

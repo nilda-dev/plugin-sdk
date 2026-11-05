@@ -2291,7 +2291,11 @@ whose parameter type, `PaymentGatewayPlugin`, is both. Its three methods take an
 `nilda.PaymentResolution`, `Reject` with a `nilda.PaymentRejection`, `MarkPending`, `Confirm`,
 `ResolveRefund`, `RejectRefund`. A resolution may name what the payer paid with (`Instrument`, one of the
 `nilda.Instrument…` constants: card, sepa_debit, bank_transfer, wallet, other); the session keeps it with `ResolvedAt`,
-the moment it first resolved (v0.39.0).
+the moment it first resolved (v0.39.0). A resolution or a hold (`PaymentAuthorization`) may carry the processor's risk verdict
+(`Risk`, a `nilda.PaymentRisk`: `Level` one of `nilda.RiskNormal`, `RiskElevated`, `RiskHighest`, `RiskNotAssessed`,
+`RiskUnknown` — Stripe Radar's words — an optional `Score` 0 to 100 and the processor's `Reason`); Core keeps the first
+one reported on the session (`PaymentSession.Risk`) and a consumer reads it there (v0.58.0, EXPERIMENTAL, commerce plan
+10.3; PAYMENTS.md §4 "The processor's risk verdict").
 
 A **consumer** implements `nilda.PaymentConsumer` — `ConfirmPayment(ctx, nilda.PaymentSession)` answering a
 `nilda.PaymentConfirmResult`, `PaymentUpdated(ctx, nilda.PaymentSession)` and

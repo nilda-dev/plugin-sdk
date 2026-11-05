@@ -287,6 +287,10 @@ type PaymentSession struct {
 	// set once, never moved by a repeated report. v0.39.0.
 	Instrument string     `json:"instrument,omitempty"`
 	ResolvedAt *time.Time `json:"resolved_at,omitempty"`
+	// Risk is the processor's risk verdict, as the gateway reported it with the hold or the resolution (v0.58.0,
+	// EXPERIMENTAL, paymentrisk.go): the first one reported is kept, and a later report never moves or clears it. Nil
+	// while the gateway has not said — which is not RiskNotAssessed, the processor saying it did not look.
+	Risk *PaymentRisk `json:"risk,omitempty"`
 	// Capture is when the session takes the money: CaptureAutomatic, or CaptureManual for one held first (v0.58.0,
 	// paymentcapture.go). AuthorizedMinor is what the processor holds, once it does, and AuthorizationExpiresAt its
 	// deadline to capture. CaptureRequestedMinor is the capture the consumer asked for; the session resolves at it —
@@ -480,6 +484,9 @@ type PaymentResolution struct {
 	// know (v0.39.0). A shop reads it for how long the money can still be claimed back: a bank debit for eight
 	// weeks, a card for about four months.
 	Instrument string `json:"instrument,omitempty"`
+	// Risk is the processor's risk verdict on the payment (v0.58.0, EXPERIMENTAL, paymentrisk.go), or nil when the
+	// gateway does not report one. Core keeps the first one reported on the session.
+	Risk *PaymentRisk `json:"risk,omitempty"`
 }
 
 // The five instruments a gateway can name (PaymentResolution.Instrument).
@@ -515,6 +522,9 @@ func (r PaymentResolution) Validate() error {
 		}
 	}
 	if err := validInstrument(r.Instrument); err != nil {
+		return err
+	}
+	if err := validRisk(r.Risk); err != nil {
 		return err
 	}
 	return validProviderRef(r.ProviderRef)

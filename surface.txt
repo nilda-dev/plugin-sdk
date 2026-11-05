@@ -441,6 +441,11 @@ const RefundRejected
 const RefundRequested
 const RefundResolved
 const ReportRowKey
+const RiskElevated
+const RiskHighest
+const RiskNormal
+const RiskNotAssessed
+const RiskUnknown
 const ScreenEmail
 const ScreenMenus
 const ScreenPages
@@ -1148,6 +1153,7 @@ field PaymentAuthorization.AmountMinor int64 json:amount_minor
 field PaymentAuthorization.Currency string json:currency
 field PaymentAuthorization.ExpiresAt *time.Time json:expires_at
 field PaymentAuthorization.ProviderRef string json:provider_ref
+field PaymentAuthorization.Risk *PaymentRisk json:risk
 field PaymentCaptureRequest.AmountMinor int64 json:amount_minor
 field PaymentCaptureRequest.IdempotencyKey string json:idempotency_key
 field PaymentCaptureRequest.Session PaymentSession json:session
@@ -1286,7 +1292,11 @@ field PaymentResolution.AmountMinor int64 json:amount_minor
 field PaymentResolution.Currency string json:currency
 field PaymentResolution.Instrument string json:instrument
 field PaymentResolution.ProviderRef string json:provider_ref
+field PaymentResolution.Risk *PaymentRisk json:risk
 field PaymentResolution.Saved *PaymentSaved json:saved
+field PaymentRisk.Level string json:level
+field PaymentRisk.Reason string json:reason
+field PaymentRisk.Score *int json:score
 field PaymentSaved.ExpiresAt *time.Time json:expires_at
 field PaymentSaved.Label string json:label
 field PaymentSaved.Token string json:token
@@ -1322,6 +1332,7 @@ field PaymentSession.Reference string json:reference
 field PaymentSession.RefundedMinor int64 json:refunded_minor
 field PaymentSession.ResolvedAt *time.Time json:resolved_at
 field PaymentSession.ReturnURL string json:return_url
+field PaymentSession.Risk *PaymentRisk json:risk
 field PaymentSession.Save *PaymentMandate json:save
 field PaymentSession.SavedMethod string json:saved_method
 field PaymentSession.ShippingAddress *PaymentAddress json:shipping_address
@@ -2060,6 +2071,7 @@ method (PaymentRefundParams) Validate() (error)
 method (PaymentRejection) Validate() (error)
 method (PaymentReprice) Validate() (error)
 method (PaymentResolution) Validate() (error)
+method (PaymentRisk) Validate() (error)
 method (PaymentSaved) GoString() (string)
 method (PaymentSaved) String() (string)
 method (PaymentSaved) Validate() (error)
@@ -2273,6 +2285,7 @@ type PaymentRepriceRequest
 type PaymentRepriceResult
 type PaymentRepricer
 type PaymentResolution
+type PaymentRisk
 type PaymentSaved
 type PaymentSavedToken
 type PaymentSession

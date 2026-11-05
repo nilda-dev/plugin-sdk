@@ -345,6 +345,30 @@ look first (`payment.sync`, if you implement `PaymentSyncer`): a capture made at
 it. A session still `authorized` afterwards ends `rejected`, `expired`. While the gateway cannot look, Core waits and
 asks again — for at most three days past the deadline, after which the processor has let the hold go anyway.
 
+### The processor's risk verdict (v0.58.0, EXPERIMENTAL)
+
+A processor that screens payments for fraud says how risky it found one. Report it beside the money — with the hold
+(`PaymentAuthorization.Risk`) or the resolution (`PaymentResolution.Risk`) — as a `nilda.PaymentRisk`:
+
+```go
+_, err := pay.Resolve(ctx, sessionID, nilda.PaymentResolution{AmountMinor: 1200, Currency: "EUR", ProviderRef: pi.ID,
+	Risk: &nilda.PaymentRisk{Level: nilda.RiskElevated, Score: &score, Reason: charge.Outcome.Reason}})
+```
+
+- **`Level`** is one of five, Stripe Radar's words (`outcome.risk_level`, docs.stripe.com/api/charges/object, read
+  2026-11-05): `normal`, `elevated`, `highest` for a payment the processor assessed; `not_assessed` when it did not (a bank
+  debit, a wallet, a payment from before it scored); `unknown` when its assessment failed. Another processor maps its
+  own verdict onto them. Anything else is refused (`PaymentRisk.Validate`, run by the client before it sends and by Core).
+- **`Score`** is the processor's 0 (least risky) to 100, when it gives one — Stripe's `outcome.risk_score`, which only
+  Radar for Fraud Teams returns. A score of 0 is a score; nil is none. Never beside `not_assessed` or `unknown`.
+- **`Reason`** is the processor's own word for its verdict (Stripe's `outcome.reason`: `elevated_risk_level`, `rule`), one
+  plain line of at most 200 characters, for the owner. Never the payer's data.
+- **No risk at all** (nil) means the gateway does not say. It is not `not_assessed`, which is the processor saying it did
+  not look — the shop shows the two differently.
+- **Core keeps the first verdict reported** on the session (`PaymentSession.Risk`): from the hold if it carried one,
+  else from the resolution. A later report never moves it and never clears it; one that arrives after the money (the
+  charge read later) is kept then, and the consumer is told. A report Core refuses keeps nothing of it.
+
 ### A card at a reader (v0.58.0, EXPERIMENTAL)
 
 A method whose `Supports` lists **`card_present`** (`nilda.SupportCardPresent`) takes a card in person, at one of the
@@ -736,6 +760,15 @@ s, err = pay.Void(ctx, "cancel-"+order.ID, s.ID)                                
 (`CaptureResult`, `CaptureErr`, `VoidResult`, `VoidErr`; `Captured` and `Voided` record what it was asked), and
 `ExpireHold` runs Core's expiry of one hold.
 
+### Reading the processor's risk verdict (v0.58.0, EXPERIMENTAL)
+
+`PaymentSession.Risk` is the verdict the gateway reported (§4 "The processor's risk verdict"): `Level` normal,
+elevated, highest, not_assessed or unknown, an optional `Score` 0–100 and the processor's `Reason`. Read it in
+`PaymentUpdated`: a shop holds an `elevated` order from shipping until a person looks, and shows `highest` louder still —
+Radar blocks those by default, so one that was paid got through a rule. Nil means the gateway did not say: hold nothing
+on it, and say "not reported", never "safe". The verdict never changes the session's status: a risky payment that
+resolved is paid, and refunding it is the consumer's decision.
+
 ### In person, and with nobody there
 
 - **With nobody there** — a merchant-initiated charge, the payer absent — is the kept method's charge
@@ -862,7 +895,7 @@ Hooks arrive over the plugin protocol (docs/ANY_LANGUAGE.md) with these JSON pay
 
 A session is `{"id","consumer","gateway","method","reference","amount_minor","currency","status","test",
 "description","return_url","cancel_url","redirect_url","client_action","provider_ref","failure_code","failure_message",
-"email","locale","supports","fulfilment","billing_address","shipping_address","reader","expires_at","save","saved_method","charged_saved","off_session","instrument","resolved_at",
+"email","locale","supports","fulfilment","billing_address","shipping_address","reader","expires_at","save","saved_method","charged_saved","off_session","instrument","resolved_at","risk",
 "capture","authorized_minor","authorization_expires_at","capture_requested_minor","void_requested","refunded_minor",
 "created_at","updated_at"}`; a refund is `{"id","session","amount_minor","currency","status","reason",
 "provider_ref","failure_code","failure_message","external","reversed_at","created_at","updated_at"}`; an address
@@ -884,10 +917,10 @@ Calls into Core, under `/api/rest/v1`, with the plugin's token; answers inside `
 | `GET /payments/sessions/{id}` | either side of it | — | the session |
 | `POST /payments/sessions/{id}/refunds` + `Idempotency-Key` | consumer | `{"amount_minor","reason"}` | 201, the refund |
 | `GET /payments/refunds/{id}` | either side of it | — | the refund |
-| `POST /payments/sessions/{id}/resolve` | gateway | `{"amount_minor","currency","provider_ref","saved"}` | the session |
+| `POST /payments/sessions/{id}/resolve` | gateway | `{"amount_minor","currency","provider_ref","saved","instrument","risk"}` — a risk is `{"level","score","reason"}` | the session |
 | `POST /payments/sessions/{id}/reject` | gateway | `{"failure_code","failure_message","provider_ref"}` | the session |
 | `POST /payments/sessions/{id}/pending` | gateway | `{"provider_ref"}` | the session |
-| `POST /payments/sessions/{id}/authorize` | gateway | `{"amount_minor","currency","provider_ref","expires_at"}` | the session, `authorized` (v0.58.0) |
+| `POST /payments/sessions/{id}/authorize` | gateway | `{"amount_minor","currency","provider_ref","expires_at","risk"}` | the session, `authorized` (v0.58.0) |
 | `POST /payments/sessions/{id}/confirm` | gateway | — | `{"proceed","reason"}` |
 | `POST /payments/refunds/{id}/resolve` | gateway | `{"provider_ref"}` | the refund |
 | `POST /payments/refunds/{id}/reject` | gateway | `{"failure_code","failure_message","provider_ref"}` | the refund |
@@ -1002,6 +1035,23 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
   experimental as a whole (`WRITE_COMMANDS.md` §5 marks a contract file); the in-person fields are optional and only a
   gateway that lists `card_present` ever meets them, so they extend it compatibly — and are named EXPERIMENTAL here and in
   their Go doc until the till (plugin P17) ships green on them.
+
+### Risk's decisions (commerce plan 10.3, step F1, recorded 2026-11-05)
+
+- **Stripe's five words, not three.** The plan's row named `normal / elevated / highest`; Stripe returns two more
+  (`not_assessed`, `unknown`, docs.stripe.com/api/charges/object, `outcome.risk_level`, read 2026-11-05), and each says
+  something a shop must not read as `normal`. Nil stays distinct from both: the gateway did not say.
+- **The score is 0 to 100 and optional** — Stripe's page says "between 0 and 100", returned only with Radar for Fraud
+  Teams and absent for a payment it did not score; so a pointer, where 0 is a score, and none beside `not_assessed` or
+  `unknown`. The plan's "0-99" was a misreading.
+- **On the hold and on the resolution, kept once.** A card is scored when it is authorised, so the hold carries it for a
+  payment taken later; a payment taken at once carries it on the resolution. Core keeps the first, never moves it, and
+  keeps a late one (as a kept method arriving after the money is kept): one verdict per payment, the processor's.
+- **Reported, never decided on by Core.** Core keeps and passes the verdict; holding an order, telling the owner, a
+  refund marked fraudulent (Stripe's `reason=fraudulent`, which feeds the merchant's Radar block lists) are the shop's
+  and the gateway's (plan 10.3, steps F2-F3).
+- **Inside `payments/v1`, experimental**: every field optional, so a gateway or a consumer built before ignores it. The
+  truth tests skip the session's `risk` until Core lands step F1 (`coreahead_test.go`).
 
 ### Express buttons' decisions (commerce plan 10.2, step X1, recorded 2026-11-05)
 
