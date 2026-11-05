@@ -221,3 +221,94 @@ func TestAnExpiredHoldIsRejectedExpiredInTheKit(t *testing.T) {
 		t.Error("a session that holds nothing was expired as a hold")
 	}
 }
+
+// A late hold report moves nothing once a capture or void was asked (Core's Authorize): the same hold while the session
+// is still authorized, 409 once the ask moved it — never a slow capture taken back to authorized.
+func TestALateHoldAfterACaptureOrVoidWasAskedMovesNothingInTheKit(t *testing.T) {
+	ctx := context.Background()
+	later := time.Now().Add(20 * 24 * time.Hour).UTC().Truncate(time.Second)
+	w, s := holding(t)
+	w.gw.CaptureResult = nilda.PaymentCaptureResult{Status: nilda.PaymentPending}
+	if p, err := w.shopAPI.Capture(ctx, "c1", s.ID, 1234); err != nil || p.Status != nilda.PaymentPending {
+		t.Fatalf("a capture the processor decides later: %+v, %v", p, err)
+	}
+	if _, err := w.gwAPI.Authorize(ctx, s.ID, nilda.PaymentAuthorization{AmountMinor: 1234, Currency: "EUR", ExpiresAt: &later}); httpStatus(t, err) != http.StatusConflict {
+		t.Fatalf("a hold reported after its capture was asked: %v", err)
+	}
+	if got, _ := w.pay.GetSession(s.ID); got.Status != nilda.PaymentPending || !got.AuthorizationExpiresAt.Equal(*s.AuthorizationExpiresAt) {
+		t.Fatalf("a late hold moved a capture in flight: %+v", got)
+	}
+
+	w, s = holding(t)
+	w.gw.VoidErr = errors.New("the processor did not answer")
+	_, _ = w.shopAPI.Void(ctx, "v1", s.ID)
+	again, err := w.gwAPI.Authorize(ctx, s.ID, nilda.PaymentAuthorization{AmountMinor: 1234, Currency: "EUR", ExpiresAt: &later})
+	if err != nil || again.Status != nilda.PaymentAuthorized || !again.VoidRequested || !again.AuthorizationExpiresAt.Equal(*s.AuthorizationExpiresAt) {
+		t.Fatalf("a hold reported while its void is asked: %+v, %v", again, err)
+	}
+}
+
+// A session held for a person (the processor reported taking another amount) is money taken: a hold is refused and the
+// reported amount stays, as in Core.
+func TestAHoldNeverErasesMoneyTheProcessorReportedInTheKit(t *testing.T) {
+	ctx := context.Background()
+	w := newWorld(t)
+	w.gw.Methods = []nilda.PaymentMethod{{Key: "card", Label: "Card", Supports: []string{nilda.SupportRefund, nilda.SupportManualCapture}}}
+	p := params()
+	p.Capture = nilda.CaptureManual
+	s, err := w.shopAPI.CreateSession(ctx, "k1", p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r, err := w.gwAPI.Resolve(ctx, s.ID, nilda.PaymentResolution{AmountMinor: 999, Currency: "EUR"}); err != nil ||
+		r.FailureCode != nilda.PaymentFailAmountMismatch {
+		t.Fatalf("money of another amount: %+v, %v", r, err)
+	}
+	if _, err := w.gwAPI.Authorize(ctx, s.ID, nilda.PaymentAuthorization{AmountMinor: 1234, Currency: "EUR"}); httpStatus(t, err) != http.StatusConflict {
+		t.Fatalf("a hold on a payment held for a person: %v", err)
+	}
+	got, _ := w.pay.GetSession(s.ID)
+	if got.Status != nilda.PaymentPending || got.FailureCode != nilda.PaymentFailAmountMismatch || got.AuthorizedMinor != 0 ||
+		w.pay.reported[s.ID].amount != 999 {
+		t.Fatalf("a hold erased the money the processor reported: %+v, %+v", got, w.pay.reported[s.ID])
+	}
+}
+
+// A deadline already past is now, so the hold lapses at the next sweep; the same hold reported again with a deadline
+// corrects the one kept; another amount on a held session is refused — Core's Authorize.
+func TestAHoldsDeadlineIsTheProcessorsInTheKit(t *testing.T) {
+	ctx := context.Background()
+	w := newWorld(t)
+	w.gw.Methods = []nilda.PaymentMethod{{Key: "card", Label: "Card", Supports: []string{nilda.SupportRefund, nilda.SupportManualCapture}}}
+	p := params()
+	p.Capture = nilda.CaptureManual
+	s, err := w.shopAPI.CreateSession(ctx, "k1", p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	past := time.Now().Add(-time.Hour).UTC()
+	held, err := w.gwAPI.Authorize(ctx, s.ID, nilda.PaymentAuthorization{AmountMinor: 1234, Currency: "EUR", ExpiresAt: &past})
+	if err != nil || held.AuthorizationExpiresAt == nil || held.AuthorizationExpiresAt.After(time.Now()) || held.AuthorizationExpiresAt.Before(past) {
+		t.Fatalf("a hold whose deadline has passed: %+v, %v", held, err)
+	}
+
+	w, s = holding(t) // seven days on
+	real := time.Now().Add(2 * 24 * time.Hour).UTC().Truncate(time.Second)
+	w.pay.Deliver(ctx)
+	heard := len(w.shop.heard)
+	again, err := w.gwAPI.Authorize(ctx, s.ID, nilda.PaymentAuthorization{AmountMinor: 1234, Currency: "EUR", ExpiresAt: &real})
+	if err != nil || !again.AuthorizationExpiresAt.Equal(real) {
+		t.Fatalf("the processor's newer deadline: %+v, %v", again, err)
+	}
+	if none, err := w.gwAPI.Authorize(ctx, s.ID, nilda.PaymentAuthorization{AmountMinor: 1234, Currency: "EUR"}); err != nil ||
+		!none.AuthorizationExpiresAt.Equal(real) || !none.UpdatedAt.Equal(again.UpdatedAt) {
+		t.Fatalf("the same hold with no deadline: %+v, %v", none, err)
+	}
+	w.pay.Deliver(ctx)
+	if len(w.shop.heard) != heard+1 || w.shop.heard[heard] != "session:authorized" {
+		t.Fatalf("the consumer heard %v", w.shop.heard)
+	}
+	if _, err := w.gwAPI.Authorize(ctx, s.ID, nilda.PaymentAuthorization{AmountMinor: 999, Currency: "EUR"}); httpStatus(t, err) != http.StatusUnprocessableEntity {
+		t.Fatalf("a hold of another amount on a held session: %v", err)
+	}
+}

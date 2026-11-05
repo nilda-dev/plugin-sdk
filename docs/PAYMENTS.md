@@ -298,10 +298,20 @@ lists it implements **`nilda.PaymentCapturer`**, and Serve subscribes it to `pay
    `capture_method=manual`; PayPal: `intent=AUTHORIZE`). When it holds, report **`Payments.Authorize(ctx, id,
    nilda.PaymentAuthorization{AmountMinor, Currency, ProviderRef, ExpiresAt})`** — the amount the PROCESSOR holds and
    its deadline to capture (Stripe's `capture_before`, PayPal's 29 days). Core moves the session to `authorized`,
-   keeps `authorized_minor` and `authorization_expires_at` (seven days when you say none, thirty at most). A hold of a
-   different amount or currency is refused (422) and nothing moves — release it at the processor; a hold reported on
-   a session asked to take the money at once is refused too. A hold made on the spot (a kept card, a wallet) is the
-   same: answer the start `pending` and report `Authorize`.
+   keeps `authorized_minor` and `authorization_expires_at` (seven days when you say none, thirty at most, and **now
+   when the deadline you give has already passed** — the hold lapses at the next sweep, which asks you to look first).
+   A hold of a different amount or currency is refused (422) and nothing moves — release it at the processor — on a
+   session already `authorized` as on one not yet held; a hold reported on a session asked to take the money at once
+   is refused too. A hold made on the spot (a kept card, a wallet) is the same: answer the start `pending` and report
+   `Authorize`.
+   - **The same hold again** is a no-op — unless it names a deadline other than the one Core keeps and no capture or
+     void was asked yet: then Core keeps the newer deadline, and the consumer hears it. So report the processor's real
+     deadline when you learn it, even after a report that named none; a report that names none changes nothing.
+   - **Once a capture or void was asked, a hold report moves nothing**: while the session is still `authorized` it is
+     the same hold (its deadline included), and once the ask moved it — a slow capture is `pending` — it is refused
+     (409). The processor's "authorized" webhook redelivered after its capture event is the usual case; acknowledge it.
+   - **A session held for a person** (`pending`, `amount_mismatch`: the processor reported taking another amount) is
+     money taken: a hold on it is refused (409), and the amount reported stays for the person who decides it.
 2. **Capture.** `CapturePayment(ctx, nilda.PaymentCaptureRequest{Session, AmountMinor, IdempotencyKey})` takes
    `AmountMinor` — at most the hold; less, and the processor releases the rest. **Pass `IdempotencyKey` to the
    processor unchanged** (`nilda-capture-<session id>`, the same every time Core asks about this session). Answer

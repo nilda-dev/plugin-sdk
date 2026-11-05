@@ -82,8 +82,9 @@ type PaymentAuthorization struct {
 	Currency    string `json:"currency"`
 	ProviderRef string `json:"provider_ref,omitempty"`
 	// ExpiresAt is when the processor lets the hold go uncaptured: Stripe's capture_before, PayPal's 29 days. Core
-	// keeps it as the session's AuthorizationExpiresAt (at most 30 days on), and closes a hold nobody captured once it
-	// has passed. Absent, Core assumes seven days — a card's hold online, the shortest of the common ones.
+	// keeps it as the session's AuthorizationExpiresAt (at most 30 days on; now, when it has passed already), and closes
+	// a hold nobody captured once it has passed. Absent, Core assumes seven days — a card's hold online, the shortest of
+	// the common ones — and the same hold reported again with a deadline corrects it.
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }
 
@@ -265,7 +266,9 @@ func dispatchCaptureHook(ctx context.Context, g PaymentGateway, hook string, pay
 // Authorize reports that the processor HOLDS the money for a session asked with Capture "manual": the amount and
 // currency the processor holds, and its deadline. Core moves the session to authorized; a different amount or currency
 // is refused (422) and nothing moves — release that hold at the processor. A session asked to take the money at once
-// is refused too: report its money with Resolve. The same report twice is a no-op.
+// is refused too: report its money with Resolve. The same report twice is a no-op, except that a deadline other than
+// the one Core keeps is kept while no capture or void was asked. Once one was asked, a hold report moves nothing — the
+// same hold while the session is authorized, 409 after — and a session held for a person (amount_mismatch) is 409.
 func (p *Payments) Authorize(ctx context.Context, sessionID string, a PaymentAuthorization) (PaymentSession, error) {
 	if err := a.Validate(); err != nil {
 		return PaymentSession{}, err

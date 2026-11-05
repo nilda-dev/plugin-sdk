@@ -679,3 +679,43 @@ func TestTheHoldNumbersAreCores(t *testing.T) {
 		}
 	}
 }
+
+// TestAHoldReportsRulesAreCores holds a hold report's rules (the P2 review) to Core's Authorize in capture.go, to
+// nildatest's authorize and to PAYMENTS.md: a deadline already past is now; a capture or void asked decides the hold; a
+// session held for a person is refused; the same hold again keeps a deadline it names.
+func TestAHoldReportsRulesAreCores(t *testing.T) {
+	flat := func(s string) string { return strings.Join(strings.Fields(s), " ") }
+	core := flat(corePaymentsSource(t, "internal", "payments", "capture.go"))
+	kit := flat(readText(t, "nildatest/paymentcapture.go"))
+	for _, c := range []struct{ core, kit, rule string }{
+		{"case !at.After(now): return now", "case !at.After(now): return now", "a deadline already past is kept as now"},
+		{"if cur.CaptureRequestedMinor != nil || cur.VoidRequested { if cur.Status == StatusAuthorized { return false, nil",
+			"if s.CaptureRequestedMinor > 0 || s.VoidRequested { if s.Status == nilda.PaymentAuthorized { return *s, nil",
+			"a capture or void asked decides the hold"},
+		{"if held(cur.Status, cur.FailureCode) { return false, apperr.Conflict(",
+			"if s.Status == nilda.PaymentPending && s.FailureCode == nilda.PaymentFailAmountMismatch { return nil, &apiError{http.StatusConflict",
+			"a session held for a person refuses a hold"},
+		{"if a.ExpiresAt == nil || !newDeadline(now, cur.AuthorizationExpiresAt, deadline) { return false, nil",
+			"if a.ExpiresAt == nil || !newDeadline(now, s.AuthorizationExpiresAt, deadline) { return *s, nil",
+			"the same hold again keeps a deadline it names"},
+	} {
+		if !strings.Contains(core, c.core) {
+			t.Errorf("core's capture.go no longer says %s (%q) — re-read PAYMENTS.md §4", c.rule, c.core)
+		}
+		if !strings.Contains(kit, c.kit) {
+			t.Errorf("nildatest's paymentcapture.go no longer says %s, as Core does", c.rule)
+		}
+	}
+	doc := flat(readText(t, "docs/PAYMENTS.md"))
+	for _, want := range []string{
+		"now when the deadline you give has already passed",
+		"on a session already `authorized` as on one not yet held",
+		"**The same hold again** is a no-op — unless it names a deadline other than the one Core keeps and no capture or void was asked yet",
+		"**Once a capture or void was asked, a hold report moves nothing**",
+		"**A session held for a person** (`pending`, `amount_mismatch`: the processor reported taking another amount) is money taken: a hold on it is refused (409)",
+	} {
+		if !strings.Contains(doc, want) {
+			t.Errorf("PAYMENTS.md §4 does not say %q", want)
+		}
+	}
+}

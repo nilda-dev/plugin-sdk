@@ -232,7 +232,9 @@ func expectedAmount(s nilda.PaymentSession) int64 {
 }
 
 // authorize is a gateway's Authorize (Core's): a hold only on a session asked to be held, of exactly what it asked,
-// with the processor's deadline (seven days when it says none, thirty at most). Callers hold p.mu.
+// with the processor's deadline (holdDeadline). A capture or void asked decides the hold: the same hold while the
+// session is authorized, 409 once the ask moved it. A session held for a person (another amount was reported taken) is
+// money taken, and refused. The same hold again, while nothing was asked, keeps a deadline it names. Callers hold p.mu.
 func (p *Payments) authorize(s *nilda.PaymentSession, body []byte) (any, error) {
 	var a nilda.PaymentAuthorization
 	if err := json.Unmarshal(body, &a); err != nil {
@@ -241,10 +243,17 @@ func (p *Payments) authorize(s *nilda.PaymentSession, body []byte) (any, error) 
 	if s.Capture != nilda.CaptureManual {
 		return nil, invalid("this payment was asked to take the money at once, not to hold it; report its money with resolve")
 	}
-	if s.Status == nilda.PaymentAuthorized {
-		return *s, nil // the same hold again
+	if s.CaptureRequestedMinor > 0 || s.VoidRequested {
+		if s.Status == nilda.PaymentAuthorized {
+			return *s, nil // the same hold, its capture or void being asked
+		}
+		return nil, conflict(s)
 	}
-	if !nilda.PaymentCanMove(s.Status, nilda.PaymentAuthorized) {
+	if s.Status == nilda.PaymentPending && s.FailureCode == nilda.PaymentFailAmountMismatch {
+		return nil, &apiError{http.StatusConflict, "CONFLICT", "the processor reported taking a different amount for " +
+			"this payment, and a person decides it; a hold cannot replace money taken"}
+	}
+	if s.Status != nilda.PaymentAuthorized && !nilda.PaymentCanMove(s.Status, nilda.PaymentAuthorized) {
 		return nil, conflict(s)
 	}
 	currency := strings.ToUpper(strings.TrimSpace(a.Currency))
@@ -253,21 +262,46 @@ func (p *Payments) authorize(s *nilda.PaymentSession, body []byte) (any, error) 
 			a.AmountMinor, currency, s.AmountMinor, s.Currency)
 	}
 	now := time.Now().UTC()
-	deadline := now.Add(holdLifetime)
-	if a.ExpiresAt != nil && a.ExpiresAt.After(now) {
-		deadline = a.ExpiresAt.UTC()
-		if latest := now.Add(maxHoldLifetime); deadline.After(latest) {
-			deadline = latest
+	deadline := holdDeadline(now, a.ExpiresAt)
+	if s.Status == nilda.PaymentAuthorized {
+		if a.ExpiresAt == nil || !newDeadline(now, s.AuthorizationExpiresAt, deadline) {
+			return *s, nil // the same hold again
 		}
+		s.AuthorizationExpiresAt, s.UpdatedAt = &deadline, now
+		p.owe(owed{session: s.ID})
+		return *s, nil
 	}
 	s.AuthorizedMinor, s.AuthorizationExpiresAt = a.AmountMinor, &deadline
 	if a.ProviderRef != "" {
 		s.ProviderRef = a.ProviderRef
 	}
-	if s.FailureCode == nilda.PaymentFailAmountMismatch {
-		s.FailureCode, s.FailureMessage = "", ""
-	}
 	return p.apply(s, nilda.PaymentAuthorized)
+}
+
+// holdDeadline is Core's: seven days on when the processor names none, thirty at most, and now when its deadline has
+// passed already — the hold lapses at the next sweep rather than standing for a week the processor does not give.
+func holdDeadline(now time.Time, at *time.Time) time.Time {
+	switch {
+	case at == nil:
+		return now.Add(holdLifetime)
+	case !at.After(now):
+		return now
+	case at.After(now.Add(maxHoldLifetime)):
+		return now.Add(maxHoldLifetime)
+	}
+	return at.UTC()
+}
+
+// newDeadline is Core's: a repeated hold's deadline says something new when it is another time (to the microsecond
+// Core's database keeps) and not both passed already.
+func newDeadline(now time.Time, kept *time.Time, deadline time.Time) bool {
+	if kept == nil {
+		return true
+	}
+	if !deadline.After(now) && !kept.After(now) {
+		return false
+	}
+	return !deadline.Truncate(time.Microsecond).Equal(kept.Truncate(time.Microsecond))
 }
 
 // askHoldsDue asks every gateway the captures and voids it has not answered — Core's delivery job does the same.

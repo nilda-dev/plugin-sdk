@@ -36,6 +36,12 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
   before the capture and a capture or void of a session that holds nothing are refused; a lost answer is asked again by
   `Deliver` under the same key — and `ExpireHold` runs Core's expiry of one hold. `StubGateway` answers both hooks
   (`CaptureResult`, `CaptureErr`, `Captured`, `VoidResult`, `VoidErr`, `Voided`).
+- A hold report's rules (Core's `Authorize`, `docs/PAYMENTS.md` §4 step 1): a deadline already past is kept as now, so
+  the hold lapses at the next sweep (seven days when none is named, thirty at most, as before); the same hold reported
+  again with another deadline keeps it — and the consumer hears it — while no capture or void was asked; a hold of
+  another amount or currency is 422 on an `authorized` session too; once a capture or void was asked a hold report
+  moves nothing (the same hold while `authorized`, 409 after — never a slow capture back to `authorized`); and a
+  session held for a person (`amount_mismatch`) is 409, its reported amount kept. `nildatest` holds the same rules.
 - The reserved payment names shrink to `partial_capture` (multicapture, which the contract does not do).
 - Additive: an older Core answers the three routes 404 and ignores `capture` — it takes the money at once — so read the
   session's `capture` back: one that does not say `manual` holds nothing. Needs the Core built on this release.
