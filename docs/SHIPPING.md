@@ -18,6 +18,7 @@ carrier plugin keeps nothing it needs to answer again. The Go surface is in this
 | `label.void` | a label is cancelled before it ships | 15 s | none — the shop's `void_label` records it |
 | `track` | the shop's tracking job, or the merchant asks where a parcel is | 15 s | read |
 | `documents` | a label's PDF is needed again | 15 s | none — the order screen hands it over |
+| `service_points` | a buyer chose a rate that delivers to a service point (v0.58.0, EXPERIMENTAL) | 5 s; the SDK gives your `ServicePoints` 4 s | read |
 
 Money is `AmountMinor` in the currency's minor unit (ISO 4217, `MinorUnits`), countries ISO 3166-1 alpha-2, weights
 grams, lengths millimetres — all whole numbers.
@@ -42,7 +43,8 @@ func (p *MyCarrier) DescribeCarrier(ctx context.Context) (nilda.CarrierDescripti
 func (p *MyCarrier) Rates(ctx context.Context, req nilda.RatesRequest) (nilda.RatesResult, error) { … }
 func (p *MyCarrier) CreateLabel(ctx context.Context, req nilda.LabelRequest) (nilda.LabelResult, error) { … }
 func (p *MyCarrier) VoidLabel(ctx context.Context, req nilda.VoidRequest) (nilda.VoidResult, error) { … }
-// optional: Track (CarrierTracker), Documents (CarrierDocuments) — without them the answer is "unsupported"
+// optional: Track (CarrierTracker), Documents (CarrierDocuments), ServicePoints (CarrierServicePoints) — without them
+// the answer is "unsupported"
 ```
 
 ```json
@@ -84,6 +86,42 @@ return-label mail.
 **Test or live.** Set `CarrierService.Test` while the plugin holds the carrier's test credentials; the shop stamps it
 on every label and never ships one or tells a customer about it. `TestHint` says what test mode means, by language.
 
+**Service points** (v0.58.0, EXPERIMENTAL; `shippingpoints.go`). A service that delivers to a parcel shop, a locker or
+a post office the buyer chooses lists `service_points` (`CarrierSupportServicePoints`) — its own key beside the door
+service, `standard_point` beside `standard` — and the carrier implements `CarrierServicePoints`:
+
+```go
+func (p *MyCarrier) ServicePoints(ctx context.Context, req nilda.ServicePointsRequest) (nilda.ServicePointsResult, error) { … }
+```
+
+1. **Rates.** The shop sets `RatesRequest.ServicePoints` when it can let the buyer choose a point; only then offer a point
+   service's rate, marked `NeedsServicePoint`. A shop that does not set it is one built before points, and never sees
+   one. `RatesRequest.ServicePoint` (a `ChosenServicePoint`) asks the price to a point already chosen.
+2. **The search.** `ServicePointsRequest` names the point `Service`, the delivery address's `Country` and at least its
+   `PostalCode` or `City` (`Line1` places it better), or a `Latitude`/`Longitude` — the place, never the buyer — and a
+   `Limit` of 1 to 50 (`MaxServicePoints`; 0 is 10, `DefaultServicePoints`). Answer the nearest first, at most `Limit`:
+   each `ServicePoint` with the `ID` you find it by again, its `Name`, `Carrier` (who runs it), `Kind` (`parcel_shop`,
+   `locker`, `post_office`, `depot`, or none), `Address`, position, `DistanceMeters`, this week's `Hours`
+   (`{"day","opens","closes"}`, `HH:MM`) and `RequiresPostNumber` (DHL's Postnummer for a Packstation). No points and no
+   failure code is "nothing near" — an answer; `unavailable` is "could not look". Sendcloud: Service Points API v3 —
+   `GET /service-points` with `country_code`, `carrier_code`, `address_postal_code`/`address_city` or
+   `latitude`/`longitude`, `limit`; map `general_shop_type` `servicepoint` → `parcel_shop`, `carrier_depot` → `depot`,
+   `requirements.post_number` `required` → `RequiresPostNumber` (sendcloud.dev/.openapi/v3/service-points/openapi.yaml,
+   read 2026-11-05). Shippo's API has no point search (docs.goshippo.com/spec/shippoapi/public-api.yaml, read
+   2026-11-05): plugin-shippo declares no point service.
+3. **The label.** `LabelRequest.ServicePoint` carries the chosen point's `ID` and the buyer's `PostNumber`; `Destination`
+   stays the buyer's own address. Sendcloud: `to_service_point.id` on the shipment and the post number in
+   `to_address.po_box` (sendcloud.dev/.openapi/v3/shipments/openapi.yaml, `service-point-request`). A point you no longer
+   know, or one that stopped taking parcels, is `rejected` with `invalid_service_point` (`CarrierInvalidServicePoint`):
+   the shop asks the buyer to choose again.
+
+`CarrierMethods` holds the rules: a describe listing a point service from a carrier that is not a
+`CarrierServicePoints`, a point rate to a shop that did not ask for points or from a carrier that cannot list them, and a
+points answer past its `Limit`, naming a point twice or beside a failure code, never leave the carrier; a label for a
+point service with no point, or with a point on a door service, is answered `rejected`, `invalid_service_point`, without
+your `CreateLabel` being asked (it reads your `DescribeCarrier` — settings, never a live call). A return label names no
+point. A `ServicePoints` past its 4 seconds answers `unavailable`.
+
 **Customs.** A route that needs a declaration is refused with `customs_missing` until the shop sends `Customs`
 (an HS code and origin country per item). The incoterm is `DAP`: the receiver pays any duties.
 
@@ -95,6 +133,8 @@ label, err := core.API().Services().CreateShippingLabel(ctx, answers[0].Provider
 void, err := core.API().Services().VoidShippingLabel(ctx, provider, nilda.VoidRequest{ProviderRef: label.ProviderRef})
 track, err := core.API().Services().TrackShipment(ctx, provider, nilda.TrackRequest{TrackingNumber: label.TrackingNumber})
 docs, err := core.API().Services().ShippingDocuments(ctx, provider, nilda.DocumentsRequest{ProviderRef: label.ProviderRef})
+points, err := core.API().Services().ShippingServicePoints(ctx, provider, nilda.ServicePointsRequest{Service: rate.Service,
+	Country: "AT", PostalCode: "1010"}) // the carrier of the point rate the buyer chose — never every carrier
 ```
 
 A carrier that failed or ran out of time is in `missed`, never `err`; the shop shows the rates it has and its backup
@@ -104,5 +144,6 @@ rate when it has none. Never ask a carrier inside a database transaction.
 
 `nildatest.NewStubCarrier(name, rates...)` is a carrier in memory: rates for its services, a label once per key,
 void, tracking through `Events`, `Latency` and `Down` to make it slow or broken, and `Paperless` to make its return labels
-paperless when asked (a `DROP-…` code and a `return_qr`). Install it on
+paperless when asked (a `DROP-…` code and a `return_qr`), and `Points` for its point services (a rate in its quotes with
+`NeedsServicePoint`); `LabelsAsked` is every label request it saw. Install it on
 `nildatest.NewServices()` beside the plugin under test (`SERVICES.md` §6).

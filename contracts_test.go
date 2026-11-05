@@ -107,7 +107,8 @@ var shippingCarrierV1 = contractDef{
 	name: ContractShippingCarrier,
 	description: "Shipping a parcel: a carrier plugin — an aggregator such as Sendcloud or Shippo, or one carrier's own " +
 		"API, on the merchant's own account — describes its services, quotes rates, buys and voids labels, tracks " +
-		"parcels and fetches a label's documents again. The shop keeps every record (SHIPPING.md).",
+		"parcels, fetches a label's documents again and lists the service points it delivers to. The shop keeps " +
+		"every record (SHIPPING.md).",
 	methods: []methodDef{
 		{ContractMethod{Name: CarrierDescribe, AnsweredBy: "provider", RetryClass: "failure", Fallback: "skip",
 			Idempotent: true, Agent: "read",
@@ -135,6 +136,10 @@ var shippingCarrierV1 = contractDef{
 				"buy_shipping_label ability hand them over",
 			Description: "A label's documents — the label, a customs invoice — fetched again from the carrier."},
 			DocumentsRequest{}, DocumentsResult{}},
+		{ContractMethod{Name: CarrierServicePointsGet, AnsweredBy: "provider", RetryClass: "failure", Fallback: "skip",
+			Idempotent: true, Agent: "read",
+			Description: "EXPERIMENTAL. The service points — parcel shops, lockers, post offices — one point service delivers to near a place, nearest first and bounded, for the buyer to choose one."},
+			ServicePointsRequest{}, ServicePointsResult{}},
 	},
 }
 

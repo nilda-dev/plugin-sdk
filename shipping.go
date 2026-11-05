@@ -55,7 +55,7 @@ const (
 
 var carrierSupports = map[string]bool{CarrierSupportRates: true, CarrierSupportLabels: true, CarrierSupportVoid: true,
 	CarrierSupportTrack: true, CarrierSupportCustoms: true, CarrierSupportReturns: true, CarrierSupportSignature: true,
-	CarrierSupportInsurance: true, CarrierSupportPaperlessReturns: true}
+	CarrierSupportInsurance: true, CarrierSupportPaperlessReturns: true, CarrierSupportServicePoints: true}
 
 // The failure codes a carrier result may carry — a closed set, so the shop can act on each.
 const (
@@ -72,7 +72,7 @@ const (
 
 var carrierFailures = map[string]bool{CarrierUnavailable: true, CarrierInvalidAddress: true, CarrierInvalidParcel: true,
 	CarrierNoService: true, CarrierCustomsMissing: true, CarrierCredentialsRefused: true, CarrierNotVoidable: true,
-	CarrierDeclined: true, CarrierUnsupported: true}
+	CarrierDeclined: true, CarrierUnsupported: true, CarrierInvalidServicePoint: true}
 
 // The tracking statuses, normalised: the shop's own six and four more a carrier reports.
 const (
@@ -199,6 +199,11 @@ type RatesRequest struct {
 	DeclaredValueMinor int64       `json:"declared_value_minor,omitempty"`
 	Customs            *Customs    `json:"customs,omitempty"`
 	Locale             string      `json:"locale,omitempty"`
+	// ServicePoints says the shop can let the buyer choose a service point (v0.58.0, EXPERIMENTAL, shippingpoints.go):
+	// only then does a carrier offer a rate that needs one (CarrierRate.NeedsServicePoint).
+	ServicePoints bool `json:"service_points,omitempty"`
+	// ServicePoint is a point the buyer already chose, for its price (a carrier may price points apart).
+	ServicePoint *ChosenServicePoint `json:"service_point,omitempty"`
 }
 
 // CarrierRate is one price for one service.
@@ -215,6 +220,10 @@ type CarrierRate struct {
 	ExpiresAt      *time.Time `json:"expires_at,omitempty"`
 	PickupRequired bool       `json:"pickup_required,omitempty"`
 	Warnings       []string   `json:"warnings,omitempty"`
+	// NeedsServicePoint: this service delivers to a service point the buyer chooses (v0.58.0, EXPERIMENTAL): the shop
+	// lists the points (service_points) and the label carries the chosen one. Offered only to a rates question with
+	// ServicePoints set.
+	NeedsServicePoint bool `json:"needs_service_point,omitempty"`
 }
 
 // The statuses of a rates answer.
@@ -251,9 +260,12 @@ type LabelRequest struct {
 	// carrier's drop-off point (LabelResult.DropOffCode, a return_qr document), where the service gives one
 	// (CarrierSupportPaperlessReturns). A carrier that cannot answers with a printed label, as without it — never a
 	// refusal (v0.58.0, EXPERIMENTAL).
-	Paperless bool              `json:"paperless,omitempty"`
-	Options   map[string]string `json:"options,omitempty"` // "signature": "true", "insurance_minor": "5000"
-	Test      bool              `json:"test,omitempty"`
+	Paperless bool `json:"paperless,omitempty"`
+	// ServicePoint is the point the buyer chose, for a service that delivers to one (v0.58.0, EXPERIMENTAL): required
+	// there, refused on any other service and on a return. Destination stays the buyer's own address.
+	ServicePoint *ChosenServicePoint `json:"service_point,omitempty"`
+	Options      map[string]string   `json:"options,omitempty"` // "signature": "true", "insurance_minor": "5000"
+	Test         bool                `json:"test,omitempty"`
 }
 
 // DocumentRef is one document of a shipment — by URL, or its bytes (at most 1 MiB) in standard base64.
@@ -397,7 +409,8 @@ func validFailure(code, message string, required bool) error {
 		return errors.New("nilda: a result that is not a success names its failure_code")
 	case code != "" && !carrierFailures[code]:
 		return fmt.Errorf("nilda: failure_code %q is not one the contract knows (unavailable, invalid_address, "+
-			"invalid_parcel, no_service, customs_missing, credentials_refused, not_voidable, declined, unsupported)", code)
+			"invalid_parcel, no_service, customs_missing, credentials_refused, not_voidable, declined, unsupported, "+
+			"invalid_service_point)", code)
 	}
 	return carrierText("failure_message", message, maxCarrierText)
 }
@@ -511,6 +524,11 @@ func (r RatesRequest) Validate() error {
 	if r.DeclaredValueMinor < 0 {
 		return errors.New("nilda: declared_value_minor is not negative")
 	}
+	if r.ServicePoint != nil {
+		if err := r.ServicePoint.Validate(); err != nil {
+			return err
+		}
+	}
 	return validShipment(r.Origin, r.Destination, r.Parcels, r.Customs)
 }
 
@@ -564,6 +582,13 @@ func (r LabelRequest) Validate() error {
 		return errors.New("nilda: a label request names the service")
 	case r.Paperless && !r.Return:
 		return errors.New("nilda: only a return label is asked paperless — the buyer drops it off with a code")
+	case r.ServicePoint != nil && r.Return:
+		return errors.New("nilda: a return label names no service point — the buyer drops a return off where the carrier says")
+	}
+	if r.ServicePoint != nil {
+		if err := r.ServicePoint.Validate(); err != nil {
+			return err
+		}
 	}
 	return validShipment(r.Origin, r.Destination, r.Parcels, r.Customs)
 }
@@ -766,7 +791,11 @@ type CarrierDocuments interface {
 func CarrierMethods(c Carrier) []ServiceMethod {
 	return []ServiceMethod{
 		Serves(ContractShippingCarrier, CarrierDescribe, func(ctx context.Context, _ struct{}) (CarrierDescription, error) {
-			return checked(c.DescribeCarrier(ctx))
+			d, err := checked(c.DescribeCarrier(ctx))
+			if err != nil {
+				return d, err
+			}
+			return d, listsItsPoints(c, d)
 		}),
 		Serves(ContractShippingCarrier, CarrierRates, func(ctx context.Context, req RatesRequest) (RatesResult, error) {
 			if err := req.Validate(); err != nil {
@@ -782,10 +811,19 @@ func CarrierMethods(c Carrier) []ServiceMethod {
 			if err != nil {
 				return RatesResult{}, err
 			}
+			if err := pointRatesFor(c, req, res); err != nil {
+				return RatesResult{}, err
+			}
 			return checked(res, nil)
 		}),
 		Serves(ContractShippingCarrier, CarrierLabelCreate, func(ctx context.Context, req LabelRequest) (LabelResult, error) {
 			if err := req.Validate(); err != nil {
+				return LabelResult{}, err
+			}
+			if refused, err := labelPointRule(ctx, c, req); err != nil || refused != nil {
+				if refused != nil {
+					return *refused, nil
+				}
 				return LabelResult{}, err
 			}
 			res, err := c.CreateLabel(ctx, req)
@@ -823,6 +861,7 @@ func CarrierMethods(c Carrier) []ServiceMethod {
 			}
 			return checked(d.Documents(ctx, req))
 		}),
+		servicePointsMethod(c),
 	}
 }
 

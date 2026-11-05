@@ -3002,6 +3002,12 @@ shop. `docs/SHIPPING.md` is the whole of it; `_examples/carrier` is a working on
   `CarrierSupportPaperlessReturns` for a return the buyer needs no printer for; the label comes back with a
   `LabelResult.DropOffCode` to show at the drop-off point and/or a `return_qr` document. `LabelResult.ValidateFor(req)`
   refuses both on a label not asked as a return (`CarrierMethods` and `CreateShippingLabel` run it).
+- **Service points** (v0.58.0, EXPERIMENTAL): a service listing `CarrierSupportServicePoints` delivers to a point the buyer
+  chooses; its carrier implements `CarrierServicePoints` (`ServicePoints`: a `ServicePointsRequest` answered by a
+  `ServicePointsResult` of `ServicePoint`s with `ServicePointHours`, at most `MaxServicePoints`, `DefaultServicePoints`
+  when no limit is asked). The shop sets `RatesRequest.ServicePoints` to be offered rates with `NeedsServicePoint`, asks
+  `Services.ShippingServicePoints` of that rate's carrier, and sends the choice as `LabelRequest.ServicePoint` (a
+  `ChosenServicePoint`); a label that does not fit its service is `rejected`, `CarrierInvalidServicePoint`.
 
 ### The shop's catalogue (`shop.catalog/v1`)
 

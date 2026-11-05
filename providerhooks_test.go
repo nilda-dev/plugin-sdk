@@ -97,6 +97,7 @@ func TestEveryExportedProviderInterfaceIsInTheTable(t *testing.T) {
 		"Carrier":              "Serve answers it through CarrierMethods; Core subscribes it from provides — SHIPPING.md",
 		"CarrierTracker":       "rides on Carrier: CarrierMethods answers track with it, or \"unsupported\" without",
 		"CarrierDocuments":     "rides on Carrier: CarrierMethods answers documents with it, or \"unsupported\" without",
+		"CarrierServicePoints": "rides on Carrier: CarrierMethods answers service_points with it, or \"unsupported\" without",
 		"CatalogProvider":      "Serve answers it through CatalogMethods; Core subscribes it from provides — CATALOG.md",
 		"OrdersProvider":       "Serve answers it through OrdersMethods; Core subscribes it from provides — ORDERS.md",
 		"DeliverablesProvider": "Serve answers it through DeliverablesMethods; Core subscribes it from provides — ORDERS.md",
