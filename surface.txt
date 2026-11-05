@@ -122,6 +122,7 @@ const ContractShopCatalog
 const ContractShopDeliverables
 const ContractShopOrders
 const ContractStable
+const CredentialStripeConfirmationToken
 const CredentialStripeSPT
 const DeliverableKey
 const DeliverableLink
@@ -160,6 +161,13 @@ const EventFormSubmitted
 const EventFormSubscribe
 const EventUserEmailVerified
 const EventUserErased
+const ExpressFromCart
+const ExpressFromProduct
+const ExpressOrder
+const ExpressStepComplete
+const ExpressStepQuote
+const ExpressStepStart
+const ExpressToken
 const FieldBoolean
 const FieldCheckbox
 const FieldColor
@@ -221,6 +229,7 @@ const HookPaymentDisputeUpdated
 const HookPaymentForget
 const HookPaymentRefund
 const HookPaymentRefundUpdated
+const HookPaymentReprice
 const HookPaymentSessionUpdated
 const HookPaymentStart
 const HookPaymentSync
@@ -459,6 +468,7 @@ const SupportDisputes
 const SupportManualCapture
 const SupportPartialRefund
 const SupportRefund
+const SupportReprice
 const SupportSaveForLater
 const SupportSync
 const TaxRowImportRegime
@@ -710,6 +720,7 @@ field CommerceEndpoints.Account string json:account
 field CommerceEndpoints.AddToCart string json:add_to_cart
 field CommerceEndpoints.Cart string json:cart
 field CommerceEndpoints.Checkout string json:checkout
+field CommerceEndpoints.Express string json:express
 field CommerceEndpoints.Reviews string json:reviews
 field CommerceEndpoints.StockAlert string json:stock_alert
 field CommerceEndpoints.StockAlertConsent string json:stock_alert_consent
@@ -864,6 +875,43 @@ field ExchangeRateSet.FetchedAt time.Time json:fetched_at
 field ExchangeRateSet.PublishedAt time.Time json:published_at
 field ExchangeRateSet.Rates map[string]string json:rates
 field ExchangeRateSet.Source string json:source
+field ExpressAnswer.Available bool json:available
+field ExpressAnswer.Capture string json:capture
+field ExpressAnswer.ClientAction ClientAction json:client_action
+field ExpressAnswer.Currency string json:currency
+field ExpressAnswer.Lines []ExpressLine json:lines
+field ExpressAnswer.Message string json:message
+field ExpressAnswer.Notice string json:notice
+field ExpressAnswer.OrderURL string json:order_url
+field ExpressAnswer.RedirectURL string json:redirect_url
+field ExpressAnswer.Session string json:session
+field ExpressAnswer.ShippingOptions []PaymentShippingOption json:shipping_options
+field ExpressAnswer.ShippingRequired bool json:shipping_required
+field ExpressAnswer.Status string json:status
+field ExpressAnswer.TermsURL string json:terms_url
+field ExpressAnswer.Total string json:total
+field ExpressAnswer.TotalMinor int64 json:total_minor
+field ExpressItem.Options map[string]string json:options
+field ExpressItem.Product string json:product
+field ExpressItem.Quantity int json:quantity
+field ExpressLine.AmountMinor int64 json:amount_minor
+field ExpressLine.Label string json:label
+field ExpressPayer.BillingAddress *PaymentAddress json:billing_address
+field ExpressPayer.Email string json:email
+field ExpressPayer.Name string json:name
+field ExpressPayer.Phone string json:phone
+field ExpressPayer.ShippingAddress *PaymentAddress json:shipping_address
+field ExpressRequest.Address *WalletAddress json:address
+field ExpressRequest.Credential *PaymentCredential json:credential
+field ExpressRequest.Gateway string json:gateway
+field ExpressRequest.Item *ExpressItem json:item
+field ExpressRequest.Method string json:method
+field ExpressRequest.Payer *ExpressPayer json:payer
+field ExpressRequest.Press string json:press
+field ExpressRequest.Session string json:session
+field ExpressRequest.ShippingOption string json:shipping_option
+field ExpressRequest.Source string json:source
+field ExpressRequest.Step string json:step
 field FieldChoice.Label string json:label
 field FieldChoice.Value string json:value
 field FieldChoicesRequest.Field string json:field
@@ -1146,6 +1194,14 @@ field PaymentDisputeReport.Status string json:status
 field PaymentDisputeReport.URL string json:url
 field PaymentDisputeUpdate.Dispute PaymentDispute json:dispute
 field PaymentDisputeUpdate.Session PaymentSession json:session
+field PaymentExpress.Config map[string]string json:config
+field PaymentExpress.Kind string json:kind
+field PaymentExpress.Origins PaymentExpressOrigins json:origins
+field PaymentExpress.Script string json:script
+field PaymentExpressOrigins.Connect []string json:connect
+field PaymentExpressOrigins.Frame []string json:frame
+field PaymentExpressOrigins.Img []string json:img
+field PaymentExpressOrigins.Script []string json:script
 field PaymentExternalRefund.AmountMinor int64 json:amount_minor
 field PaymentExternalRefund.Currency string json:currency
 field PaymentExternalRefund.ProviderRef string json:provider_ref
@@ -1166,6 +1222,7 @@ field PaymentMandate.Text string json:text
 field PaymentMethod.CredentialTypes []string json:credential_types
 field PaymentMethod.Currencies []string json:currencies
 field PaymentMethod.Description string json:description
+field PaymentMethod.Express *PaymentExpress json:express
 field PaymentMethod.Key string json:key
 field PaymentMethod.Label string json:label
 field PaymentMethod.Readers []PaymentReader json:readers
@@ -1175,6 +1232,7 @@ field PaymentMethod.Test bool json:test
 field PaymentMethod.TestHint map[string]string json:test_hint
 field PaymentOption.CredentialTypes []string json:credential_types
 field PaymentOption.Description string json:description
+field PaymentOption.Express *PaymentExpress json:express
 field PaymentOption.Gateway string json:gateway
 field PaymentOption.Label string json:label
 field PaymentOption.Method string json:method
@@ -1211,6 +1269,13 @@ field PaymentRefundUpdate.Session PaymentSession json:session
 field PaymentRejection.FailureCode string json:failure_code
 field PaymentRejection.FailureMessage string json:failure_message
 field PaymentRejection.ProviderRef string json:provider_ref
+field PaymentReprice.AmountMinor int64 json:amount_minor
+field PaymentReprice.ShippingOptions []PaymentShippingOption json:shipping_options
+field PaymentRepriceRequest.AmountMinor int64 json:amount_minor
+field PaymentRepriceRequest.Session PaymentSession json:session
+field PaymentRepriceRequest.ShippingOptions []PaymentShippingOption json:shipping_options
+field PaymentRepriceResult.FailureMessage string json:failure_message
+field PaymentRepriceResult.Repriced bool json:repriced
 field PaymentResolution.AmountMinor int64 json:amount_minor
 field PaymentResolution.Currency string json:currency
 field PaymentResolution.Instrument string json:instrument
@@ -1228,6 +1293,7 @@ field PaymentSession.CancelURL string json:cancel_url
 field PaymentSession.Capture string json:capture
 field PaymentSession.CaptureRequestedMinor int64 json:capture_requested_minor
 field PaymentSession.ChargedSaved string json:charged_saved
+field PaymentSession.ClientAction ClientAction json:client_action
 field PaymentSession.Consumer string json:consumer
 field PaymentSession.CreatedAt time.Time json:created_at
 field PaymentSession.Currency string json:currency
@@ -1276,9 +1342,14 @@ field PaymentSessionParams.ReturnURL string json:return_url
 field PaymentSessionParams.Save *PaymentMandate json:save
 field PaymentSessionParams.ShippingAddress *PaymentAddress json:shipping_address
 field PaymentSessionUpdate.Session PaymentSession json:session
+field PaymentShippingOption.AmountMinor int64 json:amount_minor
+field PaymentShippingOption.ID string json:id
+field PaymentShippingOption.Label string json:label
+field PaymentShippingOption.Selected bool json:selected
 field PaymentStartRequest.Credential *PaymentCredential json:credential
 field PaymentStartRequest.Saved *PaymentSavedToken json:saved
 field PaymentStartRequest.Session PaymentSession json:session
+field PaymentStartResult.ClientAction ClientAction json:client_action
 field PaymentStartResult.ExpiresAt *time.Time json:expires_at
 field PaymentStartResult.FailureCode string json:failure_code
 field PaymentStartResult.FailureMessage string json:failure_message
@@ -1633,6 +1704,10 @@ field VoidRequest.ProviderRef string json:provider_ref
 field VoidResult.FailureCode string json:failure_code
 field VoidResult.FailureMessage string json:failure_message
 field VoidResult.Status string json:status
+field WalletAddress.City string json:city
+field WalletAddress.Country string json:country
+field WalletAddress.PostalCode string json:postal_code
+field WalletAddress.Region string json:region
 field WidgetDef.Category string json:category
 field WidgetDef.Fields []WidgetField json:fields
 field WidgetDef.Label string json:label
@@ -1679,6 +1754,7 @@ func ContractNamed(string) (ServiceContract, bool)
 func ContractToolName(string, string) (string)
 func Contracts() ([]ServiceContract, error)
 func CurrentUser(*http.Request) (Viewer, bool)
+func DecodeExpressRequest(io.Reader) (ExpressRequest, error)
 func DeliverablesMethods(DeliverablesProvider) ([]ServiceMethod)
 func DispatchAccount(context.Context, string, []byte, AccountHandler) ([]byte, bool, error)
 func DispatchAdminAction(context.Context, string, []byte, func(context.Context, AdminAction) (AdminActionResult, error)) ([]byte, bool, error)
@@ -1796,6 +1872,7 @@ imethod PaymentDisputeConsumer.DisputeUpdated(context.Context, PaymentDispute, P
 imethod PaymentGateway.DescribePayments(context.Context) ([]PaymentMethod, error)
 imethod PaymentGateway.RefundPayment(context.Context, PaymentRefund, PaymentSession) (PaymentRefundResult, error)
 imethod PaymentGateway.StartPayment(context.Context, PaymentSession) (PaymentStartResult, error)
+imethod PaymentRepricer.RepricePayment(context.Context, PaymentRepriceRequest) (PaymentRepriceResult, error)
 imethod PaymentSyncer.SyncPayment(context.Context, PaymentSession) (error)
 imethod PersonalDataHolder.ErasePersonalData(context.Context, PrivacyRequest) (PrivacyErasure, error)
 imethod PersonalDataHolder.ExportPersonalData(context.Context, PrivacyRequest) (PrivacyExport, error)
@@ -1904,6 +1981,7 @@ method (*Payments) Reject(context.Context, string, PaymentRejection) (PaymentSes
 method (*Payments) RejectRefund(context.Context, string, PaymentRejection) (PaymentRefund, error)
 method (*Payments) ReportDispute(context.Context, string, PaymentDisputeReport) (PaymentDispute, error)
 method (*Payments) ReportExternalRefund(context.Context, string, PaymentExternalRefund) (PaymentRefund, error)
+method (*Payments) Reprice(context.Context, string, string, PaymentReprice) (PaymentSession, error)
 method (*Payments) Resolve(context.Context, string, PaymentResolution) (PaymentSession, error)
 method (*Payments) ResolveRefund(context.Context, string, string) (PaymentRefund, error)
 method (*Payments) ReverseRefund(context.Context, string, PaymentRejection) (PaymentRefund, error)
@@ -1938,6 +2016,8 @@ method (CatalogProduct) Validate() (error)
 method (CatalogProductRequest) Validate() (error)
 method (CatalogProductResult) Validate() (error)
 method (CatalogVariant) Validate() (error)
+method (ClientAction) GoString() (string)
+method (ClientAction) String() (string)
 method (ContractMethod) ValidateInput([]byte) (error)
 method (ContractMethod) ValidateOutput([]byte) (error)
 method (Customs) Validate() (error)
@@ -1951,6 +2031,9 @@ method (DocumentsResult) Validate() (error)
 method (EUVATRateSet) Reduced(string, string) ([]EUVATRate)
 method (EUVATRateSet) Standard(string) (int, bool)
 method (ExchangeRateSet) Rate(string, string) (*big.Rat, bool)
+method (ExpressAnswer) Validate() (error)
+method (ExpressPayer) Validate() (error)
+method (ExpressRequest) Validate() (error)
 method (LabelRequest) Validate() (error)
 method (LabelResult) Validate() (error)
 method (LinkTarget) Validate(string) (error)
@@ -1962,12 +2045,14 @@ method (PaymentCredential) GoString() (string)
 method (PaymentCredential) String() (string)
 method (PaymentCredential) Validate() (error)
 method (PaymentDisputeReport) Validate() (error)
+method (PaymentExpress) Validate() (error)
 method (PaymentExternalRefund) Validate() (error)
 method (PaymentForgetRequest) GoString() (string)
 method (PaymentForgetRequest) String() (string)
 method (PaymentMandate) Validate() (error)
 method (PaymentRefundParams) Validate() (error)
 method (PaymentRejection) Validate() (error)
+method (PaymentReprice) Validate() (error)
 method (PaymentResolution) Validate() (error)
 method (PaymentSaved) GoString() (string)
 method (PaymentSaved) String() (string)
@@ -2006,6 +2091,7 @@ method (TrashItem) Validate() (error)
 method (VisitorTool) Validate() (error)
 method (VoidRequest) Validate() (error)
 method (VoidResult) Validate() (error)
+method (WalletAddress) Validate() (error)
 type API
 type APIError
 type Ability
@@ -2053,6 +2139,7 @@ type CatalogProvider
 type CatalogUnitPricing
 type CatalogVariant
 type Class
+type ClientAction
 type Commerce
 type CommerceCounter
 type CommerceEndpoints
@@ -2091,6 +2178,11 @@ type EventDecl
 type EventField
 type EventInfo
 type ExchangeRateSet
+type ExpressAnswer
+type ExpressItem
+type ExpressLine
+type ExpressPayer
+type ExpressRequest
 type FieldChoice
 type FieldChoicesRequest
 type FieldChoicesResponse
@@ -2152,6 +2244,8 @@ type PaymentDispute
 type PaymentDisputeConsumer
 type PaymentDisputeReport
 type PaymentDisputeUpdate
+type PaymentExpress
+type PaymentExpressOrigins
 type PaymentExternalRefund
 type PaymentForgetRequest
 type PaymentGateway
@@ -2167,12 +2261,17 @@ type PaymentRefundRequest
 type PaymentRefundResult
 type PaymentRefundUpdate
 type PaymentRejection
+type PaymentReprice
+type PaymentRepriceRequest
+type PaymentRepriceResult
+type PaymentRepricer
 type PaymentResolution
 type PaymentSaved
 type PaymentSavedToken
 type PaymentSession
 type PaymentSessionParams
 type PaymentSessionUpdate
+type PaymentShippingOption
 type PaymentStartRequest
 type PaymentStartResult
 type PaymentSyncRequest
@@ -2261,6 +2360,7 @@ type VisitorEffect
 type VisitorTool
 type VoidRequest
 type VoidResult
+type WalletAddress
 type WidgetDef
 type WidgetField
 type WidgetProvider

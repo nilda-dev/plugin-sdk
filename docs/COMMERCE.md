@@ -3,7 +3,8 @@
 Core ships the storefront widgets (Products, Cart, Checkout, My Account …) and no commerce code; your plugin
 supplies the products and the endpoints the widgets' shells call. `commerce.go` is the reference for the catalogue,
 the cart and the checkout. This guide is the **buyer's account** (v0.44.0): how your account views live inside the
-owner's themed page instead of on a bare page of your own.
+owner's themed page instead of on a bare page of your own — and (§6, v0.58.0, EXPERIMENTAL) the **express wallet
+buttons'** one door into your checkout.
 
 The My Account widget is a **members area**: a mount on the owner's account page that fetches your
 `Endpoints().Account` (`/shop/account`) from the browser and draws your answer in place. The page around it is
@@ -92,3 +93,33 @@ double opt-in link, or a sign-in provider that verified it. The subject is the u
 the address back through the API. It is never sent for a sign-up that proved nothing (a pending account, a single
 opt-in account), so it is the safe moment to act on an address — a shop claims the guest orders placed with it.
 Subscribe with the `events` capability (`EVENTS.md`).
+
+## 6. Express wallet buttons: the `Express` endpoint (v0.58.0, EXPERIMENTAL)
+
+Core's express widget draws a gateway's wallet buttons (Apple Pay, Google Pay, Link, PayPal — the method's
+`PaymentOption.Express`, `docs/PAYMENTS.md` §4) on a product page, the cart, the mini-cart and the checkout, and talks to
+your checkout through ONE endpoint: `CommerceEndpoints.Express`, a POST on your route taking an `ExpressRequest` and
+answering an `ExpressAnswer`, both JSON (`commerceexpress.go`). It is called from the visitor's browser, so your basket's
+cookie goes with it. Leave it empty and Core draws no buttons.
+
+| step | when | carries | you do |
+|---|---|---|---|
+| `quote` | the buttons are drawn; the wallet shows an address; the payer picks a delivery option | `source` (`cart`, or `product` with its `item`), the PARTIAL `address`, `shipping_option`; for a PayPal-like session, its `session` | price the basket for that address: `total_minor`, `total` (your words), `lines`, `shipping_options` (one `selected`), `capture`, the `notice` beside the buttons and `terms_url`. With a `session`, also re-price it (`Payments.Reprice`) |
+| `start` | a PayPal-like button is pressed (kind `order`) | the quote's fields and the `press` | place the order and start the session keyed by the press; answer its `session`, `status` and `client_action` (the PayPal order the buttons need) |
+| `complete` | the payer confirmed in the sheet | the `press`, the `payer` (email, name, phone, final addresses) and the wallet's `credential` (kind `token`) or the `session` the start made (kind `order`) | `token`: place the order with the payer's details and create the session with the credential, keyed by the press. `order`: record the payer on the start's order before the gateway asks you to confirm. Answer `status`, `client_action` (3D Secure) and `order_url` |
+
+- **Before the payer confirms, nothing personal travels.** A wallet shows a partial address — Stripe: "the shipping
+  address in the US can only contain a city, state, and ZIP code"; PayPal: city, state, country code, postal code — and
+  `WalletAddress` carries exactly those four, nothing else. `DecodeExpressRequest` refuses a street or a name inside it,
+  and `Validate` refuses a `payer` or a `credential` with `quote` or `start`, and a partial address with `complete`.
+- **One press, one order.** `press` is minted by Core's bridge per press; use it as the order's and the session's key, so
+  a browser that sends `complete` twice makes one order and one charge.
+- **Not available is an answer.** Answer `available: false` (and a `message` the shopper reads) for a basket the wallet
+  cannot complete honestly: one that needs a tick the sheet cannot give — a download's consent, a pre-order's terms — or a
+  payment it cannot take, an invoice. Core then draws no buttons.
+- **The same checkout, never a second.** Every step runs your ordinary basket checks, prices and order — the endpoint is
+  the express channel, so the order knows it came this way without a `channel` field. (The 2026-10-18 plan put this on
+  `shop.checkout/v1`; that contract was retired in v0.47.0, and the basket's cookie reaches only your route.)
+- **The credential is the payer's.** Hand it to `Payments.CreateSession` once; never store, log or echo it. A
+  `client_action` likewise goes back only to the browser that asked.
+

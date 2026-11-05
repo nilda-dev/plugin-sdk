@@ -13,7 +13,10 @@ session; the payer's addresses; disputes; refunds reversed after success and ref
 at `Init`. **v0.58.0** adds holding the money and taking it later — authorise, then capture or void
 (`paymentcapture.go`; §4 "Holding the money", §5 "Take the money later") — and commerce's door D5: the kind of
 merchant-initiated charge a kept method's charge is (`OffSession`, `paymentsaved.go`) and, EXPERIMENTAL, a card taken in
-person at a reader (`paymentinperson.go`; §4 "A card at a reader", §5 "In person, and with nobody there"). A route a Core before it does not have
+person at a reader (`paymentinperson.go`; §4 "A card at a reader", §5 "In person, and with nobody there") — and, EXPERIMENTAL,
+express wallet buttons: a method's buttons, a start answered with a client action, a credential from the wallet's sheet
+and re-pricing an open session before its payer approves (`paymentexpress.go`; §4 "Express wallet buttons", §5 "Express
+checkout and re-pricing"). A route a Core before it does not have
 answers 404, and a hook nobody subscribed to is never sent.
 
 ## 1. The shape
@@ -65,7 +68,7 @@ A **session** is one payment. Its `Status`, a closed set:
 | status | means |
 |---|---|
 | `created` | Core has it; the gateway has not answered yet |
-| `redirected` | the payer was sent to the processor's page; nothing is decided |
+| `redirected` | the payer was sent to the processor's page — or waits on the site's page, where the gateway's own script goes on with the session's `client_action` (v0.58.0); nothing is decided |
 | `pending` | the processor has it and has not decided — a bank transfer, a review. Also: held for a PERSON (`amount_mismatch`) |
 | `authorized` | the processor HOLDS the money and has not taken it (v0.58.0): a session asked with `capture` `manual`. Not paid |
 | `resolved` | the money is there |
@@ -385,6 +388,66 @@ Not in it: keeping a card taken at a till for later, a delegated credential, a r
 through the processor's own SDK (Stripe's Tap to Pay — your route may hand the till app a connection token; nothing of it
 crosses Core), and payments a reader stores while offline.
 
+### Express wallet buttons (v0.58.0, EXPERIMENTAL)
+
+Apple Pay, Google Pay, Link and PayPal buttons on a product page, the cart and the checkout. A method that has them says
+how they are drawn, **`PaymentMethod.Express`** (`nilda.PaymentExpress`):
+
+| field | what it is |
+|---|---|
+| `kind` | `token` (`nilda.ExpressToken`) or `order` (`nilda.ExpressOrder`) — below |
+| `script` | your own script that draws the buttons, a path on your route RELATIVE to its prefix, as a webhook path is (`"/express.js"`; Core loads `/stripe/express.js`). Load the processor's library from the processor from inside it — Stripe.js "directly from js.stripe.com", PayPal's SDK "directly from https://www.paypal.com/sdk/js" — never a copy on your route |
+| `origins` | `{"script","frame","connect","img"}`: the processor's origins the page's Content-Security-Policy must allow, each `https://host` with at most one leading `*.` label. Stripe.js needs `script` `https://js.stripe.com` `https://*.js.stripe.com`, `frame` the same and `https://hooks.stripe.com`, `connect` `https://api.stripe.com` (docs.stripe.com/security/guide, read 2026-11-05). Core opens them only on a page that draws your buttons, only while you offer express |
+| `config` | what your script reads, by snake-case key: a publishable key, a client id, the merchant's country. **Public** — written into a page every visitor is served — so a secret is refused, below |
+
+**The two kinds**, because the processors work two ways (read 2026-11-05):
+
+- **`token`** — Stripe's Express Checkout Element (docs.stripe.com/elements/express-checkout-element/accept-a-payment;
+  docs.stripe.com/payments/finalize-payments-on-the-server). Nothing exists at the processor until the payer confirms in
+  the sheet; the page then makes a ConfirmationToken and the consumer creates the session with it as its `credential`,
+  type **`stripe.confirmation_token`** (`nilda.CredentialStripeConfirmationToken`), which the method lists in
+  `credential_types`. Your `StartPaymentWithCredential` creates and confirms one PaymentIntent with it (`confirmation_token`,
+  `confirm=true`, the capture method from the session's `capture`). Stripe: "You must immediately use the created
+  ConfirmationToken to confirm a PaymentIntent; if unused, it expires after 12 hours." When the PaymentIntent answers
+  `requires_action` (3D Secure, a redirect), answer **`redirected` with a `client_action`** — its client secret — and your
+  script hands it to `stripe.handleNextAction`; the outcome arrives by your webhook as for any session.
+- **`order`** — PayPal's buttons (developer.paypal.com/sdk/js/reference/). The processor's order exists from the press:
+  the consumer starts the session then, and you answer **`redirected` with a `client_action`** — the PayPal order id the
+  buttons' order promise resolves to (a `redirect_url` beside it is allowed, never required). While the payer changes
+  address or delivery in PayPal's window (`onShippingAddressChange`, `onShippingOptionsChange`) the consumer re-prices the
+  session and Core asks you **`payment.reprice`**: PATCH the order (PayPal: "Updates an order with a `CREATED` or
+  `APPROVED` status", developer.paypal.com/docs/api/orders/v2/) to `amount_minor`, with the `shipping_options` listed and
+  the `selected` one in the amount. The method lists **`reprice`** (`nilda.SupportReprice`) and your gateway implements
+  **`nilda.PaymentRepricer`** — `DispatchPaymentGatewayHook` refuses a describe answer listing `reprice` from one that
+  does not, and Serve subscribes it. Approval goes to your existing finish path: `Payments.Confirm`, then capture or
+  authorise.
+
+**`payment.reprice`** (`RepricePayment(ctx, nilda.PaymentRepriceRequest{Session, AmountMinor, ShippingOptions})`): answer
+`{"repriced": true}` when the processor's order now asks the new amount, or `{"repriced": false, "failure_message": …}`
+when the processor refused (the order was approved meanwhile, it is gone) — Core answers the consumer 409 and the session
+keeps its amount. A processor you could not reach is an ERROR: nothing changed, Core answers the consumer 503. Setting an
+amount is idempotent by nature, so there is no key. Core sends it only for a session that is `created` or `redirected`,
+whose payer's approval has not reached Core (no `Confirm` yet), that no credential, kept method or reader started.
+
+**A client action** (`nilda.ClientAction`) is the payer's: a Stripe client secret lets its holder read the PaymentIntent.
+It is one line of visible ASCII, at most 1,024 bytes, only on a `redirected` answer; Core hands it only to the browser
+that pressed the button, keeps it only while the session is `redirected`, never logs it, never puts it in a URL — and its
+`String` prints `[client action redacted]`. A `redirected` answer with neither a `redirect_url` nor a `client_action` is
+refused: the payer would have nowhere to go.
+
+**The public configuration refuses a secret**, by its value or by its key's name (`PaymentExpress.Validate`, which
+`DispatchPaymentGatewayHook` runs on every describe answer): a value starting `sk_` (a Stripe secret, test, live or
+organisation key), `rk_` (a restricted key — "Safe to expose: No", docs.stripe.com/keys), `whsec_` (a webhook signing
+secret), `A21AA` (a PayPal OAuth access token, its sample in developer.paypal.com/api/rest/authentication/), `-----BEGIN`
+(a PEM key), `Bearer ` (an Authorization header), a value holding `_secret_` (a PaymentIntent's or SetupIntent's client
+secret — per payer, a `client_action`, never configuration) and a JSON Web Token; and a key one of whose snake-case words is
+`secret`, `password`, `passwd`, `private`, `token`, `signing` or `credential`. **PayPal's client secret has no shape of its
+own** — PayPal publishes no prefix for it — so it is refused by its NAME: never put it in `config` under any name. Its client
+id is public (PayPal's SDK takes it in the page's script URL, `client-id`) and passes. Stripe's publishable `pk_…` passes:
+"You can include it in front-end code" (docs.stripe.com/keys). Also refused: a script that is not a path on your route
+(another host, `//host`, `..`, a query), an origin that is not one https host (`http:`, a bare `*`, `*.com`, a path, a
+keyword such as `'unsafe-inline'`), and express on a method that takes cards at a reader.
+
 ### The webhook
 
 ```go
@@ -666,6 +729,33 @@ s, err = pay.Void(ctx, "cancel-"+sale.ID, s.ID) // the till's Cancel, while it w
   `PaymentUpdated` says how it ends. A payment nobody finishes at the reader is called off by Core after a few minutes
   (`rejected`, `voided`); `void_requested` is never left beside a payment that ended another way.
 
+### Express checkout and re-pricing (v0.58.0, EXPERIMENTAL)
+
+`Payments.Methods` hands each option its method's buttons (`PaymentOption.Express`): offer an express checkout only
+through such an option, and create its sessions as the kind says. The shop's side of the buttons — the one endpoint Core's
+widget calls, the partial address, the press — is `docs/COMMERCE.md` §6.
+
+- **`token`** (Stripe): no session before the payer confirms in the sheet. Then create one with the wallet's token as its
+  credential — `Credential: &nilda.PaymentCredential{Type: nilda.CredentialStripeConfirmationToken, Token: …}` — keyed by
+  the press, so the same press is the same session. It answers `resolved`, `authorized` (a manual capture), `pending`,
+  `rejected`, or `redirected` with a `client_action` for the payer's browser (3D Secure).
+- **`order`** (PayPal): create the session at the press, keyed by the press; it answers `redirected` with the
+  `client_action` the buttons need. While the payer changes address or delivery, re-price it:
+
+```go
+s, err := pay.Reprice(ctx, press+":"+quoteID, s.ID, nilda.PaymentReprice{AmountMinor: quote.TotalMinor,
+	ShippingOptions: []nilda.PaymentShippingOption{{ID: "dhl", Label: "DHL", AmountMinor: 490, Selected: true}}})
+```
+
+  Core asks the gateway once and answers with the session at its new amount. **Only before the payer approves**: a session
+  that is not `created` or `redirected`, or whose approval reached Core (the gateway asked `Confirm`), is 409; one a
+  credential, a kept method or a reader started, or whose method does not list `reprice`, is 422; the processor's refusal
+  is 409 with its reason; a 503 changed nothing — ask again with the same key. At most ten delivery options, exactly one
+  `selected`, its price in the amount. Your `ConfirmPayment` then checks the order as the payer approved it, as always.
+
+`nildatest.Payments` holds the same rules (`Reprice` for a gateway's test), keeps a start's `client_action` only while its
+session is `redirected`, and `StubGateway` answers `payment.reprice` (`RepriceResult`, `RepriceErr`, `Repriced`).
+
 ### An agent paying for its buyer (v0.20.0)
 
 An AI agent may carry a DELEGATED payment credential its buyer's wallet granted it — a Stripe Shared Payment Token
@@ -701,8 +791,10 @@ strong customer authentication when the method is kept, later charges out of its
    no interval; an update's names, in **`Replaces`**, the kept method (its `SavedMethod`) whose agreement it replaces —
    one of yours — and an interval exactly when that agreement is a recurring one. A kept method is never charged on a
    method that now lists `card_present` (422): nobody stands at the till. The
-   gateway tells its processor (Stripe: `off_session` `recurring` or `one_off`; PayPal: `stored_credential.payment_type`
-   `RECURRING` or `UNSCHEDULED`), which is how the charge is flagged out of strong customer authentication's scope,
+   gateway tells its processor (Stripe: `off_session` `recurring` or `one_off`; PayPal, for a card: its stored credential's
+   `payment_type` `RECURRING` or `UNSCHEDULED` — a PayPal wallet's stored credential has no `payment_type`, only
+   `payment_initiator`, `usage` and a `usage_pattern` that must match its setup token, so for a wallet the kind is not sent
+   yet, plugin-paypal's open item P-13), which is how the charge is flagged out of strong customer authentication's scope,
    charges with the payer absent and answers `resolved`, `pending` or `rejected`. `authentication_required` is not a decline: the payer's bank wants
    them present, so send them a link to pay on-session and keep the method. A charge whose answer was lost may have
    been made, so it is held `pending` — never closed as "nothing was charged" — and Core asks the gateway again, the
@@ -721,8 +813,8 @@ Hooks arrive over the plugin protocol (docs/ANY_LANGUAGE.md) with these JSON pay
 
 | hook | to | payload in | answer |
 |---|---|---|---|
-| `payment.describe` | gateway | `{}` | `{"methods":[{"key","label","description","currencies","refunds","test","test_hint","supports","credential_types","readers"}]}` — a reader is `{"id","label"}` |
-| `payment.start` | gateway | `{"session":{…}}` | `{"status","redirect_url","provider_ref","expires_at","failure_code","failure_message"}` |
+| `payment.describe` | gateway | `{}` | `{"methods":[{"key","label","description","currencies","refunds","test","test_hint","supports","credential_types","readers","express"}]}` — a reader is `{"id","label"}`; express is `{"kind","script","origins":{"script","frame","connect","img"},"config"}` |
+| `payment.start` | gateway | `{"session":{…}}` | `{"status","redirect_url","client_action","provider_ref","expires_at","failure_code","failure_message"}` |
 | `payment.refund` | gateway | `{"refund":{…},"session":{…}}` | `{"status","provider_ref","failure_code","failure_message"}` |
 | `payment.session.confirm` | consumer | `{"session":{…}}` | `{"proceed","reason"}` |
 | `payment.session.updated` | consumer | `{"session":{…}}` | `{}` — an error means "tell me again" |
@@ -732,9 +824,10 @@ Hooks arrive over the plugin protocol (docs/ANY_LANGUAGE.md) with these JSON pay
 | `payment.saved.forget` | gateway (a `SavedMethodPayer`) | `{"token"}` | `{}` — let go of the method at the processor; an unknown token is forgotten already |
 | `payment.capture` | gateway (a `PaymentCapturer`) | `{"session":{…},"amount_minor","idempotency_key"}` | `{"status","amount_minor","provider_ref","failure_code","failure_message"}` — an error means "not answered, ask again" (v0.58.0) |
 | `payment.void` | gateway (a `PaymentCapturer`) | `{"session":{…},"idempotency_key"}` | `{"status","amount_minor","provider_ref"}` — the same |
+| `payment.reprice` | gateway (a `PaymentRepricer`) | `{"session":{…},"amount_minor","shipping_options":[{"id","label","amount_minor","selected"}]}` | `{"repriced","failure_message"}` — an error means "not answered, nothing changed" (v0.58.0, EXPERIMENTAL; from the Core of plan 10.2's X2b) |
 
 A session is `{"id","consumer","gateway","method","reference","amount_minor","currency","status","test",
-"description","return_url","cancel_url","redirect_url","provider_ref","failure_code","failure_message",
+"description","return_url","cancel_url","redirect_url","client_action","provider_ref","failure_code","failure_message",
 "email","locale","supports","fulfilment","billing_address","shipping_address","reader","expires_at","save","saved_method","charged_saved","off_session","instrument","resolved_at",
 "capture","authorized_minor","authorization_expires_at","capture_requested_minor","void_requested","refunded_minor",
 "created_at","updated_at"}`; a refund is `{"id","session","amount_minor","currency","status","reason",
@@ -748,11 +841,12 @@ Calls into Core, under `/api/rest/v1`, with the plugin's token; answers inside `
 
 | call | who | body | answer |
 |---|---|---|---|
-| `GET /payments/methods?currency=EUR` | consumer | — | `[{"gateway","method","label","description","refunds","test","test_hint","supports","credential_types","readers"}]` |
+| `GET /payments/methods?currency=EUR` | consumer | — | `[{"gateway","method","label","description","refunds","test","test_hint","supports","credential_types","readers","express"}]` |
 | `GET /payments/readiness?currency=EUR` | consumer | — | `{"gateways":[{"key","name","enabled"}],"methods_on","test"}` (v0.42.0) |
 | `POST /payments/sessions` + `Idempotency-Key` | consumer | `{"gateway","method","reference","amount_minor","currency","description","return_url","cancel_url","email","locale","fulfilment","billing_address","shipping_address","reader","credential","save","capture"}` | 201, the session |
 | `POST /payments/sessions/{id}/capture` + `Idempotency-Key` | consumer | `{"amount_minor"}` | the session as the gateway left it (v0.58.0) |
 | `POST /payments/sessions/{id}/void` + `Idempotency-Key` | consumer | — | the session as the gateway left it (v0.58.0) |
+| `POST /payments/sessions/{id}/reprice` + `Idempotency-Key` | consumer | `{"amount_minor","shipping_options"}` | the session at its new amount (v0.58.0, EXPERIMENTAL; from the Core of plan 10.2's X2b) |
 | `GET /payments/sessions/{id}` | either side of it | — | the session |
 | `POST /payments/sessions/{id}/refunds` + `Idempotency-Key` | consumer | `{"amount_minor","reason"}` | 201, the refund |
 | `GET /payments/refunds/{id}` | either side of it | — | the refund |
@@ -809,6 +903,11 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
 | a method's `readers` | at most 100, each id at most 255 bytes, each label 1–100 characters | Nilda's choice: a shop with a hundred tills runs more than one site |
 | a reader's payment waits | its start answer's `expires_at`, at most 30 minutes; 5 minutes when none; then looked up and voided, a void asked at most 8 times | Nilda's choice: past a payer's seconds and Stripe's two-minute offline mark |
 | `Idempotency-Key` | 255 bytes | Core's, which is Stripe's |
+| a `client_action` | 1,024 bytes of visible ASCII, one line | Nilda's choice: a client secret or an order id is under a hundred |
+| an express method's `script` | 255 bytes, a path on the gateway's route | Nilda's choice, as a `provider_ref` |
+| an express method's `origins` | at most 16 a directive, each one `https://host` | Nilda's choice: Stripe.js needs five across three |
+| an express method's `config` | at most 32 keys, a key 64 bytes of snake case, a value 1,024 bytes on one line | Nilda's choice |
+| a re-price's `shipping_options` | at most 10, an id 64 bytes, a label 100 characters, exactly one `selected` | "PayPal will display only the first 10 shipping rates provided" (Stripe's `shippingaddresschange` page) |
 | any payment text — a reference, a reason, an address, a label, a `provider_ref`, a key | no NUL character | Postgres keeps one in neither text nor jsonb |
 | a session nothing decided | 24 hours, unless the gateway says | Stripe Checkout's own default |
 | a hold the gateway gives no deadline | 7 days | a card's hold online (Stripe), the shortest of the common ones |
@@ -840,7 +939,9 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
   again under the same session. D5 added only what was missing.
 - **The charge says its kind, and Core decides it.** Every processor asks whether a merchant-initiated charge is
   recurring or unscheduled — Stripe's `off_session` `recurring` / `one_off` (docs.stripe.com/api/payment_intents/create,
-  read 2026-11-05), PayPal's `stored_credential.payment_type`, Adyen's `recurringProcessingModel` — and it is what flags
+  read 2026-11-05), PayPal's card `stored_credential.payment_type` (Orders v2 schema 2.36, read 2026-11-05: only a card's
+  stored credential has it; a PayPal wallet's has `payment_initiator`, `usage` and `usage_pattern`, the last matching its
+  setup token, so a wallet's kind is not sent yet — plugin-paypal's open item P-13), Adyen's `recurringProcessingModel` — and it is what flags
   the charge out of SCA's scope (PSD2; EBA Q&A 2018_4031). Core derives it from the mandate it keeps (an interval:
   recurring; none: unscheduled), so no consumer chooses which exemption its charge claims. Additive to `payments/v1`: a
   gateway built before it ignores the field and charges as before (it already knew a `Saved` start is off-session).
@@ -867,3 +968,30 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
   experimental as a whole (`WRITE_COMMANDS.md` §5 marks a contract file); the in-person fields are optional and only a
   gateway that lists `card_present` ever meets them, so they extend it compatibly — and are named EXPERIMENTAL here and in
   their Go doc until the till (plugin P17) ships green on them.
+
+### Express buttons' decisions (commerce plan 10.2, step X1, recorded 2026-11-05)
+
+- **The method describes its buttons; nothing new describes the gateway.** `PaymentMethod.Express` rides the describe
+  answer Core already asks for, and reaches consumers on `PaymentOption` — the kind, the script, the origins and the
+  public configuration are facts of one way to pay, as `credential_types` and `readers` are.
+- **Two kinds, because the processors differ** (each page read 2026-11-05): Stripe makes nothing before the payer confirms
+  and hands a ConfirmationToken; PayPal's order exists from the press and is PATCHed while the payer chooses. One contract
+  fits both by reusing what was there: a token is a `credential` (v0.20.0's path, a new type), a session waiting on the
+  payer's page is `redirected` — with a `client_action` instead of, or beside, a page — and the PayPal order's update is
+  the one new hook, `payment.reprice`.
+- **Re-priced only before the payer approves**, and Core decides "before" from its own facts: the status (created or
+  redirected) and whether the gateway has asked `Confirm` — the moment the payer's approval reaches Core. PayPal would
+  still PATCH an `APPROVED` order; the contract does not, because the payer approved an amount.
+- **The credential type is `stripe.confirmation_token`**, named like `stripe.shared_payment_token` (the plan wrote
+  `stripe_confirmation_token`; one spelling per vocabulary).
+- **A public configuration refuses a secret by shape AND by name.** Stripe's secrets have prefixes; PayPal's client secret
+  has none, so a key named for a secret is refused whatever it holds. A value that slips both (a secret under an innocent
+  name, with no known prefix) is not caught — the gateway's own test is the last guard, and the plugin's review.
+- **The shop's side is its own endpoint, not `shop.checkout/v1`.** The 2026-10-18 plan named that contract; it was retired
+  in v0.47.0 (commerce DR-19), and the basket lives under a cookie only the shop's route receives. The endpoint is the
+  express channel, so no `channel` field (`docs/COMMERCE.md` §6).
+- **Why inside `payments/v1` and experimental**: every field is optional, so a gateway or consumer built before ignores
+  them; they are named EXPERIMENTAL here and in their Go doc until the shop and a gateway built by Nilda ship green on them.
+  The truth tests that read Core skip exactly what Core has not landed yet (`coreahead_test.go`: the hook, the route, the
+  session's `client_action`) and fail once it has.
+

@@ -73,6 +73,10 @@ var paymentsV1 = contractDef{
 			RetryClass: "answer", Idempotent: true,
 			Description: "Let go of money the processor holds for a session, under the key Core gives; an error means it may still be held, so Core asks again."},
 			PaymentVoidRequest{}, PaymentVoidResult{}},
+		{ContractMethod{Name: "reprice", Hook: HookPaymentReprice, AnsweredBy: "provider", BudgetMS: 15000,
+			RetryClass: "failure", Idempotent: true,
+			Description: "EXPERIMENTAL. Change the amount of a session's processor order before its payer approves (express buttons: the wallet's address or delivery changed the total); a refusal is an answer, an error changed nothing."},
+			PaymentRepriceRequest{}, PaymentRepriceResult{}},
 		{ContractMethod{Name: "session.confirm", Hook: HookPaymentConfirm, AnsweredBy: "consumer",
 			RetryClass: "answer", Idempotent: true,
 			Description: "Ask the plugin that wanted the payment whether it still wants it, before Core resolves it."},
@@ -369,7 +373,7 @@ func TestThePaymentsContractNamesExactlyTheHooksCoreSends(t *testing.T) {
 	inFile := map[string]bool{}
 	for _, m := range pay.Methods {
 		inFile[m.Hook] = true
-		if !coreHooks[m.Hook] {
+		if !coreHooks[m.Hook] && !coreLacks("hook "+m.Hook) {
 			t.Errorf("payments/v1 %s rides %q, which Core does not send", m.Name, m.Hook)
 		}
 	}
@@ -401,8 +405,12 @@ func TestThePaymentsContractTimesEachHookAsCoreDoes(t *testing.T) {
 		"HookPaymentSessionUpdated": "answersAgain",
 		"HookPaymentRefundUpdated":  "answersAgain",
 		"HookPaymentDisputeUpdated": "answersAgain",
+		"HookPaymentReprice":        "gatewayCall",
 	}
 	for name, row := range rows {
+		if name == "HookPaymentReprice" && coreLacks("hook "+HookPaymentReprice) {
+			continue // SDK-first: Core's X2b adds the row (coreahead_test.go)
+		}
 		if !strings.Contains(calls, name+": "+row+",") {
 			t.Errorf("core's call table no longer has %s: %s — re-read payments/v1's budget_ms and retry_class", name, row)
 		}
@@ -411,7 +419,7 @@ func TestThePaymentsContractTimesEachHookAsCoreDoes(t *testing.T) {
 		m := md.row
 		budget, answer := m.BudgetMS == 15000, m.RetryClass == "answer"
 		switch m.Hook {
-		case HookPaymentDescribe, HookPaymentStart:
+		case HookPaymentDescribe, HookPaymentStart, HookPaymentReprice:
 			if !budget || answer {
 				t.Errorf("%s: want 15 s and errors as failures, as gatewayCall", m.Name)
 			}

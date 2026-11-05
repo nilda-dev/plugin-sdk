@@ -94,6 +94,72 @@
                       "label"
                     ]
                   }
+                },
+                "express": {
+                  "type": [
+                    "null",
+                    "object"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "type": "string"
+                    },
+                    "script": {
+                      "type": "string"
+                    },
+                    "origins": {
+                      "type": "object",
+                      "properties": {
+                        "script": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "frame": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "connect": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "img": {
+                          "type": [
+                            "null",
+                            "array"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "config": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "script",
+                    "origins"
+                  ]
                 }
               },
               "required": [
@@ -161,6 +227,9 @@
                 "type": "string"
               },
               "redirect_url": {
+                "type": "string"
+              },
+              "client_action": {
                 "type": "string"
               },
               "provider_ref": {
@@ -406,6 +475,9 @@
           "redirect_url": {
             "type": "string"
           },
+          "client_action": {
+            "type": "string"
+          },
           "provider_ref": {
             "type": "string"
           },
@@ -536,6 +608,9 @@
                 "type": "string"
               },
               "redirect_url": {
+                "type": "string"
+              },
+              "client_action": {
                 "type": "string"
               },
               "provider_ref": {
@@ -815,6 +890,9 @@
                 "type": "string"
               },
               "redirect_url": {
+                "type": "string"
+              },
+              "client_action": {
                 "type": "string"
               },
               "provider_ref": {
@@ -1101,6 +1179,9 @@
                 "type": "string"
               },
               "redirect_url": {
+                "type": "string"
+              },
+              "client_action": {
                 "type": "string"
               },
               "provider_ref": {
@@ -1392,6 +1473,9 @@
               "redirect_url": {
                 "type": "string"
               },
+              "client_action": {
+                "type": "string"
+              },
               "provider_ref": {
                 "type": "string"
               },
@@ -1617,6 +1701,313 @@
       }
     },
     {
+      "name": "reprice",
+      "hook": "payment.reprice",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. Change the amount of a session's processor order before its payer approves (express buttons: the wallet's address or delivery changed the total); a refusal is an answer, an error changed nothing.",
+      "budget_ms": 15000,
+      "retry_class": "failure",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reaches payments through Core's own payment tools (payments_list, payment_detail, payment_decide, payment_methods, payment_method_set); this hook is Core-to-plugin plumbing beneath them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "consumer": {
+                "type": "string"
+              },
+              "gateway": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "reference": {
+                "type": "string"
+              },
+              "amount_minor": {
+                "type": "integer"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "test": {
+                "type": "boolean"
+              },
+              "description": {
+                "type": "string"
+              },
+              "return_url": {
+                "type": "string"
+              },
+              "cancel_url": {
+                "type": "string"
+              },
+              "redirect_url": {
+                "type": "string"
+              },
+              "client_action": {
+                "type": "string"
+              },
+              "provider_ref": {
+                "type": "string"
+              },
+              "failure_code": {
+                "type": "string"
+              },
+              "failure_message": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "locale": {
+                "type": "string"
+              },
+              "supports": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "fulfilment": {
+                "type": "string"
+              },
+              "billing_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "shipping_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "reader": {
+                "type": "string"
+              },
+              "expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "save": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "purpose": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "amount_minor": {
+                    "type": "integer"
+                  },
+                  "amount_rule": {
+                    "type": "string"
+                  },
+                  "max_amount_minor": {
+                    "type": "integer"
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "interval": {
+                    "type": "string"
+                  },
+                  "interval_count": {
+                    "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "purpose",
+                  "text",
+                  "currency"
+                ]
+              },
+              "saved_method": {
+                "type": "string"
+              },
+              "charged_saved": {
+                "type": "string"
+              },
+              "off_session": {
+                "type": "string"
+              },
+              "instrument": {
+                "type": "string"
+              },
+              "resolved_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "capture": {
+                "type": "string"
+              },
+              "authorized_minor": {
+                "type": "integer"
+              },
+              "authorization_expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "capture_requested_minor": {
+                "type": "integer"
+              },
+              "void_requested": {
+                "type": "boolean"
+              },
+              "refunded_minor": {
+                "type": "integer"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "consumer",
+              "gateway",
+              "method",
+              "reference",
+              "amount_minor",
+              "currency",
+              "status",
+              "return_url",
+              "cancel_url",
+              "capture",
+              "refunded_minor",
+              "created_at",
+              "updated_at"
+            ]
+          },
+          "amount_minor": {
+            "type": "integer"
+          },
+          "shipping_options": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "amount_minor": {
+                  "type": "integer"
+                },
+                "selected": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id",
+                "label",
+                "amount_minor"
+              ]
+            }
+          }
+        },
+        "required": [
+          "session",
+          "amount_minor"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "repriced": {
+            "type": "boolean"
+          },
+          "failure_message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "repriced"
+        ]
+      }
+    },
+    {
       "name": "session.confirm",
       "hook": "payment.session.confirm",
       "answered_by": "consumer",
@@ -1668,6 +2059,9 @@
                 "type": "string"
               },
               "redirect_url": {
+                "type": "string"
+              },
+              "client_action": {
                 "type": "string"
               },
               "provider_ref": {
@@ -1939,6 +2333,9 @@
                 "type": "string"
               },
               "redirect_url": {
+                "type": "string"
+              },
+              "client_action": {
                 "type": "string"
               },
               "provider_ref": {
@@ -2255,6 +2652,9 @@
                 "type": "string"
               },
               "redirect_url": {
+                "type": "string"
+              },
+              "client_action": {
                 "type": "string"
               },
               "provider_ref": {
@@ -2597,6 +2997,9 @@
                 "type": "string"
               },
               "redirect_url": {
+                "type": "string"
+              },
+              "client_action": {
                 "type": "string"
               },
               "provider_ref": {

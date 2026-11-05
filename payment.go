@@ -195,6 +195,9 @@ type PaymentMethod struct {
 	// paymentinperson.go): the ones its owner registered, read from the gateway's settings. Such a method lists at least
 	// one; any other lists none.
 	Readers []PaymentReader `json:"readers,omitempty"`
+	// Express is how this method's express wallet buttons are drawn (v0.58.0, EXPERIMENTAL, paymentexpress.go): the kind,
+	// the gateway's script, the processor's origins and the PUBLIC configuration its script reads. Nil: no buttons.
+	Express *PaymentExpress `json:"express,omitempty"`
 }
 
 // PaymentOption is one method a payer can choose, as a CONSUMER sees it (Payments.Methods): the gateway's
@@ -214,6 +217,9 @@ type PaymentOption struct {
 	CredentialTypes []string `json:"credential_types,omitempty"`
 	// Readers are the method's card readers (PaymentMethod.Readers), for a till to name one (EXPERIMENTAL).
 	Readers []PaymentReader `json:"readers,omitempty"`
+	// Express is the method's express buttons (PaymentMethod.Express, EXPERIMENTAL): a consumer offers an express
+	// checkout only through a method that has them, and creates its sessions as the kind says.
+	Express *PaymentExpress `json:"express,omitempty"`
 }
 
 // PaymentSession is one payment, as Core holds it. Core fills every field; the gateway and the consumer read.
@@ -239,6 +245,10 @@ type PaymentSession struct {
 	CancelURL string `json:"cancel_url"`
 	// RedirectURL is the processor's page, once the gateway has started the session.
 	RedirectURL string `json:"redirect_url,omitempty"`
+	// ClientAction is what the gateway's own script in the payer's browser needs to go on, for a session that answered
+	// redirected without a page or beside one (v0.58.0, EXPERIMENTAL, paymentexpress.go): hand it to that browser only.
+	// Core keeps it only while the session is redirected.
+	ClientAction ClientAction `json:"client_action,omitempty"`
 	// ProviderRef is the processor's own id for this payment — what a person searches for at the processor.
 	ProviderRef string `json:"provider_ref,omitempty"`
 	// FailureCode is set on a rejected session, and on a pending one Core is holding for a person.
@@ -561,11 +571,15 @@ type PaymentStartRequest struct {
 
 // PaymentStartResult is a gateway's answer to HookPaymentStart.
 type PaymentStartResult struct {
-	// Status is redirected (send the payer to RedirectURL), pending, resolved (settled on the spot) or
-	// rejected (with FailureCode).
+	// Status is redirected (send the payer to RedirectURL, or hand ClientAction to your own script on the payer's
+	// page), pending, resolved (settled on the spot) or rejected (with FailureCode).
 	Status      string `json:"status"`
 	RedirectURL string `json:"redirect_url,omitempty"`
-	ProviderRef string `json:"provider_ref,omitempty"`
+	// ClientAction is what your own script on the payer's page needs to go on (v0.58.0, EXPERIMENTAL): a PaymentIntent's
+	// client secret for stripe.handleNextAction, a PayPal order id for the buttons. Only with redirected; a redirected
+	// answer carries it, a RedirectURL, or both.
+	ClientAction ClientAction `json:"client_action,omitempty"`
+	ProviderRef  string       `json:"provider_ref,omitempty"`
 	// ExpiresAt is when the processor gives up on its page, if it says; Core closes the session then.
 	ExpiresAt      *time.Time `json:"expires_at,omitempty"`
 	FailureCode    string     `json:"failure_code,omitempty"`
@@ -693,6 +707,15 @@ func DispatchPaymentGatewayHook(ctx context.Context, _ *Core, g PaymentGateway, 
 				}
 			}
 		}
+		// A method whose open sessions can be re-priced belongs to a gateway that can be asked to re-price one.
+		if _, repricer := g.(PaymentRepricer); !repricer {
+			for _, m := range methods {
+				if Supports(m.Supports, SupportReprice) {
+					return nil, true, fmt.Errorf("nilda: payment.describe: method %q supports %s, and this gateway "+
+						"does not implement PaymentRepricer — nothing could change its order's amount", m.Key, SupportReprice)
+				}
+			}
+		}
 		b, err := json.Marshal(PaymentDescribeResponse{Methods: methods})
 		return b, true, err
 
@@ -797,6 +820,9 @@ func DispatchPaymentGatewayHook(ctx context.Context, _ *Core, g PaymentGateway, 
 
 	case HookPaymentCapture, HookPaymentVoid:
 		return dispatchCaptureHook(ctx, g, hook, payload)
+
+	case HookPaymentReprice:
+		return dispatchRepriceHook(ctx, g, payload)
 	}
 	return nil, false, nil
 }
@@ -991,6 +1017,9 @@ func validMethods(methods []PaymentMethod) error {
 		if err := validReaders(m); err != nil {
 			return err
 		}
+		if err := validExpress(m); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -1005,7 +1034,12 @@ func validSession(s PaymentSession) error {
 func validStart(r PaymentStartResult) error {
 	switch r.Status {
 	case PaymentRedirected:
-		if err := validPayerURL("redirect_url", r.RedirectURL, true); err != nil {
+		// Somewhere to go on: the processor's page, or what the gateway's own script on the payer's page needs.
+		if r.RedirectURL == "" && r.ClientAction == "" {
+			return fmt.Errorf("nilda: payment.start answered redirected with neither a redirect_url for the payer nor " +
+				"a client_action for the gateway's own script — the payer would have nowhere to go")
+		}
+		if err := validPayerURL("redirect_url", r.RedirectURL, false); err != nil {
 			return fmt.Errorf("nilda: payment.start answered redirected, and %w", err)
 		}
 	case PaymentPending, PaymentResolved:
@@ -1015,6 +1049,13 @@ func validStart(r PaymentStartResult) error {
 		}
 	default:
 		return fmt.Errorf("nilda: payment.start answered status %q; it answers redirected, pending, resolved or rejected", r.Status)
+	}
+	if r.ClientAction != "" && r.Status != PaymentRedirected {
+		return fmt.Errorf("nilda: payment.start answered %s with a client_action; only a redirected payment waits on the "+
+			"payer's page", r.Status)
+	}
+	if err := validClientAction(r.ClientAction); err != nil {
+		return err
 	}
 	if utf8.RuneCountInString(r.FailureMessage) > maxPaymentText {
 		return fmt.Errorf("nilda: a failure message is at most %d characters", maxPaymentText)

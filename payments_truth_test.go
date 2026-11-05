@@ -115,8 +115,14 @@ func TestThePaymentHooksAreCores(t *testing.T) {
 	for _, m := range regexp.MustCompile(`(?m)^\s*Hook\w+\s*=\s*"(payment\.[a-z.]+)"`).FindAllStringSubmatch(src, -1) {
 		core = append(core, m[1])
 	}
-	sdk := []string{HookPaymentDescribe, HookPaymentStart, HookPaymentRefund, HookPaymentSync, HookPaymentForget,
-		HookPaymentCapture, HookPaymentVoid, HookPaymentConfirm, HookPaymentSessionUpdated, HookPaymentRefundUpdated, HookPaymentDisputeUpdated}
+	var sdk []string
+	for _, h := range []string{HookPaymentDescribe, HookPaymentStart, HookPaymentRefund, HookPaymentSync, HookPaymentForget,
+		HookPaymentCapture, HookPaymentVoid, HookPaymentReprice, HookPaymentConfirm, HookPaymentSessionUpdated,
+		HookPaymentRefundUpdated, HookPaymentDisputeUpdated} {
+		if !coreLacks("hook " + h) { // SDK-first surface Core has not landed yet (coreahead_test.go)
+			sdk = append(sdk, h)
+		}
+	}
 	sort.Strings(core)
 	sort.Strings(sdk)
 	if strings.Join(core, ",") != strings.Join(sdk, ",") {
@@ -383,6 +389,9 @@ func TestThePaymentRoutesAreCores(t *testing.T) {
 		doc[m[1]+" "+strings.NewReplacer("{id}", ":id", "{name}", ":name").Replace(m[2])] = strings.TrimSpace(m[3])
 	}
 	for r, who := range doc {
+		if coreLacks("route " + r) {
+			continue // SDK-first: PAYMENTS.md lists it, Core lands it in its own step (coreahead_test.go)
+		}
 		if coreWho, ok := core[r]; !ok {
 			t.Errorf("PAYMENTS.md lists %s; core registers no such route", r)
 		} else if coreWho != who {
@@ -447,6 +456,7 @@ func TestThePaymentRoutesAreCores(t *testing.T) {
 			_, _ = pay.Authorize(ctx, "sid", PaymentAuthorization{AmountMinor: 1, Currency: "EUR"})
 		},
 		"Capture":           func() { _, _ = pay.Capture(ctx, "k4", "sid", 1) },
+		"Reprice":           func() { _, _ = pay.Reprice(ctx, "k6", "sid", PaymentReprice{AmountMinor: 1}) },
 		"Void":              func() { _, _ = pay.Void(ctx, "k5", "sid") },
 		"ForgetSavedMethod": func() { _, _ = pay.ForgetSavedMethod(ctx, "smid") },
 	}
@@ -460,7 +470,7 @@ func TestThePaymentRoutesAreCores(t *testing.T) {
 		call()
 	}
 	for r := range sent {
-		if _, ok := core[r]; !ok {
+		if _, ok := core[r]; !ok && !coreLacks("route "+r) {
 			t.Errorf("the SDK's client sends %s; core registers no such route", r)
 		}
 	}
@@ -497,7 +507,10 @@ func TestThePaymentShapesAreCores(t *testing.T) {
 		list := upTo(t, doc[i+len(marker):], "}", "PAYMENTS.md's "+marker)
 		var listed []string
 		for _, f := range strings.Split(list, ",") {
-			listed = append(listed, strings.Trim(strings.TrimSpace(f), `"`))
+			f = strings.Trim(strings.TrimSpace(f), `"`)
+			if !coreLacks(strings.ToLower(typ) + " " + f) { // SDK-first (coreahead_test.go)
+				listed = append(listed, f)
+			}
 		}
 		if got, want := strings.Join(tags(typ), ","), strings.Join(listed, ","); got != want {
 			t.Errorf("core's %s carries %s; PAYMENTS.md lists %s", typ, got, want)

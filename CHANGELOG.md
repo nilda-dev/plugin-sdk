@@ -8,7 +8,46 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.58.0 — unreleased (write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5)
+## v0.58.0 — unreleased (write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2)
+
+- PAYMENTS AND THE SHOP: EXPRESS WALLET BUTTONS, EXPERIMENTAL (commerce plan 10.2, step X1; `paymentexpress.go`,
+  `commerceexpress.go`, `docs/PAYMENTS.md` §4 "Express wallet buttons" and §5 "Express checkout and re-pricing",
+  `docs/COMMERCE.md` §6). A method says how its buttons are drawn, `PaymentMethod.Express` (`PaymentExpress`: `Kind`
+  `ExpressToken` — Stripe's Express Checkout Element, nothing at the processor until the payer confirms — or `ExpressOrder`
+  — PayPal's buttons, the order exists from the press; `Script`, a path on the gateway's own route; `Origins`, a
+  `PaymentExpressOrigins` of https hosts by CSP directive; `Config`, PUBLIC values), passed on `PaymentOption.Express`.
+  `PaymentExpress.Validate`, run by `DispatchPaymentGatewayHook` on every describe answer, refuses a public config holding a
+  value shaped like a secret (`sk_`, `rk_`, `whsec_`, `A21AA`, `-----BEGIN`, `Bearer `, `_secret_`, a JWT) or under a key
+  named like one (`secret`, `password`, `passwd`, `private`, `token`, `signing`, `credential`) — PayPal's client secret has
+  no shape, so its name is what is refused — and a token kind without a credential type, an order kind without `reprice`,
+  express on a card-at-a-reader method, a script off the route, an origin that is not one https host.
+- `PaymentStartResult.ClientAction` / `PaymentSession.ClientAction` (`ClientAction`, `"client_action"`): what the gateway's
+  own script on the payer's page needs (a PaymentIntent's client secret for `stripe.handleNextAction`, a PayPal order id).
+  A `redirected` answer carries a `redirect_url`, a `client_action` or both — never neither; a client action is only on a
+  redirected answer, one line of visible ASCII up to 1,024 bytes, and prints `[client action redacted]`.
+- `CredentialStripeConfirmationToken` (`"stripe.confirmation_token"`): the wallet's one-use token, sent as the session's
+  `Credential` on the existing delegated-credential path (v0.20.0) — named like `stripe.shared_payment_token`.
+- `Payments.Reprice(ctx, key, id, PaymentReprice{AmountMinor, ShippingOptions})` (`POST /payments/sessions/{id}/reprice`)
+  and the gateway hook `HookPaymentReprice` (`payment.reprice`: `PaymentRepriceRequest` → `PaymentRepriceResult`) for a
+  gateway that implements `PaymentRepricer`, on a method listing `SupportReprice` (`DispatchPaymentGatewayHook` refuses it
+  otherwise; Serve subscribes it). Only before the payer approves: a session `created` or `redirected`, whose approval has
+  not reached Core (`Confirm`), that no credential, kept method or reader started. At most ten `PaymentShippingOption`s,
+  exactly one selected. `payments/v1` describes the method (experimental).
+- The shop's side: `CommerceEndpoints.Express`, a POST on the shop's route taking an `ExpressRequest`
+  (`ExpressStepQuote`/`Start`/`Complete`, `ExpressFromCart`/`ExpressFromProduct` with an `ExpressItem`, a partial
+  `WalletAddress` — country, region, city, postal code, nothing else — the press, the session, the credential, the
+  `ExpressPayer`) and answering an `ExpressAnswer` (with `ExpressLine`s); `DecodeExpressRequest` refuses an unknown field,
+  so a street or a name in the partial address is refused, not dropped. It is the shop's own endpoint and not
+  `shop.checkout/v1` (retired in v0.47.0, commerce DR-19): the basket's cookie reaches only the shop's route.
+- `nildatest.Payments` holds the same rules — a re-price after `Confirm`, of a credential's session, through a method that
+  cannot, refused; a refusal 409 and no answer 503 with nothing changed; a start's client action kept only while
+  redirected — with `Payments.Reprice` for a gateway's test; `StubGateway` answers `payment.reprice` (`RepriceResult`,
+  `RepriceErr`, `Repriced`).
+- Additive and SDK-first: Core serves the hook, the route and the session's `client_action` from plan 10.2's step X2b, and
+  draws the express widget from X2a; until then a re-price answers 404 there and a client-action-only start is refused.
+  The truth tests that read Core skip exactly those three (`coreahead_test.go`) and fail once Core has them.
+- Docs: PayPal's stored-credential kind is said for a card only (`payment_type`, Orders v2 schema 2.36); a PayPal wallet's
+  is not sent yet (plugin-paypal's open item P-13).
 
 - PAYMENTS, DOOR D5 — WHICH KIND OF MERCHANT-INITIATED CHARGE (`paymentsaved.go`, `docs/PAYMENTS.md` §5 "A method kept for
   later" and "Door D5's decisions"). `PaymentSession.OffSession` (`"off_session"`): on every charge of a kept method
