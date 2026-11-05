@@ -49,6 +49,9 @@ const (
 	WidgetProductLoop    = "product_loop"
 	WidgetProductReviews = "product_reviews"
 	WidgetProductTerms   = "product_terms"
-	WidgetButton         = "button"
-	WidgetPostContent    = "post_content"
+	// WidgetExpressCheckout is the wallet buttons (v0.58.0, EXPERIMENTAL; docs/COMMERCE.md §6): config "placement"
+	// ("" a product's page, "cart", "checkout"), "product_id", "error_text".
+	WidgetExpressCheckout = "express_checkout"
+	WidgetButton          = "button"
+	WidgetPostContent     = "post_content"
 )

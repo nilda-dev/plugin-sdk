@@ -44,8 +44,28 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
   redirected — with `Payments.Reprice` for a gateway's test; `StubGateway` answers `payment.reprice` (`RepriceResult`,
   `RepriceErr`, `Repriced`).
 - Additive and SDK-first: Core serves the hook, the route and the session's `client_action` from plan 10.2's step X2b, and
-  draws the express widget from X2a; until then a re-price answers 404 there and a client-action-only start is refused.
-  The truth tests that read Core skip exactly those three (`coreahead_test.go`) and fail once Core has them.
+  draws the express widget from X2a. Core's X2b has them now, so the truth tests hold all three again
+  (`coreahead_test.go` no longer skips them).
+- EXPRESS, THE REVIEW OF X1: THE PAYER PAYS WHAT THE SHEET SHOWED, OR NOTHING. `ExpressRequest.ShownTotal`
+  (`*ExpressTotal{AmountMinor, Currency}`, JSON `"shown_total":{"amount_minor","currency"}`) is the total the wallet's sheet
+  showed the payer, sent with `complete` only: REQUIRED with a token kind's `credential`, optional with an order kind's
+  `session`; `Validate` refuses it missing there, with `quote` or `start`, or not a positive amount in an ISO 4217
+  currency. The shop re-quotes at the payer's final address and chosen `shipping_option` (which `complete` now carries)
+  and on any difference answers `ExpressAnswer.Code` `ExpressTotalChanged` (`"code":"total_changed"`, HTTP 409) with the
+  new total and nothing charged — `Validate` refuses such an answer with a `status`, `client_action`, `redirect_url` or
+  `order_url`, unavailable, or with no message. Every quote naming a `session` carries the start's `press`, and `Validate`
+  refuses one that does not: the shop re-prices only the session its start keyed by that press (`docs/COMMERCE.md` §6).
+  Core's bridge forwards `shown_total` from its next X2a step (`coreahead_test.go` lists it).
+- `WidgetExpressCheckout` (`"express_checkout"`): the key of Core's wallet-button widget (config `placement` — empty for a
+  product's page, `cart`, `checkout` — `product_id`, `error_text`), so a shop's templates can place it; Core's X2a
+  registers it as a shop widget and `TestTheWidgetKeysAreInCoresRegistry` holds the SDK's list to Core's.
+- FIX: `Serve` now hands `payment.reprice` to a `PaymentRepricer`'s `RepricePayment`. It subscribed the hook and then left
+  it to the author's `HandleHook`, so a PayPal-like gateway built on `Serve` failed every re-price.
+- Docs: PAYMENTS.md §4 documents Core's page bridge as built — `window.nilda.express.gateways.<key> = {mount}`, the
+  `nilda:express-gateway` event, the host `{element, config, locale, gateway, method, kind, quote, start, complete, done,
+  available}`, the press minted per start or token kind's complete and reused by the bridge's retries
+  (`TestTheExpressBridgeIsCores` holds it to Core's source) — and that Core opens a processor's origins on its public page
+  responses only, while a gateway offers a switched-on express method and the shop has its Express endpoint.
 - Docs: PayPal's stored-credential kind is said for a card only (`payment_type`, Orders v2 schema 2.36); a PayPal wallet's
   is not sent yet (plugin-paypal's open item P-13).
 

@@ -2845,7 +2845,8 @@ words), and check one before a write, or in a test, with `nilda.CheckBody(body)`
 **A page's layout is a `nilda.LayoutTree`** — sections (`nilda.LayoutSection`) holding columns (`LayoutColumn`)
 holding widgets (`LayoutWidget`), each a `nilda.LayoutNode` with its `ID`, `Widget` key and `Config`. The shop's widget
 keys are constants — `nilda.WidgetProductLoop`, `WidgetCart`, `WidgetCheckout`, `WidgetAccount`, `WidgetAddToCart`,
-`WidgetProductField`, `WidgetProductGallery`, `WidgetProductReviews`, `WidgetProductTerms`, `WidgetCartCount` — beside
+`WidgetProductField`, `WidgetProductGallery`, `WidgetProductReviews`, `WidgetProductTerms`, `WidgetCartCount`,
+`WidgetExpressCheckout` (the wallet buttons, v0.58.0) — beside
 `WidgetButton` and `WidgetPostContent`; Core's `docs/WIDGET_REGISTRY.json` lists every widget and the fields its config
 takes. A manifest's `templates[].tree` is the same tree.
 
@@ -3030,11 +3031,13 @@ The wallet buttons reach the shop's checkout through one endpoint of its own, `C
 Core's express widget posts an `ExpressRequest` there — a step (`ExpressStepQuote`, `ExpressStepStart`,
 `ExpressStepComplete`), what it buys (`ExpressFromCart`, or `ExpressFromProduct` with an `ExpressItem`), the wallet's
 partial `WalletAddress` (country, region, city, postal code — never a street or a name), the chosen delivery option, the
-press that keys the order, and with `complete` the `ExpressPayer` and the wallet's credential or the session the start
-made — read with `DecodeExpressRequest`, which refuses an unknown field. The shop answers an `ExpressAnswer`: whether it
+press that keys the order (on every quote naming a session too), and with `complete` the `ExpressPayer`, the wallet's
+credential or the session the start made, and the `ExpressTotal` the sheet showed the payer (`ShownTotal`, required with a
+credential) — read with `DecodeExpressRequest`, which refuses an unknown field. The shop answers an `ExpressAnswer`: whether it
 takes the basket by express, its total in minor units and in its own words, the sheet's `ExpressLine`s and delivery
 options, the capture mode, the terms line beside the buttons, and after `start` or `complete` the session's status, its
-client action and the order's page.
+client action and the order's page — or, when the shown total is not its re-quote, `Code` `ExpressTotalChanged` and the
+new total, having charged nothing.
 
 ### Orders, and what a plugin delivers for them (`shop.orders/v1`, `shop.deliverables/v1`; from v0.24.0)
 

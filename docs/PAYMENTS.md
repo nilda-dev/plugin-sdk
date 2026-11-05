@@ -397,7 +397,7 @@ how they are drawn, **`PaymentMethod.Express`** (`nilda.PaymentExpress`):
 |---|---|
 | `kind` | `token` (`nilda.ExpressToken`) or `order` (`nilda.ExpressOrder`) — below |
 | `script` | your own script that draws the buttons, a path on your route RELATIVE to its prefix, as a webhook path is (`"/express.js"`; Core loads `/stripe/express.js`). Load the processor's library from the processor from inside it — Stripe.js "directly from js.stripe.com", PayPal's SDK "directly from https://www.paypal.com/sdk/js" — never a copy on your route |
-| `origins` | `{"script","frame","connect","img"}`: the processor's origins the page's Content-Security-Policy must allow, each `https://host` with at most one leading `*.` label. Stripe.js needs `script` `https://js.stripe.com` `https://*.js.stripe.com`, `frame` the same and `https://hooks.stripe.com`, `connect` `https://api.stripe.com` (docs.stripe.com/security/guide, read 2026-11-05). Core opens them only on a page that draws your buttons, only while you offer express |
+| `origins` | `{"script","frame","connect","img"}`: the processor's origins the page's Content-Security-Policy must allow, each `https://host` with at most one leading `*.` label. Stripe.js needs `script` `https://js.stripe.com` `https://*.js.stripe.com`, `frame` the same and `https://hooks.stripe.com`, `connect` `https://api.stripe.com` (docs.stripe.com/security/guide, read 2026-11-05). Core opens them on its public page responses only — never on the admin's or an API's — while a gateway offers a switched-on express method and the shop has its Express endpoint |
 | `config` | what your script reads, by snake-case key: a publishable key, a client id, the merchant's country. **Public** — written into a page every visitor is served — so a secret is refused, below |
 
 **The two kinds**, because the processors work two ways (read 2026-11-05):
@@ -447,6 +447,40 @@ id is public (PayPal's SDK takes it in the page's script URL, `client-id`) and p
 "You can include it in front-end code" (docs.stripe.com/keys). Also refused: a script that is not a path on your route
 (another host, `//host`, `..`, a query), an origin that is not one https host (`http:`, a bare `*`, `*.com`, a path, a
 keyword such as `'unsafe-inline'`), and express on a method that takes cards at a reader.
+
+**The page bridge** — what your `script` is written against (Core's `express_checkout` widget,
+`internal/pagebuilder/expresswidget.go`). Core draws each placement HIDDEN, asks the shop a first quote and, when the shop
+answers `available`, adds one element per express method and loads your script once per page. Register your gateway under
+its plugin key and say so:
+
+```js
+var N = window.nilda = window.nilda || {}, X = N.express = N.express || {};
+(X.gateways = X.gateways || {})['stripe'] = { mount: function (host) { /* draw into host.element */ return { destroy: function () {} }; } };
+document.dispatchEvent(new CustomEvent('nilda:express-gateway', { detail: { gateway: 'stripe' } }));
+```
+
+So `window.nilda.express.gateways.<key> = {mount}`, then the `nilda:express-gateway` event: Core mounts every waiting
+placement of that gateway, once each, at once if you registered before it looked. `mount(host)` runs once per method and
+placement; a throw hides that method. What it returns Core keeps and calls nothing on today. The host is `{element, config,
+locale, gateway, method, kind, quote, start, complete, done, available}`:
+
+| member | what it is |
+|---|---|
+| `element` | the element to draw this method's button in |
+| `config` | the method's public `config`, as you described it |
+| `locale` | the page's language (`<html lang>`), or undefined |
+| `gateway`, `method`, `kind` | which method this is, and `token` or `order` |
+| `quote(req)` | `req` `{address?, shipping_option?}` (a PARTIAL address only) → a promise of the shop's `ExpressAnswer`. The bridge adds the step, gateway, method, source and — on a product page — the product, the shopper's variation answers and quantity from the page's add-to-cart row; after a `start`, the start's `session` and `press`. An available answer's total and terms line are written beside the buttons |
+| `start(req)` | kind `order`: the payer pressed. Same `req` → the answer with the `session` and its `client_action` (the order id your buttons' order promise resolves to). Mints a NEW press and forgets any earlier session |
+| `complete(req)` | the payer confirmed: `req` `{payer, credential?, shipping_option, shown_total}` — the `ExpressPayer`, kind `token`'s wallet token (`{"type": "stripe.confirmation_token", "token"}`), the delivery option the payer chose and the total the sheet showed them (`{amount_minor, currency}`). Kind `token`: every call is a NEW press; kind `order`: the start's press and session. An answer `code: "total_changed"` charged nothing: end the sheet unpaid, call `done` with it, and `quote` again so the new total stands beside the buttons. (Core's bridge forwards `shipping_option` and `shown_total` from plan 10.2's next X2a step: `coreahead_test.go`) |
+| `done(outcome)` | the payment ended in the browser, `{ok, status, message, order_url}`: `ok` sends the payer to `order_url` (this site only); otherwise `message`, or the widget's own error text, is said in the placement's live region, and a `token` kind's next `complete` is a new press |
+| `available(on)` | whether you draw a button here (the wallet may have none on this device); when no method of a placement is on, the placement hides |
+
+**A press** is 128 random bits the bridge mints per press of a button — a `start`, or a `token` kind's `complete` — and
+the shop's key for one order and one session. The bridge POSTs to the shop's endpoint from the page (same origin, its
+cookie, the CSRF header) and, when no answer came (the network, a 5xx), sends the SAME body again, up to three tries in
+all: a retry reuses the press, so it is the same order and the same charge. A 4xx is the shop's answer and reaches your
+script as it is.
 
 ### The webhook
 
@@ -992,6 +1026,12 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
   express channel, so no `channel` field (`docs/COMMERCE.md` §6).
 - **Why inside `payments/v1` and experimental**: every field is optional, so a gateway or consumer built before ignores
   them; they are named EXPERIMENTAL here and in their Go doc until the shop and a gateway built by Nilda ship green on them.
-  The truth tests that read Core skip exactly what Core has not landed yet (`coreahead_test.go`: the hook, the route, the
-  session's `client_action`) and fail once it has.
+  The truth tests that read Core skip exactly what Core has not landed yet (`coreahead_test.go`) and fail once it has:
+  the hook, the route and the session's `client_action` landed in Core's X2b; the bridge's `shown_total` is still listed.
+- **The review of X1 (2026-11-05): the payer pays what the sheet showed, or nothing.** `complete` carries `shown_total`
+  (`ExpressTotal`, `{"amount_minor","currency"}` — nested, so the amount never travels without its currency), required
+  with a token kind's credential, optional with an order kind's session, whose re-priced amount already binds it; the shop
+  re-quotes at the final address and answers `code: "total_changed"`, charging nothing, on any difference. `complete`
+  carries the `shipping_option` the payer chose, and every quote naming a session carries the start's `press`, which the
+  shop requires — the session is found by the key the shop made, never by an id a page could learn.
 

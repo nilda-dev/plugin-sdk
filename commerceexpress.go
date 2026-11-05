@@ -19,12 +19,15 @@ import (
 //	quote     the basket — the visitor's cart, or one product pressed on its page — priced for the PARTIAL address the
 //	          wallet shows before the payer confirms (WalletAddress: country, region, city, postal code; never a street
 //	          or a name), with its delivery options. Also asked with no address, to draw the buttons with a total; and,
-//	          for an ExpressOrder session, with the Session to re-price (Payments.Reprice) while the payer is choosing.
+//	          for an ExpressOrder session, with the Session and its start's Press to re-price it (Payments.Reprice)
+//	          while the payer is choosing.
 //	start     ExpressOrder only (PayPal): the button was pressed — the shop places the order and starts the session;
 //	          the answer's ClientAction is the processor's order for the buttons.
 //	complete  the payer confirmed in the sheet: the payer's email and final address (ExpressPayer) arrive now, after
-//	          consent, and nothing personal before. ExpressToken (Stripe): the shop places the order and creates the
-//	          session with the wallet's one-use Credential. ExpressOrder: the shop records the payer on the order the
+//	          consent, and nothing personal before, with the delivery option chosen and the total the sheet showed
+//	          (ShownTotal). The shop re-quotes at the final address; any difference is ExpressTotalChanged and nothing is
+//	          charged. ExpressToken (Stripe): the shop places the order and creates the session with the wallet's
+//	          one-use Credential. ExpressOrder: the shop records the payer on the order the
 //	          start placed, before the gateway's finish path asks it to confirm.
 //
 // Each press is keyed by Press, minted by Core's bridge per press: start and complete under one Press are one order and
@@ -53,6 +56,10 @@ const (
 	// ExpressFromProduct — one product, pressed on its own page (Item), bought on its own: the basket is untouched.
 	ExpressFromProduct = "product"
 )
+
+// ExpressTotalChanged is ExpressAnswer.Code when complete's ShownTotal is not what the shop's re-quote at the payer's
+// final address and chosen delivery option asks: nothing was charged, and the answer carries the new total.
+const ExpressTotalChanged = "total_changed"
 
 // The bounds of an express request and answer — Nilda's choices.
 const (
@@ -128,6 +135,12 @@ func (p ExpressPayer) Validate() error {
 	return nil
 }
 
+// ExpressTotal is the total a wallet's sheet SHOWED the payer when they confirmed: what they agreed to pay.
+type ExpressTotal struct {
+	AmountMinor int64  `json:"amount_minor"`
+	Currency    string `json:"currency"`
+}
+
 // ExpressRequest is what Core's express widget sends the shop's Express endpoint.
 type ExpressRequest struct {
 	// Step is ExpressStepQuote, ExpressStepStart or ExpressStepComplete.
@@ -140,13 +153,20 @@ type ExpressRequest struct {
 	Item   *ExpressItem `json:"item,omitempty"`
 	// Address is the wallet's partial address, for quote and start — never with complete, which carries the final one.
 	Address *WalletAddress `json:"address,omitempty"`
-	// ShippingOption is the id of the delivery option the payer chose (one the last quote answered).
+	// ShippingOption is the id of the delivery option the payer chose (one the last quote answered) — with a quote, and
+	// with complete, where it is the option the payer confirmed.
 	ShippingOption string `json:"shipping_option,omitempty"`
 	// Press names one press of a button, minted by Core's bridge: start and complete under one Press are one order and
-	// one session. Required for both.
+	// one session. Required for both, and for every quote that names a Session: the shop finds the session it re-prices
+	// by the press its start was keyed by, never by a session id alone.
 	Press string `json:"press,omitempty"`
 	// Session is an ExpressOrder session the start made: a quote with it re-prices it, complete names it.
 	Session string `json:"session,omitempty"`
+	// ShownTotal is the total the wallet's sheet showed the payer, sent with complete only: REQUIRED for an ExpressToken
+	// complete (nothing else binds the charge to what the payer read), optional for an ExpressOrder one (the session's
+	// amount, re-priced while the payer chose, binds it). The shop re-quotes at the final address and the chosen option
+	// and answers ExpressTotalChanged, charging nothing, on any difference.
+	ShownTotal *ExpressTotal `json:"shown_total,omitempty"`
 	// Credential is the wallet's one-use credential, for an ExpressToken complete (CredentialStripeConfirmationToken).
 	// Hand it to Payments.CreateSession once; never store, log or echo it.
 	Credential *PaymentCredential `json:"credential,omitempty"`
@@ -183,6 +203,17 @@ func (r ExpressRequest) Validate() error {
 			return err
 		}
 	}
+	if r.Session != "" && r.Press == "" {
+		return errors.New("nilda: an express request naming a session carries the press its start was keyed by")
+	}
+	if r.ShownTotal != nil {
+		if r.Step != ExpressStepComplete {
+			return errors.New("nilda: the total a wallet showed travels with complete only")
+		}
+		if err := validAmount(r.ShownTotal.AmountMinor, r.ShownTotal.Currency); err != nil {
+			return fmt.Errorf("nilda: the total a wallet showed: %w", err)
+		}
+	}
 	switch r.Step {
 	case ExpressStepQuote, ExpressStepStart:
 		if r.Payer != nil || r.Credential != nil {
@@ -210,6 +241,10 @@ func (r ExpressRequest) Validate() error {
 				"session its start made (an order kind) — one of the two")
 		}
 		if r.Credential != nil {
+			if r.ShownTotal == nil {
+				return errors.New("nilda: an express complete with the wallet's credential carries the total the sheet " +
+					"showed the payer (shown_total)")
+			}
 			if err := r.Credential.Validate(); err != nil {
 				return err
 			}
@@ -252,6 +287,9 @@ type ExpressAnswer struct {
 	// the shopper's language.
 	Available bool   `json:"available"`
 	Message   string `json:"message,omitempty"`
+	// Code is ExpressTotalChanged when complete's ShownTotal is not the shop's re-quote: nothing was charged, Message says
+	// so in the shopper's language, and the answer carries the new total and options. Empty otherwise.
+	Code string `json:"code,omitempty"`
 	// Currency, TotalMinor and Total are what the sheet asks and what Core writes beside the buttons: Total formatted by
 	// the shop (Core never formats money), tax as the shop shows it.
 	Currency   string `json:"currency,omitempty"`
@@ -283,6 +321,18 @@ type ExpressAnswer struct {
 func (a ExpressAnswer) Validate() error {
 	if utf8.RuneCountInString(a.Message) > maxPaymentText || !plainLine(a.Message) {
 		return fmt.Errorf("nilda: an express answer's message is one line of at most %d characters", maxPaymentText)
+	}
+	switch a.Code {
+	case "":
+	case ExpressTotalChanged:
+		if !a.Available || strings.TrimSpace(a.Message) == "" {
+			return errors.New("nilda: a total_changed answer is available, with the new total and a message saying so")
+		}
+		if a.Status != "" || a.ClientAction != "" || a.RedirectURL != "" || a.OrderURL != "" {
+			return errors.New("nilda: a total_changed answer charged nothing: no status, client_action, redirect_url or order_url")
+		}
+	default:
+		return fmt.Errorf("nilda: an express answer's code is %q or none, got %q", ExpressTotalChanged, a.Code)
 	}
 	if !a.Available {
 		return nil
