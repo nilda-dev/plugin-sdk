@@ -67,6 +67,10 @@ type Payments struct {
 	saved     map[string]*savedMethod      // kept payment methods by id, with their tokens (paymentsaved.go)
 	owed      []owed                       // what the consumers have not heard yet, oldest change first
 	log       []Delivery
+	// holdDue are the sessions whose capture or void the gateway has not answered yet; asking the ones being asked
+	// right now — Core asks under the session's lock (paymentcapture.go).
+	holdDue map[string]bool
+	asking  map[string]bool
 }
 
 // Delivery is one attempt to tell a consumer about a change.
@@ -130,6 +134,8 @@ func NewPayments() *Payments {
 		disputes:  map[string]*nilda.PaymentDispute{},
 		secrets:   map[string]map[string]string{},
 		saved:     map[string]*savedMethod{},
+		holdDue:   map[string]bool{},
+		asking:    map[string]bool{},
 	}
 }
 
@@ -226,13 +232,15 @@ func (p *Payments) Deliveries() []Delivery {
 
 // ---- Core's own jobs, run when a test says --------------------------------------------------------------
 
-// Deliver runs Core's delivery job once. First every refund still `requested` is asked of its gateway
+// Deliver runs Core's delivery job once. First every capture or void a gateway has not answered is asked again, with
+// the same key (paymentcapture.go). Then every refund still `requested` is asked of its gateway
 // (payment.refund) — a new one's FIRST ask happens here, as in Core, where CreateRefund only records the refund,
 // and one whose answer was lost is asked again. Then every consumer that has not heard a change is told the
 // session's — or the refund's — state as it is NOW, oldest change first. It returns how many deliveries are
 // still owed: a consumer that answered with an error is owed until it answers without one, which is the
 // promise Core makes about "the customer paid".
 func (p *Payments) Deliver(ctx context.Context) int {
+	p.askHoldsDue(ctx) // captures and voids whose answer was lost, asked again with the same key
 	p.mu.Lock()
 	due := make([]string, 0, len(p.refundDue))
 	for id := range p.refundDue {
@@ -318,6 +326,8 @@ func (p *Payments) Decide(id, decision, note string) (nilda.PaymentSession, erro
 			}
 			s.AmountMinor = took.amount
 			delete(p.reported, s.ID)
+		} else if s.CaptureRequestedMinor > 0 {
+			s.AmountMinor = s.CaptureRequestedMinor // a capture the processor sat on: what was asked is what was taken
 		}
 		s.FailureCode, s.FailureMessage = "", ""
 		p.move(s, nilda.PaymentResolved)
@@ -354,7 +364,7 @@ func (p *Payments) routes(caller string) http.Handler {
 		}
 		body, _ := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 		ctx := r.Context()
-		if p.savedRoutes(w, r, caller, parts, body) {
+		if p.savedRoutes(w, r, caller, parts, body) || p.captureRoutes(w, r, caller, parts, body) {
 			return
 		}
 		switch {
@@ -685,6 +695,15 @@ func (p *Payments) createSession(ctx context.Context, consumer string, params ni
 	if err := mayKeep(m, params); err != nil {
 		return nilda.PaymentSession{}, err
 	}
+	// A hold only through a method that can hold, as Core refuses (v0.58.0).
+	capture := nilda.CaptureAutomatic
+	if params.Capture == nilda.CaptureManual {
+		if !nilda.Supports(nilda.SupportsOf(m), nilda.SupportManualCapture) {
+			return nilda.PaymentSession{}, invalid("%q of %q cannot hold the money for a later capture; it takes it at once",
+				params.Method, params.Gateway)
+		}
+		capture = nilda.CaptureManual
+	}
 	now := time.Now().UTC()
 	expires := now.Add(sessionLifetime)
 	s := &nilda.PaymentSession{
@@ -694,7 +713,7 @@ func (p *Payments) createSession(ctx context.Context, consumer string, params ni
 		ReturnURL: params.ReturnURL, CancelURL: params.CancelURL, Email: params.Email, Locale: params.Locale,
 		Supports: nilda.SupportsOf(m), Fulfilment: params.Fulfilment,
 		BillingAddress: params.BillingAddress, ShippingAddress: params.ShippingAddress, Save: params.Save,
-		ExpiresAt: &expires, CreatedAt: now, UpdatedAt: now,
+		Capture: capture, ExpiresAt: &expires, CreatedAt: now, UpdatedAt: now,
 	}
 	if s.CancelURL == "" {
 		s.CancelURL = s.ReturnURL
@@ -875,8 +894,17 @@ func (p *Payments) report(ctx context.Context, caller, id, verb string, body []b
 		return p.confirm(ctx, snapshot)
 	}
 	defer p.mu.Unlock()
+	if p.asking[id] {
+		// Core holds the session's lock while it asks the gateway to capture or void it: a report made from inside that
+		// hook waits on the lock until the hook's time runs out. Refused here at once, so the author sees why.
+		return nil, &apiError{http.StatusConflict, "CONFLICT", "Core is asking this gateway to capture or void this " +
+			"payment right now: answer the hook — its answer is the report — rather than reporting from inside it"}
+	}
 
 	switch verb {
+	case "authorize":
+		return p.authorize(s, body)
+
 	case "resolve":
 		var r nilda.PaymentResolution
 		if err := json.Unmarshal(body, &r); err != nil {
@@ -889,7 +917,8 @@ func (p *Payments) report(ctx context.Context, caller, id, verb string, body []b
 		// nothing, not even the processor's reference.
 		// Core's normalisation (strings.ToUpper(strings.TrimSpace(...))) before the comparison: " eur" is EUR there.
 		took := reportedMoney{amount: r.AmountMinor, currency: strings.ToUpper(strings.TrimSpace(r.Currency))}
-		if took.amount != s.AmountMinor || took.currency != s.Currency {
+		// A capture asked for is what the processor must say it took (v0.58.0); otherwise the payment's amount.
+		if took.amount != expectedAmount(*s) || took.currency != s.Currency {
 			// The processor took something other than what was asked. Neither paid nor unpaid: a person
 			// decides, so the session is held where the consumer ships nothing.
 			if s.Status != nilda.PaymentPending && !nilda.PaymentCanMove(s.Status, nilda.PaymentPending) {
@@ -932,6 +961,8 @@ func (p *Payments) report(ctx context.Context, caller, id, verb string, body []b
 			return *s, nil
 		}
 		p.keep(s, r.Saved)
+		// A captured hold resolves at what was taken: AmountMinor becomes it, and a refund is bounded by it.
+		s.AmountMinor = expectedAmount(*s)
 		// What the payer paid with and when the money arrived: kept from the first resolution, as Core does.
 		s.Instrument = r.Instrument
 		now := time.Now().UTC()
@@ -1001,6 +1032,14 @@ func checkReport(verb string, body []byte) error {
 			return invalid("the body is not a rejection: %v", err)
 		}
 		if err := r.Validate(); err != nil {
+			return invalid("%v", err)
+		}
+	case "authorize":
+		var a nilda.PaymentAuthorization
+		if err := json.Unmarshal(body, &a); err != nil {
+			return invalid("the body is not an authorization: %v", err)
+		}
+		if err := a.Validate(); err != nil {
 			return invalid("%v", err)
 		}
 	case "pending", "refund-resolve":
@@ -1090,6 +1129,11 @@ func (p *Payments) createRefund(ctx context.Context, caller, sessionID string, p
 	}
 	// Core's order: the status, then whether the gateway can be asked (503), then the sum (422) at the write — so
 	// an over-refund while the gateway is down answers 503, as it does on a real site.
+	if s.Status == nilda.PaymentAuthorized {
+		p.mu.Unlock()
+		return nilda.PaymentRefund{}, &apiError{http.StatusConflict, "CONFLICT",
+			"this payment is only held, not taken: capture it, or void it to let the hold go — there is nothing to refund"}
+	}
 	if s.Status != nilda.PaymentResolved {
 		p.mu.Unlock()
 		return nilda.PaymentRefund{}, &apiError{http.StatusConflict, "CONFLICT",
@@ -1413,6 +1457,15 @@ type StubGateway struct {
 	SavedStart   nilda.PaymentStartResult
 	SavedCharged []string
 	Forgotten    []string
+	// CaptureResult answers every payment.capture (PaymentCapturer) — the zero value says the processor took what was
+	// asked — unless CaptureErr is set: no answer, as a processor that could not be reached. VoidResult and VoidErr
+	// likewise for payment.void (the zero value: released). Captured and Voided record what it was asked, in order.
+	CaptureResult nilda.PaymentCaptureResult
+	CaptureErr    error
+	Captured      []nilda.PaymentCaptureRequest
+	VoidResult    nilda.PaymentVoidResult
+	VoidErr       error
+	Voided        []nilda.PaymentVoidRequest
 }
 
 // StartPaymentWithSaved answers with SavedStart and records the token.

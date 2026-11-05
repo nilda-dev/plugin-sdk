@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-// checkReservedNames holds the payment types to the names reserved for what the contract will carry (credential,
-// capture, void): no exported field and no json tag may take one before it is built. A function over types so a
+// checkReservedNames holds the payment types to the names reserved for what the contract will carry (credential
+// until v0.20.0, capture and void until v0.58.0, partial_capture still): no exported field and no json tag may take one before it is built. A function over types so a
 // test can feed it a type that does.
 func checkReservedNames(types ...any) []string {
 	var bad []string
@@ -31,7 +31,8 @@ func checkReservedNames(types ...any) []string {
 
 var paymentTypes = []any{PaymentMethod{}, PaymentOption{}, PaymentSession{}, PaymentRefund{}, PaymentSessionParams{},
 	PaymentRefundParams{}, PaymentResolution{}, PaymentRejection{}, PaymentStartResult{}, PaymentRefundResult{},
-	PaymentDispute{}, PaymentDisputeReport{}, PaymentExternalRefund{}, PaymentAddress{}}
+	PaymentDispute{}, PaymentDisputeReport{}, PaymentExternalRefund{}, PaymentAddress{}, PaymentAuthorization{},
+	PaymentCaptureRequest{}, PaymentCaptureResult{}, PaymentVoidRequest{}, PaymentVoidResult{}}
 
 func TestReservedPaymentNamesAreUnused(t *testing.T) {
 	for _, b := range checkReservedNames(paymentTypes...) {
@@ -41,7 +42,7 @@ func TestReservedPaymentNamesAreUnused(t *testing.T) {
 
 func TestTheReservedNameGuardFailsOnPurpose(t *testing.T) {
 	type sneaky struct {
-		Capture string `json:"capture"`
+		PartialCapture string `json:"amount"`
 	}
 	type sneakyTag struct {
 		Token string `json:"partial_capture"`

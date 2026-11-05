@@ -42,7 +42,8 @@ type InitResult struct {
 	// `search_provider`, admin.action/admin.report/admin.calendar/admin.form.load/admin.form.save/setup.status by
 	// `admin_page`, field.* by
 	// `field`, auth.* by `auth_provider`, widget.* by `widget`, render.assets by `render.assets`, link.targets by `route`,
-	// payment.describe/payment.start/payment.refund/payment.sync/payment.saved.forget by `payment_gateway`, and
+	// payment.describe/payment.start/payment.refund/payment.sync/payment.saved.forget/payment.capture/payment.void
+	// by `payment_gateway`, and
 	// payment.session.confirm/payment.session.updated/payment.refund.updated/payment.dispute.updated by
 	// `payment_session`, privacy.export/privacy.erase by `personal_data`, trash.restore/trash.purge by `trash` — and
 	// `hooks` does not admit them. account.*

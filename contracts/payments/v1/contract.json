@@ -285,6 +285,24 @@
                   "string"
                 ]
               },
+              "capture": {
+                "type": "string"
+              },
+              "authorized_minor": {
+                "type": "integer"
+              },
+              "authorization_expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "capture_requested_minor": {
+                "type": "integer"
+              },
+              "void_requested": {
+                "type": "boolean"
+              },
               "refunded_minor": {
                 "type": "integer"
               },
@@ -306,6 +324,7 @@
               "status",
               "return_url",
               "cancel_url",
+              "capture",
               "refunded_minor",
               "created_at",
               "updated_at"
@@ -632,6 +651,24 @@
                   "string"
                 ]
               },
+              "capture": {
+                "type": "string"
+              },
+              "authorized_minor": {
+                "type": "integer"
+              },
+              "authorization_expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "capture_requested_minor": {
+                "type": "integer"
+              },
+              "void_requested": {
+                "type": "boolean"
+              },
               "refunded_minor": {
                 "type": "integer"
               },
@@ -653,6 +690,7 @@
               "status",
               "return_url",
               "cancel_url",
+              "capture",
               "refunded_minor",
               "created_at",
               "updated_at"
@@ -883,6 +921,24 @@
                   "string"
                 ]
               },
+              "capture": {
+                "type": "string"
+              },
+              "authorized_minor": {
+                "type": "integer"
+              },
+              "authorization_expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "capture_requested_minor": {
+                "type": "integer"
+              },
+              "void_requested": {
+                "type": "boolean"
+              },
               "refunded_minor": {
                 "type": "integer"
               },
@@ -904,6 +960,7 @@
               "status",
               "return_url",
               "cancel_url",
+              "capture",
               "refunded_minor",
               "created_at",
               "updated_at"
@@ -941,6 +998,556 @@
       },
       "output": {
         "type": "object"
+      }
+    },
+    {
+      "name": "capture",
+      "hook": "payment.capture",
+      "answered_by": "provider",
+      "description": "Take money the processor holds for a session, once, under the key Core gives; an error means its fate is unknown, so Core asks again with the same key.",
+      "budget_ms": 15000,
+      "retry_class": "answer",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reaches payments through Core's own payment tools (payments_list, payment_detail, payment_decide, payment_methods, payment_method_set); this hook is Core-to-plugin plumbing beneath them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "consumer": {
+                "type": "string"
+              },
+              "gateway": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "reference": {
+                "type": "string"
+              },
+              "amount_minor": {
+                "type": "integer"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "test": {
+                "type": "boolean"
+              },
+              "description": {
+                "type": "string"
+              },
+              "return_url": {
+                "type": "string"
+              },
+              "cancel_url": {
+                "type": "string"
+              },
+              "redirect_url": {
+                "type": "string"
+              },
+              "provider_ref": {
+                "type": "string"
+              },
+              "failure_code": {
+                "type": "string"
+              },
+              "failure_message": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "locale": {
+                "type": "string"
+              },
+              "supports": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "fulfilment": {
+                "type": "string"
+              },
+              "billing_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "shipping_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "save": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "purpose": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "amount_minor": {
+                    "type": "integer"
+                  },
+                  "amount_rule": {
+                    "type": "string"
+                  },
+                  "max_amount_minor": {
+                    "type": "integer"
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "interval": {
+                    "type": "string"
+                  },
+                  "interval_count": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "purpose",
+                  "text",
+                  "currency"
+                ]
+              },
+              "saved_method": {
+                "type": "string"
+              },
+              "charged_saved": {
+                "type": "string"
+              },
+              "instrument": {
+                "type": "string"
+              },
+              "resolved_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "capture": {
+                "type": "string"
+              },
+              "authorized_minor": {
+                "type": "integer"
+              },
+              "authorization_expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "capture_requested_minor": {
+                "type": "integer"
+              },
+              "void_requested": {
+                "type": "boolean"
+              },
+              "refunded_minor": {
+                "type": "integer"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "consumer",
+              "gateway",
+              "method",
+              "reference",
+              "amount_minor",
+              "currency",
+              "status",
+              "return_url",
+              "cancel_url",
+              "capture",
+              "refunded_minor",
+              "created_at",
+              "updated_at"
+            ]
+          },
+          "amount_minor": {
+            "type": "integer"
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "session",
+          "amount_minor",
+          "idempotency_key"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "amount_minor": {
+            "type": "integer"
+          },
+          "provider_ref": {
+            "type": "string"
+          },
+          "failure_code": {
+            "type": "string"
+          },
+          "failure_message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    },
+    {
+      "name": "void",
+      "hook": "payment.void",
+      "answered_by": "provider",
+      "description": "Let go of money the processor holds for a session, under the key Core gives; an error means it may still be held, so Core asks again.",
+      "budget_ms": 15000,
+      "retry_class": "answer",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reaches payments through Core's own payment tools (payments_list, payment_detail, payment_decide, payment_methods, payment_method_set); this hook is Core-to-plugin plumbing beneath them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "consumer": {
+                "type": "string"
+              },
+              "gateway": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "reference": {
+                "type": "string"
+              },
+              "amount_minor": {
+                "type": "integer"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "test": {
+                "type": "boolean"
+              },
+              "description": {
+                "type": "string"
+              },
+              "return_url": {
+                "type": "string"
+              },
+              "cancel_url": {
+                "type": "string"
+              },
+              "redirect_url": {
+                "type": "string"
+              },
+              "provider_ref": {
+                "type": "string"
+              },
+              "failure_code": {
+                "type": "string"
+              },
+              "failure_message": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "locale": {
+                "type": "string"
+              },
+              "supports": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "string"
+                }
+              },
+              "fulfilment": {
+                "type": "string"
+              },
+              "billing_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "shipping_address": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "line1": {
+                    "type": "string"
+                  },
+                  "line2": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "postal_code": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  },
+                  "country": {
+                    "type": "string"
+                  }
+                }
+              },
+              "expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "save": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "purpose": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "amount_minor": {
+                    "type": "integer"
+                  },
+                  "amount_rule": {
+                    "type": "string"
+                  },
+                  "max_amount_minor": {
+                    "type": "integer"
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "interval": {
+                    "type": "string"
+                  },
+                  "interval_count": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "purpose",
+                  "text",
+                  "currency"
+                ]
+              },
+              "saved_method": {
+                "type": "string"
+              },
+              "charged_saved": {
+                "type": "string"
+              },
+              "instrument": {
+                "type": "string"
+              },
+              "resolved_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "capture": {
+                "type": "string"
+              },
+              "authorized_minor": {
+                "type": "integer"
+              },
+              "authorization_expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "capture_requested_minor": {
+                "type": "integer"
+              },
+              "void_requested": {
+                "type": "boolean"
+              },
+              "refunded_minor": {
+                "type": "integer"
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "consumer",
+              "gateway",
+              "method",
+              "reference",
+              "amount_minor",
+              "currency",
+              "status",
+              "return_url",
+              "cancel_url",
+              "capture",
+              "refunded_minor",
+              "created_at",
+              "updated_at"
+            ]
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "session",
+          "idempotency_key"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "amount_minor": {
+            "type": "integer"
+          },
+          "provider_ref": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ]
       }
     },
     {
@@ -1140,6 +1747,24 @@
                   "string"
                 ]
               },
+              "capture": {
+                "type": "string"
+              },
+              "authorized_minor": {
+                "type": "integer"
+              },
+              "authorization_expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "capture_requested_minor": {
+                "type": "integer"
+              },
+              "void_requested": {
+                "type": "boolean"
+              },
               "refunded_minor": {
                 "type": "integer"
               },
@@ -1161,6 +1786,7 @@
               "status",
               "return_url",
               "cancel_url",
+              "capture",
               "refunded_minor",
               "created_at",
               "updated_at"
@@ -1383,6 +2009,24 @@
                   "string"
                 ]
               },
+              "capture": {
+                "type": "string"
+              },
+              "authorized_minor": {
+                "type": "integer"
+              },
+              "authorization_expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "capture_requested_minor": {
+                "type": "integer"
+              },
+              "void_requested": {
+                "type": "boolean"
+              },
               "refunded_minor": {
                 "type": "integer"
               },
@@ -1404,6 +2048,7 @@
               "status",
               "return_url",
               "cancel_url",
+              "capture",
               "refunded_minor",
               "created_at",
               "updated_at"
@@ -1671,6 +2316,24 @@
                   "string"
                 ]
               },
+              "capture": {
+                "type": "string"
+              },
+              "authorized_minor": {
+                "type": "integer"
+              },
+              "authorization_expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "capture_requested_minor": {
+                "type": "integer"
+              },
+              "void_requested": {
+                "type": "boolean"
+              },
               "refunded_minor": {
                 "type": "integer"
               },
@@ -1692,6 +2355,7 @@
               "status",
               "return_url",
               "cancel_url",
+              "capture",
               "refunded_minor",
               "created_at",
               "updated_at"
@@ -1985,6 +2649,24 @@
                   "string"
                 ]
               },
+              "capture": {
+                "type": "string"
+              },
+              "authorized_minor": {
+                "type": "integer"
+              },
+              "authorization_expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "capture_requested_minor": {
+                "type": "integer"
+              },
+              "void_requested": {
+                "type": "boolean"
+              },
               "refunded_minor": {
                 "type": "integer"
               },
@@ -2006,6 +2688,7 @@
               "status",
               "return_url",
               "cancel_url",
+              "capture",
               "refunded_minor",
               "created_at",
               "updated_at"
