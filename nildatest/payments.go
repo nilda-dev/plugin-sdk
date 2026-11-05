@@ -592,7 +592,7 @@ func (p *Payments) methods(ctx context.Context, currency string) ([]nilda.Paymen
 			if takes(m, code) {
 				opts = append(opts, nilda.PaymentOption{Gateway: key, Method: m.Key, Label: m.Label,
 					Description: m.Description, Refunds: m.Refunds, Test: m.Test, Supports: nilda.SupportsOf(m),
-					CredentialTypes: m.CredentialTypes})
+					CredentialTypes: m.CredentialTypes, Readers: m.Readers})
 			}
 		}
 	}
@@ -695,6 +695,11 @@ func (p *Payments) createSession(ctx context.Context, consumer string, params ni
 	if err := mayKeep(m, params); err != nil {
 		return nilda.PaymentSession{}, err
 	}
+	// In person only through a method that takes cards at a reader, at one of its readers; and such a method takes no
+	// session without one, as Core refuses (v0.58.0, door D5).
+	if err := atReader(m, params); err != nil {
+		return nilda.PaymentSession{}, err
+	}
 	// A hold only through a method that can hold, as Core refuses (v0.58.0).
 	capture := nilda.CaptureAutomatic
 	if params.Capture == nilda.CaptureManual {
@@ -713,7 +718,7 @@ func (p *Payments) createSession(ctx context.Context, consumer string, params ni
 		ReturnURL: params.ReturnURL, CancelURL: params.CancelURL, Email: params.Email, Locale: params.Locale,
 		Supports: nilda.SupportsOf(m), Fulfilment: params.Fulfilment,
 		BillingAddress: params.BillingAddress, ShippingAddress: params.ShippingAddress, Save: params.Save,
-		Capture: capture, ExpiresAt: &expires, CreatedAt: now, UpdatedAt: now,
+		Reader: params.Reader, Capture: capture, ExpiresAt: &expires, CreatedAt: now, UpdatedAt: now,
 	}
 	if s.CancelURL == "" {
 		s.CancelURL = s.ReturnURL
@@ -730,6 +735,18 @@ func (p *Payments) createSession(ctx context.Context, consumer string, params ni
 	if s.Status != nilda.PaymentCreated {
 		// The gateway reported an outcome before its start answer arrived — its processor settled at once.
 		// That report is the truth; the start answer describes a moment already past.
+		return *s, nil
+	}
+	if err != nil && s.Reader != "" {
+		// The amount may be on the reader, and the payer's card on it: held pending and looked up (Sync), as Core does —
+		// never closed as "nothing was charged", which would send the till to take the money twice.
+		p.move(s, nilda.PaymentPending)
+		return *s, nil
+	}
+	if err == nil && s.Reader != "" && res.Status == nilda.PaymentRedirected {
+		// The payer is at a reader: a gateway that answers with a page sent nothing to it.
+		s.FailureCode, s.FailureMessage = nilda.PaymentFailInvalidRequest, "the payer is at a card reader, not on a page; nothing was charged"
+		p.move(s, nilda.PaymentRejected)
 		return *s, nil
 	}
 	if err != nil {
@@ -989,7 +1006,7 @@ func (p *Payments) report(ctx context.Context, caller, id, verb string, body []b
 		s.FailureCode, s.FailureMessage = r.FailureCode, r.FailureMessage
 		// A hold whose void was asked that the processor reports cancelled or lapsed IS that void, whose answer was lost:
 		// it ends as the void's answer ends it, and the void is no longer owed (Core's Reject).
-		if s.Status == nilda.PaymentAuthorized && s.VoidRequested &&
+		if voidable(*s) && s.VoidRequested &&
 			(r.FailureCode == nilda.PaymentFailCancelled || r.FailureCode == nilda.PaymentFailExpired) {
 			s.FailureCode, s.FailureMessage, s.VoidRequested = nilda.PaymentFailVoided, "", false
 			delete(p.holdDue, id)
@@ -1464,6 +1481,9 @@ type StubGateway struct {
 	SavedStart   nilda.PaymentStartResult
 	SavedCharged []string
 	Forgotten    []string
+	// SavedSessions are the sessions those charges were for, in order — what the gateway was told of each, its
+	// OffSession included (v0.58.0).
+	SavedSessions []nilda.PaymentSession
 	// CaptureResult answers every payment.capture (PaymentCapturer) — the zero value says the processor took what was
 	// asked — unless CaptureErr is set: no answer, as a processor that could not be reached. VoidResult and VoidErr
 	// likewise for payment.void (the zero value: released). Captured and Voided record what it was asked, in order.
@@ -1478,6 +1498,7 @@ type StubGateway struct {
 // StartPaymentWithSaved answers with SavedStart and records the token.
 func (g *StubGateway) StartPaymentWithSaved(_ context.Context, s nilda.PaymentSession, token string) (nilda.PaymentStartResult, error) {
 	g.SavedCharged = append(g.SavedCharged, token)
+	g.SavedSessions = append(g.SavedSessions, s)
 	if g.SavedStart.Status == "" {
 		return nilda.PaymentStartResult{Status: nilda.PaymentResolved, ProviderRef: "stub_" + s.ID}, nil
 	}

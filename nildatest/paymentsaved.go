@@ -104,7 +104,8 @@ func (p *Payments) chargeSaved(ctx context.Context, consumer string, params nild
 		ID: newID(), Consumer: consumer, Gateway: kept.Gateway, Method: kept.Method, Reference: params.Reference,
 		AmountMinor: params.AmountMinor, Currency: currency, Status: nilda.PaymentCreated, Test: kept.Test,
 		Description: params.Description, Email: kept.Email, Fulfilment: params.Fulfilment,
-		ShippingAddress: params.ShippingAddress, ChargedSaved: kept.ID, Supports: nilda.SupportsOf(offered),
+		ShippingAddress: params.ShippingAddress, ChargedSaved: kept.ID, OffSession: nilda.OffSessionOf(kept.Mandate),
+		Supports:  nilda.SupportsOf(offered),
 		ExpiresAt: &expires, CreatedAt: now, UpdatedAt: now,
 	}
 	p.mu.Lock()

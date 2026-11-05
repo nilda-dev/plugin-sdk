@@ -86,7 +86,8 @@ func (p *Payments) capture(ctx context.Context, caller, id string, amount int64)
 	return p.askHold(ctx, id)
 }
 
-// void is Core's Void: the consumer's own authorized session's hold let go.
+// void is Core's Void: the consumer's own authorized session's hold let go — or its payment still waiting at a card
+// reader called off (v0.58.0, door D5).
 func (p *Payments) void(ctx context.Context, caller, id string) (nilda.PaymentSession, error) {
 	if err := p.may(caller, "payment_session"); err != nil {
 		return nilda.PaymentSession{}, err
@@ -105,7 +106,7 @@ func (p *Payments) void(ctx context.Context, caller, id string) (nilda.PaymentSe
 		p.mu.Unlock()
 		return nilda.PaymentSession{}, &apiError{http.StatusConflict, "CONFLICT", "this payment's capture was asked; it cannot be voided"}
 	case s.VoidRequested:
-	case s.Status != nilda.PaymentAuthorized:
+	case !voidable(*s):
 		p.mu.Unlock()
 		return nilda.PaymentSession{}, conflict(s)
 	default:

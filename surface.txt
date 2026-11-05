@@ -377,6 +377,8 @@ const MetricNumber
 const MetricPercent
 const MetricText
 const MinTrashRetention
+const OffSessionRecurring
+const OffSessionUnscheduled
 const OrderGet
 const OrderStatusCancelled
 const OrderStatusCompleted
@@ -1165,6 +1167,7 @@ field PaymentMethod.Currencies []string json:currencies
 field PaymentMethod.Description string json:description
 field PaymentMethod.Key string json:key
 field PaymentMethod.Label string json:label
+field PaymentMethod.Readers []PaymentReader json:readers
 field PaymentMethod.Refunds bool json:refunds
 field PaymentMethod.Supports []string json:supports
 field PaymentMethod.Test bool json:test
@@ -1174,10 +1177,13 @@ field PaymentOption.Description string json:description
 field PaymentOption.Gateway string json:gateway
 field PaymentOption.Label string json:label
 field PaymentOption.Method string json:method
+field PaymentOption.Readers []PaymentReader json:readers
 field PaymentOption.Refunds bool json:refunds
 field PaymentOption.Supports []string json:supports
 field PaymentOption.Test bool json:test
 field PaymentOption.TestHint map[string]string json:test_hint
+field PaymentReader.ID string json:id
+field PaymentReader.Label string json:label
 field PaymentRefund.AmountMinor int64 json:amount_minor
 field PaymentRefund.CreatedAt time.Time json:created_at
 field PaymentRefund.Currency string json:currency
@@ -1235,7 +1241,9 @@ field PaymentSession.ID string json:id
 field PaymentSession.Instrument string json:instrument
 field PaymentSession.Locale string json:locale
 field PaymentSession.Method string json:method
+field PaymentSession.OffSession string json:off_session
 field PaymentSession.ProviderRef string json:provider_ref
+field PaymentSession.Reader string json:reader
 field PaymentSession.RedirectURL string json:redirect_url
 field PaymentSession.Reference string json:reference
 field PaymentSession.RefundedMinor int64 json:refunded_minor
@@ -1261,6 +1269,7 @@ field PaymentSessionParams.Fulfilment string json:fulfilment
 field PaymentSessionParams.Gateway string json:gateway
 field PaymentSessionParams.Locale string json:locale
 field PaymentSessionParams.Method string json:method
+field PaymentSessionParams.Reader string json:reader
 field PaymentSessionParams.Reference string json:reference
 field PaymentSessionParams.ReturnURL string json:return_url
 field PaymentSessionParams.Save *PaymentMandate json:save
@@ -1709,6 +1718,7 @@ func NewTransport(http.RoundTripper) (http.RoundTripper)
 func NormalizePrivacyEmail(string) (string)
 func NormalizePrivacyPhone(string) (string)
 func ObjectSchema(map[string]any, ...string) (json.RawMessage)
+func OffSessionOf(PaymentMandate) (string)
 func OrdersMethods(OrdersProvider) ([]ServiceMethod)
 func ParseContract([]byte) (ServiceContract, error)
 func ParseMinor(string, string) (int64, error)
@@ -2149,6 +2159,7 @@ type PaymentGatewayState
 type PaymentMandate
 type PaymentMethod
 type PaymentOption
+type PaymentReader
 type PaymentRefund
 type PaymentRefundParams
 type PaymentRefundRequest

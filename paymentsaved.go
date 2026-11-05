@@ -46,6 +46,30 @@ const (
 	MandateUpdate       = "update"       // the payer replaces the method a mandate already covers
 )
 
+// WHICH KIND OF MERCHANT-INITIATED CHARGE a kept method's charge is (PaymentSession.OffSession, v0.58.0; commerce's
+// door D5). The card schemes' stored-credential rules name two kinds a merchant starts with the payer absent, and each
+// processor asks which one it is: Stripe's off_session takes "recurring" or "one_off" (docs.stripe.com/api/
+// payment_intents/create, read 2026-11-05), PayPal's stored_credential.payment_type RECURRING or UNSCHEDULED, Adyen's
+// recurringProcessingModel Subscription or UnscheduledCardOnFile. Both are out of strong customer authentication's
+// scope when they stay inside the mandate the payer authenticated (PSD2; EBA Q&A 2018_4031): the processor flags them
+// so, and the payer's bank may still ask for the payer (PaymentFailAuthenticationRequired).
+const (
+	// OffSessionRecurring — on a schedule the payer agreed to: a subscription's renewal. Stripe: off_session=recurring.
+	OffSessionRecurring = "recurring"
+	// OffSessionUnscheduled — at a moment the agreement names an event for, not a date: a pre-order charged when it
+	// ships. Stripe: off_session=one_off.
+	OffSessionUnscheduled = "unscheduled"
+)
+
+// OffSessionOf is the kind of every charge under m: recurring when the mandate names an interval, unscheduled when it
+// names none. Core stamps it on each charge's session from the mandate it keeps; no consumer sets it.
+func OffSessionOf(m PaymentMandate) string {
+	if m.Interval != "" {
+		return OffSessionRecurring
+	}
+	return OffSessionUnscheduled
+}
+
 // Mandate intervals: PaymentMandate.Interval.
 const (
 	IntervalDay   = "day"
@@ -222,7 +246,9 @@ func (p PaymentChargeParams) Validate() error {
 // with Save it asks the processor to keep the method — the payer is there, and their bank authenticates them — and
 // reports it with the resolution (PaymentResolution.Saved). Then:
 //
-//   - StartPaymentWithSaved charges a kept method with the payer absent: a merchant-initiated charge. Answer resolved
+//   - StartPaymentWithSaved charges a kept method with the payer absent: a merchant-initiated charge, of the kind
+//     s.OffSession names (OffSessionRecurring or OffSessionUnscheduled) — tell the processor so (Stripe: off_session
+//     "recurring" or "one_off"), which is how it flags the charge out of SCA's scope. Answer resolved
 //     when the processor took the money, pending when it is deciding, rejected when it will not —
 //     PaymentFailAuthenticationRequired when the bank wants the payer present, declined for a card that is refused.
 //     There is no page to redirect to. Never store, log or echo the token. A charge whose answer you did not get may

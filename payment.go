@@ -191,6 +191,10 @@ type PaymentMethod struct {
 	// CredentialTypes are the delegated payment credentials this method charges on the spot (CredentialStripeSPT):
 	// an AI agent paying for its buyer. Empty: none — the payer always goes to the processor's page.
 	CredentialTypes []string `json:"credential_types,omitempty"`
+	// Readers are the card readers a method that lists SupportCardPresent drives (v0.58.0, EXPERIMENTAL,
+	// paymentinperson.go): the ones its owner registered, read from the gateway's settings. Such a method lists at least
+	// one; any other lists none.
+	Readers []PaymentReader `json:"readers,omitempty"`
 }
 
 // PaymentOption is one method a payer can choose, as a CONSUMER sees it (Payments.Methods): the gateway's
@@ -208,6 +212,8 @@ type PaymentOption struct {
 	Supports []string `json:"supports,omitempty"`
 	// CredentialTypes are the delegated credentials the method accepts (PaymentMethod.CredentialTypes).
 	CredentialTypes []string `json:"credential_types,omitempty"`
+	// Readers are the method's card readers (PaymentMethod.Readers), for a till to name one (EXPERIMENTAL).
+	Readers []PaymentReader `json:"readers,omitempty"`
 }
 
 // PaymentSession is one payment, as Core holds it. Core fills every field; the gateway and the consumer read.
@@ -250,6 +256,9 @@ type PaymentSession struct {
 	Fulfilment      string          `json:"fulfilment,omitempty"`
 	BillingAddress  *PaymentAddress `json:"billing_address,omitempty"`
 	ShippingAddress *PaymentAddress `json:"shipping_address,omitempty"`
+	// Reader is the card reader an in-person session was sent to (PaymentSessionParams.Reader, v0.58.0, EXPERIMENTAL);
+	// "" for a session paid online or with the payer absent.
+	Reader string `json:"reader,omitempty"`
 	// ExpiresAt is when Core closes a session nothing decided: what the gateway reported at start, or Core's
 	// own default.
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
@@ -259,6 +268,10 @@ type PaymentSession struct {
 	Save         *PaymentMandate `json:"save,omitempty"`
 	SavedMethod  string          `json:"saved_method,omitempty"`
 	ChargedSaved string          `json:"charged_saved,omitempty"`
+	// OffSession is the kind of merchant-initiated charge a ChargedSaved session is — OffSessionRecurring or
+	// OffSessionUnscheduled, from the mandate (OffSessionOf) — set by Core, never by a consumer; "" when the payer is
+	// present (v0.58.0, door D5). A gateway tells its processor (Stripe: off_session "recurring" or "one_off").
+	OffSession string `json:"off_session,omitempty"`
 	// Instrument is what the payer paid with (the Instrument constants), as the gateway reported it with the
 	// resolution; "" until resolved or when the gateway did not say. ResolvedAt is when the session first resolved —
 	// set once, never moved by a repeated report. v0.39.0.
@@ -315,7 +328,7 @@ type PaymentSessionParams struct {
 	Description string `json:"description,omitempty"`
 	// ReturnURL is required, CancelURL optional (Core uses ReturnURL for both): absolute URLs on THIS site.
 	// Core refuses one on another host, because a payment flow that returns the payer anywhere is an open
-	// redirect with a bank's page in the middle of it.
+	// redirect with a bank's page in the middle of it. An in-person session (Reader) needs neither.
 	ReturnURL string `json:"return_url"`
 	CancelURL string `json:"cancel_url,omitempty"`
 	// Email and Locale are the payer's, if you know them (an address, a BCP 47 tag like "de" or "pt-BR").
@@ -326,6 +339,11 @@ type PaymentSessionParams struct {
 	Fulfilment      string          `json:"fulfilment,omitempty"`
 	BillingAddress  *PaymentAddress `json:"billing_address,omitempty"`
 	ShippingAddress *PaymentAddress `json:"shipping_address,omitempty"`
+	// Reader makes this an IN-PERSON session (v0.58.0, EXPERIMENTAL, paymentinperson.go): the id of one of the method's
+	// Readers, where the gateway sends the amount for the payer to tap or insert a card. The method must list
+	// SupportCardPresent — and a method that does takes no session without a reader. No return address, no Save, no
+	// Credential.
+	Reader string `json:"reader,omitempty"`
 	// Credential is a delegated payment token an AI agent carries for its buyer (v0.20.0): the method must list its
 	// type in CredentialTypes, and the gateway charges it on the spot. Core hands it to the gateway once and keeps
 	// nothing of it. Send it only for an agent the site's owner lets buy (AgentBuy).
@@ -375,7 +393,12 @@ func (p PaymentSessionParams) Validate() error {
 			return fmt.Errorf("nilda: a delegated credential is charged once; it is not a method to keep")
 		}
 	}
-	if err := validPayerURL("return_url", p.ReturnURL, true); err != nil {
+	if p.Reader != "" {
+		if err := validInPerson(p); err != nil {
+			return err
+		}
+	}
+	if err := validPayerURL("return_url", p.ReturnURL, p.Reader == ""); err != nil {
 		return err
 	}
 	if err := validPayerURL("cancel_url", p.CancelURL, false); err != nil {
@@ -661,6 +684,12 @@ func DispatchPaymentGatewayHook(ctx context.Context, _ *Core, g PaymentGateway, 
 				if Supports(m.Supports, SupportManualCapture) {
 					return nil, true, fmt.Errorf("nilda: payment.describe: method %q supports %s, and this gateway "+
 						"does not implement PaymentCapturer — nothing could take what it holds", m.Key, SupportManualCapture)
+				}
+				// The till's cancel is a void: a payment left waiting at a reader must be one the gateway can call off.
+				if Supports(m.Supports, SupportCardPresent) {
+					return nil, true, fmt.Errorf("nilda: payment.describe: method %q supports %s, and this gateway "+
+						"does not implement PaymentCapturer — nothing could call off a payment waiting at a reader", m.Key,
+						SupportCardPresent)
 				}
 			}
 		}
@@ -958,6 +987,9 @@ func validMethods(methods []PaymentMethod) error {
 			if _, ok := MinorUnits(c); !ok {
 				return fmt.Errorf("nilda: payment.describe: method %q takes %q, which is not a currency ISO 4217 prices", m.Key, c)
 			}
+		}
+		if err := validReaders(m); err != nil {
+			return err
 		}
 	}
 	return nil
