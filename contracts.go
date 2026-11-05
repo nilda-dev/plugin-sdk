@@ -39,7 +39,20 @@ type ServiceContract struct {
 	Description string `json:"description"`
 	// Methods are its operations, in the file's order.
 	Methods []ContractMethod `json:"methods"`
+	// Status is "experimental" for a contract whose shape may still change: it is published and Core relays it, but
+	// it is outside the v1 no-breaking promise until its first plugin has shipped green on it (DR-24, docs/
+	// WRITE_COMMANDS.md §5). Empty or "stable" is a contract inside the promise. From v0.58.0.
+	Status string `json:"status,omitempty"`
 }
+
+// Contract statuses (ServiceContract.Status).
+const (
+	ContractStable       = "stable"
+	ContractExperimental = "experimental"
+)
+
+// Experimental reports whether the contract is outside the v1 no-breaking promise.
+func (c ServiceContract) Experimental() bool { return c.Status == ContractExperimental }
 
 // ContractMethod is one operation of a contract.
 type ContractMethod struct {
@@ -74,8 +87,42 @@ type ContractMethod struct {
 	// Input and Output are the JSON Schemas (2020-12) of the method's request and answer, each an object.
 	Input  json.RawMessage `json:"input"`
 	Output json.RawMessage `json:"output"`
+	// Write marks a WRITE COMMAND: a method by which a plugin changes a record the provider keeps (docs/
+	// WRITE_COMMANDS.md). Nil for a read or a method of one of Core's own hooks. From v0.58.0.
+	Write *ContractWrite `json:"write,omitempty"`
 
 	in, out *jsonschema.Resolved
+}
+
+// ContractWrite is what a write command promises beyond an ordinary method (docs/WRITE_COMMANDS.md §2):
+//
+//   - it is idempotent by the call's idempotency key (ServiceCallOptions.IdempotencyKey, CallOf on the provider's
+//     side), which the provider keeps under a unique index — a second call with the key answers the first one's
+//     result with already: true, for as long as the record exists, not Core's 24-hour window;
+//   - it never runs without a key (the provider refuses), and its fallback is "block": a write is never skipped;
+//   - its answer names the record (record_id) and says whether this call made it (already);
+//   - it can be taken back by its Undo method, which takes the record_id, and is itself a write command;
+//   - the provider keeps which plugin wrote it (CallOf(ctx).Caller) on the record, and announces it with Emits.
+type ContractWrite struct {
+	// Record is the kind of record written, e.g. "order.attribute".
+	Record string `json:"record"`
+	// Undo names the contract's method that takes this write back. Required, except on an undo method itself.
+	Undo string `json:"undo,omitempty"`
+	// Emits is the event type the provider emits once the write is committed, e.g. "shop.attribute.set".
+	Emits string `json:"emits"`
+}
+
+// WriteAnswer is the part every write command's answer carries (ContractWrite).
+type WriteAnswer struct {
+	// RecordID is the record written, the one the undo method takes.
+	RecordID string `json:"record_id"`
+	// Already is true when the idempotency key was used before: nothing was written now, and RecordID is the first call's.
+	Already bool `json:"already"`
+}
+
+// UndoInput is the part every undo method's request carries.
+type UndoInput struct {
+	RecordID string `json:"record_id"`
 }
 
 // The values each field may take.
@@ -226,6 +273,9 @@ func ParseContract(raw []byte) (ServiceContract, error) {
 	if len(c.Methods) == 0 {
 		return c, fmt.Errorf("%s has no methods", c.Name)
 	}
+	if c.Status != "" && c.Status != ContractStable && c.Status != ContractExperimental {
+		return c, fmt.Errorf("%s has status %q; it is stable (or empty) or experimental", c.Name, c.Status)
+	}
 	seen := map[string]bool{}
 	for i := range c.Methods {
 		m := &c.Methods[i]
@@ -237,7 +287,80 @@ func ParseContract(raw []byte) (ServiceContract, error) {
 		}
 		seen[m.Name] = true
 	}
+	if err := checkWrites(c); err != nil {
+		return c, fmt.Errorf("%s: %w", c.Name, err)
+	}
 	return c, nil
+}
+
+// checkWrites holds every write command of c to docs/WRITE_COMMANDS.md §2.
+func checkWrites(c ServiceContract) error {
+	undoes := map[string]bool{}
+	for _, m := range c.Methods {
+		if m.Write != nil && m.Write.Undo != "" {
+			undoes[m.Write.Undo] = true
+		}
+	}
+	for _, m := range c.Methods {
+		w := m.Write
+		if w == nil {
+			continue
+		}
+		switch {
+		case !contractMethodRe.MatchString(w.Record):
+			return fmt.Errorf("write command %q: record %q is not lower-case words joined by dots", m.Name, w.Record)
+		case m.Hook != "":
+			return fmt.Errorf("write command %q rides a hook of Core's; a write command is relayed by the service desk", m.Name)
+		case !m.Idempotent:
+			return fmt.Errorf("write command %q is not idempotent; a write is one write per idempotency key", m.Name)
+		case m.Fallback != "block":
+			return fmt.Errorf("write command %q has fallback %q; a write is never skipped or answered from a cache, so it blocks", m.Name, m.Fallback)
+		case m.Agent == "read":
+			return fmt.Errorf("write command %q is a read tool for the assistant; it is write, destructive or none", m.Name)
+		case !contractMethodRe.MatchString(w.Emits):
+			return fmt.Errorf("write command %q emits %q, which is not an event type of lower-case words joined by dots", m.Name, w.Emits)
+		}
+		if !requiresProps(m.Output, "record_id", "already") {
+			return fmt.Errorf("write command %q: its answer must require record_id and already (nilda.WriteAnswer)", m.Name)
+		}
+		if undoes[m.Name] {
+			if w.Undo != "" {
+				return fmt.Errorf("write command %q is an undo and names an undo of its own", m.Name)
+			}
+			if !requiresProps(m.Input, "record_id") {
+				return fmt.Errorf("undo %q: its request must require record_id (nilda.UndoInput)", m.Name)
+			}
+			continue
+		}
+		if w.Undo == "" {
+			return fmt.Errorf("write command %q names no undo method; every write a plugin makes can be taken back", m.Name)
+		}
+		u, ok := c.Method(w.Undo)
+		if !ok || u.Write == nil || u.Write.Record != w.Record {
+			return fmt.Errorf("write command %q: its undo %q is not a write command of the same record in this contract", m.Name, w.Undo)
+		}
+	}
+	return nil
+}
+
+// requiresProps reports whether an object schema lists every name in its required properties.
+func requiresProps(raw json.RawMessage, names ...string) bool {
+	var s struct {
+		Required []string `json:"required"`
+	}
+	if json.Unmarshal(raw, &s) != nil {
+		return false
+	}
+	for _, n := range names {
+		found := false
+		for _, r := range s.Required {
+			found = found || r == n
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
 }
 
 func checkMethod(m *ContractMethod) error {

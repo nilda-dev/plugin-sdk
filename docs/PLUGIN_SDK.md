@@ -2938,6 +2938,13 @@ and its `ServiceMiss`es. `ParseContract` reads and checks a contract file this S
 the assistant is the tool `ContractToolName(contract, method)` — `shipping.carrier.v1.rates`; a contract's
 `AssistantTools` lists them.
 
+**Write commands and experimental contracts** (v0.58.0, `docs/WRITE_COMMANDS.md`). A method by which a plugin changes a
+record its provider keeps carries a `write` part — `ContractWrite{Record, Undo, Emits}` — and keeps the write rules: one
+write per idempotency key for as long as the record lives, never skipped, its answer a `WriteAnswer` (`record_id`,
+`already`), an undo method whose request is an `UndoInput` (`record_id`), the writing plugin kept on the record, and an
+event once committed. A contract with `"status": "experimental"` (`ServiceContract.Experimental`, `ContractExperimental`,
+`ContractStable`) is published but outside the v1 no-breaking promise until its first plugin ships green on it.
+
 ### Shipping carriers (`shipping.carrier/v1`)
 
 The first contract on the desk: a carrier plugin — the merchant's own Sendcloud, Shippo or carrier account — and the
