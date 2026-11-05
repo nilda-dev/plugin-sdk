@@ -8,6 +8,22 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.58.0 — unreleased (write commands and experimental contracts — the shop's door D0)
+
+- `ServiceContract.Status` (`"status"`): `"experimental"` marks a published contract outside the v1 no-breaking promise
+  until its first Nilda plugin ships green on it; empty or `"stable"` is inside it. `ServiceContract.Experimental()`,
+  `ContractStable`, `ContractExperimental`. `ParseContract` refuses any other status.
+- `ContractMethod.Write` (`"write"`, `ContractWrite{Record, Undo, Emits}`): a WRITE COMMAND — a method by which a plugin
+  changes a record its provider keeps. `ParseContract` holds it to `docs/WRITE_COMMANDS.md` §2: idempotent, fallback
+  `block`, never a read tool, never one of Core's hooks, its answer requiring `record_id` and `already`
+  (`WriteAnswer`), an `undo` that is a write command of the same record kind whose request requires `record_id`
+  (`UndoInput`), and the event it emits once committed.
+- `docs/WRITE_COMMANDS.md`: the pattern every write any contract carries keeps — the idempotency key stored by the
+  provider under a unique index for as long as the record lives, the writing plugin kept on the record, the undo, the
+  event back, compensation instead of transactions across plugins.
+- Additive: no contract shipped before carries either field, so each loads as before; an older Core that reads a
+  contract file with them is built on an older SDK and never sees them.
+
 ## v0.57.0 — 2026-11-04 (privacy requests by phone)
 
 - `PrivacyRequest.Phones` (`"phones"`, omitted when empty): numbers an operator holding `privacy.manage` typed for a

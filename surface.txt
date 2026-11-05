@@ -113,10 +113,12 @@ const ColumnText
 const CommerceOutOfStockCode
 const CommerceRedirectHeader
 const CommerceSignInHeader
+const ContractExperimental
 const ContractShippingCarrier
 const ContractShopCatalog
 const ContractShopDeliverables
 const ContractShopOrders
+const ContractStable
 const CredentialStripeSPT
 const DeliverableKey
 const DeliverableLink
@@ -759,6 +761,10 @@ field ContractMethod.Input json.RawMessage json:input
 field ContractMethod.Name string json:name
 field ContractMethod.Output json.RawMessage json:output
 field ContractMethod.RetryClass string json:retry_class
+field ContractMethod.Write *ContractWrite json:write
+field ContractWrite.Emits string json:emits
+field ContractWrite.Record string json:record
+field ContractWrite.Undo string json:undo
 field Core.DatastoreDSN string
 field Core.Granted []string
 field Core.KVNamespace string
@@ -1408,6 +1414,7 @@ field ServiceCallOptions.Provider string
 field ServiceContract.Description string json:description
 field ServiceContract.Methods []ContractMethod json:methods
 field ServiceContract.Name string json:name
+field ServiceContract.Status string json:status
 field ServiceMethod.Contract string
 field ServiceMethod.Handle func(ctx context.Context, input json.RawMessage) (any, error)
 field ServiceMethod.Method string
@@ -1550,6 +1557,7 @@ field TrashItem.Kind string
 field TrashItem.Name string
 field TrashRef.ID string json:id
 field TrashRef.Kind string json:kind
+field UndoInput.RecordID string json:record_id
 field User.CreatedAt time.Time json:created_at
 field User.DisplayName string json:display_name
 field User.Email string json:email
@@ -1607,6 +1615,8 @@ field WidgetRenderRequest.SiteURL string json:site_url
 field WidgetRenderRequest.Title string json:title
 field WidgetRenderRequest.Type string json:type
 field WidgetRenderRequest.URL string json:url
+field WriteAnswer.Already bool json:already
+field WriteAnswer.RecordID string json:record_id
 func AbilityHook(string) (string)
 func AdminFormURL(string, string, string, string) (string)
 func AdminPageURL(string, string, string) (string)
@@ -1925,6 +1935,7 @@ method (Recommendation) Target() (string)
 method (ReportLink) Validate() (error)
 method (ServiceAnswer) Decode(any) (error)
 method (ServiceContract) AssistantTools() ([]string)
+method (ServiceContract) Experimental() (bool)
 method (ServiceContract) Method(string) (ContractMethod, bool)
 method (SetupStatus) Validate() (error)
 method (ShipAddress) Validate() (error)
@@ -2006,6 +2017,7 @@ type CommerceVariation
 type CommerceViewer
 type ContentRef
 type ContractMethod
+type ContractWrite
 type Core
 type CoreEventData
 type CredentialPayer
@@ -2183,6 +2195,7 @@ type TrackRequest
 type TrackResult
 type TrashItem
 type TrashRef
+type UndoInput
 type User
 type UserQuery
 type Viewer
@@ -2195,6 +2208,7 @@ type WidgetDef
 type WidgetField
 type WidgetProvider
 type WidgetRenderRequest
+type WriteAnswer
 var AccountVocabulary
 var ErrNotABody
 var ErrTemplateOff
