@@ -65,6 +65,14 @@ var paymentsV1 = contractDef{
 			RetryClass: "answer", Idempotent: true,
 			Description: "Let go of a kept payment method at the processor; an error means it may still be kept, so Core asks again."},
 			PaymentForgetRequest{}, ordinary{}},
+		{ContractMethod{Name: "capture", Hook: HookPaymentCapture, AnsweredBy: "provider", BudgetMS: 15000,
+			RetryClass: "answer", Idempotent: true,
+			Description: "Take money the processor holds for a session, once, under the key Core gives; an error means its fate is unknown, so Core asks again with the same key."},
+			PaymentCaptureRequest{}, PaymentCaptureResult{}},
+		{ContractMethod{Name: "void", Hook: HookPaymentVoid, AnsweredBy: "provider", BudgetMS: 15000,
+			RetryClass: "answer", Idempotent: true,
+			Description: "Let go of money the processor holds for a session, under the key Core gives; an error means it may still be held, so Core asks again."},
+			PaymentVoidRequest{}, PaymentVoidResult{}},
 		{ContractMethod{Name: "session.confirm", Hook: HookPaymentConfirm, AnsweredBy: "consumer",
 			RetryClass: "answer", Idempotent: true,
 			Description: "Ask the plugin that wanted the payment whether it still wants it, before Core resolves it."},
@@ -387,6 +395,8 @@ func TestThePaymentsContractTimesEachHookAsCoreDoes(t *testing.T) {
 		"HookPaymentRefund":         "{budget: PaymentHookBudget, errorIsAnswer: true}",
 		"HookPaymentSync":           "{budget: PaymentHookBudget, errorIsAnswer: true}",
 		"HookPaymentForget":         "{budget: PaymentHookBudget, errorIsAnswer: true}",
+		"HookPaymentCapture":        "{budget: PaymentHookBudget, errorIsAnswer: true}",
+		"HookPaymentVoid":           "{budget: PaymentHookBudget, errorIsAnswer: true}",
 		"HookPaymentConfirm":        "answersAgain",
 		"HookPaymentSessionUpdated": "answersAgain",
 		"HookPaymentRefundUpdated":  "answersAgain",
@@ -405,7 +415,7 @@ func TestThePaymentsContractTimesEachHookAsCoreDoes(t *testing.T) {
 			if !budget || answer {
 				t.Errorf("%s: want 15 s and errors as failures, as gatewayCall", m.Name)
 			}
-		case HookPaymentRefund, HookPaymentSync, HookPaymentForget:
+		case HookPaymentRefund, HookPaymentSync, HookPaymentForget, HookPaymentCapture, HookPaymentVoid:
 			if !budget || !answer {
 				t.Errorf("%s: want 15 s and errors as answers", m.Name)
 			}

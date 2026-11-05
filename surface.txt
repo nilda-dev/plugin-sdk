@@ -63,6 +63,9 @@ const CapTrash
 const CapUsersRead
 const CapVisitorTools
 const CapWidget
+const CaptureAutomatic
+const CaptureKeyPrefix
+const CaptureManual
 const CarrierCredentialsRefused
 const CarrierCustomsMissing
 const CarrierDeclined
@@ -211,6 +214,7 @@ const HookCommerceProductForContent
 const HookCommerceProducts
 const HookFieldChoices
 const HookFieldValidate
+const HookPaymentCapture
 const HookPaymentConfirm
 const HookPaymentDescribe
 const HookPaymentDisputeUpdated
@@ -220,6 +224,7 @@ const HookPaymentRefundUpdated
 const HookPaymentSessionUpdated
 const HookPaymentStart
 const HookPaymentSync
+const HookPaymentVoid
 const HookPrivacyErase
 const HookPrivacyExport
 const HookRenderAssets
@@ -379,6 +384,7 @@ const OrderStatusFailed
 const OrderStatusPending
 const OrderStatusProcessing
 const OrderStatusRefunded
+const PaymentAuthorized
 const PaymentCreated
 const PaymentExpired
 const PaymentFailAmountMismatch
@@ -389,6 +395,7 @@ const PaymentFailDeclined
 const PaymentFailExpired
 const PaymentFailInvalidRequest
 const PaymentFailProviderUnavailable
+const PaymentFailVoided
 const PaymentPending
 const PaymentRedirected
 const PaymentRejected
@@ -445,7 +452,9 @@ const SetupStatusHook
 const StockAlertAlready
 const StockAlertRefused
 const StockAlertSubscribed
+const SupportCardPresent
 const SupportDisputes
+const SupportManualCapture
 const SupportPartialRefund
 const SupportRefund
 const SupportSaveForLater
@@ -474,6 +483,7 @@ const UserStatusPending
 const UserStatusSuspended
 const VisitorRead
 const VisitorSubmit
+const VoidKeyPrefix
 const VoidPending
 const VoidRejected
 const VoidVoided
@@ -1078,6 +1088,18 @@ field PaymentAddress.Line2 string json:line2
 field PaymentAddress.Name string json:name
 field PaymentAddress.PostalCode string json:postal_code
 field PaymentAddress.Region string json:region
+field PaymentAuthorization.AmountMinor int64 json:amount_minor
+field PaymentAuthorization.Currency string json:currency
+field PaymentAuthorization.ExpiresAt *time.Time json:expires_at
+field PaymentAuthorization.ProviderRef string json:provider_ref
+field PaymentCaptureRequest.AmountMinor int64 json:amount_minor
+field PaymentCaptureRequest.IdempotencyKey string json:idempotency_key
+field PaymentCaptureRequest.Session PaymentSession json:session
+field PaymentCaptureResult.AmountMinor int64 json:amount_minor
+field PaymentCaptureResult.FailureCode string json:failure_code
+field PaymentCaptureResult.FailureMessage string json:failure_message
+field PaymentCaptureResult.ProviderRef string json:provider_ref
+field PaymentCaptureResult.Status string json:status
 field PaymentChargeParams.AmountMinor int64 json:amount_minor
 field PaymentChargeParams.Currency string json:currency
 field PaymentChargeParams.Description string json:description
@@ -1192,8 +1214,12 @@ field PaymentSaved.Label string json:label
 field PaymentSaved.Token string json:token
 field PaymentSavedToken.Token string json:token
 field PaymentSession.AmountMinor int64 json:amount_minor
+field PaymentSession.AuthorizationExpiresAt *time.Time json:authorization_expires_at
+field PaymentSession.AuthorizedMinor int64 json:authorized_minor
 field PaymentSession.BillingAddress *PaymentAddress json:billing_address
 field PaymentSession.CancelURL string json:cancel_url
+field PaymentSession.Capture string json:capture
+field PaymentSession.CaptureRequestedMinor int64 json:capture_requested_minor
 field PaymentSession.ChargedSaved string json:charged_saved
 field PaymentSession.Consumer string json:consumer
 field PaymentSession.CreatedAt time.Time json:created_at
@@ -1222,9 +1248,11 @@ field PaymentSession.Status string json:status
 field PaymentSession.Supports []string json:supports
 field PaymentSession.Test bool json:test
 field PaymentSession.UpdatedAt time.Time json:updated_at
+field PaymentSession.VoidRequested bool json:void_requested
 field PaymentSessionParams.AmountMinor int64 json:amount_minor
 field PaymentSessionParams.BillingAddress *PaymentAddress json:billing_address
 field PaymentSessionParams.CancelURL string json:cancel_url
+field PaymentSessionParams.Capture string json:capture
 field PaymentSessionParams.Credential *PaymentCredential json:credential
 field PaymentSessionParams.Currency string json:currency
 field PaymentSessionParams.Description string json:description
@@ -1248,6 +1276,11 @@ field PaymentStartResult.ProviderRef string json:provider_ref
 field PaymentStartResult.RedirectURL string json:redirect_url
 field PaymentStartResult.Status string json:status
 field PaymentSyncRequest.Session PaymentSession json:session
+field PaymentVoidRequest.IdempotencyKey string json:idempotency_key
+field PaymentVoidRequest.Session PaymentSession json:session
+field PaymentVoidResult.AmountMinor int64 json:amount_minor
+field PaymentVoidResult.ProviderRef string json:provider_ref
+field PaymentVoidResult.Status string json:status
 field PaymentsReadiness.Gateways []PaymentGatewayState json:gateways
 field PaymentsReadiness.MethodsOn int json:methods_on
 field PaymentsReadiness.Test bool json:test
@@ -1743,6 +1776,8 @@ imethod Handler.HandleHook(context.Context, string, []byte) ([]byte, error)
 imethod Handler.Init(context.Context, *Core) (InitResult, error)
 imethod LinkTargetProvider.LinkTargets(context.Context, LinkTargetsRequest) ([]LinkTarget, error)
 imethod OrdersProvider.ShopOrder(context.Context, ShopOrderRequest) (ShopOrderResult, error)
+imethod PaymentCapturer.CapturePayment(context.Context, PaymentCaptureRequest) (PaymentCaptureResult, error)
+imethod PaymentCapturer.VoidPayment(context.Context, PaymentVoidRequest) (PaymentVoidResult, error)
 imethod PaymentConsumer.ConfirmPayment(context.Context, PaymentSession) (PaymentConfirmResult, error)
 imethod PaymentConsumer.PaymentUpdated(context.Context, PaymentSession) (error)
 imethod PaymentConsumer.RefundUpdated(context.Context, PaymentRefund, PaymentSession) (error)
@@ -1838,6 +1873,8 @@ method (*OIDCClient) Discover(context.Context) (error)
 method (*OIDCClient) EndSessionURL(context.Context) (string)
 method (*OIDCClient) Exchange(context.Context, AuthCompleteRequest) (AuthAssertion, error)
 method (*OIDCClient) Ready(context.Context) (bool, string)
+method (*Payments) Authorize(context.Context, string, PaymentAuthorization) (PaymentSession, error)
+method (*Payments) Capture(context.Context, string, string, int64) (PaymentSession, error)
 method (*Payments) ChargeSaved(context.Context, string, PaymentChargeParams) (PaymentSession, error)
 method (*Payments) Confirm(context.Context, string) (PaymentConfirmResult, error)
 method (*Payments) CreateRefund(context.Context, string, string, PaymentRefundParams) (PaymentRefund, error)
@@ -1860,6 +1897,7 @@ method (*Payments) Resolve(context.Context, string, PaymentResolution) (PaymentS
 method (*Payments) ResolveRefund(context.Context, string, string) (PaymentRefund, error)
 method (*Payments) ReverseRefund(context.Context, string, PaymentRejection) (PaymentRefund, error)
 method (*Payments) SetSecret(context.Context, string, string) (error)
+method (*Payments) Void(context.Context, string, string) (PaymentSession, error)
 method (*Reference) EUVATRates(context.Context, time.Time) (EUVATRateSet, error)
 method (*Reference) ExchangeRates(context.Context, time.Time) (ExchangeRateSet, error)
 method (*Reference) PrivacyPolicy(context.Context) (PrivacyPolicy, error)
@@ -1907,6 +1945,7 @@ method (LabelResult) Validate() (error)
 method (LinkTarget) Validate(string) (error)
 method (Parcel) Validate() (error)
 method (PaymentAddress) Validate() (error)
+method (PaymentAuthorization) Validate() (error)
 method (PaymentChargeParams) Validate() (error)
 method (PaymentCredential) GoString() (string)
 method (PaymentCredential) String() (string)
@@ -2088,6 +2127,10 @@ type PagePick
 type Paging
 type Parcel
 type PaymentAddress
+type PaymentAuthorization
+type PaymentCaptureRequest
+type PaymentCaptureResult
+type PaymentCapturer
 type PaymentChargeParams
 type PaymentConfirmRequest
 type PaymentConfirmResult
@@ -2122,6 +2165,8 @@ type PaymentStartRequest
 type PaymentStartResult
 type PaymentSyncRequest
 type PaymentSyncer
+type PaymentVoidRequest
+type PaymentVoidResult
 type Payments
 type PaymentsReadiness
 type PersonalDataHolder

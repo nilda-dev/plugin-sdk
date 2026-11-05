@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // THE PAYMENT CONTRACT, HELD TO CORE (D-84). payment.go, paymentapi.go, nildatest.Payments and
@@ -80,9 +81,10 @@ func TestCoresPaymentMachineIsTheSDKs(t *testing.T) {
 		t.Errorf("a refund's moves differ.\n core: %s\n  sdk: %s", got, want)
 	}
 
-	// The failure codes: the same eight, and the same six a gateway may report.
+	// The failure codes: the same nine, and the same six a gateway may report.
 	all := []string{PaymentFailDeclined, PaymentFailCancelled, PaymentFailProviderUnavailable, PaymentFailInvalidRequest,
-		PaymentFailExpired, PaymentFailAuthenticationRequired, PaymentFailAmountMismatch, PaymentFailConsumerRefused}
+		PaymentFailExpired, PaymentFailAuthenticationRequired, PaymentFailAmountMismatch, PaymentFailConsumerRefused,
+		PaymentFailVoided}
 	var core []string
 	for name, v := range consts {
 		if strings.HasPrefix(name, "Fail") {
@@ -114,7 +116,7 @@ func TestThePaymentHooksAreCores(t *testing.T) {
 		core = append(core, m[1])
 	}
 	sdk := []string{HookPaymentDescribe, HookPaymentStart, HookPaymentRefund, HookPaymentSync, HookPaymentForget,
-		HookPaymentConfirm, HookPaymentSessionUpdated, HookPaymentRefundUpdated, HookPaymentDisputeUpdated}
+		HookPaymentCapture, HookPaymentVoid, HookPaymentConfirm, HookPaymentSessionUpdated, HookPaymentRefundUpdated, HookPaymentDisputeUpdated}
 	sort.Strings(core)
 	sort.Strings(sdk)
 	if strings.Join(core, ",") != strings.Join(sdk, ",") {
@@ -198,20 +200,23 @@ func TestThePaymentNumbersInTheGuideAreCores(t *testing.T) {
 		{calls, "internal/plugin/calltable.go", "HookPaymentRefund: {budget: PaymentHookBudget, errorIsAnswer: true}, " +
 			"HookPaymentSync: {budget: PaymentHookBudget, errorIsAnswer: true},"},
 		{calls, "internal/plugin/calltable.go", "HookPaymentForget: {budget: PaymentHookBudget, errorIsAnswer: true},"},
+		{calls, "internal/plugin/calltable.go", "HookPaymentCapture: {budget: PaymentHookBudget, errorIsAnswer: true}, " +
+			"HookPaymentVoid: {budget: PaymentHookBudget, errorIsAnswer: true},"},
 		{service, "internal/payments/service.go", "Lifetime: sessionLifetime,"},
-		// Core's 625bc5d33 (2026-10-30) added credential_type before expires_at; the expiry is still the database's
-		// now() plus the lifetime.
-		{queries, "internal/db/queries/payments.sql", "save, charged_saved_id, credential_type, expires_at ) VALUES ( $1, $2, $3, $4, $5, $6, $7, " +
+		// Core's 625bc5d33 (2026-10-30) added credential_type before expires_at, and its migration 0377 (v0.58.0) capture_mode
+		// after it; the expiry is still the database's now() plus the lifetime.
+		{queries, "internal/db/queries/payments.sql", "save, charged_saved_id, credential_type, expires_at, capture_mode ) VALUES ( $1, $2, $3, $4, $5, $6, $7, " +
 			"'created', $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, sqlc.narg('save'), sqlc.narg('charged_saved_id'), " +
-			"sqlc.arg('credential_type'), now() + sqlc.arg('lifetime')::interval )"},
+			"sqlc.arg('credential_type'), now() + sqlc.arg('lifetime')::interval,"},
 	} {
 		if !strings.Contains(c.src, c.want) {
 			t.Errorf("core's %s no longer has %q — re-read what PAYMENTS.md says about it", c.file, c.want)
 		}
 	}
 	// "and nothing else": those four places are the only rows that name the payment budget.
-	if n := strings.Count(calls, "PaymentHookBudget"); n != 4 {
-		t.Errorf("core's call table names PaymentHookBudget %d times, want the gateway row kind and the refund, sync and forget rows — "+
+	if n := strings.Count(calls, "PaymentHookBudget"); n != 6 {
+		t.Errorf("core's call table names PaymentHookBudget %d times, want the gateway row kind and the refund, sync, forget, "+
+			"capture and void rows — "+
 			"re-read which hooks PAYMENTS.md says get 15 seconds", n)
 	}
 	// "At most": start and describe run on the asking request's context, which a WithTimeout inside the call
@@ -437,7 +442,12 @@ func TestThePaymentRoutesAreCores(t *testing.T) {
 		"ChargeSaved": func() {
 			_, _ = pay.ChargeSaved(ctx, "k3", PaymentChargeParams{SavedMethod: "smid", Reference: "r", AmountMinor: 1, Currency: "EUR"})
 		},
-		"GetSavedMethod":    func() { _, _ = pay.GetSavedMethod(ctx, "smid") },
+		"GetSavedMethod": func() { _, _ = pay.GetSavedMethod(ctx, "smid") },
+		"Authorize": func() {
+			_, _ = pay.Authorize(ctx, "sid", PaymentAuthorization{AmountMinor: 1, Currency: "EUR"})
+		},
+		"Capture":           func() { _, _ = pay.Capture(ctx, "k4", "sid", 1) },
+		"Void":              func() { _, _ = pay.Void(ctx, "k5", "sid") },
 		"ForgetSavedMethod": func() { _, _ = pay.ForgetSavedMethod(ctx, "smid") },
 	}
 	methods := reflect.TypeOf(pay)
@@ -629,5 +639,83 @@ func TestTheNULRuleIsCores(t *testing.T) {
 	doc := flat(readText(t, "docs/PAYMENTS.md"))
 	if !strings.Contains(doc, "a NUL character in any text") {
 		t.Error("PAYMENTS.md no longer says Validate refuses a NUL character in any text, as Core does")
+	}
+}
+
+// TestTheHoldNumbersAreCores holds a hold's numbers and keys (v0.58.0) to Core's capture.go, where Core applies them:
+// seven days when the gateway names no deadline, thirty at most, three days' wait for a gateway that cannot look, and
+// the idempotency keys a capture and a void go out under — and to nildatest and PAYMENTS.md, which say the same.
+func TestTheHoldNumbersAreCores(t *testing.T) {
+	flat := func(s string) string { return strings.Join(strings.Fields(s), " ") }
+	core := flat(corePaymentsSource(t, "internal", "payments", "capture.go"))
+	kit := flat(readText(t, "nildatest/paymentcapture.go"))
+	for _, want := range []string{"holdLifetime = 7 * 24 * time.Hour", "maxHoldLifetime = 30 * 24 * time.Hour"} {
+		if !strings.Contains(core, want) {
+			t.Errorf("core's capture.go no longer has %q — re-read PAYMENTS.md §7", want)
+		}
+		if !strings.Contains(kit, want) {
+			t.Errorf("nildatest's paymentcapture.go no longer has %q, Core's", want)
+		}
+	}
+	if !strings.Contains(core, "holdGrace = 3 * 24 * time.Hour") {
+		t.Error("core's capture.go no longer waits three days for a gateway that cannot look — re-read PAYMENTS.md §7")
+	}
+	if maxHoldLifetime != 30*24*time.Hour {
+		t.Errorf("the SDK's maxHoldLifetime is %v; Core's is thirty days", maxHoldLifetime)
+	}
+	consts := constValues(corePaymentsSource(t, "internal", "payments", "capture.go"))
+	if consts["captureKeyPrefix"] != CaptureKeyPrefix || consts["voidKeyPrefix"] != VoidKeyPrefix {
+		t.Errorf("core asks under %q and %q; the SDK tells a gateway %q and %q", consts["captureKeyPrefix"],
+			consts["voidKeyPrefix"], CaptureKeyPrefix, VoidKeyPrefix)
+	}
+	doc := flat(readText(t, "docs/PAYMENTS.md"))
+	for _, want := range []string{
+		"| a hold the gateway gives no deadline | 7 days |",
+		"| a hold's deadline | at most 30 days |",
+		"| a hold past its deadline whose gateway cannot look | 3 days, then closed `expired` |",
+	} {
+		if !strings.Contains(doc, want) {
+			t.Errorf("PAYMENTS.md §7 does not say %q", want)
+		}
+	}
+}
+
+// TestAHoldReportsRulesAreCores holds a hold report's rules (the P2 review) to Core's Authorize in capture.go, to
+// nildatest's authorize and to PAYMENTS.md: a deadline already past is now; a capture or void asked decides the hold; a
+// session held for a person is refused; the same hold again keeps a deadline it names.
+func TestAHoldReportsRulesAreCores(t *testing.T) {
+	flat := func(s string) string { return strings.Join(strings.Fields(s), " ") }
+	core := flat(corePaymentsSource(t, "internal", "payments", "capture.go"))
+	kit := flat(readText(t, "nildatest/paymentcapture.go"))
+	for _, c := range []struct{ core, kit, rule string }{
+		{"case !at.After(now): return now", "case !at.After(now): return now", "a deadline already past is kept as now"},
+		{"if cur.CaptureRequestedMinor != nil || cur.VoidRequested { if cur.Status == StatusAuthorized { return false, nil",
+			"if s.CaptureRequestedMinor > 0 || s.VoidRequested { if s.Status == nilda.PaymentAuthorized { return *s, nil",
+			"a capture or void asked decides the hold"},
+		{"if held(cur.Status, cur.FailureCode) { return false, apperr.Conflict(",
+			"if s.Status == nilda.PaymentPending && s.FailureCode == nilda.PaymentFailAmountMismatch { return nil, &apiError{http.StatusConflict",
+			"a session held for a person refuses a hold"},
+		{"if a.ExpiresAt == nil || !newDeadline(now, cur.AuthorizationExpiresAt, deadline) { return false, nil",
+			"if a.ExpiresAt == nil || !newDeadline(now, s.AuthorizationExpiresAt, deadline) { return *s, nil",
+			"the same hold again keeps a deadline it names"},
+	} {
+		if !strings.Contains(core, c.core) {
+			t.Errorf("core's capture.go no longer says %s (%q) — re-read PAYMENTS.md §4", c.rule, c.core)
+		}
+		if !strings.Contains(kit, c.kit) {
+			t.Errorf("nildatest's paymentcapture.go no longer says %s, as Core does", c.rule)
+		}
+	}
+	doc := flat(readText(t, "docs/PAYMENTS.md"))
+	for _, want := range []string{
+		"now when the deadline you give has already passed",
+		"on a session already `authorized` as on one not yet held",
+		"**The same hold again** is a no-op — unless it names a deadline other than the one Core keeps and no capture or void was asked yet",
+		"**Once a capture or void was asked, a hold report moves nothing**",
+		"**A session held for a person** (`pending`, `amount_mismatch`: the processor reported taking another amount) is money taken: a hold on it is refused (409)",
+	} {
+		if !strings.Contains(doc, want) {
+			t.Errorf("PAYMENTS.md §4 does not say %q", want)
+		}
 	}
 }

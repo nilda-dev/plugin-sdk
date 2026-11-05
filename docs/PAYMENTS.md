@@ -10,7 +10,9 @@ Core accepts the two capabilities from the release built on v0.10.0; an older Co
 declares either. **v0.10.4** adds, all additively (`paymentmore.go`): what a method supports, carried on the
 session; the payer's addresses; disputes; refunds reversed after success and refunds made at the processor; the
 `payment.sync` pull path; a gateway's own secrets kept by Core; and the site's address handed to every plugin
-at `Init`. A route a Core before it does not have answers 404, and a hook nobody subscribed to is never sent.
+at `Init`. **v0.58.0** adds holding the money and taking it later — authorise, then capture or void
+(`paymentcapture.go`; §4 "Holding the money", §5 "Take the money later"). A route a Core before it does not have
+answers 404, and a hook nobody subscribed to is never sent.
 
 ## 1. The shape
 
@@ -63,6 +65,7 @@ A **session** is one payment. Its `Status`, a closed set:
 | `created` | Core has it; the gateway has not answered yet |
 | `redirected` | the payer was sent to the processor's page; nothing is decided |
 | `pending` | the processor has it and has not decided — a bank transfer, a review. Also: held for a PERSON (`amount_mismatch`) |
+| `authorized` | the processor HOLDS the money and has not taken it (v0.58.0): a session asked with `capture` `manual`. Not paid |
 | `resolved` | the money is there |
 | `rejected` | it ended without money; `FailureCode` says how |
 | `expired` | nothing decided it before `ExpiresAt`, and Core closed it |
@@ -70,10 +73,12 @@ A **session** is one payment. Its `Status`, a closed set:
 The moves allowed, one table in `payment.go` (`PaymentCanMove`), the same one Core and `nildatest` hold:
 
 ```
-created    → redirected, pending, resolved, rejected, expired
-redirected → pending, resolved, rejected, expired
-pending    → resolved, rejected                    (never expired: the processor has it)
-expired    → pending, resolved                     (a late payment is still money — never dropped)
+created    → redirected, pending, authorized, resolved, rejected, expired
+redirected → pending, authorized, resolved, rejected, expired
+pending    → authorized, resolved, rejected        (never expired: the processor has it)
+authorized → pending, resolved, rejected           (captured slowly, captured, let go or lapsed — never expired:
+                                                     its deadline is the processor's, and Core asks before closing it)
+expired    → pending, authorized, resolved         (a late payment is still money — never dropped; so is a late hold)
 resolved, rejected: final
 ```
 
@@ -85,7 +90,8 @@ resolved, rejected: final
 - **A report that would MOVE the session somewhere the table does not allow is refused with 409.** A payment
   that ended one way does not end another way because a late webhook says so.
 
-A **refund** gives money back from a resolved session: `requested → pending → resolved | rejected`
+A **refund** gives money back from a resolved session — never from an `authorized` one, which holds money nobody
+has taken: that one is voided (409 otherwise): `requested → pending → resolved | rejected`
 (`RefundCanMove`). Core refuses one that would take the session's refunds — resolved and still in flight —
 past what was paid, and one the method could not carry out: **what a method can do is decided by the session's
 own `supports`**, the list Core copied from the method when the payment was made (`SupportsOf`: the method's
@@ -129,7 +135,7 @@ the owner (the amount on Settings → Payments, "Money to refund", the reference
 for an order that is closed, and a person refunds it at the processor. Nothing a gateway or consumer reads
 changes.
 
-**FailureCode**, a closed set. The gateway reports the first five; the last two are Core's own verdicts, and a
+**FailureCode**, a closed set. The gateway reports the first six; the last three are Core's own verdicts, and a
 gateway reporting one is refused:
 
 | code | who | means |
@@ -142,6 +148,7 @@ gateway reporting one is refused:
 | `authentication_required` | gateway | a kept method's charge the payer's bank takes only with the payer present: send them a link to pay on-session (v0.30.0) |
 | `amount_mismatch` | Core, then a person | the processor took a different amount or currency; held `pending` for a person — and kept as the code when that person rejects it |
 | `consumer_refused` | Core | the consumer's confirm step said no |
+| `voided` | Core | the consumer let a hold go (`Payments.Void`, v0.58.0). A hold the PROCESSOR dropped is the gateway's `cancelled` or `expired`, and a hold that passed its deadline uncaptured is Core's `expired` |
 
 **A person can settle a pending payment.** The site owner, in the admin, may resolve or reject a payment that
 is `pending` — one held for `amount_mismatch`, or one a processor has sat on. Resolve moves it to `resolved`
@@ -277,6 +284,55 @@ return nilda.PaymentStartResult{Status: nilda.PaymentRedirected, RedirectURL: ch
   report what you find with the ordinary calls. Core asks when a payer is back on the return page and the session
   is still open, and in a sweep of sessions nothing has decided for a while — so a webhook the processor gave up
   on is not a payment lost. An error means "could not look now".
+
+### Holding the money: capture and void (v0.58.0)
+
+A consumer may ask for a session with `Capture: nilda.CaptureManual` — "take the money when the order ships" — on a
+method whose `Supports` lists **`manual_capture`** (`nilda.SupportManualCapture`). List it only for a method your
+processor can hold: cards, Klarna and PayPal can; a SEPA debit, iDEAL or a bank transfer cannot, and Core refuses a
+manual session on a method that does not list it, so one checkout can still offer SEPA paid at once. A gateway that
+lists it implements **`nilda.PaymentCapturer`**, and Serve subscribes it to `payment.capture` and `payment.void`;
+`DispatchPaymentGatewayHook` refuses a describe answer listing `manual_capture` from a gateway that does not.
+
+1. **Hold, then report it.** For a manual session ask the processor to hold rather than take (Stripe:
+   `capture_method=manual`; PayPal: `intent=AUTHORIZE`). When it holds, report **`Payments.Authorize(ctx, id,
+   nilda.PaymentAuthorization{AmountMinor, Currency, ProviderRef, ExpiresAt})`** — the amount the PROCESSOR holds and
+   its deadline to capture (Stripe's `capture_before`, PayPal's 29 days). Core moves the session to `authorized`,
+   keeps `authorized_minor` and `authorization_expires_at` (seven days when you say none, thirty at most, and **now
+   when the deadline you give has already passed** — the hold lapses at the next sweep, which asks you to look first).
+   A hold of a different amount or currency is refused (422) and nothing moves — release it at the processor — on a
+   session already `authorized` as on one not yet held; a hold reported on a session asked to take the money at once
+   is refused too. A hold made on the spot (a kept card, a wallet) is the same: answer the start `pending` and report
+   `Authorize`.
+   - **The same hold again** is a no-op — unless it names a deadline other than the one Core keeps and no capture or
+     void was asked yet: then Core keeps the newer deadline, and the consumer hears it. So report the processor's real
+     deadline when you learn it, even after a report that named none; a report that names none changes nothing.
+   - **Once a capture or void was asked, a hold report moves nothing**: while the session is still `authorized` it is
+     the same hold (its deadline included), and once the ask moved it — a slow capture is `pending` — it is refused
+     (409). The processor's "authorized" webhook redelivered after its capture event is the usual case; acknowledge it.
+   - **A session held for a person** (`pending`, `amount_mismatch`: the processor reported taking another amount) is
+     money taken: a hold on it is refused (409), and the amount reported stays for the person who decides it.
+2. **Capture.** `CapturePayment(ctx, nilda.PaymentCaptureRequest{Session, AmountMinor, IdempotencyKey})` takes
+   `AmountMinor` — at most the hold; less, and the processor releases the rest. **Pass `IdempotencyKey` to the
+   processor unchanged** (`nilda-capture-<session id>`, the same every time Core asks about this session). Answer
+   `resolved` with the amount the processor says it took, `pending` when it will say later (report it then with
+   `Resolve` or `Reject`), or `rejected` with a code when the money will not come (the hold expired or was cancelled).
+3. **Void.** `VoidPayment(ctx, nilda.PaymentVoidRequest{Session, IdempotencyKey})` lets the hold go (Stripe: cancel
+   the PaymentIntent; PayPal: void the authorisation), under `nilda-void-<session id>`. Answer `rejected` — released,
+   or already lapsed; Core closes the session with Core's code `voided` — or `resolved` with the amount when the
+   processor had already taken it.
+
+**Core asks while it holds the session's lock**, so two captures asked at once are one capture. Answer from the
+processor's answer, and do not report on that session from inside the hook (`Resolve`, `Reject`, `MarkPending`): the
+report waits on the lock until the hook's time runs out. The answer IS the report; the processor's webhook for the
+same capture arrives afterwards and changes nothing. **An answer you do not have is an ERROR**, never `rejected`: the
+processor could not be reached, or did not say. Core keeps the capture (or void) asked and asks again, with the same
+key, until it is answered — the error is an answer, not counted against your plugin, as for a refund.
+
+**A hold past its deadline.** When `authorization_expires_at` passes and nobody captured, Core asks the gateway to
+look first (`payment.sync`, if you implement `PaymentSyncer`): a capture made at the processor is money, so report
+it. A session still `authorized` afterwards ends `rejected`, `expired`. While the gateway cannot look, Core waits and
+asks again — for at most three days past the deadline, after which the processor has let the hold go anyway.
 
 ### The webhook
 
@@ -493,6 +549,54 @@ owed := pay.Deliver(ctx)   // 0 once the shop has heard; pay.Deliveries() shows 
 `Deliver` is also what asks a gateway about a refund: `CreateRefund` answers `requested` there as in Core, and
 the next `Deliver` sends `payment.refund` and then tells the consumer how it ended.
 
+### Take the money later (v0.58.0)
+
+The market's default is to take the money at checkout, and so is Nilda's: a session with no `Capture` (or
+`automatic`) does exactly what every session did before. A consumer that ships later — a wheel built to order — may
+ask the processor to HOLD the money and take it when the order ships:
+
+```go
+opts, _ := pay.Methods(ctx, "EUR")
+// offer "held until it ships" only through a method that can hold — the others take the money at once
+canHold := nilda.Supports(opt.Supports, nilda.SupportManualCapture)
+s, err := pay.CreateSession(ctx, key, nilda.PaymentSessionParams{ /* … */ Capture: nilda.CaptureManual})
+// … PaymentUpdated: s.Status == nilda.PaymentAuthorized — held: s.AuthorizedMinor until s.AuthorizationExpiresAt
+s, err = pay.Capture(ctx, "ship-"+order.ID, s.ID, order.TotalMinor-cancelledLines) // when it ships
+s, err = pay.Void(ctx, "cancel-"+order.ID, s.ID)                                   // when it is cancelled instead
+```
+
+- **Authorized is not paid.** Confirm the order, ship against it if you will; book no money, issue no invoice, unlock
+  no download until the session is `resolved`.
+- **One capture, of at most what is held.** Less takes that much and the processor releases the rest; the session
+  resolves at what was taken — its `AmountMinor` becomes it, `capture_requested_minor` says what you asked, and a
+  refund is bounded by it. Asked again with the same amount it is the same capture, answered as it stands (or asked
+  of the gateway again when its first answer was lost); with another amount, 409. More than is held is 422; a
+  session that is not `authorized` is 409. The answer is the session as the gateway left it: `resolved`, `pending`
+  (the processor decides; you hear it in `PaymentUpdated`) or `rejected` (the hold was gone).
+- **A 503 means the gateway did not answer.** Core keeps the capture asked and asks again, with the same key, until
+  it is answered — you hear the end in `PaymentUpdated`. The same call may be sent again under the same key.
+- **Void** lets the hold go: the session ends `rejected` with `voided` (or `resolved`, if the processor had already
+  taken it). A session whose capture was asked cannot be voided; voiding twice is no error. `void_requested` is set
+  while the gateway has not yet said it let go.
+- **A refund of an authorized session is refused (409)**: nothing was taken. Void it.
+- **A hold nobody captured** ends `rejected`, `expired` after its deadline (`authorization_expires_at`), once Core
+  has asked the gateway whether it was captured at the processor after all. Warn the owner before it does.
+- **A late hold** on an order you already closed (`expired → authorized`) is yours to void and note, as you refund
+  late money.
+
+`nildatest.Payments` holds every one of these rules, `StubGateway` answers `payment.capture` and `payment.void`
+(`CaptureResult`, `CaptureErr`, `VoidResult`, `VoidErr`; `Captured` and `Voided` record what it was asked), and
+`ExpireHold` runs Core's expiry of one hold.
+
+### In person, and with nobody there
+
+- **With nobody there** — a merchant-initiated charge, the payer absent — is the kept method's charge
+  (`Payments.ChargeSaved`, below, v0.30.0): Core holds the token, the consumer never sees it, and the charge must
+  stay inside the mandate the payer accepted.
+- **In person** — a card at a point of sale — is not in the contract yet. `card_present` (`nilda.SupportCardPresent`)
+  is reserved as the token a method will list for it, and is EXPERIMENTAL: nothing in Core acts on it, and its meaning
+  may change before a point of sale is built (commerce's phase 2).
+
 ### An agent paying for its buyer (v0.20.0)
 
 An AI agent may carry a DELEGATED payment credential its buyer's wallet granted it — a Stripe Shared Payment Token
@@ -549,10 +653,13 @@ Hooks arrive over the plugin protocol (docs/ANY_LANGUAGE.md) with these JSON pay
 | `payment.sync` | gateway (a `PaymentSyncer`) | `{"session":{…}}` | `{}` — what it found is reported through the calls below |
 | `payment.dispute.updated` | consumer (a `PaymentDisputeConsumer`) | `{"dispute":{…},"session":{…}}` | `{}` — an error means "tell me again" |
 | `payment.saved.forget` | gateway (a `SavedMethodPayer`) | `{"token"}` | `{}` — let go of the method at the processor; an unknown token is forgotten already |
+| `payment.capture` | gateway (a `PaymentCapturer`) | `{"session":{…},"amount_minor","idempotency_key"}` | `{"status","amount_minor","provider_ref","failure_code","failure_message"}` — an error means "not answered, ask again" (v0.58.0) |
+| `payment.void` | gateway (a `PaymentCapturer`) | `{"session":{…},"idempotency_key"}` | `{"status","amount_minor","provider_ref"}` — the same |
 
 A session is `{"id","consumer","gateway","method","reference","amount_minor","currency","status","test",
 "description","return_url","cancel_url","redirect_url","provider_ref","failure_code","failure_message",
-"email","locale","supports","fulfilment","billing_address","shipping_address","expires_at","save","saved_method","charged_saved","instrument","resolved_at","refunded_minor",
+"email","locale","supports","fulfilment","billing_address","shipping_address","expires_at","save","saved_method","charged_saved","instrument","resolved_at",
+"capture","authorized_minor","authorization_expires_at","capture_requested_minor","void_requested","refunded_minor",
 "created_at","updated_at"}`; a refund is `{"id","session","amount_minor","currency","status","reason",
 "provider_ref","failure_code","failure_message","external","reversed_at","created_at","updated_at"}`; an address
 is `{"name","line1","line2","city","postal_code","region","country"}`; a dispute is `{"id","session",
@@ -566,13 +673,16 @@ Calls into Core, under `/api/rest/v1`, with the plugin's token; answers inside `
 |---|---|---|---|
 | `GET /payments/methods?currency=EUR` | consumer | — | `[{"gateway","method","label","description","refunds","test","test_hint","supports"}]` |
 | `GET /payments/readiness?currency=EUR` | consumer | — | `{"gateways":[{"key","name","enabled"}],"methods_on","test"}` (v0.42.0) |
-| `POST /payments/sessions` + `Idempotency-Key` | consumer | `{"gateway","method","reference","amount_minor","currency","description","return_url","cancel_url","email","locale","fulfilment","billing_address","shipping_address","credential","save"}` | 201, the session |
+| `POST /payments/sessions` + `Idempotency-Key` | consumer | `{"gateway","method","reference","amount_minor","currency","description","return_url","cancel_url","email","locale","fulfilment","billing_address","shipping_address","credential","save","capture"}` | 201, the session |
+| `POST /payments/sessions/{id}/capture` + `Idempotency-Key` | consumer | `{"amount_minor"}` | the session as the gateway left it (v0.58.0) |
+| `POST /payments/sessions/{id}/void` + `Idempotency-Key` | consumer | — | the session as the gateway left it (v0.58.0) |
 | `GET /payments/sessions/{id}` | either side of it | — | the session |
 | `POST /payments/sessions/{id}/refunds` + `Idempotency-Key` | consumer | `{"amount_minor","reason"}` | 201, the refund |
 | `GET /payments/refunds/{id}` | either side of it | — | the refund |
 | `POST /payments/sessions/{id}/resolve` | gateway | `{"amount_minor","currency","provider_ref","saved"}` | the session |
 | `POST /payments/sessions/{id}/reject` | gateway | `{"failure_code","failure_message","provider_ref"}` | the session |
 | `POST /payments/sessions/{id}/pending` | gateway | `{"provider_ref"}` | the session |
+| `POST /payments/sessions/{id}/authorize` | gateway | `{"amount_minor","currency","provider_ref","expires_at"}` | the session, `authorized` (v0.58.0) |
 | `POST /payments/sessions/{id}/confirm` | gateway | — | `{"proceed","reason"}` |
 | `POST /payments/refunds/{id}/resolve` | gateway | `{"provider_ref"}` | the refund |
 | `POST /payments/refunds/{id}/reject` | gateway | `{"failure_code","failure_message","provider_ref"}` | the refund |
@@ -591,8 +701,8 @@ Refusals: **404** a session that is not yours; **409** a report the session has 
 unpaid session, or a keyed request sent again while the first is still being answered; **422** what `Validate`
 checks, a method the gateway does not offer, an address off the site (or no site address to check it
 against), a refund past what was paid, a reused key on a different request; **403** a missing capability;
-**503** from `confirm` when the consumer could not be asked, and from a refund whose gateway is not running or
-could not be asked. A 503 changed nothing, so Core gives its Idempotency-Key back: the same request with the
+**503** from `confirm` when the consumer could not be asked, from a refund whose gateway is not running or
+could not be asked, and from a capture or void the gateway did not answer (Core keeps it asked). A 503 changed nothing, so Core gives its Idempotency-Key back: the same request with the
 same key runs again (any other 5xx is kept and answered again for 24 hours, since it may have come after a
 write). The token's scopes: `payment_session` → `read:payments write:payments`, `payment_gateway` →
 `read:payments report:payments`.
@@ -622,6 +732,9 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
 | `Idempotency-Key` | 255 bytes | Core's, which is Stripe's |
 | any payment text — a reference, a reason, an address, a label, a `provider_ref`, a key | no NUL character | Postgres keeps one in neither text nor jsonb |
 | a session nothing decided | 24 hours, unless the gateway says | Stripe Checkout's own default |
+| a hold the gateway gives no deadline | 7 days | a card's hold online (Stripe), the shortest of the common ones |
+| a hold's deadline | at most 30 days | past PayPal's 29, its longest |
+| a hold past its deadline whose gateway cannot look | 3 days, then closed `expired` | the processor has let it go by then |
 | a gateway's hook | at most 15 seconds, or `PLUGIN_CALL_TIMEOUT` if that is longer | Core's budget for a processor's API |
 | a consumer's hook | 5 seconds, the default of `PLUGIN_CALL_TIMEOUT` | the ordinary plugin call |
 
@@ -631,10 +744,11 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
   description and — when it knows them — the payer's addresses. A gateway that needs more asks the payer on the
   processor's page.
 - **No answering a dispute.** Disputes are REPORTED (v0.10.4); the owner answers one at the processor.
-- **No subscriptions here, no capture/void.** A method kept for later (§5, v0.30.0) is the door a consumer builds
-  subscriptions on; the schedule, the retries and the portal are the consumer's. The names `capture`,
-  `partial_capture` and `void` are reserved so the door stays additive: the `supports` tokens. A guard on each side fails if anything takes one of these
-  names before the feature is built. (`credential` and `credential_types` were reserved the same way until v0.20.0
-  built them: "An agent paying for its buyer", §5.)
+- **No subscriptions here.** A method kept for later (§5, v0.30.0) is the door a consumer builds subscriptions on;
+  the schedule, the retries and the portal are the consumer's.
+- **One capture per hold.** Authorise then capture or void is in the contract (v0.58.0); taking one hold in several
+  parts (multicapture) is not. The name `partial_capture` stays reserved for it, so the door stays additive; a guard
+  fails if anything takes it before the feature is built. (`credential` and `credential_types` were reserved the same
+  way until v0.20.0 built them, and `capture` and `void` until v0.58.0.)
 - **No money arithmetic in Core** beyond comparing amounts and summing refunds. Prices, tax and rounding stay
   the consumer's.

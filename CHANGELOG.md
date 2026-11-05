@@ -8,7 +8,44 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.58.0 — unreleased (write commands and experimental contracts — the shop's door D0)
+## v0.58.0 — unreleased (write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1)
+
+- PAYMENTS: AUTHORISE, THEN CAPTURE (`paymentcapture.go`, `docs/PAYMENTS.md` §4 "Holding the money" and §5 "Take the
+  money later"). A session status `PaymentAuthorized` (`"authorized"`): the processor holds the money and has not taken
+  it. The machine's new moves: created, redirected, pending and expired → authorized; authorized → pending, resolved,
+  rejected (never expired — Core asks the gateway before it closes a lapsed hold). Core's machine is held to it by
+  `TestCoresPaymentMachineIsTheSDKs` and Core's `TestTheMachineIsTheSDKs`.
+- `PaymentSessionParams.Capture` (`"capture"`): `CaptureAutomatic` (the default, `""`) or `CaptureManual`, only on a
+  method listing `SupportManualCapture` (`"manual_capture"`) and never for a session that only keeps a method.
+  `PaymentSession` gains `Capture`, `AuthorizedMinor`, `AuthorizationExpiresAt`, `CaptureRequestedMinor` and
+  `VoidRequested`; a captured session resolves at what was taken (its `AmountMinor` becomes it).
+- The gateway's report `Payments.Authorize(ctx, id, PaymentAuthorization{AmountMinor, Currency, ProviderRef,
+  ExpiresAt})` (`POST /payments/sessions/{id}/authorize`); the consumer's `Payments.Capture(ctx, key, id, amountMinor)`
+  and `Payments.Void(ctx, key, id)` (`…/capture`, `…/void`). One capture per session, of at most what is held; the same
+  amount again is the same capture, another is 409; a refund of an authorized session is 409. A 503 is a gateway that
+  did not answer: Core keeps it asked and asks again with the same key.
+- Gateway hooks `HookPaymentCapture` (`payment.capture`: `PaymentCaptureRequest` → `PaymentCaptureResult`) and
+  `HookPaymentVoid` (`payment.void`: `PaymentVoidRequest` → `PaymentVoidResult`), asked under the session's lock with
+  the idempotency key `CaptureKeyPrefix`/`VoidKeyPrefix` + the session's id. A gateway implements `PaymentCapturer`;
+  Serve subscribes it, `DispatchPaymentGatewayHook` checks both directions and refuses a describe answer listing
+  `manual_capture` from a gateway that is not one. `payments/v1` describes both methods.
+- `PaymentFailVoided` (`"voided"`): Core's verdict for a hold the consumer let go; a gateway reporting it is refused.
+- `SupportCardPresent` (`"card_present"`), EXPERIMENTAL: the token a method will list for a card taken in person; nothing
+  acts on it yet. The payer-absent charge was already here: `Payments.ChargeSaved` (v0.30.0).
+- `nildatest.Payments` holds the same rules — a capture above the hold, a second capture of another amount, a refund
+  before the capture and a capture or void of a session that holds nothing are refused; a lost answer is asked again by
+  `Deliver` under the same key — and `ExpireHold` runs Core's expiry of one hold. `StubGateway` answers both hooks
+  (`CaptureResult`, `CaptureErr`, `Captured`, `VoidResult`, `VoidErr`, `Voided`).
+- A hold report's rules (Core's `Authorize`, `docs/PAYMENTS.md` §4 step 1): a deadline already past is kept as now, so
+  the hold lapses at the next sweep (seven days when none is named, thirty at most, as before); the same hold reported
+  again with another deadline keeps it — and the consumer hears it — while no capture or void was asked; a hold of
+  another amount or currency is 422 on an `authorized` session too; once a capture or void was asked a hold report
+  moves nothing (the same hold while `authorized`, 409 after — never a slow capture back to `authorized`); and a
+  session held for a person (`amount_mismatch`) is 409, its reported amount kept. `nildatest` holds the same rules.
+- The reserved payment names shrink to `partial_capture` (multicapture, which the contract does not do).
+- Additive: an older Core answers the three routes 404 and ignores `capture` — it takes the money at once — so read the
+  session's `capture` back: one that does not say `manual` holds nothing. Needs the Core built on this release.
+
 
 - `ServiceContract.Status` (`"status"`): `"experimental"` marks a published contract outside the v1 no-breaking promise
   until its first Nilda plugin ships green on it; empty or `"stable"` is inside it. `ServiceContract.Experimental()`,

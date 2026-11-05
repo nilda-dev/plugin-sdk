@@ -48,8 +48,10 @@ const (
 // The tokens and names reserved for what the contract will carry and does not yet (architecture §1.2, §1.3).
 // Nothing may use them for anything else: TestReservedPaymentNamesAreUnused fails on an exported field or a json
 // tag named after them. `credential` and `credential_types` were reserved here until v0.20.0 built them
-// (PaymentCredential, below).
-var reservedPaymentNames = []string{"capture", "partial_capture", "void"}
+// (PaymentCredential, below), and `capture` and `void` until v0.58.0 did (paymentcapture.go). `partial_capture` stays
+// reserved for taking one hold in several parts (multicapture), which the contract does not do: a session has one
+// capture, of at most what is held.
+var reservedPaymentNames = []string{"partial_capture"}
 
 // A DELEGATED PAYMENT CREDENTIAL (v0.20.0; commerce unit 9.7, level 2): an AI agent pays for the buyer it acts for
 // with a token the buyer's wallet granted it — limited to this seller, an amount and a time. The consumer sends it
