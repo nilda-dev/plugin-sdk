@@ -25,3 +25,19 @@ plugin in memory for the read only; it is never logged and never part of a piece
 data; Core writes the sentences, in the reader's language, so a stored warning can be shown again in another one.
 
 Status: experimental until its first plugin ships green on it. See `docs/plans/site-import-content/PLAN.md` in Core.
+
+## Losses: codes and data, said in Core's words
+
+A loss is `{code, count, data}`; the plugin never sends a sentence. Core writes it, in the reader's language, from the code:
+
+- **A code Core knows.** When `code` is one of Core's own not-carried reasons (they start with `nc_`: `nc_sticky`, `nc_post_types`,
+  `nc_trashed`, …) and `data` holds `"kind"` (a lowercase word such as `"flag"`, `"post_type"`, `"field"`) and, usually, `"name"`
+  (text), Core takes it as its own entry, so the sentence — and its translation — is the one the built-in WordPress reader's loss
+  has always had. The name is made plain text and cut to 100 characters on arrival.
+- **Anything else** (an unknown code, a code that does not start with `nc_`, a missing or malformed `kind`, or `nc_vocab_refused`,
+  which is Core's own phase refusing a vocabulary) is said with one generic sentence that carries the code and the data
+  ("The reader reported N things it could not carry (…)"). It is never dropped and never repeated as the plugin wrote it.
+- `count` is clamped to 1…1,000,000; at most 1,000 losses ride in one piece.
+
+The set of codes Core has sentences for is Core's (`internal/importer/notcarried*.go` and the sentences registered beside the
+readers); a plugin that wants a new sentence asks for a new code in Core first.
