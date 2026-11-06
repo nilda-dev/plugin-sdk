@@ -25,11 +25,7 @@ var aheadOfCore = map[string]struct {
 
 	// Core landed the session's risk (plan 10.3 F1) in core #181.
 
-	// Commerce plan 10.15, "Stripe item lines": Core keeps a session's item lines and their breakdown as the consumer
-	// sent them, checks them as PaymentSessionParams.Validate does, hands them to the gateway in payment.start's session,
-	// and drops them when a re-price moves the amount.
-	"session lines":     {step: "10.15 (Core)", file: []string{"internal", "payments", "types.go"}, probe: `json:"lines`},
-	"session breakdown": {step: "10.15 (Core)", file: []string{"internal", "payments", "types.go"}, probe: `json:"breakdown`},
+	// Core landed the session's item lines and breakdown (plan 10.15) in core #223.
 }
 
 // coreLacks reports whether item is SDK surface Core does not serve yet (aheadOfCore).

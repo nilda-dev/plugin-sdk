@@ -211,7 +211,7 @@ func TestThePaymentNumbersInTheGuideAreCores(t *testing.T) {
 		{service, "internal/payments/service.go", "Lifetime: sessionLifetime,"},
 		// Core's 625bc5d33 (2026-10-30) added credential_type before expires_at, its migration 0377 (v0.58.0) capture_mode
 		// after it, and 0378 (door D5) off_session and reader; the expiry is still the database's now() plus the lifetime.
-		{queries, "internal/db/queries/payments.sql", "save, charged_saved_id, credential_type, expires_at, capture_mode, off_session, reader ) VALUES ( $1, $2, $3, $4, $5, $6, $7, " +
+		{queries, "internal/db/queries/payments.sql", "save, charged_saved_id, credential_type, expires_at, capture_mode, off_session, reader, lines, breakdown ) VALUES ( $1, $2, $3, $4, $5, $6, $7, " +
 			"'created', $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, sqlc.narg('save'), sqlc.narg('charged_saved_id'), " +
 			"sqlc.arg('credential_type'), now() + sqlc.arg('lifetime')::interval,"},
 	} {
