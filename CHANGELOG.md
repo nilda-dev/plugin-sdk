@@ -10,6 +10,8 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
 
 ## v0.58.0 — unreleased (item lines on a payment — commerce plan 10.15; a plugin's own fields in the shop — the shop's door D2; write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3; paperless return labels — commerce plan 10.9b; service points — commerce plan 10.9)
 
+- MAIL TEMPLATES: `MaxManifestEmailTemplates` 64 → 128 (Core D-111): Core lets a plugin declare 128 email templates, so a shop's legally required mails (the DSA review-report notices) fit beside its others; the 2 MB manifest bound still limits the total.
+
 - PAYMENTS: ITEM LINES (commerce plan 10.15, "Stripe item lines"; `paymentlines.go`, `docs/PAYMENTS.md` §5 "Item lines").
   `PaymentSessionParams.Lines` (`"lines"`, `PaymentLine`s: `name`, `quantity`, `unit_amount_minor`, `total_minor`,
   `tax_minor`, `sku`, `url`, `image_url`, `fulfilment`) and `PaymentSessionParams.Breakdown` (`"breakdown"`,

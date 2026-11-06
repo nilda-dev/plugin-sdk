@@ -154,7 +154,7 @@ const (
 	// Mail (`email_templates`).
 
 	// MaxManifestEmailTemplates bounds email_templates: a count.
-	MaxManifestEmailTemplates = 64
+	MaxManifestEmailTemplates = 128
 	// MaxManifestEmailVariables bounds one template's variables: a count.
 	MaxManifestEmailVariables = 64
 	// MaxManifestEmailSampleBytes bounds one variable's sample, written as JSON: bytes.

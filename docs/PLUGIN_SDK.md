@@ -768,7 +768,7 @@ locale code) is not here — the pattern is the rule, and `nilda plugin check` s
 | `MaxManifestTableNameLen` | 48 bytes | a table's name and a column's (the name is lowercase ASCII) |
 | `MaxManifestIndexesPerTable` | 16 | one table's indexes, counting its unique columns and the index a list page's order_by adds |
 | `MaxManifestIndexColumns` | 32 | one index's columns |
-| `MaxManifestEmailTemplates` | 64 | email_templates |
+| `MaxManifestEmailTemplates` | 128 | email_templates |
 | `MaxManifestEmailVariables` | 64 | one template's variables |
 | `MaxManifestEmailSampleBytes` | 16 KiB | one variable's sample, written as JSON |
 | `MaxManifestEmailLocales` | 64 | the languages one template's defaults are written in |
@@ -1162,7 +1162,7 @@ Each entry is an `EmailTemplateDecl`; its `variables` are `EmailVariable`s and e
 `EmailTemplateText`. Needs the `email` capability. Core stores the key as `<plugin key>.<key>`, so it is yours alone
 — lowercase letters, digits and underscores, at most 48 characters, and never reused for another mail once
 published (a key a newer version drops is deleted, or kept as retired when the owner had edited it, and a later
-version naming it again is refused). Bounds: at most 64 templates, at most 64 variables a template, a subject at
+version naming it again is refused). Bounds: at most 128 templates, at most 64 variables a template, a subject at
 most 200 characters, a text or HTML part at most 32 KB, and English (`en`) in every template — the language the
 others fall back to.
 

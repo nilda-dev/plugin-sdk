@@ -198,7 +198,7 @@ func TestTheMailTemplateBoundsTheDocsNameAreCores(t *testing.T) {
 	schema := coreSource(t, "internal", "plugin", "schema_emailtemplates.go")
 	check := coreSource(t, "internal", "email", "check.go")
 	for _, c := range []struct{ src, core, doc string }{
-		{schema, "maxEmailTemplates = 64", "at most 64 templates"},
+		{schema, "maxEmailTemplates = 128", "at most 128 templates"},
 		{schema, "maxEmailVariables = 64", "at most 64 variables a template"},
 		{check, "MaxSubjectRunes = 200", "a subject at most 200 characters"},
 		{check, "MaxBodyBytes    = 32 << 10", "a text or HTML part at most 32 KB"},
