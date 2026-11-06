@@ -4,6 +4,7 @@ const AccountNavAttr
 const AccountProfileSlot
 const AccountStartHook
 const AccountStatusHook
+const AddressSuggestPerMinute
 const AdminActionHook
 const AdminCalendarHook
 const AdminFormLoadHook
@@ -16,6 +17,49 @@ const AdminReportHook
 const AgentBlocked
 const AgentBrowse
 const AgentBuy
+const AttributeAllow
+const AttributeBlock
+const AttributeBoolean
+const AttributeCustomer
+const AttributeDate
+const AttributeEmail
+const AttributeLine
+const AttributeMalformed
+const AttributeNoRecord
+const AttributeNotAChoice
+const AttributeNotOffered
+const AttributeNumber
+const AttributeOrder
+const AttributePhone
+const AttributeProduct
+const AttributeRadio
+const AttributeReplaced
+const AttributeRequired
+const AttributeSelect
+const AttributeShownCheckout
+const AttributeShownOrder
+const AttributeShownProductForm
+const AttributeShownProductPage
+const AttributeText
+const AttributeTextarea
+const AttributeTooEarly
+const AttributeTooLarge
+const AttributeTooLate
+const AttributeTooLong
+const AttributeTooShort
+const AttributeTooSmall
+const AttributeURL
+const AttributeUndoneAlready
+const AttributeUnknownWrite
+const AttributeValueRecord
+const AttributeValueSet
+const AttributeValueUndo
+const AttributeValuesGet
+const AttributeWrongType
+const AttributesAddressResolve
+const AttributesAddressSuggest
+const AttributesDescribe
+const AttributesValidate
 const AvailabilityBackorder
 const AvailabilityInStock
 const AvailabilityOutOfStock
@@ -123,6 +167,8 @@ const CommerceRedirectHeader
 const CommerceSignInHeader
 const ContractExperimental
 const ContractShippingCarrier
+const ContractShopAttributeValues
+const ContractShopAttributes
 const ContractShopCatalog
 const ContractShopDeliverables
 const ContractShopOrders
@@ -154,6 +200,8 @@ const EmailToOwner
 const EmailToPerson
 const EmailTransactional
 const EmailURL
+const EventAttributeSet
+const EventAttributeUndone
 const EventCommerceCatalogChanged
 const EventCommerceSKURenamed
 const EventContentCreated
@@ -276,9 +324,21 @@ const LinkTargetsHook
 const MandatePreOrder
 const MandateSubscription
 const MandateUpdate
+const MaxAddressQuery
+const MaxAddressSuggestions
 const MaxAdminNoticeLen
 const MaxAdminRevealLen
 const MaxAssetsPerPlugin
+const MaxAttributeChoices
+const MaxAttributeFields
+const MaxAttributeHelp
+const MaxAttributeLabel
+const MaxAttributeLanguages
+const MaxAttributeMessage
+const MaxAttributeSKUs
+const MaxAttributeText
+const MaxAttributeTextarea
+const MaxAttributeValues
 const MaxDisputesPerSession
 const MaxListFilters
 const MaxManifestAbilities
@@ -394,6 +454,7 @@ const MetricMoney
 const MetricNumber
 const MetricPercent
 const MetricText
+const MinAddressQuery
 const MinTrashRetention
 const OffSessionRecurring
 const OffSessionUnscheduled
@@ -582,6 +643,20 @@ field AddToCartRequest.Attribution *FirstTouch json:attribution
 field AddToCartRequest.Product string json:product
 field AddToCartRequest.Quantity int64 json:quantity
 field AddToCartRequest.Variations map[string]string json:variations
+field AddressResolveAnswer.Address *ShipAddress json:address
+field AddressResolveAnswer.Found bool json:found
+field AddressResolveRequest.ID string json:id
+field AddressResolveRequest.Locale string json:locale
+field AddressResolveRequest.Session string json:session
+field AddressSuggestAnswer.Suggestions []AddressSuggestion json:suggestions
+field AddressSuggestRequest.Country string json:country
+field AddressSuggestRequest.Limit int json:limit
+field AddressSuggestRequest.Locale string json:locale
+field AddressSuggestRequest.Query string json:query
+field AddressSuggestRequest.Session string json:session
+field AddressSuggestion.Address *ShipAddress json:address
+field AddressSuggestion.ID string json:id
+field AddressSuggestion.Label string json:label
 field AdminAction.Action string json:action
 field AdminAction.ID string json:id
 field AdminAction.Page string json:page
@@ -635,6 +710,60 @@ field AdminReportResult.Rows []map[string]any json:rows
 field AdminReportResult.Summary map[string]any json:summary
 field Agent.Operator string json:operator
 field Agent.Tier AgentTier json:tier
+field AttributeBasketLine.ID string json:id
+field AttributeBasketLine.Quantity int64 json:quantity
+field AttributeBasketLine.SKU string json:sku
+field AttributeChoice.Label map[string]string json:label
+field AttributeChoice.Value string json:value
+field AttributeDescription.AddressSuggestions bool json:address_suggestions
+field AttributeDescription.Fields []AttributeField json:fields
+field AttributeDescription.Validates bool json:validates
+field AttributeDescription.WhenUnanswered string json:when_unanswered
+field AttributeError.Field string json:field
+field AttributeError.Line string json:line
+field AttributeError.Message string json:message
+field AttributeField.Choices []AttributeChoice json:choices
+field AttributeField.Help map[string]string json:help
+field AttributeField.Key string json:key
+field AttributeField.Label map[string]string json:label
+field AttributeField.Max *float64 json:max
+field AttributeField.MaxDate string json:max_date
+field AttributeField.MaxLength int json:max_length
+field AttributeField.Min *float64 json:min
+field AttributeField.MinDate string json:min_date
+field AttributeField.MinLength int json:min_length
+field AttributeField.Required bool json:required
+field AttributeField.SKUs []string json:skus
+field AttributeField.Shown []string json:shown
+field AttributeField.Target string json:target
+field AttributeField.Type string json:type
+field AttributeFieldsAnswer.Cached bool
+field AttributeFieldsAnswer.Description AttributeDescription
+field AttributeFieldsAnswer.Provider string
+field AttributeSetRequest.Field string json:field
+field AttributeSetRequest.Target AttributeTarget json:target
+field AttributeSetRequest.Value json.RawMessage json:value
+field AttributeTarget.ID string json:id
+field AttributeTarget.Kind string json:kind
+field AttributeTarget.Line string json:line
+field AttributeValidateAnswer.Errors []AttributeError json:errors
+field AttributeValidateRequest.Country string json:country
+field AttributeValidateRequest.Currency string json:currency
+field AttributeValidateRequest.Customer string json:customer
+field AttributeValidateRequest.Lines []AttributeBasketLine json:lines
+field AttributeValidateRequest.Locale string json:locale
+field AttributeValidateRequest.Values []AttributeValue json:values
+field AttributeValue.Field string json:field
+field AttributeValue.Kind string json:kind
+field AttributeValue.Line string json:line
+field AttributeValue.Plugin string json:plugin
+field AttributeValue.Value json.RawMessage json:value
+field AttributeValueError.Code string
+field AttributeValueError.Field string
+field AttributeValueError.Line string
+field AttributeValuesAnswer.Values []AttributeValue json:values
+field AttributeValuesRequest.Target AttributeTarget json:target
+field AttributeWriteAnswer.Refused string json:refused
 field AuthAssertion.AvatarURL string json:avatar_url
 field AuthAssertion.Email string json:email
 field AuthAssertion.EmailVerified bool json:email_verified
@@ -1861,6 +1990,10 @@ func AbilityHook(string) (string)
 func AdminFormURL(string, string, string, string) (string)
 func AdminPageURL(string, string, string) (string)
 func AgentOf(*http.Request) (Agent, bool)
+func AttributeFieldTypes() ([]string)
+func AttributeInputName(string, string, string) (string)
+func AttributeMethods(AttributeProvider) ([]ServiceMethod)
+func AttributeValuesMethods(AttributeValuesProvider) ([]ServiceMethod)
 func BadgeTones() ([]string)
 func BodyText(json.RawMessage) (string)
 func CallOf(context.Context) (CallInfo)
@@ -1904,6 +2037,7 @@ func FormFieldTypes() ([]string)
 func FormatMinor(int64, string) (string, bool)
 func HTTPClient(time.Duration) (*http.Client)
 func HostPluginMap() (map[int]plugin.PluginSet)
+func LabelIn(map[string]string, string) (string)
 func LocaleDirection(string) (string)
 func Log() (*slog.Logger)
 func MailAddressBlocked(error) (bool)
@@ -1911,6 +2045,7 @@ func MailDeferred(error) (time.Duration, bool)
 func MetricFormats() ([]string)
 func MinorUnits(string) (int, bool)
 func MobileIcons() ([]string)
+func NewAddressSuggestLimiter() (*AddressSuggestLimiter)
 func NewCoreForTest(string, []string, contract.HostServiceClient, string, string, []string) (*Core)
 func NewOIDCClient(string, string, string, ...string) (*OIDCClient)
 func NewTransport(http.RoundTripper) (http.RoundTripper)
@@ -1956,7 +2091,14 @@ imethod AccountHandler.AccountDisconnect(context.Context) (error)
 imethod AccountHandler.AccountFinish(context.Context, AccountFinish) (AccountStatus, error)
 imethod AccountHandler.AccountStart(context.Context, AccountStart) (AccountStartResult, error)
 imethod AccountHandler.AccountStatus(context.Context) (AccountStatus, error)
+imethod AddressSuggester.ResolveAddress(context.Context, AddressResolveRequest) (AddressResolveAnswer, error)
+imethod AddressSuggester.SuggestAddresses(context.Context, AddressSuggestRequest) (AddressSuggestAnswer, error)
 imethod AssetProvider.FooterScripts(context.Context, RenderAssetsRequest) ([]ScriptAsset)
+imethod AttributeProvider.DescribeAttributes(context.Context) (AttributeDescription, error)
+imethod AttributeValidator.ValidateAttributes(context.Context, AttributeValidateRequest) (AttributeValidateAnswer, error)
+imethod AttributeValuesProvider.AttributeValues(context.Context, AttributeValuesRequest) (AttributeValuesAnswer, error)
+imethod AttributeValuesProvider.SetAttribute(context.Context, AttributeSetRequest) (AttributeWriteAnswer, error)
+imethod AttributeValuesProvider.UndoAttribute(context.Context, UndoInput) (AttributeWriteAnswer, error)
 imethod AuthProvider.Complete(context.Context, *Core, AuthCompleteRequest) (AuthAssertion, error)
 imethod AuthProvider.Describe(context.Context, *Core) ([]AuthProviderStatus)
 imethod AuthProvider.Start(context.Context, *Core, AuthStartRequest) (string, error)
@@ -2053,6 +2195,8 @@ method (*APIError) Forbidden() (bool)
 method (*APIError) NotFound() (bool)
 method (*APIError) RateLimited() (bool)
 method (*APIError) Retryable() (bool)
+method (*AddressSuggestLimiter) Allow(string, time.Time) (bool)
+method (*AttributeValueError) Error() (string)
 method (*Core) API() (*API)
 method (*Core) Emit(context.Context, string, any) (error)
 method (*Core) HasAPI() (bool)
@@ -2118,6 +2262,8 @@ method (*Reference) TaxTable(context.Context, time.Time) (TaxTable, error)
 method (*Secrets) Delete(context.Context, string) (bool, error)
 method (*Secrets) Get(context.Context, string) (string, bool, error)
 method (*Secrets) Set(context.Context, string, string) (error)
+method (*Services) AttributeFields(context.Context) ([]AttributeFieldsAnswer, []ServiceMiss, error)
+method (*Services) AttributeValuesOf(context.Context, AttributeTarget) ([]AttributeValue, error)
 method (*Services) Call(context.Context, string, string, any, ServiceCallOptions) (ServiceResult, error)
 method (*Services) CatalogDescription(context.Context) (CatalogDescription, error)
 method (*Services) CatalogPage(context.Context, CatalogPageRequest) (CatalogPage, error)
@@ -2125,13 +2271,34 @@ method (*Services) CatalogProduct(context.Context, string) (CatalogProductResult
 method (*Services) CreateShippingLabel(context.Context, string, LabelRequest) (LabelResult, error)
 method (*Services) DeliveredSKUs(context.Context) (map[string]bool, error)
 method (*Services) OrderDeliverables(context.Context, DeliverablesRequest) ([]DeliveredItem, int, error)
+method (*Services) ResolveAddress(context.Context, string, AddressResolveRequest) (AddressResolveAnswer, error)
+method (*Services) SetAttribute(context.Context, string, AttributeSetRequest) (AttributeWriteAnswer, error)
 method (*Services) ShippingDocuments(context.Context, string, DocumentsRequest) (DocumentsResult, error)
 method (*Services) ShippingRates(context.Context, RatesRequest, ServiceCallOptions) ([]CarrierRatesAnswer, []ServiceMiss, error)
 method (*Services) ShippingServicePoints(context.Context, string, ServicePointsRequest) (ServicePointsResult, error)
 method (*Services) ShopOrder(context.Context, string) (ShopOrderResult, error)
+method (*Services) SuggestAddresses(context.Context, string, AddressSuggestRequest) (AddressSuggestAnswer, error)
 method (*Services) TrackShipment(context.Context, string, TrackRequest) (TrackResult, error)
+method (*Services) UndoAttribute(context.Context, string, string) (AttributeWriteAnswer, error)
+method (*Services) ValidateAttributes(context.Context, string, AttributeDescription, AttributeValidateRequest) (AttributeValidateAnswer, error)
 method (*Services) VoidShippingLabel(context.Context, string, VoidRequest) (VoidResult, error)
+method (AddressResolveAnswer) Validate() (error)
+method (AddressResolveRequest) Validate() (error)
+method (AddressSuggestAnswer) ValidateFor(AddressSuggestRequest) (error)
+method (AddressSuggestRequest) Validate() (error)
 method (AdminReportResult) Validate(AdminPage) (error)
+method (AttributeDescription) Validate() (error)
+method (AttributeField) CheckValue(json.RawMessage, time.Time) (error)
+method (AttributeField) Collected() (bool)
+method (AttributeField) ForSKU(string) (bool)
+method (AttributeField) FormField(string) (FormField)
+method (AttributeField) Shows(string) (bool)
+method (AttributeField) Validate() (error)
+method (AttributeSetRequest) Validate() (error)
+method (AttributeTarget) Validate() (error)
+method (AttributeValidateAnswer) ValidateFor(AttributeDescription) (error)
+method (AttributeValidateRequest) Validate() (error)
+method (AttributeWriteAnswer) Validate() (error)
 method (CarrierDescription) Validate() (error)
 method (CatalogDescription) Validate() (error)
 method (CatalogPage) Validate() (error)
@@ -2233,6 +2400,13 @@ type AccountStart
 type AccountStartResult
 type AccountStatus
 type AddToCartRequest
+type AddressResolveAnswer
+type AddressResolveRequest
+type AddressSuggestAnswer
+type AddressSuggestLimiter
+type AddressSuggestRequest
+type AddressSuggester
+type AddressSuggestion
 type AdminAction
 type AdminActionResult
 type AdminCalendarRequest
@@ -2245,6 +2419,24 @@ type AdminReportResult
 type Agent
 type AgentTier
 type AssetProvider
+type AttributeBasketLine
+type AttributeChoice
+type AttributeDescription
+type AttributeError
+type AttributeField
+type AttributeFieldsAnswer
+type AttributeProvider
+type AttributeSetRequest
+type AttributeTarget
+type AttributeValidateAnswer
+type AttributeValidateRequest
+type AttributeValidator
+type AttributeValue
+type AttributeValueError
+type AttributeValuesAnswer
+type AttributeValuesProvider
+type AttributeValuesRequest
+type AttributeWriteAnswer
 type AuthAssertion
 type AuthCompleteRequest
 type AuthProvider
@@ -2521,6 +2713,7 @@ type WidgetProvider
 type WidgetRenderRequest
 type WriteAnswer
 var AccountVocabulary
+var ErrAddressSuggestLimited
 var ErrNotABody
 var ErrTemplateOff
 var Handshake

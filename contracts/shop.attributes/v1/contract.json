@@ -1,0 +1,444 @@
+{
+  "name": "shop.attributes/v1",
+  "description": "A plugin's own fields on the shop's orders, lines, products and customers, and its address suggestions: the plugin describes its fields (type, label per language, where they are shown, required, bounds) and checks their values before an order is placed; the shop draws, checks, keeps and copies them into the order, and proxies a visitor's address query to the plugin, bounded (ATTRIBUTES.md).",
+  "methods": [
+    {
+      "name": "describe",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. The fields this plugin owns — key, what they are on, type, label per language, where they are shown, required, bounds — whether it checks them when an order is placed and what the shop does when it does not answer, and whether it suggests addresses.",
+      "retry_class": "failure",
+      "fallback": "cached",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reads and edits a plugin's fields on the shop's order and product screens and through the shop's own abilities (get_order, update_product); this is how the shop asks the plugin that owns them",
+      "input": {
+        "type": "object"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "fields": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "target": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "help": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "shown": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "choices": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "value": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "required": [
+                      "value",
+                      "label"
+                    ]
+                  }
+                },
+                "min_length": {
+                  "type": "integer"
+                },
+                "max_length": {
+                  "type": "integer"
+                },
+                "min": {
+                  "type": [
+                    "null",
+                    "number"
+                  ]
+                },
+                "max": {
+                  "type": [
+                    "null",
+                    "number"
+                  ]
+                },
+                "min_date": {
+                  "type": "string"
+                },
+                "max_date": {
+                  "type": "string"
+                },
+                "skus": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "key",
+                "target",
+                "type",
+                "label",
+                "shown"
+              ]
+            }
+          },
+          "validates": {
+            "type": "boolean"
+          },
+          "when_unanswered": {
+            "type": "string"
+          },
+          "address_suggestions": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "fields"
+        ]
+      }
+    },
+    {
+      "name": "validate",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. Whether this plugin's values let the order be placed: no errors places it; each error names its field and the sentence the buyer reads. Not answering is the plugin's declared when_unanswered: block or allow.",
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reads and edits a plugin's fields on the shop's order and product screens and through the shop's own abilities (get_order, update_product); this is how the shop asks the plugin that owns them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "customer": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "lines": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "sku": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "id",
+                "sku",
+                "quantity"
+              ]
+            }
+          },
+          "values": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "plugin": {
+                  "type": "string"
+                },
+                "field": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "line": {
+                  "type": "string"
+                },
+                "value": true
+              },
+              "required": [
+                "field",
+                "value"
+              ]
+            }
+          }
+        },
+        "required": [
+          "currency",
+          "lines",
+          "values"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "errors": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "line": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "field",
+                "message"
+              ]
+            }
+          }
+        },
+        "required": [
+          "errors"
+        ]
+      }
+    },
+    {
+      "name": "address.suggest",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. Addresses matching what a visitor typed, best first, at most five; the shop proxies the query so the plugin's key never reaches the browser, and bounds each visitor to 30 calls a minute.",
+      "retry_class": "failure",
+      "fallback": "skip",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "address suggestions answer a visitor typing at checkout, through the shop's bounded proxy; the owner has nothing to ask of them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "session": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "suggestions": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "address": {
+                  "type": [
+                    "null",
+                    "object"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "company": {
+                      "type": "string"
+                    },
+                    "line1": {
+                      "type": "string"
+                    },
+                    "line2": {
+                      "type": "string"
+                    },
+                    "city": {
+                      "type": "string"
+                    },
+                    "region": {
+                      "type": "string"
+                    },
+                    "postal_code": {
+                      "type": "string"
+                    },
+                    "country": {
+                      "type": "string"
+                    },
+                    "phone": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "country"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "label"
+              ]
+            }
+          }
+        },
+        "required": [
+          "suggestions"
+        ]
+      }
+    },
+    {
+      "name": "address.resolve",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. The whole address of the suggestion a visitor picked; the shop fills its own fields with it and checks them by its own rules.",
+      "retry_class": "failure",
+      "fallback": "skip",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "address suggestions answer a visitor typing at checkout, through the shop's bounded proxy; the owner has nothing to ask of them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "session": {
+            "type": "string"
+          },
+          "locale": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "found": {
+            "type": "boolean"
+          },
+          "address": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "company": {
+                "type": "string"
+              },
+              "line1": {
+                "type": "string"
+              },
+              "line2": {
+                "type": "string"
+              },
+              "city": {
+                "type": "string"
+              },
+              "region": {
+                "type": "string"
+              },
+              "postal_code": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "country"
+            ]
+          }
+        },
+        "required": [
+          "found"
+        ]
+      }
+    }
+  ],
+  "status": "experimental"
+}
