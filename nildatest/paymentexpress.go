@@ -85,6 +85,8 @@ func (p *Payments) reprice(ctx context.Context, caller, id string, in nilda.Paym
 	}
 	if s.AmountMinor != in.AmountMinor {
 		s.AmountMinor = in.AmountMinor
+		// The item lines described the amount before; the processor's order no longer holds them (v0.58.0, 10.15).
+		s.Lines, s.Breakdown = nil, nil
 		s.UpdatedAt = time.Now().UTC()
 		p.owe(owed{session: s.ID})
 	}

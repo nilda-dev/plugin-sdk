@@ -428,6 +428,10 @@ const MaxManifestVisitorToolPaths
 const MaxManifestVisitorTools
 const MaxManifestWebhookPathLen
 const MaxManifestWebhookPaths
+const MaxPaymentLineName
+const MaxPaymentLineQuantity
+const MaxPaymentLineSKU
+const MaxPaymentLines
 const MaxPickActions
 const MaxPickTools
 const MaxPriceGroupLength
@@ -1320,6 +1324,10 @@ field PaymentAuthorization.Currency string json:currency
 field PaymentAuthorization.ExpiresAt *time.Time json:expires_at
 field PaymentAuthorization.ProviderRef string json:provider_ref
 field PaymentAuthorization.Risk *PaymentRisk json:risk
+field PaymentBreakdown.DiscountMinor int64 json:discount_minor
+field PaymentBreakdown.ShippingMinor int64 json:shipping_minor
+field PaymentBreakdown.TaxIncluded bool json:tax_included
+field PaymentBreakdown.TaxMinor int64 json:tax_minor
 field PaymentCaptureRequest.AmountMinor int64 json:amount_minor
 field PaymentCaptureRequest.IdempotencyKey string json:idempotency_key
 field PaymentCaptureRequest.Session PaymentSession json:session
@@ -1388,6 +1396,15 @@ field PaymentForgetRequest.Token string json:token
 field PaymentGatewayState.Enabled bool json:enabled
 field PaymentGatewayState.Key string json:key
 field PaymentGatewayState.Name string json:name
+field PaymentLine.Fulfilment string json:fulfilment
+field PaymentLine.ImageURL string json:image_url
+field PaymentLine.Name string json:name
+field PaymentLine.Quantity int64 json:quantity
+field PaymentLine.SKU string json:sku
+field PaymentLine.TaxMinor int64 json:tax_minor
+field PaymentLine.TotalMinor int64 json:total_minor
+field PaymentLine.URL string json:url
+field PaymentLine.UnitAmountMinor int64 json:unit_amount_minor
 field PaymentMandate.AmountMinor int64 json:amount_minor
 field PaymentMandate.AmountRule string json:amount_rule
 field PaymentMandate.Currency string json:currency
@@ -1471,6 +1488,7 @@ field PaymentSession.AmountMinor int64 json:amount_minor
 field PaymentSession.AuthorizationExpiresAt *time.Time json:authorization_expires_at
 field PaymentSession.AuthorizedMinor int64 json:authorized_minor
 field PaymentSession.BillingAddress *PaymentAddress json:billing_address
+field PaymentSession.Breakdown *PaymentBreakdown json:breakdown
 field PaymentSession.CancelURL string json:cancel_url
 field PaymentSession.Capture string json:capture
 field PaymentSession.CaptureRequestedMinor int64 json:capture_requested_minor
@@ -1488,6 +1506,7 @@ field PaymentSession.Fulfilment string json:fulfilment
 field PaymentSession.Gateway string json:gateway
 field PaymentSession.ID string json:id
 field PaymentSession.Instrument string json:instrument
+field PaymentSession.Lines []PaymentLine json:lines
 field PaymentSession.Locale string json:locale
 field PaymentSession.Method string json:method
 field PaymentSession.OffSession string json:off_session
@@ -1509,6 +1528,7 @@ field PaymentSession.UpdatedAt time.Time json:updated_at
 field PaymentSession.VoidRequested bool json:void_requested
 field PaymentSessionParams.AmountMinor int64 json:amount_minor
 field PaymentSessionParams.BillingAddress *PaymentAddress json:billing_address
+field PaymentSessionParams.Breakdown *PaymentBreakdown json:breakdown
 field PaymentSessionParams.CancelURL string json:cancel_url
 field PaymentSessionParams.Capture string json:capture
 field PaymentSessionParams.Credential *PaymentCredential json:credential
@@ -1517,6 +1537,7 @@ field PaymentSessionParams.Description string json:description
 field PaymentSessionParams.Email string json:email
 field PaymentSessionParams.Fulfilment string json:fulfilment
 field PaymentSessionParams.Gateway string json:gateway
+field PaymentSessionParams.Lines []PaymentLine json:lines
 field PaymentSessionParams.Locale string json:locale
 field PaymentSessionParams.Method string json:method
 field PaymentSessionParams.Reader string json:reader
@@ -2557,6 +2578,7 @@ type Paging
 type Parcel
 type PaymentAddress
 type PaymentAuthorization
+type PaymentBreakdown
 type PaymentCaptureRequest
 type PaymentCaptureResult
 type PaymentCapturer
@@ -2577,6 +2599,7 @@ type PaymentForgetRequest
 type PaymentGateway
 type PaymentGatewayPlugin
 type PaymentGatewayState
+type PaymentLine
 type PaymentMandate
 type PaymentMethod
 type PaymentOption

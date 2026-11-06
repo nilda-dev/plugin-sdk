@@ -345,7 +345,8 @@ type PaymentReprice struct {
 	ShippingOptions []PaymentShippingOption `json:"shipping_options,omitempty"`
 }
 
-// Validate refuses a re-price with no positive amount or with delivery options a sheet could not show.
+// Validate refuses a re-price with no positive amount or with delivery options a sheet could not show. A re-price that
+// moves the amount drops the session's item lines (PaymentSession.Lines): they described the amount before it.
 func (r PaymentReprice) Validate() error {
 	if r.AmountMinor <= 0 {
 		return fmt.Errorf("nilda: a re-price's amount_minor must be positive, got %d", r.AmountMinor)

@@ -8,7 +8,24 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.58.0 — unreleased (a plugin's own fields in the shop — the shop's door D2; write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3; paperless return labels — commerce plan 10.9b; service points — commerce plan 10.9)
+## v0.58.0 — unreleased (item lines on a payment — commerce plan 10.15; a plugin's own fields in the shop — the shop's door D2; write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3; paperless return labels — commerce plan 10.9b; service points — commerce plan 10.9)
+
+- PAYMENTS: ITEM LINES (commerce plan 10.15, "Stripe item lines"; `paymentlines.go`, `docs/PAYMENTS.md` §5 "Item lines").
+  `PaymentSessionParams.Lines` (`"lines"`, `PaymentLine`s: `name`, `quantity`, `unit_amount_minor`, `total_minor`,
+  `tax_minor`, `sku`, `url`, `image_url`, `fulfilment`) and `PaymentSessionParams.Breakdown` (`"breakdown"`,
+  `PaymentBreakdown`: `shipping_minor`, `discount_minor`, `tax_minor`, `tax_included`) say what the payer is buying, for
+  the processor's page to list. Optional. `Validate` holds them to the amount exactly — sum of totals + shipping −
+  discount + tax unless included = `amount_minor`; each total is unit × quantity; nothing negative; the lines' tax within
+  `tax_minor` — and to `MaxPaymentLines` (100, Stripe Checkout's payment-mode maximum), `MaxPaymentLineName` (127,
+  PayPal's item name), `MaxPaymentLineSKU` (127), `MaxPaymentLineQuantity` (999,999), http(s) URLs. `PaymentSession.Lines`
+  and `Breakdown` carry them to the gateway on `payment.start`; a re-price drops them. Read 2026-11-05: Stripe Checkout's
+  `line_items` (no total in payment mode, one coupon, tax only by rate) and PayPal Orders v2's `items` and
+  `amount.breakdown` (schema 2.36); PAYMENTS.md says how each gateway maps them and when it falls back to one line.
+- `nildatest.Payments` keeps them, starts the gateway with them and drops them on a re-price; `StubGateway.Started`
+  records the sessions it started (`TestTheItemLinesTravelToTheGatewayAndARepriceDropsThem`).
+- Additive and SDK-first: Core keeps and relays them from its 10.15 step (`coreahead_test.go` lists the session's
+  `lines` and `breakdown`); an older Core ignores the fields, so a consumer may send them today and the gateway sees none
+  until then.
 
 - THE SHOP: A PLUGIN'S OWN FIELDS, EXPERIMENTAL (the shop's door D2, plan 2026-11-05 §1J; `shopattributes.go`,
   `docs/ATTRIBUTES.md`, built on door D0). Two contracts, one per direction. `shop.attributes/v1`

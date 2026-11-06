@@ -721,6 +721,48 @@ owed := pay.Deliver(ctx)   // 0 once the shop has heard; pay.Deliveries() shows 
 `Deliver` is also what asks a gateway about a refund: `CreateRefund` answers `requested` there as in Core, and
 the next `Deliver` sends `payment.refund` and then tells the consumer how it ended.
 
+### Item lines: what the payer is buying (v0.58.0; commerce plan 10.15)
+
+`PaymentSessionParams.Lines` (a `PaymentLine` each: `name`, `quantity`, `unit_amount_minor`, `total_minor`, `tax_minor`,
+optional `sku`, `url`, `image_url`, `fulfilment`) and `PaymentSessionParams.Breakdown` (a `PaymentBreakdown`:
+`shipping_minor`, `discount_minor`, `tax_minor`, `tax_included`) say what the payer is buying, so the processor's page
+can list it — Stripe Checkout's `line_items`, PayPal's `purchase_units[].items` — instead of one "Order NLD-1042" line.
+Optional: a consumer built before sends neither, and the gateway shows the one amount as before. `Validate` (run by the
+client before it sends, and by Core) holds them to the amount EXACTLY:
+
+```
+sum(lines' total_minor) + shipping_minor − discount_minor + (tax_minor unless tax_included) = amount_minor
+```
+
+- each line's `total_minor` is its `unit_amount_minor` × `quantity` exactly (Stripe and PayPal both multiply; a line
+  discount that does not divide by the quantity goes into `discount_minor`, never into a unit price), nothing is
+  negative, `tax_minor` is ALL the tax in the amount (the lines' and the delivery's) and a line's tax is at most its
+  total when included;
+- bounds: at most `MaxPaymentLines` (100, Stripe Checkout's payment-mode maximum) lines, a `name` of one plain line up to
+  `MaxPaymentLineName` (127, PayPal's item name) characters, `sku` up to `MaxPaymentLineSKU` (127), a `quantity` of 1 to
+  `MaxPaymentLineQuantity` (999,999), `url` and `image_url` absolute http(s) up to 2,048 bytes; `breakdown` comes with
+  lines and only with them;
+- **the lines describe the amount; they never set it.** `amount_minor` is the one figure charged. Core keeps the lines on
+  the session (`PaymentSession.Lines`, `Breakdown`) and the gateway reads them from the session `payment.start` carries.
+  A re-price (`Payments.Reprice`) moves the amount and DROPS the lines: they described the amount before it.
+
+What a gateway does with them (read 2026-11-05):
+
+- **Stripe Checkout** (docs.stripe.com/api/checkout/sessions/create) takes no total in payment mode: it adds
+  `line_items[].price_data.unit_amount` × `quantity`, the chosen `shipping_options` rate, and tax only through `tax_rates`
+  or automatic tax, then subtracts at most one `discounts[]` coupon that must exist beforehand. So a tax-included basket
+  with no discount maps one to one (lines → `line_items`, `product_data.name`, `images` from `image_url`; delivery → a
+  `shipping_rate_data.fixed_amount`); a discount needs a coupon created for the amount, and tax on top needs a line of its
+  own or a tax rate. A gateway that cannot reproduce the amount exactly sends the one line it sent before — never a
+  total that differs from `amount_minor`.
+- **PayPal Orders v2** (schema 2.36, `item_request`, `amount_breakdown`): `items[]` with `name`, `quantity` (a string),
+  `unit_amount`, `tax` PER UNIT, `sku`, `url`, `image_url`, `category`; `amount.breakdown` with `item_total` (= the
+  sum of unit × quantity), `tax_total`, `shipping`, `discount`, and `amount = item_total + tax_total + shipping −
+  discount`. Tax included: the lines carry it and `tax_total` is left out. Tax on top: `tax_total` is `tax_minor`, and a
+  line's `tax` is sent only when its `tax_minor` divides by its quantity (else the item has none and the total stands).
+  `fulfilment` maps to `category`: physical → `PHYSICAL_GOODS`, digital → `DIGITAL_GOODS`, none → `DONATION` only for a
+  donation, else left out.
+
 ### Take the money later (v0.58.0)
 
 The market's default is to take the money at checkout, and so is Nilda's: a session with no `Capture` (or
@@ -896,6 +938,7 @@ Hooks arrive over the plugin protocol (docs/ANY_LANGUAGE.md) with these JSON pay
 A session is `{"id","consumer","gateway","method","reference","amount_minor","currency","status","test",
 "description","return_url","cancel_url","redirect_url","client_action","provider_ref","failure_code","failure_message",
 "email","locale","supports","fulfilment","billing_address","shipping_address","reader","expires_at","save","saved_method","charged_saved","off_session","instrument","resolved_at","risk",
+"lines","breakdown",
 "capture","authorized_minor","authorization_expires_at","capture_requested_minor","void_requested","refunded_minor",
 "created_at","updated_at"}`; a refund is `{"id","session","amount_minor","currency","status","reason",
 "provider_ref","failure_code","failure_message","external","reversed_at","created_at","updated_at"}`; an address

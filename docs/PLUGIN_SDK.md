@@ -2301,7 +2301,8 @@ one reported on the session (`PaymentSession.Risk`) and a consumer reads it ther
 A **consumer** implements `nilda.PaymentConsumer` — `ConfirmPayment(ctx, nilda.PaymentSession)` answering a
 `nilda.PaymentConfirmResult`, `PaymentUpdated(ctx, nilda.PaymentSession)` and
 `RefundUpdated(ctx, nilda.PaymentRefund, nilda.PaymentSession)` — and calls `Methods` (a list of
-`nilda.PaymentOption`), `CreateSession` (with `nilda.PaymentSessionParams`), `GetSession`, `CreateRefund`
+`nilda.PaymentOption`), `CreateSession` (with `nilda.PaymentSessionParams` — since v0.58.0 optionally its item lines, `nilda.PaymentLine`s with a
+`nilda.PaymentBreakdown`, which must add up to the amount exactly; `docs/PAYMENTS.md` §5 "Item lines"), `GetSession`, `CreateRefund`
 (with `nilda.PaymentRefundParams`) and `GetRefund` on the same `nilda.Payments` client.
 `Readiness(ctx, currency)` (v0.42.0) says why a site cannot take a payment yet — a `nilda.PaymentsReadiness` of
 every installed gateway as a `nilda.PaymentGatewayState` (`key`, `name`, `enabled`), how many switched-on methods

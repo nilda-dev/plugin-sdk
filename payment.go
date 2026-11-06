@@ -291,6 +291,11 @@ type PaymentSession struct {
 	// EXPERIMENTAL, paymentrisk.go): the first one reported is kept, and a later report never moves or clears it. Nil
 	// while the gateway has not said — which is not RiskNotAssessed, the processor saying it did not look.
 	Risk *PaymentRisk `json:"risk,omitempty"`
+	// Lines and Breakdown are what the consumer said the payer is buying (PaymentSessionParams.Lines), for the gateway
+	// to show on the processor's page when it starts the session (v0.58.0, paymentlines.go). A re-price drops them:
+	// they described the amount before it.
+	Lines     []PaymentLine     `json:"lines,omitempty"`
+	Breakdown *PaymentBreakdown `json:"breakdown,omitempty"`
 	// Capture is when the session takes the money: CaptureAutomatic, or CaptureManual for one held first (v0.58.0,
 	// paymentcapture.go). AuthorizedMinor is what the processor holds, once it does, and AuthorizationExpiresAt its
 	// deadline to capture. CaptureRequestedMinor is the capture the consumer asked for; the session resolves at it —
@@ -371,6 +376,10 @@ type PaymentSessionParams struct {
 	// CaptureAutomatic takes it at once. Manual only on a method that lists SupportManualCapture — Core refuses it on
 	// any other — and never for a session that only keeps a method.
 	Capture string `json:"capture,omitempty"`
+	// Lines are what the payer is buying, for the processor's page to show (v0.58.0, paymentlines.go); Breakdown is
+	// required with them and only with them. Optional: without lines the processor shows the one amount, as before.
+	Lines     []PaymentLine     `json:"lines,omitempty"`
+	Breakdown *PaymentBreakdown `json:"breakdown,omitempty"`
 }
 
 // Validate refuses what Core refuses without asking anything: a missing gateway, method or reference, an
@@ -430,6 +439,9 @@ func (p PaymentSessionParams) Validate() error {
 		return err
 	}
 	if err := validCapture(p.Capture, p.AmountMinor); err != nil {
+		return err
+	}
+	if err := validLines(p.AmountMinor, p.Lines, p.Breakdown); err != nil {
 		return err
 	}
 	if p.Credential != nil {

@@ -407,6 +407,76 @@
                   "level"
                 ]
               },
+              "lines": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "integer"
+                    },
+                    "unit_amount_minor": {
+                      "type": "integer"
+                    },
+                    "total_minor": {
+                      "type": "integer"
+                    },
+                    "tax_minor": {
+                      "type": "integer"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "image_url": {
+                      "type": "string"
+                    },
+                    "fulfilment": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "quantity",
+                    "unit_amount_minor",
+                    "total_minor"
+                  ]
+                }
+              },
+              "breakdown": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "shipping_minor": {
+                    "type": "integer"
+                  },
+                  "discount_minor": {
+                    "type": "integer"
+                  },
+                  "tax_minor": {
+                    "type": "integer"
+                  },
+                  "tax_included": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "shipping_minor",
+                  "discount_minor",
+                  "tax_minor",
+                  "tax_included"
+                ]
+              },
               "capture": {
                 "type": "string"
               },
@@ -811,6 +881,76 @@
                   "level"
                 ]
               },
+              "lines": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "integer"
+                    },
+                    "unit_amount_minor": {
+                      "type": "integer"
+                    },
+                    "total_minor": {
+                      "type": "integer"
+                    },
+                    "tax_minor": {
+                      "type": "integer"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "image_url": {
+                      "type": "string"
+                    },
+                    "fulfilment": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "quantity",
+                    "unit_amount_minor",
+                    "total_minor"
+                  ]
+                }
+              },
+              "breakdown": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "shipping_minor": {
+                    "type": "integer"
+                  },
+                  "discount_minor": {
+                    "type": "integer"
+                  },
+                  "tax_minor": {
+                    "type": "integer"
+                  },
+                  "tax_included": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "shipping_minor",
+                  "discount_minor",
+                  "tax_minor",
+                  "tax_included"
+                ]
+              },
               "capture": {
                 "type": "string"
               },
@@ -1114,6 +1254,76 @@
                 },
                 "required": [
                   "level"
+                ]
+              },
+              "lines": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "integer"
+                    },
+                    "unit_amount_minor": {
+                      "type": "integer"
+                    },
+                    "total_minor": {
+                      "type": "integer"
+                    },
+                    "tax_minor": {
+                      "type": "integer"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "image_url": {
+                      "type": "string"
+                    },
+                    "fulfilment": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "quantity",
+                    "unit_amount_minor",
+                    "total_minor"
+                  ]
+                }
+              },
+              "breakdown": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "shipping_minor": {
+                    "type": "integer"
+                  },
+                  "discount_minor": {
+                    "type": "integer"
+                  },
+                  "tax_minor": {
+                    "type": "integer"
+                  },
+                  "tax_included": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "shipping_minor",
+                  "discount_minor",
+                  "tax_minor",
+                  "tax_included"
                 ]
               },
               "capture": {
@@ -1426,6 +1636,76 @@
                 },
                 "required": [
                   "level"
+                ]
+              },
+              "lines": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "integer"
+                    },
+                    "unit_amount_minor": {
+                      "type": "integer"
+                    },
+                    "total_minor": {
+                      "type": "integer"
+                    },
+                    "tax_minor": {
+                      "type": "integer"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "image_url": {
+                      "type": "string"
+                    },
+                    "fulfilment": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "quantity",
+                    "unit_amount_minor",
+                    "total_minor"
+                  ]
+                }
+              },
+              "breakdown": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "shipping_minor": {
+                    "type": "integer"
+                  },
+                  "discount_minor": {
+                    "type": "integer"
+                  },
+                  "tax_minor": {
+                    "type": "integer"
+                  },
+                  "tax_included": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "shipping_minor",
+                  "discount_minor",
+                  "tax_minor",
+                  "tax_included"
                 ]
               },
               "capture": {
@@ -1743,6 +2023,76 @@
                   "level"
                 ]
               },
+              "lines": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "integer"
+                    },
+                    "unit_amount_minor": {
+                      "type": "integer"
+                    },
+                    "total_minor": {
+                      "type": "integer"
+                    },
+                    "tax_minor": {
+                      "type": "integer"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "image_url": {
+                      "type": "string"
+                    },
+                    "fulfilment": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "quantity",
+                    "unit_amount_minor",
+                    "total_minor"
+                  ]
+                }
+              },
+              "breakdown": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "shipping_minor": {
+                    "type": "integer"
+                  },
+                  "discount_minor": {
+                    "type": "integer"
+                  },
+                  "tax_minor": {
+                    "type": "integer"
+                  },
+                  "tax_included": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "shipping_minor",
+                  "discount_minor",
+                  "tax_minor",
+                  "tax_included"
+                ]
+              },
               "capture": {
                 "type": "string"
               },
@@ -2046,6 +2396,76 @@
                 },
                 "required": [
                   "level"
+                ]
+              },
+              "lines": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "integer"
+                    },
+                    "unit_amount_minor": {
+                      "type": "integer"
+                    },
+                    "total_minor": {
+                      "type": "integer"
+                    },
+                    "tax_minor": {
+                      "type": "integer"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "image_url": {
+                      "type": "string"
+                    },
+                    "fulfilment": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "quantity",
+                    "unit_amount_minor",
+                    "total_minor"
+                  ]
+                }
+              },
+              "breakdown": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "shipping_minor": {
+                    "type": "integer"
+                  },
+                  "discount_minor": {
+                    "type": "integer"
+                  },
+                  "tax_minor": {
+                    "type": "integer"
+                  },
+                  "tax_included": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "shipping_minor",
+                  "discount_minor",
+                  "tax_minor",
+                  "tax_included"
                 ]
               },
               "capture": {
@@ -2377,6 +2797,76 @@
                   "level"
                 ]
               },
+              "lines": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "integer"
+                    },
+                    "unit_amount_minor": {
+                      "type": "integer"
+                    },
+                    "total_minor": {
+                      "type": "integer"
+                    },
+                    "tax_minor": {
+                      "type": "integer"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "image_url": {
+                      "type": "string"
+                    },
+                    "fulfilment": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "quantity",
+                    "unit_amount_minor",
+                    "total_minor"
+                  ]
+                }
+              },
+              "breakdown": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "shipping_minor": {
+                    "type": "integer"
+                  },
+                  "discount_minor": {
+                    "type": "integer"
+                  },
+                  "tax_minor": {
+                    "type": "integer"
+                  },
+                  "tax_included": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "shipping_minor",
+                  "discount_minor",
+                  "tax_minor",
+                  "tax_included"
+                ]
+              },
               "capture": {
                 "type": "string"
               },
@@ -2672,6 +3162,76 @@
                 },
                 "required": [
                   "level"
+                ]
+              },
+              "lines": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "integer"
+                    },
+                    "unit_amount_minor": {
+                      "type": "integer"
+                    },
+                    "total_minor": {
+                      "type": "integer"
+                    },
+                    "tax_minor": {
+                      "type": "integer"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "image_url": {
+                      "type": "string"
+                    },
+                    "fulfilment": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "quantity",
+                    "unit_amount_minor",
+                    "total_minor"
+                  ]
+                }
+              },
+              "breakdown": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "shipping_minor": {
+                    "type": "integer"
+                  },
+                  "discount_minor": {
+                    "type": "integer"
+                  },
+                  "tax_minor": {
+                    "type": "integer"
+                  },
+                  "tax_included": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "shipping_minor",
+                  "discount_minor",
+                  "tax_minor",
+                  "tax_included"
                 ]
               },
               "capture": {
@@ -3014,6 +3574,76 @@
                 },
                 "required": [
                   "level"
+                ]
+              },
+              "lines": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "integer"
+                    },
+                    "unit_amount_minor": {
+                      "type": "integer"
+                    },
+                    "total_minor": {
+                      "type": "integer"
+                    },
+                    "tax_minor": {
+                      "type": "integer"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "image_url": {
+                      "type": "string"
+                    },
+                    "fulfilment": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "quantity",
+                    "unit_amount_minor",
+                    "total_minor"
+                  ]
+                }
+              },
+              "breakdown": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "shipping_minor": {
+                    "type": "integer"
+                  },
+                  "discount_minor": {
+                    "type": "integer"
+                  },
+                  "tax_minor": {
+                    "type": "integer"
+                  },
+                  "tax_included": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "shipping_minor",
+                  "discount_minor",
+                  "tax_minor",
+                  "tax_included"
                 ]
               },
               "capture": {
@@ -3382,6 +4012,76 @@
                 },
                 "required": [
                   "level"
+                ]
+              },
+              "lines": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "integer"
+                    },
+                    "unit_amount_minor": {
+                      "type": "integer"
+                    },
+                    "total_minor": {
+                      "type": "integer"
+                    },
+                    "tax_minor": {
+                      "type": "integer"
+                    },
+                    "sku": {
+                      "type": "string"
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "image_url": {
+                      "type": "string"
+                    },
+                    "fulfilment": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "quantity",
+                    "unit_amount_minor",
+                    "total_minor"
+                  ]
+                }
+              },
+              "breakdown": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "shipping_minor": {
+                    "type": "integer"
+                  },
+                  "discount_minor": {
+                    "type": "integer"
+                  },
+                  "tax_minor": {
+                    "type": "integer"
+                  },
+                  "tax_included": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "shipping_minor",
+                  "discount_minor",
+                  "tax_minor",
+                  "tax_included"
                 ]
               },
               "capture": {

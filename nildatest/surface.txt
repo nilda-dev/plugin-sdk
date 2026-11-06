@@ -91,6 +91,7 @@ field StubGateway.SavedCharged []string
 field StubGateway.SavedSessions []nilda.PaymentSession
 field StubGateway.SavedStart nilda.PaymentStartResult
 field StubGateway.Start nilda.PaymentStartResult
+field StubGateway.Started []nilda.PaymentSession
 field StubGateway.VoidErr error
 field StubGateway.VoidResult nilda.PaymentVoidResult
 field StubGateway.Voided []nilda.PaymentVoidRequest
