@@ -8,7 +8,58 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.58.0 — unreleased (write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3; paperless return labels — commerce plan 10.9b; service points — commerce plan 10.9)
+## v0.58.0 — unreleased (item lines on a payment — commerce plan 10.15; a plugin's own fields in the shop — the shop's door D2; write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3; paperless return labels — commerce plan 10.9b; service points — commerce plan 10.9)
+
+- PAYMENTS: ITEM LINES (commerce plan 10.15, "Stripe item lines"; `paymentlines.go`, `docs/PAYMENTS.md` §5 "Item lines").
+  `PaymentSessionParams.Lines` (`"lines"`, `PaymentLine`s: `name`, `quantity`, `unit_amount_minor`, `total_minor`,
+  `tax_minor`, `sku`, `url`, `image_url`, `fulfilment`) and `PaymentSessionParams.Breakdown` (`"breakdown"`,
+  `PaymentBreakdown`: `shipping_minor`, `discount_minor`, `tax_minor`, `tax_included`) say what the payer is buying, for
+  the processor's page to list. Optional. `Validate` holds them to the amount exactly — sum of totals + shipping −
+  discount + tax unless included = `amount_minor`; each total is unit × quantity; nothing negative; the lines' tax within
+  `tax_minor` — and to `MaxPaymentLines` (100, Stripe Checkout's payment-mode maximum), `MaxPaymentLineName` (127,
+  PayPal's item name), `MaxPaymentLineSKU` (127), `MaxPaymentLineQuantity` (999,999), http(s) URLs. `PaymentSession.Lines`
+  and `Breakdown` carry them to the gateway on `payment.start`; a re-price drops them. Read 2026-11-05: Stripe Checkout's
+  `line_items` (no total in payment mode, one coupon, tax only by rate) and PayPal Orders v2's `items` and
+  `amount.breakdown` (schema 2.36); PAYMENTS.md says how each gateway maps them and when it falls back to one line.
+- `nildatest.Payments` keeps them, starts the gateway with them and drops them on a re-price; `StubGateway.Started`
+  records the sessions it started (`TestTheItemLinesTravelToTheGatewayAndARepriceDropsThem`).
+- Additive and SDK-first: Core keeps and relays them from its 10.15 step (`coreahead_test.go` lists the session's
+  `lines` and `breakdown`); an older Core ignores the fields, so a consumer may send them today and the gateway sees none
+  until then.
+
+- THE SHOP: A PLUGIN'S OWN FIELDS, EXPERIMENTAL (the shop's door D2, plan 2026-11-05 §1J; `shopattributes.go`,
+  `docs/ATTRIBUTES.md`, built on door D0). Two contracts, one per direction. `shop.attributes/v1`
+  (`ContractShopAttributes`), PROVIDED by a plugin that owns fields or suggests addresses and used by the shop: `describe`
+  (fallback `cached`) answers an `AttributeDescription` of `AttributeField`s — `key`, `target` (`AttributeOrder`,
+  `AttributeLine`, `AttributeProduct`, `AttributeCustomer`), `type` (`AttributeFieldTypes()`: text, textarea, email,
+  phone, url, number, boolean, select, radio, date — form types the screens and the owner's app already draw), `label`
+  and `help` per language (`LabelIn`), `shown` (`AttributeShownCheckout`, `AttributeShownProductPage`,
+  `AttributeShownProductForm`, `AttributeShownOrder`), `required`, `choices` (`AttributeChoice`), `min_length` /
+  `max_length`, `min` / `max`, `min_date` / `max_date` (a date or `P<n>D`), `skus` — plus `validates` with its
+  `when_unanswered` (`AttributeBlock`, `AttributeAllow`) and `address_suggestions`; `validate` (fallback `block`;
+  `AttributeValidateRequest` → `AttributeValidateAnswer` of `AttributeError`s); `address.suggest` and `address.resolve`
+  (fallback `skip`; `AddressSuggestRequest` → `AddressSuggestAnswer` of at most `MaxAddressSuggestions` = 5
+  `AddressSuggestion`s; `AddressResolveRequest` → `AddressResolveAnswer`). `shop.attribute.values/v1`
+  (`ContractShopAttributeValues`), PROVIDED by the shop: `values.get` (`AttributeValuesRequest` of an `AttributeTarget` →
+  `AttributeValuesAnswer`), and the write commands `value.set` (`AttributeSetRequest`; record `attribute.value`, emits
+  `EventAttributeSet`, `ecommerce.attribute_set`) and `value.undo` (`UndoInput`; emits `EventAttributeUndone`), each
+  answering an `AttributeWriteAnswer` — the `WriteAnswer`, or `refused` with a code (a value's, `AttributeNotOffered`,
+  `AttributeNoRecord`, `AttributeUnknownWrite`, `AttributeUndoneAlready`, `AttributeReplaced`): a refusal is a result,
+  never an error, because Core's desk relays an error as the provider failing (blocked, retried, "unavailable").
+- `AttributeField.CheckValue(raw, today)` is the one rule for a value (an `*AttributeValueError` with a code the shop
+  words in the buyer's language); `AttributeField.Validate` / `AttributeDescription.Validate` the rules of a declaration;
+  `AttributeField.FormField(locale)` the field in the `PageForm` vocabulary; `AttributeInputName` its input's name.
+  `AttributeMethods` / `AttributeValuesMethods` answer the contracts and check every answer (`AttributeProvider`,
+  `AttributeValidator`, `AddressSuggester`, `AttributeValuesProvider`; `Serve` finds them); the shop asks with
+  `Services.AttributeFields`, `ValidateAttributes`, `SuggestAddresses`, `ResolveAddress`, the plugin with
+  `Services.AttributeValuesOf`, `SetAttribute`, `UndoAttribute`. `AddressSuggestLimiter` bounds the shop's address proxy
+  to `AddressSuggestPerMinute` (30) calls per visitor a minute (`ErrAddressSuggestLimited`).
+- `nildatest.AttributeShop` (`NewAttributeShop`) is the shop's side, holding the rules: offered fields only, the one value
+  rule, required fields, validate with each plugin's fallback, the snapshot into the order (`AttributeOrder`,
+  `AttributeSnapshot`), the write commands with keys, attribution, undo and events (`ShopEvent`), the bounded proxy.
+- Docs: `WRITE_COMMANDS.md` §7 — a write command's refusal is an answer, not an error; the shop emits under `ecommerce.*`.
+- Additive: nothing changes for a plugin built before. Core relays both contracts as files (nothing to build there); the
+  shop provides and uses them from its D2 step (plan row 10.5).
 
 - SITE READER, EXPERIMENTAL (site-import stage 2, card K1; `sitereader.go`, `docs/SITE_READER.md`). The contract `site.reader/v1`: a plugin that
   reads another platform's site answers `sources`, `start`, `feed`, `next` and `cancel` with pieces of the `siteimport` model; only Core's

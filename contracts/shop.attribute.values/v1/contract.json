@@ -1,0 +1,187 @@
+{
+  "name": "shop.attribute.values/v1",
+  "description": "The shop's door for a plugin's own field values (ATTRIBUTES.md): read them on an order, a line, a product or a customer, set one — a write command, keyed, kept with the plugin that wrote it, announced once committed — and take one back. A plugin reaches only its own fields: Core names the caller.",
+  "methods": [
+    {
+      "name": "values.get",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. The calling plugin's values on one record — on an order, its order and line values and the copies of its customer and product values taken when the order was placed.",
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "a plugin's value is set by the buyer at checkout, by the owner on the shop's screens and abilities, or by its own plugin through this door; an assistant writing here would write under no plugin's key",
+      "input": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "line": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "id"
+            ]
+          }
+        },
+        "required": [
+          "target"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "values": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "plugin": {
+                  "type": "string"
+                },
+                "field": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "line": {
+                  "type": "string"
+                },
+                "value": true
+              },
+              "required": [
+                "field",
+                "value"
+              ]
+            }
+          }
+        },
+        "required": [
+          "values"
+        ]
+      }
+    },
+    {
+      "name": "value.set",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. Set one of the calling plugin's fields on one record, checked against its declaration; the same idempotency key answers the first call's record with already: true. A null value clears it. A refusal is the answer's refused code, never an error.",
+      "retry_class": "answer",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "a plugin's value is set by the buyer at checkout, by the owner on the shop's screens and abilities, or by its own plugin through this door; an assistant writing here would write under no plugin's key",
+      "input": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "line": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "id"
+            ]
+          },
+          "field": {
+            "type": "string"
+          },
+          "value": true
+        },
+        "required": [
+          "target",
+          "field",
+          "value"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          },
+          "already": {
+            "type": "boolean"
+          },
+          "refused": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "already"
+        ]
+      },
+      "write": {
+        "record": "attribute.value",
+        "undo": "value.undo",
+        "emits": "ecommerce.attribute_set"
+      }
+    },
+    {
+      "name": "value.undo",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. Take back one of the calling plugin's value writes: the value it replaced returns. Refused — the answer's refused code — for another plugin's write, one taken back already, or one a later write replaced.",
+      "retry_class": "answer",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "a plugin's value is set by the buyer at checkout, by the owner on the shop's screens and abilities, or by its own plugin through this door; an assistant writing here would write under no plugin's key",
+      "input": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          },
+          "already": {
+            "type": "boolean"
+          },
+          "refused": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "already"
+        ]
+      },
+      "write": {
+        "record": "attribute.value",
+        "emits": "ecommerce.attribute_undone"
+      }
+    }
+  ],
+  "status": "experimental"
+}

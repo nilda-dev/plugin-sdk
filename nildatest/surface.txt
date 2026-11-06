@@ -1,5 +1,30 @@
+const AttributeShopKey
 const WriteManifestEnv
 const WritePreviewEnv
+field AttributeDraftLine.ID string
+field AttributeDraftLine.Product string
+field AttributeDraftLine.Quantity int64
+field AttributeDraftLine.SKU string
+field AttributeOrder.Attributes []AttributeSnapshot
+field AttributeOrder.ID string
+field AttributeOrder.Lines []AttributeDraftLine
+field AttributeOrder.Unchecked []string
+field AttributeOrderDraft.Country string
+field AttributeOrderDraft.Currency string
+field AttributeOrderDraft.Customer string
+field AttributeOrderDraft.Lines []AttributeDraftLine
+field AttributeOrderDraft.Locale string
+field AttributeOrderDraft.Values []nilda.AttributeValue
+field AttributeOrderError.Code string
+field AttributeOrderError.Field string
+field AttributeOrderError.Line string
+field AttributeOrderError.Message string
+field AttributeOrderError.Plugin string
+field AttributeRefusal.Errors []AttributeOrderError
+field AttributeRefusal.Unanswered []string
+field AttributeSnapshot.Label string
+field AttributeSnapshot.OnOrder bool
+field AttributeSnapshot.Type string
 field Delivery.Consumer string
 field Delivery.Dispute nilda.PaymentDispute
 field Delivery.Err error
@@ -33,6 +58,8 @@ field ServiceCallLog.IdempotencyKey string
 field ServiceCallLog.Input json.RawMessage
 field ServiceCallLog.Method string
 field ServiceCallLog.Provider string
+field ShopEvent.Data map[string]any
+field ShopEvent.Type string
 field SitePage.Body json.RawMessage
 field SitePage.HeadMeta *nilda.HeadMeta
 field SitePage.ID string
@@ -64,6 +91,7 @@ field StubGateway.SavedCharged []string
 field StubGateway.SavedSessions []nilda.PaymentSession
 field StubGateway.SavedStart nilda.PaymentStartResult
 field StubGateway.Start nilda.PaymentStartResult
+field StubGateway.Started []nilda.PaymentSession
 field StubGateway.VoidErr error
 field StubGateway.VoidResult nilda.PaymentVoidResult
 field StubGateway.Voided []nilda.PaymentVoidRequest
@@ -87,6 +115,7 @@ func ManifestEmailTemplates(testing.TB, string) ([]nilda.EmailTemplateDecl)
 func ManifestVisitorTools(testing.TB, string, []nilda.VisitorTool)
 func MobilePreview(testing.TB, string, string)
 func New(string, ...string) (*nilda.Core, *Host)
+func NewAttributeShop(*Services) (*AttributeShop)
 func NewPayments() (*Payments)
 func NewReference() (*Reference)
 func NewSecrets() (*Secrets)
@@ -98,6 +127,19 @@ func NewWithAPI(string, http.Handler, ...string) (*nilda.Core, *Host, *httptest.
 func SetSettings(*nilda.Core, map[string]any)
 func StubService(string, string, func(in json.RawMessage) (any, error)) (nilda.ServiceProvider)
 func Webhook(http.Handler, string, []byte, http.Header) (*http.Response)
+method (*AttributeRefusal) Error() (string)
+method (*AttributeShop) AttributeValues(context.Context, nilda.AttributeValuesRequest) (nilda.AttributeValuesAnswer, error)
+method (*AttributeShop) Close()
+method (*AttributeShop) Events() ([]ShopEvent)
+method (*AttributeShop) Order(string) (AttributeOrder, bool)
+method (*AttributeShop) PlaceOrder(context.Context, AttributeOrderDraft) (AttributeOrder, error)
+method (*AttributeShop) ResolveAddress(context.Context, string, string, nilda.AddressResolveRequest) (nilda.AddressResolveAnswer, error)
+method (*AttributeShop) ServiceMethods() ([]nilda.ServiceMethod)
+method (*AttributeShop) SetAttribute(context.Context, nilda.AttributeSetRequest) (nilda.AttributeWriteAnswer, error)
+method (*AttributeShop) SetProductValue(context.Context, string, string, string, json.RawMessage) (error)
+method (*AttributeShop) SetToday(time.Time)
+method (*AttributeShop) SuggestAddresses(context.Context, string, string, nilda.AddressSuggestRequest) (nilda.AddressSuggestAnswer, error)
+method (*AttributeShop) UndoAttribute(context.Context, nilda.UndoInput) (nilda.AttributeWriteAnswer, error)
 method (*Host) Advance(time.Duration)
 method (*Host) Emails() ([]Email)
 method (*Host) EmitEvent(context.Context, *contract.EmitEventRequest, ...grpc.CallOption) (*contract.EmitEventResponse, error)
@@ -197,6 +239,13 @@ method (*Trash) Core(string, ...string) (*nilda.Core, *Host, *httptest.Server)
 method (*Trash) Items(string) ([]TrashEntry)
 method (*Trash) Purge(context.Context, string, HookFunc, TrashEntry) (error)
 method (*Trash) Restore(context.Context, string, HookFunc, TrashEntry) (error)
+type AttributeDraftLine
+type AttributeOrder
+type AttributeOrderDraft
+type AttributeOrderError
+type AttributeRefusal
+type AttributeShop
+type AttributeSnapshot
 type Delivery
 type Email
 type Event
@@ -208,6 +257,7 @@ type Revocation
 type Secrets
 type ServiceCallLog
 type Services
+type ShopEvent
 type Site
 type SitePage
 type StubCarrier
@@ -215,6 +265,9 @@ type StubGateway
 type Trash
 type TrashEntry
 type Visitor
+var ErrAddressesNotOffered
+var ErrAttributeNeedsKey
+var ErrAttributeNotThroughCore
 var ErrNotSubscribed
 var ErrServiceBlocked
 var SessionsPerIdentity

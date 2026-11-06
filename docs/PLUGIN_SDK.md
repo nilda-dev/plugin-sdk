@@ -2301,7 +2301,8 @@ one reported on the session (`PaymentSession.Risk`) and a consumer reads it ther
 A **consumer** implements `nilda.PaymentConsumer` — `ConfirmPayment(ctx, nilda.PaymentSession)` answering a
 `nilda.PaymentConfirmResult`, `PaymentUpdated(ctx, nilda.PaymentSession)` and
 `RefundUpdated(ctx, nilda.PaymentRefund, nilda.PaymentSession)` — and calls `Methods` (a list of
-`nilda.PaymentOption`), `CreateSession` (with `nilda.PaymentSessionParams`), `GetSession`, `CreateRefund`
+`nilda.PaymentOption`), `CreateSession` (with `nilda.PaymentSessionParams` — since v0.58.0 optionally its item lines, `nilda.PaymentLine`s with a
+`nilda.PaymentBreakdown`, which must add up to the amount exactly; `docs/PAYMENTS.md` §5 "Item lines"), `GetSession`, `CreateRefund`
 (with `nilda.PaymentRefundParams`) and `GetRefund` on the same `nilda.Payments` client.
 `Readiness(ctx, currency)` (v0.42.0) says why a site cannot take a payment yet — a `nilda.PaymentsReadiness` of
 every installed gateway as a `nilda.PaymentGatewayState` (`key`, `name`, `enabled`), how many switched-on methods
@@ -3027,6 +3028,34 @@ provider, fallback `block`; every method is agent class `none`. The plugin answe
 
 Bounds: `SiteReaderPieceMax`, `SiteReaderElementMax`, `SiteReaderIdleMinutes`; the snapshot version is `SiteReaderSnapshotVersion`; the kinds
 are `SiteSourceFile`, `SiteSourceLive` and `SiteFieldText`, `SiteFieldURL`, `SiteFieldSecret`, `SiteFieldFile`, `SiteFieldChoice`.
+
+### A plugin's own fields in the shop (`shop.attributes/v1`, `shop.attribute.values/v1`, experimental)
+
+Door D2 (`docs/ATTRIBUTES.md` is the whole of it; `shopattributes.go`). A plugin that asks the buyer something at checkout
+or on the product page, keeps a value on a product or a customer, or suggests addresses PROVIDES `shop.attributes/v1`
+(`nilda.ContractShopAttributes`) and the shop draws, checks, keeps and copies the values into the order; the plugin reads
+and writes its own through the shop's `shop.attribute.values/v1` (`nilda.ContractShopAttributeValues`), write commands on
+door D0. Both experimental, every method agent class `none`.
+
+- The plugin implements `AttributeProvider` (`DescribeAttributes` → an `AttributeDescription` of `AttributeField`s, each
+  with `AttributeChoice`s), `AttributeValidator` when its description `validates` (`AttributeValidateRequest` of
+  `AttributeBasketLine`s and `AttributeValue`s → `AttributeValidateAnswer` of `AttributeError`s; its `when_unanswered`,
+  `AttributeBlock` or `AttributeAllow`, is what the shop does when it does not answer), and `AddressSuggester` when it
+  suggests (`AddressSuggestRequest` → `AddressSuggestAnswer` of `AddressSuggestion`s; `AddressResolveRequest` →
+  `AddressResolveAnswer`). `AttributeMethods` answers the contract and checks every answer; `Serve` finds it by itself.
+- A field's type is one of `AttributeFieldTypes()` — form types every screen and the owner's app already draw; its label
+  is per language, picked by `LabelIn`; `AttributeField.CheckValue` is the one rule for a value (an `AttributeValueError`
+  with a code the shop words); `AttributeField.FormField` is it in the `PageForm` vocabulary; `AttributeInputName` names
+  its input on the shop's pages.
+- The shop implements `AttributeValuesProvider` (`AttributeValuesMethods`): `values.get` (`AttributeValuesRequest` of an
+  `AttributeTarget` → `AttributeValuesAnswer`), `value.set` (`AttributeSetRequest`) and `value.undo` (`UndoInput`), each
+  answering an `AttributeWriteAnswer` — the record, or `refused` with a code: a refusal is a result, never an error.
+- The shop asks with `Services.AttributeFields` (an `AttributeFieldsAnswer` per plugin), `Services.ValidateAttributes`,
+  `Services.SuggestAddresses` and `Services.ResolveAddress`, bounding its address proxy per visitor with an
+  `AddressSuggestLimiter` (`NewAddressSuggestLimiter`, `ErrAddressSuggestLimited`); the plugin with
+  `Services.AttributeValuesOf`, `Services.SetAttribute` and `Services.UndoAttribute`.
+- Test against `nildatest.AttributeShop` (`NewAttributeShop`): it places orders by the shop's rules and keeps the
+  snapshot, answers the write commands, and proxies addresses bounded.
 
 ### The shop's catalogue (`shop.catalog/v1`)
 

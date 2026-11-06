@@ -221,7 +221,7 @@ const deliverablesAgentReason = "what was delivered is shown to its buyer; the o
 
 // contractDefs is every contract this module defines.
 var contractDefs = []contractDef{paymentsV1, shippingCarrierV1, shopCatalogV1, shopOrdersV1,
-	shopDeliverablesV1, siteReaderV1}
+	shopDeliverablesV1, siteReaderV1, shopAttributesV1, shopAttributeValuesV1}
 
 // render builds a contract file from its definition.
 func (d contractDef) render(t *testing.T) []byte {
@@ -558,3 +558,67 @@ var siteReaderV1 = contractDef{
 
 const siteReaderAgentReason = "the owner starts a read from Core's Importer screen and the assistant's import tools drive the same job; " +
 	"this is how Core asks the reader plugin, and no other plugin or tool may start a read with an owner's password"
+
+// shopAttributesV1 is door D2's first half (ATTRIBUTES.md): a plugin that owns fields on the shop's orders, lines, products
+// and customers — or suggests addresses — answers the shop. Experimental until its first plugin ships on it.
+var shopAttributesV1 = contractDef{
+	name:   ContractShopAttributes,
+	status: ContractExperimental,
+	description: "A plugin's own fields on the shop's orders, lines, products and customers, and its address suggestions: " +
+		"the plugin describes its fields (type, label per language, where they are shown, required, bounds) and checks " +
+		"their values before an order is placed; the shop draws, checks, keeps and copies them into the order, and " +
+		"proxies a visitor's address query to the plugin, bounded (ATTRIBUTES.md).",
+	methods: []methodDef{
+		{ContractMethod{Name: AttributesDescribe, AnsweredBy: "provider", RetryClass: "failure", Fallback: "cached",
+			Idempotent: true, Agent: "none", AgentReason: attributesAgentReason,
+			Description: "EXPERIMENTAL. The fields this plugin owns — key, what they are on, type, label per language, where they are shown, required, bounds — whether it checks them when an order is placed and what the shop does when it does not answer, and whether it suggests addresses."},
+			ordinary{}, AttributeDescription{}},
+		{ContractMethod{Name: AttributesValidate, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: attributesAgentReason,
+			Description: "EXPERIMENTAL. Whether this plugin's values let the order be placed: no errors places it; each error names its field and the sentence the buyer reads. Not answering is the plugin's declared when_unanswered: block or allow."},
+			AttributeValidateRequest{}, AttributeValidateAnswer{}},
+		{ContractMethod{Name: AttributesAddressSuggest, AnsweredBy: "provider", RetryClass: "failure", Fallback: "skip",
+			Idempotent: true, Agent: "none", AgentReason: addressAgentReason,
+			Description: "EXPERIMENTAL. Addresses matching what a visitor typed, best first, at most five; the shop proxies the query so the plugin's key never reaches the browser, and bounds each visitor to 30 calls a minute."},
+			AddressSuggestRequest{}, AddressSuggestAnswer{}},
+		{ContractMethod{Name: AttributesAddressResolve, AnsweredBy: "provider", RetryClass: "failure", Fallback: "skip",
+			Idempotent: true, Agent: "none", AgentReason: addressAgentReason,
+			Description: "EXPERIMENTAL. The whole address of the suggestion a visitor picked; the shop fills its own fields with it and checks them by its own rules."},
+			AddressResolveRequest{}, AddressResolveAnswer{}},
+	},
+}
+
+const attributesAgentReason = "the owner reads and edits a plugin's fields on the shop's order and product screens and through " +
+	"the shop's own abilities (get_order, update_product); this is how the shop asks the plugin that owns them"
+
+const addressAgentReason = "address suggestions answer a visitor typing at checkout, through the shop's bounded proxy; " +
+	"the owner has nothing to ask of them"
+
+// shopAttributeValuesV1 is door D2's second half: the shop keeps a plugin's values, and the plugin reads and writes its own
+// through write commands (WRITE_COMMANDS.md). One shop answers, so a failure blocks.
+var shopAttributeValuesV1 = contractDef{
+	name:   ContractShopAttributeValues,
+	status: ContractExperimental,
+	description: "The shop's door for a plugin's own field values (ATTRIBUTES.md): read them on an order, a line, a product or " +
+		"a customer, set one — a write command, keyed, kept with the plugin that wrote it, announced once committed — and take " +
+		"one back. A plugin reaches only its own fields: Core names the caller.",
+	methods: []methodDef{
+		{ContractMethod{Name: AttributeValuesGet, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: valuesAgentReason,
+			Description: "EXPERIMENTAL. The calling plugin's values on one record — on an order, its order and line values and the copies of its customer and product values taken when the order was placed."},
+			AttributeValuesRequest{}, AttributeValuesAnswer{}},
+		{ContractMethod{Name: AttributeValueSet, AnsweredBy: "provider", RetryClass: "answer", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: valuesAgentReason,
+			Write:       &ContractWrite{Record: AttributeValueRecord, Undo: AttributeValueUndo, Emits: EventAttributeSet},
+			Description: "EXPERIMENTAL. Set one of the calling plugin's fields on one record, checked against its declaration; the same idempotency key answers the first call's record with already: true. A null value clears it. A refusal is the answer's refused code, never an error."},
+			AttributeSetRequest{}, AttributeWriteAnswer{}},
+		{ContractMethod{Name: AttributeValueUndo, AnsweredBy: "provider", RetryClass: "answer", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: valuesAgentReason,
+			Write:       &ContractWrite{Record: AttributeValueRecord, Emits: EventAttributeUndone},
+			Description: "EXPERIMENTAL. Take back one of the calling plugin's value writes: the value it replaced returns. Refused — the answer's refused code — for another plugin's write, one taken back already, or one a later write replaced."},
+			UndoInput{}, AttributeWriteAnswer{}},
+	},
+}
+
+const valuesAgentReason = "a plugin's value is set by the buyer at checkout, by the owner on the shop's screens and abilities, " +
+	"or by its own plugin through this door; an assistant writing here would write under no plugin's key"

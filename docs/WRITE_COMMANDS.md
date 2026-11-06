@@ -72,7 +72,7 @@ one, or a retry of the failed one with the same key — the caller chooses, and 
 
 A contract file may say `"status": "experimental"`. It is published, Core relays it like any other, and an outside
 developer may build on it — but it is OUTSIDE the v1 no-breaking promise: its shape may still change in a minor release,
-said in `CHANGELOG.md`. Every new contract of the shop's doors (D1-D11) ships experimental. A contract leaves
+said in `CHANGELOG.md`. Every new contract of the shop's doors (D1-D11) ships experimental — the first two are D2's (`ATTRIBUTES.md`). A contract leaves
 experimental — gains `"status": "stable"` or loses the field, and from then on only grows (`SERVICES.md`) — once its
 first plugin built by Nilda has shipped green on it. `ServiceContract.Experimental()` reads it; a tool that lists
 contracts (Core's plugin detail, Central's review) shows it.
@@ -85,7 +85,18 @@ contracts (Core's plugin detail, Central's review) shows it.
 - Provider: answer every write command through one helper that keeps §3, and test the key, the attribution and the undo.
 - Both: treat an experimental contract as something that may change; pin the SDK version you built against.
 
-## 7. Alternatives considered
+## 7. A refusal is an answer, not an error (amended 2026-11-05, door D2)
+
+Core's service desk relays a provider's ERROR as the provider failing (a miss): with `fallback: "block"` the call fails
+with 503 and the caller's client retries it. So a provider that says "no" by returning an error — a field that is not the
+caller's, an undo past a later write — makes the caller wait out the retries and read "unavailable". A write command's
+refusal is therefore a RESULT in its answer: `record_id` empty, `already` false, and a code saying why (D2's
+`AttributeWriteAnswer.Refused`). A refusal wrote nothing and is not kept under its key, so the same key may succeed once
+the record is there. Errors stay for what a well-built caller never sends (no key, no caller) and for the provider
+failing. The event a provider emits is in a namespace Core lets it emit: the shop's own, `ecommerce.*` (the `shop.*`
+names above are illustrations of the file's shape).
+
+## 8. Alternatives considered
 
 - **Core's 24-hour idempotency cache alone.** Rejected: a plugin retrying after a day doubles the write, and the
   record of who wrote what would live in Core's cache, not on the record.

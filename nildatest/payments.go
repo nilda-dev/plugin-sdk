@@ -751,6 +751,7 @@ func (p *Payments) createSession(ctx context.Context, consumer string, params ni
 		Supports: nilda.SupportsOf(m), Fulfilment: params.Fulfilment,
 		BillingAddress: params.BillingAddress, ShippingAddress: params.ShippingAddress, Save: params.Save,
 		Reader: params.Reader, Capture: capture, ExpiresAt: &expires, CreatedAt: now, UpdatedAt: now,
+		Lines: params.Lines, Breakdown: params.Breakdown,
 	}
 	if s.CancelURL == "" {
 		s.CancelURL = s.ReturnURL
@@ -1552,8 +1553,10 @@ func Webhook(h http.Handler, path string, body []byte, header http.Header) *http
 type StubGateway struct {
 	// Methods is what it offers. Nil offers one: "card", in any currency, able to refund.
 	Methods []nilda.PaymentMethod
-	// Start answers every payment.start. The zero value sends the payer to https://pay.test/<session id>.
-	Start nilda.PaymentStartResult
+	// Start answers every payment.start. The zero value sends the payer to https://pay.test/<session id>. Started records
+	// the sessions it was asked to start, in order — what the gateway was told, the item lines included (v0.58.0).
+	Start   nilda.PaymentStartResult
+	Started []nilda.PaymentSession
 	// CredentialStart answers a payment.start carrying a delegated credential (CredentialPayer). The zero value
 	// says resolved: the processor took the money. Charged records the credentials it was handed, in order.
 	CredentialStart nilda.PaymentStartResult
@@ -1620,6 +1623,7 @@ func (g *StubGateway) StartPaymentWithCredential(_ context.Context, s nilda.Paym
 
 // StartPayment answers with Start.
 func (g *StubGateway) StartPayment(_ context.Context, s nilda.PaymentSession) (nilda.PaymentStartResult, error) {
+	g.Started = append(g.Started, s)
 	if g.Start.Status == "" {
 		return nilda.PaymentStartResult{Status: nilda.PaymentRedirected, RedirectURL: "https://pay.test/" + s.ID,
 			ProviderRef: "stub_" + s.ID}, nil

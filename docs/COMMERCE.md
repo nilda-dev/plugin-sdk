@@ -4,7 +4,8 @@ Core ships the storefront widgets (Products, Cart, Checkout, My Account …) and
 supplies the products and the endpoints the widgets' shells call. `commerce.go` is the reference for the catalogue,
 the cart and the checkout. This guide is the **buyer's account** (v0.44.0): how your account views live inside the
 owner's themed page instead of on a bare page of your own — and (§6, v0.58.0, EXPERIMENTAL) the **express wallet
-buttons'** one door into your checkout.
+buttons'** one door into your checkout, and (§7, v0.58.0, EXPERIMENTAL) **other plugins' fields** at your checkout and on your
+product pages.
 
 The My Account widget is a **members area**: a mount on the owner's account page that fetches your
 `Endpoints().Account` (`/shop/account`) from the browser and draws your answer in place. The page around it is
@@ -137,3 +138,14 @@ cookie goes with it. Leave it empty and Core draws no buttons.
 - **The credential is the payer's.** Hand it to `Payments.CreateSession` once; never store, log or echo it. A
   `client_action` likewise goes back only to the browser that asked.
 
+
+## 7. Other plugins' fields: door D2 (v0.58.0, EXPERIMENTAL)
+
+A plugin may ask your buyer something at checkout or on a product page (a delivery date, an engraving), keep a value on a
+product or a customer, or suggest addresses while the buyer types. It declares the fields through `shop.attributes/v1`;
+you — the shop — draw them with your own form helpers, check every value with `AttributeField.CheckValue`, ask the plugin
+`validate` before you place the order (its `when_unanswered` says whether a plugin that does not answer blocks the order),
+copy every value into the order with its label, answer the plugin's own reads and writes through
+`shop.attribute.values/v1` (write commands: keyed, attributed, undoable, announced; a refusal is a result), and proxy an
+address query to the plugin bounded per visitor. `docs/ATTRIBUTES.md` is the whole of it; `nildatest.AttributeShop` holds
+the same rules.
