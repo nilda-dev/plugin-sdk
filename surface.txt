@@ -69,6 +69,12 @@ const BadgeGold
 const BadgeGreen
 const BadgeGrey
 const BadgeWarn
+const BindReasonAccountBlocked
+const BindReasonAddressNotActivatable
+const BindReasonHosted
+const BindReasonNoSiteLicenceLeft
+const BindReasonNoneFree
+const BindReasonNotConnected
 const CallHeader
 const CallerKindAI
 const CallerKindImporter
@@ -326,6 +332,11 @@ const LayoutSection
 const LayoutWidget
 const LayoutWrittenToPage
 const LayoutWrittenToWorkingVersion
+const LicenceActive
+const LicenceGrace
+const LicenceLapsed
+const LicenceNone
+const LicenceTrial
 const LinkParamNumber
 const LinkParamSelect
 const LinkTargetsHook
@@ -834,6 +845,9 @@ field AuthStartRequest.Nonce string json:nonce
 field AuthStartRequest.Provider string json:provider
 field AuthStartRequest.RedirectURI string json:redirect_uri
 field AuthStartRequest.State string json:state
+field BindResult.Bound bool json:bound
+field BindResult.Licence Licence json:licence
+field BindResult.Reason string json:reason
 field CalendarEvent.End string json:end
 field CalendarEvent.EndDate string json:end_date
 field CalendarEvent.ID string json:id
@@ -1295,6 +1309,12 @@ field LayoutWrite.ContentID string json:content_id
 field LayoutWrite.LastEditedAt string json:last_edited_at
 field LayoutWrite.Live bool json:live
 field LayoutWrite.WrittenTo string json:written_to
+field Licence.LiveUntil time.Time
+field Licence.PaidUntil time.Time
+field Licence.Quantity int32
+field Licence.Source string
+field Licence.State LicenceState
+field Licence.Trial bool
 field LinkChoice.Label string json:label
 field LinkChoice.Value string json:value
 field LinkParam.Choices []LinkChoice json:choices
@@ -2101,6 +2121,7 @@ func AttributeInputName(string, string, string) (string)
 func AttributeMethods(AttributeProvider) ([]ServiceMethod)
 func AttributeValuesMethods(AttributeValuesProvider) ([]ServiceMethod)
 func BadgeTones() ([]string)
+func BindReasons() ([]string)
 func BodyText(json.RawMessage) (string)
 func CallOf(context.Context) (CallInfo)
 func CallerKind(context.Context) (string, bool)
@@ -2145,6 +2166,7 @@ func FormatMinor(int64, string) (string, bool)
 func HTTPClient(time.Duration) (*http.Client)
 func HostPluginMap() (map[int]plugin.PluginSet)
 func LabelIn(map[string]string, string) (string)
+func LicenceStates() ([]LicenceState)
 func LocaleDirection(string) (string)
 func Log() (*slog.Logger)
 func MailAddressBlocked(error) (bool)
@@ -2266,6 +2288,7 @@ imethod WidgetProvider.RenderWidget(context.Context, WidgetRenderRequest) (strin
 imethod WidgetProvider.Widgets() ([]WidgetDef)
 method (*API) AddMenuItem(context.Context, string, NewMenuItem) (MenuItem, error)
 method (*API) AgentTier(context.Context, string) (AgentTier, error)
+method (*API) BindLicence(context.Context) (BindResult, error)
 method (*API) Breadcrumbs(context.Context, string) ([]Crumb, error)
 method (*API) ContentTerms(context.Context, string, string) (map[string][]Term, error)
 method (*API) CreateMenu(context.Context, string, string) (Menu, error)
@@ -2276,6 +2299,7 @@ method (*API) Get(context.Context, string, url.Values, any) (error)
 method (*API) HasScope(string) (bool)
 method (*API) HoldingPages(context.Context, string) ([]HoldingPage, error)
 method (*API) JSON(context.Context, string, string, any, any) (error)
+method (*API) Licence(context.Context) (Licence, error)
 method (*API) Media(context.Context, string) (MediaItem, error)
 method (*API) MediaFile(context.Context, string) (*MediaBytes, error)
 method (*API) Menu(context.Context, string) (MenuTree, error)
@@ -2335,6 +2359,7 @@ method (*Core) Untrash(context.Context, string, string) (error)
 method (*Core) UpgradedFrom(...string) (bool)
 method (*GRPCPlugin) GRPCClient(context.Context, *plugin.GRPCBroker, *grpc.ClientConn) (interface{}, error)
 method (*GRPCPlugin) GRPCServer(*plugin.GRPCBroker, *grpc.Server) (error)
+method (*Licence) UnmarshalJSON([]byte) (error)
 method (*OIDCClient) AuthorizeURL(context.Context, AuthStartRequest) (string, error)
 method (*OIDCClient) Discover(context.Context) (error)
 method (*OIDCClient) EndSessionURL(context.Context) (string)
@@ -2444,6 +2469,8 @@ method (ExpressRequest) Validate() (error)
 method (LabelRequest) Validate() (error)
 method (LabelResult) Validate() (error)
 method (LabelResult) ValidateFor(LabelRequest) (error)
+method (Licence) MarshalJSON() ([]byte, error)
+method (Licence) TakesRealMoney() (bool)
 method (LinkTarget) Validate(string) (error)
 method (Parcel) Validate() (error)
 method (PaymentAddress) Validate() (error)
@@ -2557,6 +2584,7 @@ type AuthCompleteRequest
 type AuthProvider
 type AuthProviderStatus
 type AuthStartRequest
+type BindResult
 type CalendarEvent
 type CalendarShade
 type CallInfo
@@ -2654,6 +2682,8 @@ type LabelResult
 type LayoutNode
 type LayoutTree
 type LayoutWrite
+type Licence
+type LicenceState
 type LinkChoice
 type LinkParam
 type LinkTarget

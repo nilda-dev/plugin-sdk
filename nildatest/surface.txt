@@ -116,6 +116,7 @@ func ManifestVisitorTools(testing.TB, string, []nilda.VisitorTool)
 func MobilePreview(testing.TB, string, string)
 func New(string, ...string) (*nilda.Core, *Host)
 func NewAttributeShop(*Services) (*AttributeShop)
+func NewLicence() (*Licence)
 func NewPayments() (*Payments)
 func NewReference() (*Reference)
 func NewSecrets() (*Secrets)
@@ -159,6 +160,13 @@ method (*Host) SendTemplatedEmail(context.Context, *contract.SendTemplatedEmailR
 method (*Host) SetSessionsPerIdentity(int)
 method (*Host) SwitchOffTemplate(string)
 method (*Host) UseEmailTemplates([]nilda.EmailTemplateDecl)
+method (*Licence) BindFails()
+method (*Licence) BindGrants(nilda.Licence)
+method (*Licence) BindRefuses(string)
+method (*Licence) Binds() (int)
+method (*Licence) Core(string, ...string) (*nilda.Core, *Host, *httptest.Server)
+method (*Licence) Licence() (nilda.Licence)
+method (*Licence) Set(nilda.Licence)
 method (*Payments) ChargeSaved(context.Context, string, nilda.PaymentChargeParams) (nilda.PaymentSession, error)
 method (*Payments) Consumer(string, nilda.PaymentConsumer)
 method (*Payments) Core(string, ...string) (*nilda.Core, *Host, *httptest.Server)
@@ -258,6 +266,7 @@ type Email
 type Event
 type HookFunc
 type Host
+type Licence
 type Payments
 type Reference
 type Revocation
