@@ -8,7 +8,20 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.58.0 — unreleased (item lines on a payment — commerce plan 10.15; a plugin's own fields in the shop — the shop's door D2; write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3; paperless return labels — commerce plan 10.9b; service points — commerce plan 10.9; the storefront's release 1 — commerce plan 1C)
+## v0.58.0 — unreleased (item lines on a payment — commerce plan 10.15; a plugin's own fields in the shop — the shop's door D2; write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3; paperless return labels — commerce plan 10.9b; service points — commerce plan 10.9; the storefront's release 1 — commerce plan 1C; a plugin's own licence — commerce 02-PRICING C4)
+
+- A PLUGIN'S OWN LICENCE (commerce 02-PRICING C4; `licence.go`, `docs/PLUGIN_SDK.md` "Reading your licence and going
+  live"). EXPERIMENTAL until the shop's live gate ships green on it. `(*API).Licence(ctx)` reads the plugin's own paid
+  edition from Core's `GET /plugin-licence` (core #227; SPEC_99 §6.2): `Licence{State, Source, PaidUntil, LiveUntil,
+  Trial, Quantity}` — `LicenceState` `none` | `trial` | `active` | `grace` | `lapsed` (`LicenceStates()`), `Source` plan,
+  purchase or trial, a zero time "no end" — and `TakesRealMoney()` (trial, active or grace). A Core older than the route
+  (404) reads `LicenceNone` with no error; any other error reads `LicenceNone` AND the error, never licensed.
+  `(*API).BindLicence(ctx)` asks Core's `POST /plugin-licence/bind` to bind the account's licence to a self-hosted site:
+  `BindResult{Bound, Reason, Licence}`, `Reason` one of `BindReasons()` — `BindReasonNoneFree`, `BindReasonNotConnected`,
+  `BindReasonHosted`, `BindReasonNoSiteLicenceLeft`, `BindReasonAddressNotActivatable`, `BindReasonAccountBlocked` — and
+  a failed call an error, never bound. `Licence` marshals in Core's shape. Both nil-safe. `licence_test.go` holds the
+  routes, JSON names, states and reasons to Core's source. `nildatest.NewLicence()`: a fake Core licence — `Set`,
+  `BindGrants`, `BindRefuses`, `BindFails`, `Binds`, `Licence`, `Core`.
 
 - THE STOREFRONT'S RELEASE 1 (commerce plan 1C; `commercestorefront.go`, `paymentmarks.go`, `docs/COMMERCE.md` §8). All
   optional and additive; a shop answering none of it draws what it drew before.

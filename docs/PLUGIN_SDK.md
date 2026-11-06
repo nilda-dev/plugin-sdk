@@ -2556,6 +2556,71 @@ token, never from the request, so you can only read your own.
 
 This is plugin-sdk v0.11.0.
 
+### Reading your licence and going live (`Licence`, `BindLicence`)
+
+**EXPERIMENTAL** until the shop's live gate ships green on it; the names may still change.
+
+A plugin of Nilda's own company can sell a paid edition — a shop's live checkout. The licence for it reaches the site
+only inside the site's signed licence, under your plugin's slug (its key with `_` written `-`), and Core judges it: the
+signature, the domain, a revocation, a clock set back, the dates. `Licence` reads your own entry — Core names you from
+your token, never from the request — and needs no capability:
+
+```go
+lic, err := core.API().Licence(ctx) // GET /plugin-licence
+if err != nil || !lic.TakesRealMoney() {
+    // test mode only: a licence that could not be read is never read as licensed
+}
+```
+
+| `lic.State` (`LicenceState`) | When | `TakesRealMoney()` |
+|---|---|---|
+| `LicenceNone` | the site holds no licence for you, or it cannot be believed, or Core is older than the route | no |
+| `LicenceTrial` / `LicenceActive` | before `PaidUntil` (or with no end), with / without `Trial` | yes |
+| `LicenceGrace` | from `PaidUntil` until `LiveUntil` — still live while the owner renews | yes |
+| `LicenceLapsed` | from `LiveUntil` on | no |
+
+`LicenceStates()` lists them; a state this release does not know takes no money. `Source` is `plan` (a Nilda Cloud
+plan that includes the plugin), `purchase` or `trial`; `PaidUntil` and `LiveUntil` are the zero `time.Time` when there
+is no end; `Quantity` is how many were bought for an edition sold per location (0 otherwise). **A Core older than the
+route answers 404, read as `LicenceNone` with no error**, so a plugin built on this release runs unchanged there and
+simply holds no licence. **Any other error answers `LicenceNone` AND the error**, so a gate that only checks
+`TakesRealMoney()` already fails closed.
+
+A SELF-HOSTED site going live asks for the licence the owner's nilda.dev account bought — on the owner's press of "go
+live", never on its own:
+
+```go
+res, err := core.API().BindLicence(ctx) // POST /plugin-licence/bind
+switch {
+case err != nil:
+    // the call did not complete (nilda.dev did not answer, an older Core): not bound — say so, let them try again
+case res.Bound:
+    // the site holds it now; res.Licence is what Licence() reads from here on
+default:
+    // res.Reason, one of BindReasons(), says why — in your words, in the site's language
+}
+```
+
+| `res.Reason` | Meaning |
+|---|---|
+| `BindReasonNoneFree` (`none_free`) | every licence the account bought is held by another of its sites (freed on nilda.dev), or none was bought |
+| `BindReasonNotConnected` (`not_connected`) | the site is not connected to a nilda.dev account |
+| `BindReasonHosted` (`hosted`) | a Nilda Cloud site — its plugin licences arrive with its own licence; nothing is asked |
+| `BindReasonNoSiteLicenceLeft` (`no_site_licence_left`) | every Nilda Plus licence of the account is held by its other sites |
+| `BindReasonAddressNotActivatable` (`address_not_activatable`) | the site's address is a development or private one |
+| `BindReasonAccountBlocked` (`account_blocked`) | the account is blocked and its sites run free |
+
+`BindResult.Reason` is set exactly when `Bound` is false. Asking again from the site that holds the licence changes
+nothing; Core audits every bind. Both calls are nil-safe like the rest of `*API`. The routes, names, states and reasons
+are Core's (`internal/pluginlimits/licence.go`, `internal/license/pluginlicence.go`, SPEC_99 §6.2) and
+`licence_test.go` holds them to Core's source.
+
+In a test, `nildatest.NewLicence()` is the site's side: `Set` the licence Core would judge, `BindGrants` /
+`BindRefuses(reason)` / `BindFails` what a bind answers (refused `none_free` until you say), `Binds()` how many reached
+Core, `Licence()` what the site holds now.
+
+This is plugin-sdk v0.58.0 and needs Core with the plugin-licence routes (core #227).
+
 ### Contributing a way to sign in (`auth_provider`)
 
 Declare the method in `plugin.json`:
