@@ -289,6 +289,14 @@ return nilda.PaymentStartResult{Status: nilda.PaymentRedirected, RedirectURL: ch
   report what you find with the ordinary calls. Core asks when a payer is back on the return page and the session
   is still open, and in a sweep of sessions nothing has decided for a while — so a webhook the processor gave up
   on is not a payment lost. An error means "could not look now".
+- **Name each method's acceptance marks** (v0.58.0, `paymentmarks.go`): `Marks` — a card method the networks it takes
+  (`visa`, `mastercard`, `amex`, `maestro`), a wallet or a local method its own (`paypal`, `klarna`, `apple-pay`,
+  `google-pay`, `sepa`, `ideal`, `bancontact`, `eps`); each one of `nilda.PaymentMarks()`, none twice — a describe naming
+  any other is refused. Read them from the account's settings, never from a live probe (`DescribePayments` reads the
+  settings only). Core passes them to consumers on `PaymentOption.Marks`; a shop names the marks of the options it offers,
+  and of its own offline methods (`bank-transfer`, `cash-on-delivery`), on `CommerceEndpoints.PaymentMarks`, which is all
+  Core's payment-marks strip draws (COMMERCE.md §8). The list is closed because Core draws each mark from its own files,
+  drawn to the brand's acceptance-mark rules.
 
 ### Holding the money: capture and void (v0.58.0)
 
@@ -922,7 +930,7 @@ Hooks arrive over the plugin protocol (docs/ANY_LANGUAGE.md) with these JSON pay
 
 | hook | to | payload in | answer |
 |---|---|---|---|
-| `payment.describe` | gateway | `{}` | `{"methods":[{"key","label","description","currencies","refunds","test","test_hint","supports","credential_types","readers","express"}]}` — a reader is `{"id","label"}`; express is `{"kind","script","origins":{"script","frame","connect","img"},"config"}` |
+| `payment.describe` | gateway | `{}` | `{"methods":[{"key","label","description","currencies","refunds","test","test_hint","supports","credential_types","readers","express","marks"}]}` — a reader is `{"id","label"}`; express is `{"kind","script","origins":{"script","frame","connect","img"},"config"}` |
 | `payment.start` | gateway | `{"session":{…}}` | `{"status","redirect_url","client_action","provider_ref","expires_at","failure_code","failure_message"}` |
 | `payment.refund` | gateway | `{"refund":{…},"session":{…}}` | `{"status","provider_ref","failure_code","failure_message"}` |
 | `payment.session.confirm` | consumer | `{"session":{…}}` | `{"proceed","reason"}` |
@@ -951,7 +959,7 @@ Calls into Core, under `/api/rest/v1`, with the plugin's token; answers inside `
 
 | call | who | body | answer |
 |---|---|---|---|
-| `GET /payments/methods?currency=EUR` | consumer | — | `[{"gateway","method","label","description","refunds","test","test_hint","supports","credential_types","readers","express"}]` |
+| `GET /payments/methods?currency=EUR` | consumer | — | `[{"gateway","method","label","description","refunds","test","test_hint","supports","credential_types","readers","express","marks"}]` |
 | `GET /payments/readiness?currency=EUR` | consumer | — | `{"gateways":[{"key","name","enabled"}],"methods_on","test"}` (v0.42.0) |
 | `POST /payments/sessions` + `Idempotency-Key` | consumer | `{"gateway","method","reference","amount_minor","currency","description","return_url","cancel_url","email","locale","fulfilment","billing_address","shipping_address","reader","credential","save","capture"}` | 201, the session |
 | `POST /payments/sessions/{id}/capture` + `Idempotency-Key` | consumer | `{"amount_minor"}` | the session as the gateway left it (v0.58.0) |

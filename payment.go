@@ -198,6 +198,10 @@ type PaymentMethod struct {
 	// Express is how this method's express wallet buttons are drawn (v0.58.0, EXPERIMENTAL, paymentexpress.go): the kind,
 	// the gateway's script, the processor's origins and the PUBLIC configuration its script reads. Nil: no buttons.
 	Express *PaymentExpress `json:"express,omitempty"`
+	// Marks are the acceptance marks this method shows (v0.58.0, paymentmarks.go): each one of PaymentMarks, none twice —
+	// a card method the networks it takes ("visa", "mastercard"), a wallet its own ("apple-pay"). Empty: the method shows
+	// none. Core passes them to consumers on PaymentOption.
+	Marks []string `json:"marks,omitempty"`
 }
 
 // PaymentOption is one method a payer can choose, as a CONSUMER sees it (Payments.Methods): the gateway's
@@ -220,6 +224,9 @@ type PaymentOption struct {
 	// Express is the method's express buttons (PaymentMethod.Express, EXPERIMENTAL): a consumer offers an express
 	// checkout only through a method that has them, and creates its sessions as the kind says.
 	Express *PaymentExpress `json:"express,omitempty"`
+	// Marks are the method's acceptance marks (PaymentMethod.Marks): what a shop names on CommerceEndpoints.PaymentMarks
+	// for each option its checkout offers.
+	Marks []string `json:"marks,omitempty"`
 }
 
 // PaymentSession is one payment, as Core holds it. Core fills every field; the gateway and the consumer read.
@@ -1046,6 +1053,9 @@ func validMethods(methods []PaymentMethod) error {
 		}
 		if err := validExpress(m); err != nil {
 			return err
+		}
+		if err := validMarks(m.Marks); err != nil {
+			return fmt.Errorf("nilda: payment.describe: method %q: %w", m.Key, err)
 		}
 	}
 	return nil

@@ -8,7 +8,46 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.58.0 — unreleased (item lines on a payment — commerce plan 10.15; a plugin's own fields in the shop — the shop's door D2; write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3; paperless return labels — commerce plan 10.9b; service points — commerce plan 10.9)
+## v0.58.0 — unreleased (item lines on a payment — commerce plan 10.15; a plugin's own fields in the shop — the shop's door D2; write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3; paperless return labels — commerce plan 10.9b; service points — commerce plan 10.9; the storefront's release 1 — commerce plan 1C)
+
+- THE STOREFRONT'S RELEASE 1 (commerce plan 1C; `commercestorefront.go`, `paymentmarks.go`, `docs/COMMERCE.md` §8). All
+  optional and additive; a shop answering none of it draws what it drew before.
+  - `CommerceProduct` gains `PriceFrom` (`"price_from"`: Core prints "From" before `Price`), `UnitPrice` (`"unit_price"`,
+    "€12.40 / kg", beside every price Core draws), `StockNote` (`"stock_note"`, "Only 3 left"), `Choices`
+    (`"choices"`, `CommerceChoice`: `selection`, `sku`, `price`, `old_price`, `unit_price`, `in_stock`, `stock_note`,
+    `media_id`, `facts` — every combination of `Variations`, for the product page; at most `MaxCommerceChoices` = 250) and
+    `Facts` (`"facts"`, `CommerceFacts`: `amount` a plain decimal, `currency` ISO 4217, `availability` from
+    `SchemaAvailabilities()` — `SchemaInStock` … `SchemaOnlineOnly`, schema.org's words —, `condition` from
+    `SchemaConditions()`, `gtin`, `mpn`, `brand`) — the machine values Core writes into structured data and never draws.
+    `CommerceProduct.Validate` and `CommerceFacts.Validate` hold them (`MaxCommerceNote` = 200, `MaxCommerceFactText` =
+    70, a GTIN of 8/12/13/14 digits with its GS1 check digit, an amount `ParseMinor` takes, one currency per product, a
+    complete and distinct selection per choice, distinct SKUs of at most 127 bytes); `DispatchCommerceHook` runs it on every
+    product it answers, so a product breaking a rule fails the call naming itself. Read 2026-11-06: Google's merchant
+    listing and product variant structured data, Merchant Center's product data specification, Shopify's Liquid
+    `product.variants` (250 unpaginated) and `price_varies`, WooCommerce's variation threshold.
+  - `CommerceQuery.Sort` documents `best-selling` and `rating`. EXPERIMENTAL: `CommerceQuery.Filters` (`"filters"`,
+    `CommerceFilters`: `price_min`, `price_max`, `options`, `brands`, `min_rating`, `in_stock`, `terms`), bounded by
+    `CommerceFilters.Validate` (`MaxCommerceFilterAxes` 8, `MaxCommerceFilterValues` 20, `MaxCommerceFilterValueBytes` 128,
+    `MaxCommerceRating` 5); a products, count or facets payload outside them is refused.
+  - EXPERIMENTAL: the optional `CommerceFacets` (`Facets(ctx, q, want) ([]CommerceFacet, error)`) on hook
+    `commerce.facets` (`HookCommerceFacets`; payload the query's fields and `want`, answer `{"facets": […]}`), `Serve` and
+    `ServeCommerce` subscribing it only for a shop that implements it. `CommerceFacet` (`key`, `kind`, `label`, `options`,
+    `min`, `max`), `CommerceFacetValue` (`value`, `label`, `count`), the kinds `CommerceFacetPrice`, `CommerceFacetOption`,
+    `CommerceFacetBrand`, `CommerceFacetRating`, `CommerceFacetStock`, `CommerceFacetCategory`, `CommerceFacetKey`,
+    `CommerceFacetInStock`, `MaxCommerceFacets` 16, `MaxCommerceFacetOptions` 60; counts are disjunctive.
+  - PAYMENT MARKS: `PaymentMethod.Marks` and `PaymentOption.Marks` (`"marks"`), each one of `PaymentMarks()` (visa,
+    mastercard, amex, maestro, paypal, klarna, apple-pay, google-pay, sepa, ideal, bancontact, eps, bank-transfer,
+    cash-on-delivery; `PaymentMark…` constants, `ValidPaymentMark`), none twice — a describe naming any other is refused.
+    The shop names the marks of everything its checkout takes — the options it offers and its own offline methods — on
+    `CommerceEndpoints.PaymentMarks` (`"payment_marks"`), checked the same way; that list is all Core's strip draws.
+  - `nildatest.Storefront` (`NewStorefront`): `Products`, `Product`, `Endpoints`, `Count`, `Facets` asked over the hooks'
+    JSON as Core asks, and `CheckFacetCounts`, which holds every facet option's count to the shop's own `CountProducts`
+    disjunctively. `nildatest.Payments` passes a method's marks on to its options.
+  - Docs: `COMMERCE.md` §8 (a grid's `Variations` mean "needs a choice", `Cart?view=mini`, search hits through
+    `ProductForContent`, every field above); `PLUGIN_SDK.md` documents the manifest's `taxonomy_archives` (Core has it).
+  - SDK-first: Core mirrors the fields on its wire struct (`internal/plugin/commerce.go`, `payments.Method`/`Option`),
+    asks `commerce.facets` and draws them in its next storefront step; an older Core drops them, and a shop may send them
+    today.
 
 - MAIL TEMPLATES: `MaxManifestEmailTemplates` 64 → 128 (Core D-111): Core lets a plugin declare 128 email templates, so a shop's legally required mails (the DSA review-report notices) fit beside its others; the 2 MB manifest bound still limits the total.
 

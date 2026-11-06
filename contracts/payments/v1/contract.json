@@ -160,6 +160,15 @@
                     "script",
                     "origins"
                   ]
+                },
+                "marks": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string"
+                  }
                 }
               },
               "required": [

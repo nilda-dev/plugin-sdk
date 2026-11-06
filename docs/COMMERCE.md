@@ -5,7 +5,9 @@ supplies the products and the endpoints the widgets' shells call. `commerce.go` 
 the cart and the checkout. This guide is the **buyer's account** (v0.44.0): how your account views live inside the
 owner's themed page instead of on a bare page of your own — and (§6, v0.58.0, EXPERIMENTAL) the **express wallet
 buttons'** one door into your checkout, and (§7, v0.58.0, EXPERIMENTAL) **other plugins' fields** at your checkout and on your
-product pages.
+product pages, and (§8, v0.58.0) **what the storefront draws beyond a tile**: choices on a product page, "From", unit
+prices, the stock line, the machine facts behind structured data, filters and facets, the payment marks strip, the
+mini-cart and search hits.
 
 The My Account widget is a **members area**: a mount on the owner's account page that fetches your
 `Endpoints().Account` (`/shop/account`) from the browser and draws your answer in place. The page around it is
@@ -149,3 +151,115 @@ copy every value into the order with its label, answer the plugin's own reads an
 `shop.attribute.values/v1` (write commands: keyed, attributed, undoable, announced; a refusal is a result), and proxy an
 address query to the plugin bounded per visitor. `docs/ATTRIBUTES.md` is the whole of it; `nildatest.AttributeShop` holds
 the same rules.
+
+
+## 8. The storefront's release 1 (v0.58.0; commerce plan 1C)
+
+Everything here is OPTIONAL: a shop that answers none of it draws what it drew before. The SDK carries it first: Core
+draws the new fields, asks `commerce.facets` and shows the marks from its storefront step built on this release — an
+older Core drops them, so a shop may send them today (the "Choose options" link, `view=mini` and the search hits below
+are Core's already). Every new value is checked before
+it leaves your plugin — `CommerceProduct.Validate` on each product `Products`, `Product` and `ProductForContent` answer,
+`CommerceFilters.Validate` on each query, the facets' rules on each `Facets` answer — so a value Core could not draw, or a
+search engine would refuse, fails the call in your own tests first and names the product. `nildatest.Storefront` asks
+your shop the way Core does.
+
+### A product that needs a choice, and "From"
+
+**`Variations` on a grid answer means "needs a choice".** Core's product grid no longer adds a product with Variations
+from its tile: the tile's button becomes a link to the product's page, "Choose options" in the page's language (Shopify's
+"Choose options", WooCommerce's "Select options") — no page URL, no button. So answer a variable product's `Variations` in
+`Products` too, not only in `Product`; a product without them is added from the tile as before.
+
+**`PriceFrom`** says `Price` is the lowest of several (Shopify's `price_varies` / `price_min`, WooCommerce's price range):
+Core prints its own "From" before it, translated. Set it only beside a `Price`.
+
+### Unit price and the stock line
+
+**`UnitPrice`** (`"€12.40 / kg"`, formatted by you) is drawn beside every price Core draws for the product — a tile, the
+product page, a search hit, a choice. Where EU Directive 98/6/EC asks for it (goods sold by weight, volume or length) it is
+the shop's legal duty to send it. **`StockNote`** (`"Only 3 left"`) is your words, sent only when the merchant switched the
+line on; Core draws it under the price and still learns no count. Each is one plain line of at most `MaxCommerceNote`
+(200) characters.
+
+### Choices: the product page follows the shopper (`Choices`)
+
+On `Product` and `ProductForContent` only — a grid never draws them — `Choices` lists every sellable combination of
+`Variations` as a `CommerceChoice`: its `Selection` (every axis answered, by the axis's `Key`, or its `Name` when it has
+no `Key`, with one of its `Options`), and its own `SKU`, `Price`, `OldPrice`, `UnitPrice`, `InStock`, `StockNote`,
+`MediaID` and `Facts`. Core carries them as data in the page so picking a colour changes the price, the code, the stock,
+the photo and the button before anything is added. Rules: at most `MaxCommerceChoices` (250 — what Shopify's storefront
+hands a theme unpaginated; past it, Core asks the question and lets your add-to-cart answer it), only on a product with
+Variations, no two choices of the same combination, no two with the same SKU (Google's variants each need a unique id), a
+SKU of at most 127 bytes, and one currency across the product's and its choices' facts.
+
+### Machine facts (`Facts`)
+
+`Price` is for a person and Core never parses it. `Facts` (`CommerceFacts`) is the same product for a machine, written into
+the page's structured data (a Product's Offer; with choices, a ProductGroup with a variant per choice) and never drawn:
+
+| field | rule (Google's merchant listings and Merchant Center, read 2026-11-06) |
+|---|---|
+| `amount` | a plain decimal with a period, no symbol, grouping or sign, no more decimals than the currency has (`ParseMinor`'s rule): `"19.90"`, `"1500"` for yen. With `ShowPricesIncludingTax`, gross, as `Price` is. Set with `currency` or not at all; Google lists a merchant offer only above zero |
+| `currency` | three upper-case ISO 4217 letters with a minor unit (`MinorUnits`) |
+| `availability` | one of `SchemaAvailabilities()`: `InStock`, `OutOfStock`, `PreOrder`, `PreSale`, `BackOrder`, `SoldOut`, `Discontinued`, `LimitedAvailability`, `InStoreOnly`, `OnlineOnly` — schema.org's words, NOT the catalogue's `in_stock` |
+| `condition` | one of `SchemaConditions()`: `NewCondition`, `RefurbishedCondition`, `UsedCondition` |
+| `gtin` | 8, 12, 13 or 14 digits, the GS1 check digit correct, no dash or space |
+| `mpn`, `brand` | one plain line of at most `MaxCommerceFactText` (70) characters; one brand |
+
+Core makes no Offer without an `amount` — it never guesses a number from your formatted `Price` (an `AggregateOffer` is
+never made either).
+
+### Filters and facets (EXPERIMENTAL)
+
+**Sort** gains `best-selling` and `rating` (highest first) beside `""` (your own order, which Core calls "Recommended"),
+`newest`, `price-asc`, `price-desc` and `name`; by what you count as sold and rated.
+
+**`CommerceQuery.Filters`** (`CommerceFilters`) is what a shopper narrowed a catalogue by in Core's product filter:
+`price_min` / `price_max` (inclusive, in the unit your price facet's `min` / `max` are in — Core never converts),
+`options` (axis key → values), `brands`, `min_rating` (stars and up, 1–5), `in_stock`, `terms` (category slugs). Each list
+is an OR in itself and an AND with the others. Honour them in `Products` and `CountProducts` alike, so the pager and the
+list agree. Bounds: at most `MaxCommerceFilterAxes` (8) axes, `MaxCommerceFilterValues` (20) values in a list,
+`MaxCommerceFilterValueBytes` (128) bytes a value, no value twice.
+
+**`CommerceFacets`** answers what a filter offers. Core sends hook `commerce.facets` (`HookCommerceFacets`; `Serve`
+subscribes it only for a shop that implements it) with the query's fields and `want`, the facet keys the owner chose, in
+their order:
+
+```json
+{"term": "mugs", "filters": {"in_stock": true}, "want": ["option:colour", "price", "brand", "rating", "stock", "category"]}
+```
+
+and reads `{"facets": [CommerceFacet…]}`. A key is a kind — `price`, `brand`, `rating`, `stock`, `category` — or
+`option:<axis key>` (`CommerceFacetKey`). Answer each key you can, at most once, only keys asked; leave out what you cannot
+and the widget draws no such filter. A `CommerceFacet` is `key`, `kind`, `label` (in the shop's language) and either
+`min` / `max` (price: a range, no options) or `options` (`CommerceFacetValue`: `value`, `label`, `count`; at most
+`MaxCommerceFacetOptions`, 60). A rating facet's values are `"1"` to `"5"` (that many stars and up); a stock facet's one
+value is `in_stock` (`CommerceFacetInStock`). **Counts are disjunctive**: each option counts what the query finds with that
+value picked IN PLACE OF its own facet's selection, every other filter kept — so a second colour shows what it adds, as
+WooCommerce's, Shopify's and BigCommerce's filters do. `nildatest.Storefront.CheckFacetCounts` holds your counts to your
+own `CountProducts` this way.
+
+### The payment marks strip
+
+`CommerceEndpoints.PaymentMarks` names the acceptance marks of everything your checkout takes today, in the order to draw
+them: each gateway option you offer (its `PaymentOption.Marks`, which the gateway declared on `PaymentMethod.Marks`) and
+your own offline methods (`bank-transfer`, `cash-on-delivery`). Each is one of `PaymentMarks()` — visa, mastercard, amex,
+maestro, paypal, klarna, apple-pay, google-pay, sepa, ideal, bancontact, eps, bank-transfer, cash-on-delivery — none twice.
+Yours and not Core's because only you know which methods a buyer can actually choose; Core's strip draws exactly this list
+and nothing else. Empty, no strip.
+
+### The mini-cart drawer: `Cart` with `view=mini`
+
+Core's cart badge may open a drawer — a native `<dialog>` from the page's end side — whose body is your `Cart` endpoint
+asked with `view=mini` (`/shop/cart?view=mini`) EACH TIME it opens, never drawn into the cached page. Answer a compact
+basket: the lines with their quantity steppers and Remove, the coupon box, the total and Checkout; your forms are sent by
+the shell and redrawn in place, as in any mount. Core adds its own heading, close button and "View basket" link around it.
+A shop that ignores `view` serves its full basket there, which works but is long.
+
+### Search hits: `ProductForContent`
+
+Core's live search panel finds products through Core's one search engine and asks your `ProductForContent` (hook
+`commerce.product_for_content`) for the first hits of your product content type, to draw their `Image` and `Price` beside
+the title. Up to ten questions per answer share one 1.5-second budget — answer from what you hold; a slow answer costs the
+panel its pictures, never its results. A shop that does not implement `ProductForContent` gets plain hits.
