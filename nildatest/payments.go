@@ -620,7 +620,7 @@ func (p *Payments) methods(ctx context.Context, currency string) ([]nilda.Paymen
 			if takes(m, code) {
 				opts = append(opts, nilda.PaymentOption{Gateway: key, Method: m.Key, Label: m.Label,
 					Description: m.Description, Refunds: m.Refunds, Test: m.Test, Supports: nilda.SupportsOf(m),
-					CredentialTypes: m.CredentialTypes, Readers: m.Readers, Express: m.Express})
+					CredentialTypes: m.CredentialTypes, Readers: m.Readers, Express: m.Express, Marks: m.Marks})
 			}
 		}
 	}

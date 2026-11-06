@@ -322,6 +322,15 @@ Declare them, and Core creates them on every enable — additively, never deleti
   characters — the content-type registry's own bound — and a taxonomy key at most 60.
 - **Bounded**: at most 8 content types of at most 48 fields each, and 8 taxonomies, each attached to between
   1 and 32 content types (`applies_to` is required: a taxonomy attached to nothing is a tree nobody can use).
+- **A public address for a taxonomy: `taxonomy_archives`.** A declared taxonomy has no page of its own until you give
+  it one URL segment, `"taxonomy_archives": {"shop_category": "product-category"}` (a shop's categories at
+  WooCommerce's `/product-category/<slug>`). While your plugin runs, Core serves each term's archive at
+  `/<prefix>/<slug>` — flat, the term's own slug, never its parents' path — and the sitemap, the breadcrumbs, the slug
+  redirects and a shop term's chip link all read that address; when your plugin stops, the address goes with it. The
+  prefix is one lowercase segment of letters and digits joined by single hyphens, at most 40 characters; Core refuses a
+  key your `taxonomies` do not declare, one of its own archives (`category`, `tag`, `author`, `search`) or reserved roots,
+  your own `route_prefix`, and one prefix for two taxonomies — and a prefix another running plugin holds costs your
+  taxonomy its pages, never your start. A taxonomy without one keeps no public address (and is in no sitemap).
 - **Owned by whoever created it.** A second plugin declaring a key you created is refused by name — and so
   is it after you are uninstalled, because the type and its items stay with the site: the refusal says to
   reinstall you, or to delete the type first. Where two plugins' keys overlap (`shop` and `shop_widgets`), a
@@ -2234,6 +2243,24 @@ picking that choice turns the gallery to it — the gallery never changes the sh
 language. Core's add-to-cart button then says "Pre-order" and draws both beneath it — the date is what a buyer must be
 told before paying. Set `InStock` too: a pre-order is bought whatever the stock.
 
+**And what the storefront draws beyond a tile (v0.58.0, commerce plan 1C; [COMMERCE.md](COMMERCE.md) §8).** All optional,
+all checked by `CommerceProduct.Validate` before a product leaves your plugin: `PriceFrom` (Core prints "From" before
+`Price`), `UnitPrice` (`"€12.40 / kg"`, beside every price Core draws), `StockNote` (`"Only 3 left"`), `Choices` — every
+combination of `Variations` as a `nilda.CommerceChoice` (its `Selection`, SKU, prices, stock, photo and facts; at most
+`nilda.MaxCommerceChoices`), for the product page to follow the shopper's choice — and `Facts`, a `nilda.CommerceFacts` of
+machine values Core writes into the page's structured data and never draws: a decimal `Amount` and its ISO 4217
+`Currency`, an `Availability` from `nilda.SchemaAvailabilities()`, a `Condition` from `nilda.SchemaConditions()`, a GTIN
+with a correct check digit, an MPN and a brand. A product answering `Variations` on a grid is a product that needs a
+choice: its tile links to its page instead of adding. `CommerceQuery.Sort` gains `best-selling` and `rating`.
+
+**Filters and facets (v0.58.0, EXPERIMENTAL).** `CommerceQuery.Filters` is a `nilda.CommerceFilters` — price bounds,
+option values per axis, brands, a minimum rating, in stock, category slugs — checked by `CommerceFilters.Validate`;
+honour it in `Products` and `CountProducts` alike. Implement `Facets(ctx, q, want)` (the `nilda.CommerceFacets` interface;
+the hook is `nilda.HookCommerceFacets`, `"commerce.facets"`, which `Serve` subscribes only for a shop that implements it)
+and Core's product filter asks which filters to offer: answer a `nilda.CommerceFacet` per key of `want` you can — a key is
+`nilda.CommerceFacetKey(kind, axis)` — each with its `nilda.CommerceFacetValue`s and their DISJUNCTIVE counts, or a price
+range. `nildatest.Storefront` asks your shop as Core does, and its `CheckFacetCounts` holds your counts to your own count.
+
 **Tell Nilda when your catalogue changes — this one is not optional.** Nilda caches a rendered page for an
 hour and drops it when something it depends on changes, but your catalogue is the one dependency it cannot
 see: a merchant fixing a price in YOUR admin touches nothing in Nilda, so the storefront keeps the old price
@@ -2377,6 +2404,12 @@ gateway that implements `nilda.PaymentRepricer` and whose method lists `nilda.Su
 a `nilda.PaymentRepriceRequest` answered by a `nilda.PaymentRepriceResult`. `nildatest.Payments.Reprice` and
 `nildatest.StubGateway`'s `RepricePayment` (`RepriceResult`, `RepriceErr`, `Repriced`) are the kit's side. Core serves the
 re-price, its hook and the session's client action from the Core of plan 10.2's step X2b.
+
+**v0.58.0 also adds payment marks** (commerce plan 1C, ST15; PAYMENTS.md §4 "What else a gateway may do"): a method names the acceptance marks it shows,
+`PaymentMethod.Marks` — each one of `nilda.PaymentMarks()` (`nilda.PaymentMarkVisa` … `nilda.PaymentMarkCashOnDelivery`),
+checked with `nilda.ValidPaymentMark`, none twice; a describe naming any other is refused. Core passes them to consumers on
+`PaymentOption.Marks`, and a shop names the marks of everything its checkout takes on `CommerceEndpoints.PaymentMarks`
+(COMMERCE.md §8), which is all Core's payment-marks strip draws.
 
 **v0.10.5 adds** a test-mode hint (PAYMENTS.md §3): a gateway holding its processor's test keys sets
 `PaymentMethod.TestHint` beside `Test` — how a payer pays in test mode, by language — and a consumer shows

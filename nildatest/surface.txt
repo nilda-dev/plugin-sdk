@@ -121,6 +121,7 @@ func NewReference() (*Reference)
 func NewSecrets() (*Secrets)
 func NewServices() (*Services)
 func NewSite() (*Site)
+func NewStorefront(nilda.Commerce) (*Storefront)
 func NewStubCarrier(string, ...nilda.CarrierRate) (*StubCarrier)
 func NewTrash() (*Trash)
 func NewWithAPI(string, http.Handler, ...string) (*nilda.Core, *Host, *httptest.Server)
@@ -216,6 +217,12 @@ method (*Site) SetMediaFile(string, string, string, []byte) (string)
 method (*Site) SetMediaUsedOn(string, ...string)
 method (*Site) SetSite(nilda.Site)
 method (*Site) Terms(string) (map[string][]nilda.Term)
+method (*Storefront) CheckFacetCounts(context.Context, nilda.CommerceQuery, []string) (error)
+method (*Storefront) Count(context.Context, nilda.CommerceQuery) (int, bool, error)
+method (*Storefront) Endpoints(context.Context) (nilda.CommerceEndpoints, error)
+method (*Storefront) Facets(context.Context, nilda.CommerceQuery, []string) ([]nilda.CommerceFacet, error)
+method (*Storefront) Product(context.Context, string) (nilda.CommerceProduct, bool, error)
+method (*Storefront) Products(context.Context, nilda.CommerceQuery) ([]nilda.CommerceProduct, error)
 method (*StubCarrier) Asked() ([]nilda.RatesRequest)
 method (*StubCarrier) Bought() (int)
 method (*StubCarrier) CreateLabel(context.Context, nilda.LabelRequest) (nilda.LabelResult, error)
@@ -260,6 +267,7 @@ type Services
 type ShopEvent
 type Site
 type SitePage
+type Storefront
 type StubCarrier
 type StubGateway
 type Trash

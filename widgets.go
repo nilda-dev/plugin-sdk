@@ -474,6 +474,12 @@ var providerHooks = []struct {
 		_, is := h.(CommerceProductPages)
 		return shop && is
 	}, []string{HookCommerceProductForContent}},
+	// commerce.facets only for a shop that offers filters (CommerceFacets).
+	{"CommerceFacets", func(h Handler) bool {
+		_, shop := h.(Commerce)
+		_, is := h.(CommerceFacets)
+		return shop && is
+	}, []string{HookCommerceFacets}},
 	// privacy.* needs `personal_data`: the owner agreed that this plugin is sent a requester's address.
 	{"PersonalDataHolder", func(h Handler) bool { _, is := h.(PersonalDataHolder); return is },
 		[]string{HookPrivacyExport, HookPrivacyErase}},

@@ -274,6 +274,26 @@ type CommerceProduct struct {
 	// must be told before they pay (Directive 2011/83/EU Art. 6(1)(g)). Set InStock too: a pre-order is
 	// bought whatever the stock. Nil for an item sold as itself.
 	PreOrder *CommercePreOrder `json:"pre_order,omitempty"`
+	// PriceFrom says Price is the lowest of several — a product whose choices cost different amounts — and Core prints
+	// its own "From" before it, in the page's language (Shopify's `price_varies`, WooCommerce's price range). Set it only
+	// beside a Price (v0.58.0).
+	PriceFrom bool `json:"price_from,omitempty"`
+	// UnitPrice is the price per unit of measure, FORMATTED BY YOU — "€12.40 / kg" — which Core draws beside every price
+	// it draws for the product: a tile, the product page, a search hit. Where the law asks for it (EU Directive 98/6/EC
+	// for goods sold by weight, volume or length) it is not optional for the shop. One plain line of at most
+	// MaxCommerceNote characters (v0.58.0).
+	UnitPrice string `json:"unit_price,omitempty"`
+	// StockNote is the stock line a shopper reads — "Only 3 left" — set by you only when the merchant turned it on; Core
+	// draws it under the price. Still no count: the words and when to say them are yours. One plain line of at most
+	// MaxCommerceNote characters (v0.58.0).
+	StockNote string `json:"stock_note,omitempty"`
+	// Choices are every sellable combination of Variations, for the PRODUCT PAGE (Product and ProductForContent; leave
+	// it empty on a grid's Products, which never draws it): Core carries them as data so the page follows the shopper's
+	// choice — price, code, stock, photo — before anything is added. At most MaxCommerceChoices (v0.58.0).
+	Choices []CommerceChoice `json:"choices,omitempty"`
+	// Facts are the product's machine values — a decimal amount, its ISO currency, a schema.org availability and
+	// condition, GTIN, MPN, brand — which Core writes into the page's structured data and never draws (v0.58.0).
+	Facts *CommerceFacts `json:"facts,omitempty"`
 }
 
 // CommercePreOrder is what a pre-order's buyer reads beside its button, both FORMATTED BY YOU in the shop's
@@ -294,8 +314,9 @@ type CommerceQuery struct {
 	Search string `json:"search,omitempty"`
 	Limit  int    `json:"limit,omitempty"`
 	Offset int    `json:"offset,omitempty"`
-	// Sort is "" | newest | price-asc | price-desc | name. Anything you do not support: fall back to your
-	// own default order rather than returning nothing.
+	// Sort is "" | newest | price-asc | price-desc | name | best-selling | rating. "" is your own default order (Core
+	// calls it "Recommended"); best-selling and rating (highest first) are by what you count as sold and rated (v0.58.0).
+	// Anything you do not support: fall back to your own default order rather than returning nothing.
 	Sort     string `json:"sort,omitempty"`
 	Featured bool   `json:"featured,omitempty"`
 	// ShowPricesIncludingTax is Core telling you HOW THE PRICE MUST READ on this site, and it is a
@@ -321,6 +342,9 @@ type CommerceQuery struct {
 	// their own — nil for everybody else, who see the public price. CommerceViewerOf reads it from the context
 	// too, for Product, whose signature has no query.
 	Viewer *CommerceViewer `json:"viewer,omitempty"`
+	// Filters are what the shopper narrowed the catalogue by in Core's product filter (EXPERIMENTAL, v0.58.0); nil
+	// narrows nothing. Honour them in Products and CountProducts alike, so the pager and the list agree.
+	Filters *CommerceFilters `json:"filters,omitempty"`
 }
 
 // CommerceViewer is a signed-in visitor with prices of their own: a business buyer in a wholesale group, a member
@@ -401,6 +425,12 @@ type CommerceEndpoints struct {
 	// from the visitor's browser, on your route, so your basket's cookie goes with it. Set it only while the shop offers
 	// express checkout; empty, Core draws no wallet buttons.
 	Express string `json:"express,omitempty"`
+	// PaymentMarks are the marks of every way your checkout takes money today, for Core's payment-methods strip: the
+	// gateway methods you offer (each PaymentOption.Marks, from Payments.Methods) and your own offline methods
+	// (PaymentMarkBankTransfer, PaymentMarkCashOnDelivery) — each one of PaymentMarks(), none twice, in the order to
+	// draw them. Yours, not Core's, because only you know which methods your checkout offers: the strip may never show
+	// a method a buyer then cannot choose. Empty draws no strip (v0.58.0).
+	PaymentMarks []string `json:"payment_marks,omitempty"`
 }
 
 // Commerce is the interface a shop plugin implements.
@@ -470,6 +500,14 @@ func withCommerceViewer(ctx context.Context, v *CommerceViewer) context.Context 
 	return context.WithValue(ctx, commerceViewerKey{}, *v)
 }
 
+// validQueryFilters refuses a query whose filters Core never sends (CommerceFilters.Validate).
+func validQueryFilters(q CommerceQuery) error {
+	if q.Filters == nil {
+		return nil
+	}
+	return q.Filters.Validate()
+}
+
 // withGrossPrices is how the dispatcher puts it there.
 func withGrossPrices(ctx context.Context, v bool) context.Context {
 	if !v {
@@ -509,6 +547,9 @@ func (h *commerceOnlyHandler) Init(ctx context.Context, core *Core) (InitResult,
 	if _, ok := h.c.(CommerceProductPages); ok {
 		res.Hooks = append(res.Hooks, HookCommerceProductForContent)
 	}
+	if _, ok := h.c.(CommerceFacets); ok {
+		res.Hooks = append(res.Hooks, HookCommerceFacets)
+	}
 	if routes, ok := h.c.(http.Handler); ok {
 		addr, err := StartHTTP(routes)
 		if err != nil {
@@ -538,9 +579,17 @@ func DispatchCommerceHook(ctx context.Context, _ *Core, c Commerce, hook string,
 		if err := json.Unmarshal(payload, &q); err != nil {
 			return nil, true, fmt.Errorf("nilda: commerce.products payload: %w", err)
 		}
+		if err := validQueryFilters(q); err != nil {
+			return nil, true, fmt.Errorf("nilda: commerce.products payload: %w", err)
+		}
 		products, err := c.Products(withCommerceViewer(withGrossPrices(ctx, q.ShowPricesIncludingTax), q.Viewer), q)
 		if err != nil {
 			return nil, true, err
+		}
+		for _, p := range products {
+			if err := p.Validate(); err != nil {
+				return nil, true, err
+			}
 		}
 		// A nil slice marshals as null, and a caller reading `.products[0]` on null is a crash in
 		// whatever language reads it next. An empty catalogue is a list with nothing in it.
@@ -565,11 +614,18 @@ func DispatchCommerceHook(ctx context.Context, _ *Core, c Commerce, hook string,
 			// plugin did not answer" must not be the same bytes.
 			return []byte(`{"product":null}`), true, nil
 		}
+		if err := p.Validate(); err != nil {
+			return nil, true, err
+		}
 		b, err := json.Marshal(map[string]any{"product": p})
 		return b, true, err
 
 	case HookCommerceEndpoints:
-		b, err := json.Marshal(c.Endpoints(ctx))
+		ep := c.Endpoints(ctx)
+		if err := validMarks(ep.PaymentMarks); err != nil {
+			return nil, true, fmt.Errorf("nilda: commerce.endpoints payment_marks: %w", err)
+		}
+		b, err := json.Marshal(ep)
 		return b, true, err
 
 	case HookCommerceCount:
@@ -581,6 +637,9 @@ func DispatchCommerceHook(ctx context.Context, _ *Core, c Commerce, hook string,
 		}
 		var q CommerceQuery
 		if err := json.Unmarshal(payload, &q); err != nil {
+			return nil, true, fmt.Errorf("nilda: commerce.count payload: %w", err)
+		}
+		if err := validQueryFilters(q); err != nil {
 			return nil, true, fmt.Errorf("nilda: commerce.count payload: %w", err)
 		}
 		total, answered := counter.CountProducts(withCommerceViewer(ctx, q.Viewer), q)
@@ -610,7 +669,42 @@ func DispatchCommerceHook(ctx context.Context, _ *Core, c Commerce, hook string,
 		if !found {
 			return []byte(`{"product":null}`), true, nil
 		}
+		if err := p.Validate(); err != nil {
+			return nil, true, err
+		}
 		b, err := json.Marshal(map[string]any{"product": p})
+		return b, true, err
+
+	case HookCommerceFacets:
+		var in struct {
+			CommerceQuery
+			Want []string `json:"want"`
+		}
+		if err := json.Unmarshal(payload, &in); err != nil {
+			return nil, true, fmt.Errorf("nilda: commerce.facets payload: %w", err)
+		}
+		if err := validQueryFilters(in.CommerceQuery); err != nil {
+			return nil, true, fmt.Errorf("nilda: commerce.facets payload: %w", err)
+		}
+		if err := validFacetWant(in.Want); err != nil {
+			return nil, true, fmt.Errorf("nilda: commerce.facets payload: %w", err)
+		}
+		facets, ok := c.(CommerceFacets)
+		if !ok || len(in.Want) == 0 {
+			return []byte(`{"facets":[]}`), true, nil
+		}
+		q := in.CommerceQuery
+		got, err := facets.Facets(withCommerceViewer(withGrossPrices(ctx, q.ShowPricesIncludingTax), q.Viewer), q, in.Want)
+		if err != nil {
+			return nil, true, err
+		}
+		if err := validFacets(in.Want, got); err != nil {
+			return nil, true, fmt.Errorf("nilda: commerce.facets answer: %w", err)
+		}
+		if got == nil {
+			got = []CommerceFacet{}
+		}
+		b, err := json.Marshal(map[string]any{"facets": got})
 		return b, true, err
 
 	case HookCommercePriceGroup:

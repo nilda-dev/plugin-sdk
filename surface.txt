@@ -162,6 +162,13 @@ const ColumnMoney
 const ColumnNumber
 const ColumnPercent
 const ColumnText
+const CommerceFacetBrand
+const CommerceFacetCategory
+const CommerceFacetInStock
+const CommerceFacetOption
+const CommerceFacetPrice
+const CommerceFacetRating
+const CommerceFacetStock
 const CommerceOutOfStockCode
 const CommerceRedirectHeader
 const CommerceSignInHeader
@@ -272,6 +279,7 @@ const HookAuthDescribe
 const HookAuthStart
 const HookCommerceCount
 const HookCommerceEndpoints
+const HookCommerceFacets
 const HookCommercePriceGroup
 const HookCommerceProduct
 const HookCommerceProductForContent
@@ -339,6 +347,15 @@ const MaxAttributeSKUs
 const MaxAttributeText
 const MaxAttributeTextarea
 const MaxAttributeValues
+const MaxCommerceChoices
+const MaxCommerceFacetOptions
+const MaxCommerceFacets
+const MaxCommerceFactText
+const MaxCommerceFilterAxes
+const MaxCommerceFilterValueBytes
+const MaxCommerceFilterValues
+const MaxCommerceNote
+const MaxCommerceRating
 const MaxDisputesPerSession
 const MaxListFilters
 const MaxManifestAbilities
@@ -481,6 +498,20 @@ const PaymentFailExpired
 const PaymentFailInvalidRequest
 const PaymentFailProviderUnavailable
 const PaymentFailVoided
+const PaymentMarkAmex
+const PaymentMarkApplePay
+const PaymentMarkBancontact
+const PaymentMarkBankTransfer
+const PaymentMarkCashOnDelivery
+const PaymentMarkEPS
+const PaymentMarkGooglePay
+const PaymentMarkIDEAL
+const PaymentMarkKlarna
+const PaymentMarkMaestro
+const PaymentMarkMastercard
+const PaymentMarkPayPal
+const PaymentMarkSEPA
+const PaymentMarkVisa
 const PaymentPending
 const PaymentRedirected
 const PaymentRejected
@@ -520,6 +551,19 @@ const RiskHighest
 const RiskNormal
 const RiskNotAssessed
 const RiskUnknown
+const SchemaBackOrder
+const SchemaDiscontinued
+const SchemaInStock
+const SchemaInStoreOnly
+const SchemaLimitedAvailability
+const SchemaNewCondition
+const SchemaOnlineOnly
+const SchemaOutOfStock
+const SchemaPreOrder
+const SchemaPreSale
+const SchemaRefurbishedCondition
+const SchemaSoldOut
+const SchemaUsedCondition
 const ScreenEmail
 const ScreenMenus
 const ScreenPages
@@ -890,14 +934,47 @@ field CatalogVariant.UnitPricing *CatalogUnitPricing json:unit_pricing
 field CatalogVariant.WeightGrams *int64 json:weight_grams
 field ChosenServicePoint.ID string json:id
 field ChosenServicePoint.PostNumber string json:post_number
+field CommerceChoice.Facts *CommerceFacts json:facts
+field CommerceChoice.InStock bool json:in_stock
+field CommerceChoice.MediaID string json:media_id
+field CommerceChoice.OldPrice string json:old_price
+field CommerceChoice.Price string json:price
+field CommerceChoice.SKU string json:sku
+field CommerceChoice.Selection map[string]string json:selection
+field CommerceChoice.StockNote string json:stock_note
+field CommerceChoice.UnitPrice string json:unit_price
 field CommerceEndpoints.Account string json:account
 field CommerceEndpoints.AddToCart string json:add_to_cart
 field CommerceEndpoints.Cart string json:cart
 field CommerceEndpoints.Checkout string json:checkout
 field CommerceEndpoints.Express string json:express
+field CommerceEndpoints.PaymentMarks []string json:payment_marks
 field CommerceEndpoints.Reviews string json:reviews
 field CommerceEndpoints.StockAlert string json:stock_alert
 field CommerceEndpoints.StockAlertConsent string json:stock_alert_consent
+field CommerceFacet.Key string json:key
+field CommerceFacet.Kind string json:kind
+field CommerceFacet.Label string json:label
+field CommerceFacet.Max int64 json:max
+field CommerceFacet.Min int64 json:min
+field CommerceFacet.Options []CommerceFacetValue json:options
+field CommerceFacetValue.Count int json:count
+field CommerceFacetValue.Label string json:label
+field CommerceFacetValue.Value string json:value
+field CommerceFacts.Amount string json:amount
+field CommerceFacts.Availability string json:availability
+field CommerceFacts.Brand string json:brand
+field CommerceFacts.Condition string json:condition
+field CommerceFacts.Currency string json:currency
+field CommerceFacts.GTIN string json:gtin
+field CommerceFacts.MPN string json:mpn
+field CommerceFilters.Brands []string json:brands
+field CommerceFilters.InStock bool json:in_stock
+field CommerceFilters.MinRating int json:min_rating
+field CommerceFilters.Options map[string][]string json:options
+field CommerceFilters.PriceMax *int64 json:price_max
+field CommerceFilters.PriceMin *int64 json:price_min
+field CommerceFilters.Terms []string json:terms
 field CommerceImage.Alt string json:alt
 field CommerceImage.MediaID string json:media_id
 field CommerceImage.Selection map[string]string json:selection
@@ -905,8 +982,10 @@ field CommerceImage.URL string json:url
 field CommercePreOrder.Note string json:note
 field CommercePreOrder.ShipsBy string json:ships_by
 field CommerceProduct.Badge string json:badge
+field CommerceProduct.Choices []CommerceChoice json:choices
 field CommerceProduct.Excerpt string json:excerpt
 field CommerceProduct.Extra map[string]string json:extra
+field CommerceProduct.Facts *CommerceFacts json:facts
 field CommerceProduct.ID string json:id
 field CommerceProduct.Image string json:image
 field CommerceProduct.Images []CommerceImage json:images
@@ -914,16 +993,20 @@ field CommerceProduct.InStock bool json:in_stock
 field CommerceProduct.OldPrice string json:old_price
 field CommerceProduct.PreOrder *CommercePreOrder json:pre_order
 field CommerceProduct.Price string json:price
+field CommerceProduct.PriceFrom bool json:price_from
 field CommerceProduct.Rating float64 json:rating
 field CommerceProduct.RatingCount int json:rating_count
 field CommerceProduct.RelatedIDs []string json:related_ids
 field CommerceProduct.SKU string json:sku
+field CommerceProduct.StockNote string json:stock_note
 field CommerceProduct.Terms []CommerceTerm json:terms
 field CommerceProduct.Title string json:title
 field CommerceProduct.URL string json:url
+field CommerceProduct.UnitPrice string json:unit_price
 field CommerceProduct.UpsellIDs []string json:upsell_ids
 field CommerceProduct.Variations []CommerceVariation json:variations
 field CommerceQuery.Featured bool json:featured
+field CommerceQuery.Filters *CommerceFilters json:filters
 field CommerceQuery.Limit int json:limit
 field CommerceQuery.Offset int json:offset
 field CommerceQuery.Search string json:search
@@ -1420,6 +1503,7 @@ field PaymentMethod.Description string json:description
 field PaymentMethod.Express *PaymentExpress json:express
 field PaymentMethod.Key string json:key
 field PaymentMethod.Label string json:label
+field PaymentMethod.Marks []string json:marks
 field PaymentMethod.Readers []PaymentReader json:readers
 field PaymentMethod.Refunds bool json:refunds
 field PaymentMethod.Supports []string json:supports
@@ -1430,6 +1514,7 @@ field PaymentOption.Description string json:description
 field PaymentOption.Express *PaymentExpress json:express
 field PaymentOption.Gateway string json:gateway
 field PaymentOption.Label string json:label
+field PaymentOption.Marks []string json:marks
 field PaymentOption.Method string json:method
 field PaymentOption.Readers []PaymentReader json:readers
 field PaymentOption.Refunds bool json:refunds
@@ -2023,6 +2108,7 @@ func CarrierMethods(Carrier) ([]ServiceMethod)
 func CatalogMethods(CatalogProvider) ([]ServiceMethod)
 func CheckBody(json.RawMessage) (error)
 func ColumnTypes() ([]string)
+func CommerceFacetKey(string, string) (string)
 func CommerceOutOfStock(http.ResponseWriter, string)
 func CommerceSignInRequired(http.ResponseWriter)
 func CommerceViewerOf(context.Context) (CommerceViewer, bool)
@@ -2078,11 +2164,14 @@ func OrdersMethods(OrdersProvider) ([]ServiceMethod)
 func ParseContract([]byte) (ServiceContract, error)
 func ParseMinor(string, string) (int64, error)
 func PaymentCanMove(string, string) (bool)
+func PaymentMarks() ([]string)
 func ProtocolForSDK(string) (int, bool)
 func RefundCanMove(string, string) (bool)
 func RegisterContractForTest(ServiceContract) (func())
 func ReportScreens() ([]string)
 func ScheduleHook(string) (string)
+func SchemaAvailabilities() ([]string)
+func SchemaConditions() ([]string)
 func Serve(Handler)
 func ServeAuthProvider(AuthProvider)
 func ServeCommerce(Commerce)
@@ -2101,6 +2190,7 @@ func Supports([]string, string) (bool)
 func SupportsOf(PaymentMethod) ([]string)
 func TestHintFor(map[string]string, string) (string)
 func TextBody(string) (json.RawMessage)
+func ValidPaymentMark(string) (bool)
 func ValidPriceGroup(string) (bool)
 func ValidateRecommendations([]Recommendation) (error)
 func VisitorCountry(*http.Request) (string, bool)
@@ -2137,6 +2227,7 @@ imethod Commerce.Endpoints(context.Context) (CommerceEndpoints)
 imethod Commerce.Product(context.Context, string) (CommerceProduct, bool)
 imethod Commerce.Products(context.Context, CommerceQuery) ([]CommerceProduct, error)
 imethod CommerceCounter.CountProducts(context.Context, CommerceQuery) (int, bool)
+imethod CommerceFacets.Facets(context.Context, CommerceQuery, []string) ([]CommerceFacet, error)
 imethod CommercePriceGroups.PriceGroup(context.Context, string) (string, error)
 imethod CommerceProductPages.ProductForContent(context.Context, string) (CommerceProduct, bool)
 imethod CredentialPayer.StartPaymentWithCredential(context.Context, PaymentSession, PaymentCredential) (PaymentStartResult, error)
@@ -2331,6 +2422,9 @@ method (CatalogVariant) Validate() (error)
 method (ChosenServicePoint) Validate() (error)
 method (ClientAction) GoString() (string)
 method (ClientAction) String() (string)
+method (CommerceFacts) Validate() (error)
+method (CommerceFilters) Validate() (error)
+method (CommerceProduct) Validate() (error)
 method (ContractMethod) ValidateInput([]byte) (error)
 method (ContractMethod) ValidateOutput([]byte) (error)
 method (Customs) Validate() (error)
@@ -2487,8 +2581,14 @@ type ChosenServicePoint
 type Class
 type ClientAction
 type Commerce
+type CommerceChoice
 type CommerceCounter
 type CommerceEndpoints
+type CommerceFacet
+type CommerceFacetValue
+type CommerceFacets
+type CommerceFacts
+type CommerceFilters
 type CommerceImage
 type CommercePreOrder
 type CommercePriceGroups
