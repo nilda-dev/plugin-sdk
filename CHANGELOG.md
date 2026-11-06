@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.58.0 — unreleased (item lines on a payment — commerce plan 10.15; a plugin's own fields in the shop — the shop's door D2; write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3; paperless return labels — commerce plan 10.9b; service points — commerce plan 10.9; the storefront's release 1 — commerce plan 1C; a plugin's own licence — commerce 02-PRICING C4)
+## v0.58.0 — unreleased (item lines on a payment — commerce plan 10.15; a plugin's own fields in the shop — the shop's door D2; write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3; paperless return labels — commerce plan 10.9b; service points — commerce plan 10.9; the storefront's release 1 — commerce plan 1C; a plugin's own licence — commerce 02-PRICING C4; a service answer's `<`, `>` and `&` unescaped on the wire — site import, option A)
 
 - A PLUGIN'S OWN LICENCE (commerce 02-PRICING C4; `licence.go`, `docs/PLUGIN_SDK.md` "Reading your licence and going
   live"). EXPERIMENTAL until the shop's live gate ships green on it. `(*API).Licence(ctx)` reads the plugin's own paid
@@ -123,6 +123,15 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
   reader plugin hands to Core's importer — `Site` and its parts — and Core's streaming snapshot encoding (`Encode`, `Decode`), copied from
   Core's `internal/importer` with its json tags unchanged. The shape follows Core's snapshot version (4), not this module's. Core's nine golden
   sites are copied under `siteimport/testdata/golden` with their sha256 manifest, and every one must read and write back to the same bytes.
+- A SERVICE ANSWER'S `<`, `>` AND `&` GO ON THE WIRE AS THEMSELVES (site import, owner's option A; `services.go`, `docs/SERVICES.md`,
+  `docs/SITE_READER.md`). `DispatchServiceHook` (so `Serve`, and `nildatest`'s fake host) encoded a provider's answer with
+  `json.Marshal`, which writes each `<`, `>` and `&` as a six-byte escape, also inside a `json.RawMessage`; Core measures
+  `site.reader/v1`'s bounds (a piece, an element, the whole read) on the bytes it reads, so HTML-heavy content was cut at a
+  fraction of its size. The answer is now `json.Marshal`'s encoding with HTML escaping off: compact, map keys sorted, a raw
+  member compacted as it is (an escape the provider wrote stays as written), U+2028/U+2029 still escaped, decoding to the same
+  values and checked against the contract as before. A consumer reads the same values. A reader plugin that encodes its piece's
+  members escaped itself still sends (and rightly counts) six bytes each; the room is regained once it encodes and measures them
+  unescaped. SITE_READER.md now also states a reader's refusal shape, `code: sentence`.
 - REFUND REASON FOR FRAUD (commerce plan 10.3 F2/F3; `payment.go`). `RefundReasonFraudulent` (`"fraudulent"`): a refund whose reason is exactly this was given because the payment was fraud; a gateway that can tell its processor does (plugin-stripe 0.8.1 sends Stripe `reason=fraudulent`). Core landed the session's `risk` (core #181), so nothing is ahead of Core.
 
 - IMPORT CAPABILITY (site-import S4; `capabilities.go`). `CapImport` (`import`): a plugin that brings a site over from another
