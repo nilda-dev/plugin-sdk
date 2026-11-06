@@ -99,6 +99,11 @@ your method runs, and your answer after — an answer the contract refuses is re
 fails on it before Core drops it in production. A hook for a method you do not list reaches your `HandleHook`, for an
 author who routes by hand (`SplitServiceHook`, `DispatchServiceHook`).
 
+The answer goes on the wire as `json.Marshal` writes it — compact, map keys sorted, a `json.RawMessage` compacted as it
+is — except that `<`, `>` and `&` are the characters themselves, not six-byte escapes (U+2028 and U+2029 stay escaped).
+A contract whose bounds are in bytes (`site.reader/v1`) is measured on these bytes. An escape your own code wrote inside
+a raw member is passed on as written.
+
 An error from your method is the method's answer only where its `retry_class` is `answer`; otherwise it is you
 failing. Core keeps a circuit for you **per contract**: a provider that keeps failing `rates` is left alone for
 `rates` for a cooldown, while your other contracts and Core's own hooks still reach you, and none of it counts

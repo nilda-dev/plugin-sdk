@@ -1,6 +1,7 @@
 package nilda
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -280,7 +281,7 @@ func DispatchServiceHook(ctx context.Context, p ServiceProvider, hook string, pa
 		if err != nil {
 			return nil, true, err
 		}
-		raw, err := json.Marshal(answer)
+		raw, err := encodeAnswer(answer)
 		if err != nil {
 			return nil, true, fmt.Errorf("nilda: the answer of %s %s does not encode: %w", contract, method, err)
 		}
@@ -290,4 +291,25 @@ func DispatchServiceHook(ctx context.Context, p ServiceProvider, hook string, pa
 		return raw, true, nil
 	}
 	return nil, false, nil
+}
+
+// encodeAnswer writes a provider's answer as it goes on the wire: json.Marshal's encoding — compact, map keys sorted, a
+// json.RawMessage checked and compacted, a Marshaler's output used — with ONE difference: "<", ">" and "&" are the characters
+// themselves, not six-byte escapes. Core measures the bytes it reads at a contract's bounds (site.reader/v1: a piece, an element,
+// the whole read; SITE_READER.md), so escaping them cut HTML-heavy content at a fraction of its size (block HTML ~1.8 bytes a
+// byte, tag-dense HTML up to six). The answer decodes to the same values; a reader that puts it inside HTML escapes it there.
+//
+// U+2028 and U+2029 stay escaped, as json.Marshal escapes them: the Encoder does so in strings, but a json.RawMessage is only
+// compacted once escaping is off, so they are escaped here. In valid compact JSON either can stand only inside a string, where
+// the escape is the same character.
+func encodeAnswer(answer any) ([]byte, error) {
+	var b bytes.Buffer
+	enc := json.NewEncoder(&b)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(answer); err != nil {
+		return nil, err
+	}
+	raw := bytes.TrimSuffix(b.Bytes(), []byte{'\n'}) // Encode ends with a newline; json.Marshal does not
+	raw = bytes.ReplaceAll(raw, []byte(string(rune(0x2028))), []byte(`\`+"u2028"))
+	return bytes.ReplaceAll(raw, []byte(string(rune(0x2029))), []byte(`\`+"u2029")), nil
 }
