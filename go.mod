@@ -1,6 +1,6 @@
 module github.com/nilda-dev/plugin-sdk
 
-go 1.25.0
+go 1.26.0
 
 // Both pre-v0.2.0 tags speak contract v1, which Core rejects outright: ProtocolVersion is 2 since the five
 // read-only data RPCs were removed in favour of a scoped token onto Core's real API.
@@ -20,9 +20,9 @@ retract (
 require (
 	github.com/google/jsonschema-go v0.4.3
 	github.com/hashicorp/go-plugin v1.8.0
-	golang.org/x/text v0.36.0
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260414002931-afd174a4e478
-	google.golang.org/grpc v1.82.1
+	golang.org/x/text v0.42.0
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa
+	google.golang.org/grpc v1.83.2
 	google.golang.org/protobuf v1.36.11
 )
 
@@ -34,6 +34,6 @@ require (
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/oklog/run v1.1.0 // indirect
-	golang.org/x/net v0.53.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 )
