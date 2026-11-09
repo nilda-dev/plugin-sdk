@@ -53,7 +53,8 @@ func TestTheWidgetKeysAreInCoresRegistry(t *testing.T) {
 		}
 	}
 	ours := []string{WidgetAccount, WidgetAddToCart, WidgetCart, WidgetCartCount, WidgetCheckout, WidgetProductField,
-		WidgetProductGallery, WidgetProductLoop, WidgetProductReviews, WidgetProductTerms, WidgetExpressCheckout}
+		WidgetProductGallery, WidgetProductLoop, WidgetProductReviews, WidgetProductTerms, WidgetExpressCheckout,
+		WidgetProductFilter, WidgetPaymentMethods}
 	for _, k := range append(ours, WidgetButton, WidgetPostContent) {
 		if !known[k] {
 			t.Errorf("%q is not a widget in Core's registry", k)

@@ -663,8 +663,10 @@ const WidgetCart
 const WidgetCartCount
 const WidgetCheckout
 const WidgetExpressCheckout
+const WidgetPaymentMethods
 const WidgetPostContent
 const WidgetProductField
+const WidgetProductFilter
 const WidgetProductGallery
 const WidgetProductLoop
 const WidgetProductReviews
