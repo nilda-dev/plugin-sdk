@@ -49,6 +49,10 @@ const (
 	WidgetProductLoop    = "product_loop"
 	WidgetProductReviews = "product_reviews"
 	WidgetProductTerms   = "product_terms"
+	// WidgetProductFilter is the shop's filters with their facets (commerce plan 1C, core #225/#228).
+	WidgetProductFilter = "product_filter"
+	// WidgetPaymentMethods is the strip of the payment marks the checkout's methods name (PaymentMethod.Marks; plan 1C).
+	WidgetPaymentMethods = "payment_methods"
 	// WidgetExpressCheckout is the wallet buttons (v0.58.0, EXPERIMENTAL; docs/COMMERCE.md §6): config "placement"
 	// ("" a product's page, "cart", "checkout"), "product_id", "error_text".
 	WidgetExpressCheckout = "express_checkout"
