@@ -121,6 +121,7 @@ func NewPayments() (*Payments)
 func NewReference() (*Reference)
 func NewSecrets() (*Secrets)
 func NewServices() (*Services)
+func NewShopEvents() (*ShopEvents)
 func NewSite() (*Site)
 func NewStorefront(nilda.Commerce) (*Storefront)
 func NewStubCarrier(string, ...nilda.CarrierRate) (*StubCarrier)
@@ -207,6 +208,12 @@ method (*Services) Calls() ([]ServiceCallLog)
 method (*Services) Core(string, ...string) (*nilda.Core, *Host, *httptest.Server)
 method (*Services) Provider(string, nilda.ServiceProvider)
 method (*Services) SetAgentTier(string, nilda.AgentTier)
+method (*ShopEvents) Deliver(context.Context, nilda.Handler, nilda.ShopOrderEvent) (error)
+method (*ShopEvents) Events() ([]nilda.ShopOrderEvent)
+method (*ShopEvents) Record(nilda.ShopOrderEvent) (nilda.ShopOrderEvent, error)
+method (*ShopEvents) ServiceMethods() ([]nilda.ServiceMethod)
+method (*ShopEvents) ShopEvents(context.Context, nilda.ShopEventsRequest) (nilda.ShopEventsAnswer, error)
+method (*ShopEvents) String() (string)
 method (*Site) AddMenu(string, string) (string)
 method (*Site) AddMenuItem(string, nilda.NewMenuItem) (string, error)
 method (*Site) AddPage(SitePage) (string)
@@ -274,6 +281,7 @@ type Secrets
 type ServiceCallLog
 type Services
 type ShopEvent
+type ShopEvents
 type Site
 type SitePage
 type Storefront

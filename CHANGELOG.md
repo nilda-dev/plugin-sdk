@@ -8,6 +8,31 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.59.0 — unreleased (the shop's order events with their money and the buyer's consent — the shop's door D1)
+
+- THE SHOP'S ORDER EVENTS (door D1, the shop's plan 2026-11-05 §1J; `shopevents.go`, `docs/SHOP_EVENTS.md`). EXPERIMENTAL:
+  contract `shop.events/v1` (`ContractShopEvents`, `"status": "experimental"`) — its shape may still change in a minor
+  release until its first Nilda plugin ships green on it.
+  - Five events in the shop's namespace (`ShopEventTypes()`): `EventShopOrderPlaced` `ecommerce.order.placed`,
+    `EventShopOrderPaid` `ecommerce.order.paid`, `EventShopOrderCancelled` `ecommerce.order.cancelled`,
+    `EventShopOrderRefunded` `ecommerce.order.refunded` (one per refund, `refund_minor` and each line's
+    `quantity_refunded`), `EventShopOrderFulfilled` `ecommerce.order.fulfilled` (one per shipment, `fulfillment_id`). The
+    shop's older `ecommerce.order_paid` and siblings are unchanged.
+  - Their data is `ShopOrderEvent`: the shop's `event_id` (kept by every re-emission) and `sequence`, the order's id and
+    reference, `occurred_at`, `currency`, `net_minor` (goods after discounts, tax and delivery excluded — the sum of the
+    lines'), `shipping_minor`, `tax_minor`, `total_minor`, `refunded_minor`, `lines` (`ShopEventLine`: SKU, quantities so
+    far, `net_minor`, `tax_minor`) and `consent`. No email, name or address. `Validate` holds it; `DecodeShopOrderEvent`
+    is a subscriber's checked decode.
+  - `ConsentSnapshot`: Consent Mode v2's four signals, each `ConsentGranted` / `ConsentDenied` / `ConsentUnknown`, with
+    `Source` (`ConsentFromFirstTouch`, `ConsentNotTold`) and `RecordedAt`, copied onto the order at placement;
+    `NotToldConsent(at)`; `AdUserDataGranted()` and `AdStorageGranted()` read unknown as no.
+  - `events.read` (`ShopEventsRead`): `ShopEventsRequest{AfterSequence, Limit}` (at most `MaxShopEventsRead` = 100,
+    `DefaultShopEventsRead` = 50) → `ShopEventsAnswer{Events, More}`, `ValidateFor` holding order and bounds.
+    `ShopEventsProvider` / `ShopEventsMethods` for the shop (Serve finds it by itself), `Services.ShopEvents` for a
+    subscriber. `TestTheShopEmitsTheEventsContract` holds the shop's `shopevents.go` and manifest to it.
+  - `nildatest.NewShopEvents()`: a fake shop feed — `Record` (numbers and checks an event), `Deliver` (to a plugin's
+    HandleEvent), `Events`, and `events.read` through a `Services` desk.
+
 ## v0.58.0 — 2026-11-06 (item lines on a payment — commerce plan 10.15; a plugin's own fields in the shop — the shop's door D2; write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3; paperless return labels — commerce plan 10.9b; service points — commerce plan 10.9; the storefront's release 1 — commerce plan 1C; a plugin's own licence — commerce 02-PRICING C4; a service answer's `<`, `>` and `&` unescaped on the wire — site import, option A)
 
 - A PLUGIN'S OWN LICENCE (commerce 02-PRICING C4; `licence.go`, `docs/PLUGIN_SDK.md` "Reading your licence and going

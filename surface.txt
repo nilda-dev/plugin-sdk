@@ -178,18 +178,25 @@ const CommerceFacetStock
 const CommerceOutOfStockCode
 const CommerceRedirectHeader
 const CommerceSignInHeader
+const ConsentDenied
+const ConsentFromFirstTouch
+const ConsentGranted
+const ConsentNotTold
+const ConsentUnknown
 const ContractExperimental
 const ContractShippingCarrier
 const ContractShopAttributeValues
 const ContractShopAttributes
 const ContractShopCatalog
 const ContractShopDeliverables
+const ContractShopEvents
 const ContractShopOrders
 const ContractSiteReader
 const ContractStable
 const CredentialStripeConfirmationToken
 const CredentialStripeSPT
 const DefaultServicePoints
+const DefaultShopEventsRead
 const DeliverableKey
 const DeliverableLink
 const DeliverablesDescribe
@@ -227,6 +234,11 @@ const EventContentUnpublished
 const EventContentUpdated
 const EventFormSubmitted
 const EventFormSubscribe
+const EventShopOrderCancelled
+const EventShopOrderFulfilled
+const EventShopOrderPaid
+const EventShopOrderPlaced
+const EventShopOrderRefunded
 const EventUserEmailVerified
 const EventUserErased
 const ExpressFromCart
@@ -468,6 +480,7 @@ const MaxRecommendationWhy
 const MaxRecommendations
 const MaxServicePoints
 const MaxSetupSteps
+const MaxShopEventsRead
 const MaxTrashID
 const MaxTrashKind
 const MaxTrashName
@@ -599,6 +612,7 @@ const SettingText
 const SettingTextarea
 const SettingURL
 const SetupStatusHook
+const ShopEventsRead
 const SiteFieldChoice
 const SiteFieldFile
 const SiteFieldSecret
@@ -1040,6 +1054,12 @@ field CommerceVariation.Options []string json:options
 field CommerceVariation.Selected string json:selected
 field CommerceViewer.PriceGroup string json:price_group
 field CommerceViewer.UserID string json:user_id
+field ConsentSnapshot.AdPersonalization string json:ad_personalization
+field ConsentSnapshot.AdStorage string json:ad_storage
+field ConsentSnapshot.AdUserData string json:ad_user_data
+field ConsentSnapshot.AnalyticsStorage string json:analytics_storage
+field ConsentSnapshot.RecordedAt time.Time json:recorded_at
+field ConsentSnapshot.Source string json:source
 field ContentRef.ID string json:id
 field ContentRef.Slug string json:slug
 field ContentRef.Status string json:status
@@ -1901,6 +1921,18 @@ field ShipAddress.Name string json:name
 field ShipAddress.Phone string json:phone
 field ShipAddress.PostalCode string json:postal_code
 field ShipAddress.Region string json:region
+field ShopEventLine.NetMinor int64 json:net_minor
+field ShopEventLine.ProductSKU string json:product_sku
+field ShopEventLine.Quantity int64 json:quantity
+field ShopEventLine.QuantityCancelled int64 json:quantity_cancelled
+field ShopEventLine.QuantityFulfilled int64 json:quantity_fulfilled
+field ShopEventLine.QuantityRefunded int64 json:quantity_refunded
+field ShopEventLine.SKU string json:sku
+field ShopEventLine.TaxMinor int64 json:tax_minor
+field ShopEventsAnswer.Events []ShopOrderEvent json:events
+field ShopEventsAnswer.More bool json:more
+field ShopEventsRequest.AfterSequence int64 json:after_sequence
+field ShopEventsRequest.Limit int json:limit
 field ShopOrder.Currency string json:currency
 field ShopOrder.Email string json:email
 field ShopOrder.ID string json:id
@@ -1911,6 +1943,22 @@ field ShopOrder.PlacedAt time.Time json:placed_at
 field ShopOrder.Ref string json:ref
 field ShopOrder.Status string json:status
 field ShopOrder.TotalMinor int64 json:total_minor
+field ShopOrderEvent.Consent ConsentSnapshot json:consent
+field ShopOrderEvent.Currency string json:currency
+field ShopOrderEvent.EventID string json:event_id
+field ShopOrderEvent.FulfillmentID string json:fulfillment_id
+field ShopOrderEvent.Lines []ShopEventLine json:lines
+field ShopOrderEvent.NetMinor int64 json:net_minor
+field ShopOrderEvent.OccurredAt time.Time json:occurred_at
+field ShopOrderEvent.OrderID string json:order_id
+field ShopOrderEvent.Ref string json:ref
+field ShopOrderEvent.RefundMinor int64 json:refund_minor
+field ShopOrderEvent.RefundedMinor int64 json:refunded_minor
+field ShopOrderEvent.Sequence int64 json:sequence
+field ShopOrderEvent.ShippingMinor int64 json:shipping_minor
+field ShopOrderEvent.TaxMinor int64 json:tax_minor
+field ShopOrderEvent.TotalMinor int64 json:total_minor
+field ShopOrderEvent.Type string json:type
 field ShopOrderLine.OfferID string json:offer_id
 field ShopOrderLine.ProductSKU string json:product_sku
 field ShopOrderLine.Quantity int64 json:quantity
@@ -2140,6 +2188,7 @@ func ContractToolName(string, string) (string)
 func Contracts() ([]ServiceContract, error)
 func CurrentUser(*http.Request) (Viewer, bool)
 func DecodeExpressRequest(io.Reader) (ExpressRequest, error)
+func DecodeShopOrderEvent(string, []byte) (ShopOrderEvent, error)
 func DeliverablesMethods(DeliverablesProvider) ([]ServiceMethod)
 func DispatchAccount(context.Context, string, []byte, AccountHandler) ([]byte, bool, error)
 func DispatchAdminAction(context.Context, string, []byte, func(context.Context, AdminAction) (AdminActionResult, error)) ([]byte, bool, error)
@@ -2182,6 +2231,7 @@ func NewOIDCClient(string, string, string, ...string) (*OIDCClient)
 func NewTransport(http.RoundTripper) (http.RoundTripper)
 func NormalizePrivacyEmail(string) (string)
 func NormalizePrivacyPhone(string) (string)
+func NotToldConsent(time.Time) (ConsentSnapshot)
 func ObjectSchema(map[string]any, ...string) (json.RawMessage)
 func OffSessionOf(PaymentMandate, string) (string)
 func OrdersMethods(OrdersProvider) ([]ServiceMethod)
@@ -2206,6 +2256,8 @@ func Serves(string, string, func(ctx context.Context, in In) (Out, error)) (Serv
 func ServiceHook(string, string) (string)
 func SetSettingsForTest(*Core, map[string]any)
 func SettingFieldTypes() ([]string)
+func ShopEventTypes() ([]string)
+func ShopEventsMethods(ShopEventsProvider) ([]ServiceMethod)
 func ShowPricesIncludingTax(context.Context) (bool)
 func ShowsPricesIncludingTax(*http.Request) (bool)
 func SplitServiceHook(string) (string, string, bool)
@@ -2286,6 +2338,7 @@ imethod SearchProvider.Query(context.Context, SearchQuery) (SearchResults, error
 imethod SearchProvider.Remove(context.Context, []string) (error)
 imethod SearchProvider.Truncate(context.Context) (error)
 imethod ServiceProvider.ServiceMethods() ([]ServiceMethod)
+imethod ShopEventsProvider.ShopEvents(context.Context, ShopEventsRequest) (ShopEventsAnswer, error)
 imethod WidgetProvider.RenderWidget(context.Context, WidgetRenderRequest) (string, error)
 imethod WidgetProvider.Widgets() ([]WidgetDef)
 method (*API) AddMenuItem(context.Context, string, NewMenuItem) (MenuItem, error)
@@ -2415,6 +2468,7 @@ method (*Services) SetAttribute(context.Context, string, AttributeSetRequest) (A
 method (*Services) ShippingDocuments(context.Context, string, DocumentsRequest) (DocumentsResult, error)
 method (*Services) ShippingRates(context.Context, RatesRequest, ServiceCallOptions) ([]CarrierRatesAnswer, []ServiceMiss, error)
 method (*Services) ShippingServicePoints(context.Context, string, ServicePointsRequest) (ServicePointsResult, error)
+method (*Services) ShopEvents(context.Context, ShopEventsRequest) (ShopEventsAnswer, error)
 method (*Services) ShopOrder(context.Context, string) (ShopOrderResult, error)
 method (*Services) SuggestAddresses(context.Context, string, AddressSuggestRequest) (AddressSuggestAnswer, error)
 method (*Services) TrackShipment(context.Context, string, TrackRequest) (TrackResult, error)
@@ -2452,6 +2506,9 @@ method (ClientAction) String() (string)
 method (CommerceFacts) Validate() (error)
 method (CommerceFilters) Validate() (error)
 method (CommerceProduct) Validate() (error)
+method (ConsentSnapshot) AdStorageGranted() (bool)
+method (ConsentSnapshot) AdUserDataGranted() (bool)
+method (ConsentSnapshot) Validate() (error)
 method (ContractMethod) ValidateInput([]byte) (error)
 method (ContractMethod) ValidateOutput([]byte) (error)
 method (Customs) Validate() (error)
@@ -2516,7 +2573,10 @@ method (ServicePointsResult) Validate() (error)
 method (ServicePointsResult) ValidateFor(ServicePointsRequest) (error)
 method (SetupStatus) Validate() (error)
 method (ShipAddress) Validate() (error)
+method (ShopEventsAnswer) ValidateFor(ShopEventsRequest) (error)
+method (ShopEventsRequest) Validate() (error)
 method (ShopOrder) Validate() (error)
+method (ShopOrderEvent) Validate() (error)
 method (ShopOrderRequest) Validate() (error)
 method (ShopOrderResult) Validate() (error)
 method (StockAlertRequest) Validate() (error)
@@ -2628,6 +2688,7 @@ type CommerceQuery
 type CommerceTerm
 type CommerceVariation
 type CommerceViewer
+type ConsentSnapshot
 type ContentRef
 type ContractMethod
 type ContractWrite
@@ -2813,7 +2874,12 @@ type Services
 type SettingField
 type SetupStatus
 type ShipAddress
+type ShopEventLine
+type ShopEventsAnswer
+type ShopEventsProvider
+type ShopEventsRequest
 type ShopOrder
+type ShopOrderEvent
 type ShopOrderLine
 type ShopOrderRequest
 type ShopOrderResult

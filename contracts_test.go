@@ -221,7 +221,26 @@ const deliverablesAgentReason = "what was delivered is shown to its buyer; the o
 
 // contractDefs is every contract this module defines.
 var contractDefs = []contractDef{paymentsV1, shippingCarrierV1, shopCatalogV1, shopOrdersV1,
-	shopDeliverablesV1, siteReaderV1, shopAttributesV1, shopAttributeValuesV1}
+	shopDeliverablesV1, siteReaderV1, shopAttributesV1, shopAttributeValuesV1, shopEventsV1}
+
+// shopEventsV1 is door D1 (SHOP_EVENTS.md): the shop's order events and the read a subscriber catches up with. One shop
+// answers, so a failure blocks. Experimental until its first plugin ships on it.
+var shopEventsV1 = contractDef{
+	name:   ContractShopEvents,
+	status: ContractExperimental,
+	description: "The shop's order events — placed, paid, cancelled, refunded line by line, fulfilled — each with the shop's " +
+		"event_id and sequence, the order's money net of tax in its currency, and the visitor's consent copied when the order " +
+		"was placed; and the read a subscriber catches up with, after the last sequence it handled (SHOP_EVENTS.md).",
+	methods: []methodDef{
+		{ContractMethod{Name: ShopEventsRead, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: shopEventsAgentReason,
+			Description: "EXPERIMENTAL. The shop's order events after a sequence, oldest first, at most 100 a page; more says another page follows. Each event is the same data its delivery carried."},
+			ShopEventsRequest{}, ShopEventsAnswer{}},
+	},
+}
+
+const shopEventsAgentReason = "the owner reads orders, refunds and shipments through the shop's own abilities (list_orders, " +
+	"get_order); this is how a measuring plugin catches up on what it was told"
 
 // render builds a contract file from its definition.
 func (d contractDef) render(t *testing.T) []byte {
