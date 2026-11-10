@@ -530,7 +530,6 @@
         "gallery": [
           "41"
         ],
-        "pin": "1234",
         "related": [
           "101"
         ],
@@ -569,6 +568,12 @@
   ],
   "not_carried": [
     {
+      "kind": "flag",
+      "name": "comments closed",
+      "count": 4,
+      "reason": "nc_comments_closed"
+    },
+    {
       "kind": "meta",
       "name": "",
       "count": 3,
@@ -583,9 +588,9 @@
     {
       "kind": "meta",
       "name": "",
-      "count": 1,
+      "count": 2,
       "reason": "nc_meta_secret",
-      "detail": "stripe_secret_key"
+      "detail": "pin, stripe_secret_key"
     },
     {
       "kind": "meta",
@@ -648,21 +653,37 @@
       "name": "html",
       "count": 1,
       "reason": "nc_nav_block"
+    },
+    {
+      "kind": "field",
+      "name": "author profile",
+      "count": 1,
+      "reason": "nc_author_profile"
+    },
+    {
+      "kind": "field",
+      "name": "media date",
+      "count": 1,
+      "reason": "nc_media_date"
     }
   ],
   "warnings": [
     "The old site is called “Harbour Studio” with the tagline “Boats and buildings”. This import did not change your site's name — set it in Settings if you want it.",
+    "An export file does not hold the site's widgets, logo, icon, front page, reading settings or redirect-manager plugin rules (Redirection, Rank Math, Yoast Premium); connect to the live site to bring the settings and Redirection's rules, and export the other plugins' lists from the plugins themselves.",
+    "4 items had their comments closed on the old site: Nilda has one switch for the comments of the whole site, so they follow that switch.",
     "3 private plugin values (names starting with “_”) were not imported.",
     "3 custom values belong to no field group and were not imported: author_bio, plain_note, faq",
+    "2 values look like secrets (keys, tokens, passwords) and were not copied: pin, stripe_secret_key",
     "Values on ACF options pages are kept outside posts, where neither door reaches; set them again by hand.",
     "1 page-builder layout (Elementor) waits for the page-builder step; the page came across with its text.",
-    "1 value looks like a secret (a key, a token or a password) and was not copied: stripe_secret_key",
     "1 post sent visitors elsewhere on the old site (an SEO plugin setting); here the post is served itself — add the redirect under SEO › Redirects if you still want it.",
     "The SEO plugin's site-wide title patterns and settings were not imported: set them under SEO › Settings.",
     "Yoast keeps category and tag SEO titles where neither the export file nor the WordPress API reaches; set them again on each category.",
     "Rank Math keeps its redirects where neither the export file nor the WordPress API reaches. Export the list from that plugin and add the ones you need under SEO › Redirects.",
+    "The byline of 1 author carries the name, plus the bio and website a live read finds: the photo and the user account do not come across, and an export file holds no bio or website.",
     "1 × post type “feedback” was not imported: it holds form entries or requests from people, which an import does not copy.",
     "1 navigation block of type “html” has no menu link in Nilda and was left out.",
+    "1 media file lost its upload date and the post it was attached to: it is dated the import day.",
     "1 × post type “product” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "1 × post type “wpforms” was not imported: it waits for a later step of the migration (shop, forms or page builder)."
   ]

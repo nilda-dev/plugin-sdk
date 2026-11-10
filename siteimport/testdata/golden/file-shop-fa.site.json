@@ -169,6 +169,18 @@
       "reason": "nc_type_later"
     },
     {
+      "kind": "field",
+      "name": "comment website",
+      "count": 1,
+      "reason": "nc_comment_url"
+    },
+    {
+      "kind": "flag",
+      "name": "comments closed",
+      "count": 7,
+      "reason": "nc_comments_closed"
+    },
+    {
       "kind": "post_type",
       "name": "product",
       "count": 2,
@@ -185,16 +197,33 @@
       "name": "shop_coupon",
       "count": 1,
       "reason": "nc_type_later"
+    },
+    {
+      "kind": "field",
+      "name": "author profile",
+      "count": 1,
+      "reason": "nc_author_profile"
+    },
+    {
+      "kind": "field",
+      "name": "media date",
+      "count": 1,
+      "reason": "nc_media_date"
     }
   ],
   "warnings": [
     "The old site is called “فروشگاه بندر” with the tagline “”. This import did not change your site's name — set it in Settings if you want it.",
+    "An export file does not hold the site's widgets, logo, icon, front page, reading settings or redirect-manager plugin rules (Redirection, Rank Math, Yoast Premium); connect to the live site to bring the settings and Redirection's rules, and export the other plugins' lists from the plugins themselves.",
     "9 × taxonomy “product_visibility” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
+    "7 items had their comments closed on the old site: Nilda has one switch for the comments of the whole site, so they follow that switch.",
     "4 × taxonomy “product_type” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "2 × taxonomy “pa_rang” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "2 × post type “product” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "2 × taxonomy “product_cat” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "2 × post type “product_variation” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
+    "The byline of 1 author carries the name, plus the bio and website a live read finds: the photo and the user account do not come across, and an export file holds no bio or website.",
+    "1 comment had the commenter's website; Nilda's comments keep no website.",
+    "1 media file lost its upload date and the post it was attached to: it is dated the import day.",
     "1 × post type “shop_coupon” was not imported: it waits for a later step of the migration (shop, forms or page builder)."
   ]
 }

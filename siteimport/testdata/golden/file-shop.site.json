@@ -393,6 +393,18 @@
       "reason": "nc_type_later"
     },
     {
+      "kind": "field",
+      "name": "comment website",
+      "count": 1,
+      "reason": "nc_comment_url"
+    },
+    {
+      "kind": "flag",
+      "name": "comments closed",
+      "count": 7,
+      "reason": "nc_comments_closed"
+    },
+    {
       "kind": "post_type",
       "name": "product",
       "count": 29,
@@ -415,14 +427,29 @@
       "name": "shop_order",
       "count": 1,
       "reason": "nc_type_later"
+    },
+    {
+      "kind": "field",
+      "name": "author profile",
+      "count": 1,
+      "reason": "nc_author_profile"
+    },
+    {
+      "kind": "field",
+      "name": "media date",
+      "count": 28,
+      "reason": "nc_media_date"
     }
   ],
   "warnings": [
     "The old site is called “Harbour Shop” with the tagline “”. This import did not change your site's name — set it in Settings if you want it.",
+    "An export file does not hold the site's widgets, logo, icon, front page, reading settings or redirect-manager plugin rules (Redirection, Rank Math, Yoast Premium); connect to the live site to bring the settings and Redirection's rules, and export the other plugins' lists from the plugins themselves.",
     "29 × post type “product” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
+    "28 media files lost their upload dates and the posts they were attached to: every file is dated the import day.",
     "12 × post type “product_variation” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "9 × taxonomy “product_cat” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "9 × taxonomy “product_visibility” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
+    "7 items had their comments closed on the old site: Nilda has one switch for the comments of the whole site, so they follow that switch.",
     "6 × post type “shop_coupon” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "5 × taxonomy “pa_color” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "4 × taxonomy “product_type” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
@@ -430,6 +457,8 @@
     "3 × taxonomy “pa_size” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "2 × taxonomy “product_brand” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "2 × taxonomy “product_tag” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
+    "The byline of 1 author carries the name, plus the bio and website a live read finds: the photo and the user account do not come across, and an export file holds no bio or website.",
+    "1 comment had the commenter's website; Nilda's comments keep no website.",
     "1 media file had a title of its own, which Nilda's media library does not keep.",
     "1 × taxonomy “product_shipping_class” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "1 × post type “shop_order” was not imported: it waits for a later step of the migration (shop, forms or page builder)."
