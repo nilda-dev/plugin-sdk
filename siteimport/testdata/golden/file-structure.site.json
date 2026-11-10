@@ -386,6 +386,14 @@
       "code": 301,
       "regex": true,
       "enabled": true
+    },
+    {
+      "source_id": "#redirect:post:202",
+      "origin": "post",
+      "from": "{{home}}/old-offer/",
+      "to": "/about/",
+      "code": 301,
+      "enabled": true
     }
   ],
   "plugins": [
@@ -580,12 +588,6 @@
       "reason": "nc_meta_private"
     },
     {
-      "kind": "redirect",
-      "name": "",
-      "count": 1,
-      "reason": "nc_redirect_post"
-    },
-    {
       "kind": "meta",
       "name": "",
       "count": 2,
@@ -676,7 +678,6 @@
     "2 values look like secrets (keys, tokens, passwords) and were not copied: pin, stripe_secret_key",
     "Values on ACF options pages are kept outside posts, where neither door reaches; set them again by hand.",
     "1 page-builder layout (Elementor) waits for the page-builder step; the page came across with its text.",
-    "1 post sent visitors elsewhere on the old site (an SEO plugin setting); here the post is served itself — add the redirect under SEO › Redirects if you still want it.",
     "The SEO plugin's site-wide title patterns and settings were not imported: set them under SEO › Settings.",
     "Yoast keeps category and tag SEO titles where neither the export file nor the WordPress API reaches; set them again on each category.",
     "Rank Math keeps its redirects where neither the export file nor the WordPress API reaches. Export the list from that plugin and add the ones you need under SEO › Redirects.",
