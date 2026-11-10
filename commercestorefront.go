@@ -141,6 +141,9 @@ func (p CommerceProduct) Validate() error {
 		}
 		currency = p.Facts.Currency
 	}
+	if p.ChoicesComplete && len(p.Choices) == 0 {
+		return fail("choices_complete says every combination is named, and it names none")
+	}
 	if len(p.Choices) == 0 {
 		return nil
 	}
