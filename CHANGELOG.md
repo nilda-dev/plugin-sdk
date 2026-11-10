@@ -8,6 +8,20 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.59.1 — unreleased (a request's `<`, `>` and `&` go on the wire as themselves — the other direction of v0.58.0's answer fix)
+
+- EVERYTHING THE SDK SENDS CORE IS ENCODED WITHOUT HTML ESCAPING (`wire.go`). v0.58.0 did it for a provider's answer to a service
+  hook; the plugin-side direction still used `json.Marshal`, so a request body (`API.JSON`, `API.Post` and the other helpers that
+  encode a value) and a service call's input (`Services.Call`, also nested into the request) wrote each `<`, `>` and `&` as a
+  six-byte escape, and Core's caps on a request, which count the bytes it reads, were reached at a fraction of the real size
+  (a WordPress page body: about 1.8 bytes a byte, tag-dense HTML up to six). One encoder, `encodeWire`, now serves the answer, the
+  request body and the call input: `json.Marshal`'s encoding (compact, sorted keys, a raw member compacted) with HTML escaping
+  off, no trailing newline, U+2028/U+2029 still escaped. No exported name changes (`surface.txt` untouched). A body that is a
+  `[]byte` or an `io.Reader` is the caller's own bytes and is not re-encoded.
+- COMPATIBLE BOTH WAYS: `<` and `\u003c` are the same character to every JSON decoder, so an older Core reads a newer plugin's
+  bytes and a newer Core reads an older plugin's with no change on either side; `wire_request_test.go` decodes both forms through
+  whole-value, struct, number-preserving and token-by-token decoders and the SDK's own service-answer decode, and holds the sizes.
+
 ## v0.59.0 — 2026-11-10 (a list row's own state; a hidden form field; complete choices — commerce plan CONTRACT_GAPS_2026-11-10)
 
 - `AdminPage.row_state` (`ListRowState`: `columns`, `actions`), the hook `admin.list.rows` (`AdminListRowsHook`,

@@ -519,7 +519,7 @@ func encodeBody(body any) ([]byte, error) {
 		}
 		return raw, nil
 	default:
-		raw, err := json.Marshal(b)
+		raw, err := encodeWire(b)
 		if err != nil {
 			return nil, fmt.Errorf("nilda: encoding request body: %w", err)
 		}
