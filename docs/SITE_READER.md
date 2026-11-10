@@ -14,7 +14,7 @@ password), always one named provider, fallback `block`.
 | `next` | the piece with this `seq`: `siteimport.Site` members in snapshot encoding, progress, losses as codes with data |
 | `cancel` | stop a read and drop what the plugin holds |
 
-**The model** is `siteimport.Site` (this SDK), the shape Core's snapshot version 4 stores. Every answer names its `snapshot_version`;
+**The model** is `siteimport.Site` (this SDK), the shape Core's snapshot version 5 stores. Every answer names its `snapshot_version`;
 Core refuses one it cannot read. **Sequence numbers:** a retry after a timeout returns the same piece, never skips or repeats one; a
 plugin restarted since `start` answers `reader_restarted`, never a finished read. **Limits:** a piece ≤ 4 MiB, one element ≤ 1 MiB;
 Core also bounds the whole read. **Every size is of the JSON bytes on the wire, as the SDK's dispatch encodes the answer**

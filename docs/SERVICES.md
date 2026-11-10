@@ -105,7 +105,7 @@ A contract whose bounds are in bytes (`site.reader/v1`) is measured on these byt
 a raw member is passed on as written.
 
 The same holds for what a plugin sends: `Services.Call`'s input and every request body the API helpers encode go out the same
-way (from v0.59.1), so a cap Core counts in bytes is reached at the real size. A body you pass as `[]byte` is sent as you wrote it.
+way (from v0.60.0), so a cap Core counts in bytes is reached at the real size. A body you pass as `[]byte` is sent as you wrote it.
 
 An error from your method is the method's answer only where its `retry_class` is `answer`; otherwise it is you
 failing. Core keeps a circuit for you **per contract**: a provider that keeps failing `rates` is left alone for

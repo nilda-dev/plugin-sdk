@@ -1,5 +1,5 @@
 // Package siteimport is the neutral description of a site that a reader plugin hands to Core and Core's importer writes:
-// the model every platform's reader produces, and the streaming JSON encoding Core's snapshot stores (snapshot version 4).
+// the model every platform's reader produces, and the streaming JSON encoding Core's snapshot stores (snapshot version 5).
 //
 // EXPERIMENTAL. The JSON shape follows Core's snapshot version, not this module's: a reader names the snapshot version of
 // every piece it sends and Core refuses one it cannot read. A change here is a change to what Core stores, so it is made
@@ -207,6 +207,14 @@ type Author struct {
 	// "" when the source does not number its authors, or does not say which site it is: then the byline is made once
 	// per run.
 	SourceID string `json:"source_id,omitempty"`
+	// Bio and Link (snapshot version 5) are what the source says about the author: the plain-text biography and the author's own
+	// website. A live WordPress read has both (REST /users description and url); an export file has neither, and a reader that
+	// has none leaves them empty, which writes the bytes version 4 wrote. The reader bounds them (a bio of at most 2,000
+	// characters, as long as Nilda's own author bio may be; one address of at most 2,048 bytes) and strips control characters;
+	// Core checks them again and drops a link that is not http(s) without dropping the author. There is no slug: a guest author
+	// has none.
+	Bio  string `json:"bio,omitempty"`
+	Link string `json:"link,omitempty"`
 }
 
 // Item is one importable piece of content (a post or page). SourceID is the dedupe key.
