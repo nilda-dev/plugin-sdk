@@ -143,6 +143,11 @@ type MediaItem struct {
 	// Private says the file is a shop product's DOWNLOAD (milestone 3): it is copied into the library born private, never
 	// served to the public, and handed to the shop by id (§C.1 resolved.downloads).
 	Private bool `json:"private,omitempty"`
+	// UploadedAt is the day the source says the file was uploaded (WXR post_date_gmt of the attachment, REST date_gmt), in UTC; nil when
+	// the source does not say (a zone-less date with no GMT one is not a date: the zone is a guess). Snapshot version 5. The reader drops
+	// a date before 1990 or more than a day ahead of its own clock; Core bounds it again. It dates a file Core ADDS to the library: a file
+	// the library already holds (identical bytes) keeps the date it had.
+	UploadedAt *time.Time `json:"uploaded_at,omitempty"`
 }
 
 // SourceShop is a WooCommerce catalogue (milestone 3, architecture §2.3). Core reads of it only what it resolves — the

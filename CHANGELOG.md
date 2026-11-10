@@ -22,6 +22,13 @@ nothing between v0.59.0 and the next tag was tagged. The tag is the owner's.
   biography (WordPress REST `/users` `description`) and `Link` only when it has the author's own website (`url`); an export file has
   neither. Bound them: a bio of at most 2,000 characters, a link of at most 2,048 bytes, no control and no format characters (Unicode Cc and Cf: a right-to-left override or a zero-width space can make a bio or an address read as something it is not). No slug and no avatar
   (a guest author has no slug; the avatar is a file, which is a media read of its own).
+- SNAPSHOT VERSION 5, a media file's upload date: `siteimport.MediaItem` gains `UploadedAt *time.Time` (`json:"uploaded_at,omitempty"`),
+  after `Private`. The snapshot version stays 5 (this is the same unreleased version as the author's bio and link). A reader sets it
+  from the source's own UTC date for the file (WordPress export `post_date_gmt` of the attachment, REST `date_gmt`) and leaves it nil
+  when the source does not give a UTC one: a zone-less local date is not used, as the zone is a guess. A date before 1990 or more than
+  a day ahead of the reader's clock is dropped. A file without a date writes exactly the bytes it wrote before, and a snapshot
+  written before this field has no dates. Core dates a file it ADDS to the library; a file the library already holds (identical
+  bytes) keeps the date it had. The post a file was attached to is still not carried (Nilda's library has no such link).
 - EVERYTHING THE SDK SENDS CORE IS ENCODED WITHOUT HTML ESCAPING (`wire.go`). v0.58.0 did it for a provider's answer to a service
   hook; the plugin-side direction still used `json.Marshal`, so a request body (`API.JSON`, `API.Post` and the other helpers that
   encode a value) and a service call's input (`Services.Call`, also nested into the request) wrote each `<`, `>` and `&` as a
