@@ -621,7 +621,8 @@
         "noindex": false,
         "nofollow": false,
         "og_image_url": "https://example.test/wp-content/uploads/harbour.png"
-      }
+      },
+      "modified_at": "2026-10-02T08:00:00Z"
     },
     {
       "source_id": "example.test#102",
@@ -644,7 +645,8 @@
         "noindex": true,
         "nofollow": false,
         "rendered": true
-      }
+      },
+      "modified_at": "2026-10-02T08:00:00Z"
     },
     {
       "source_id": "example.test#103",
@@ -659,7 +661,8 @@
           "source_id": "example.test#term:category:5",
           "name": "News"
         }
-      ]
+      ],
+      "modified_at": "2026-10-02T08:00:00Z"
     },
     {
       "source_id": "example.test#104",
@@ -675,7 +678,8 @@
           "source_id": "example.test#term:category:5",
           "name": "News"
         }
-      ]
+      ],
+      "modified_at": "2026-10-02T08:00:00Z"
     },
     {
       "source_id": "example.test#105",
@@ -691,7 +695,8 @@
           "source_id": "example.test#term:category:5",
           "name": "News"
         }
-      ]
+      ],
+      "modified_at": "2026-10-02T08:00:00Z"
     },
     {
       "source_id": "example.test#201",
@@ -711,7 +716,8 @@
         "description": "Who we are",
         "canonical": "https://example.test/about/",
         "rendered": true
-      }
+      },
+      "modified_at": "2026-09-01T07:00:00Z"
     },
     {
       "source_id": "example.test#301",
@@ -760,7 +766,8 @@
         "og_title": "Lighthouse",
         "og_image_url": "https://example.test/wp-content/uploads/harbour.png",
         "rendered": true
-      }
+      },
+      "modified_at": "2026-09-06T08:00:00Z"
     },
     {
       "source_id": "example.test#302",
@@ -769,7 +776,8 @@
       "slug": "boathouse",
       "body_html": "<!-- wp:paragraph --><p>Boathouse project.</p><!-- /wp:paragraph -->",
       "source_status": "draft",
-      "author_key": "1"
+      "author_key": "1",
+      "modified_at": "2026-09-06T08:00:00Z"
     }
   ],
   "not_carried": [
@@ -796,12 +804,6 @@
       "name": "media title",
       "count": 1,
       "reason": "nc_media_title"
-    },
-    {
-      "kind": "field",
-      "name": "modified date",
-      "count": 5,
-      "reason": "nc_modified_date"
     },
     {
       "kind": "flag",
@@ -874,7 +876,6 @@
     "1 published post was password-protected in WordPress. Nilda has no per-post password, so it was imported as a draft rather than made public — publish it if it should be open to everyone.",
     "The old site is called “Harbour Blog” with the tagline “Notes from the harbour”. This import did not change your site's name — set it in Settings if you want it.",
     "Post types a plugin keeps out of the REST API cannot be seen by a live read; the export file carries them.",
-    "5 items had been edited after they were first published or saved; their last-edited date is now the import date.",
     "2 media files lost their upload dates and the posts they were attached to: every file is dated the import day.",
     "2 × post type “wpforms” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "Values on ACF options pages are kept outside posts, where neither door reaches; set them again by hand.",

@@ -33,6 +33,14 @@ nothing between v0.59.0 and the next tag was tagged. The tag is the owner's.
 - COMPATIBLE BOTH WAYS: `<` and `\u003c` are the same character to every JSON decoder, so an older Core reads a newer plugin's
   bytes and a newer Core reads an older plugin's with no change on either side; `wire_request_test.go` decodes both forms through
   whole-value, struct, number-preserving and token-by-token decoders and the SDK's own service-answer decode, and holds the sizes.
+- SNAPSHOT VERSION 5, an item's modified date: `siteimport.Item` gains `ModifiedAt *time.Time` (`json:"modified_at,omitempty"`), after
+  `Template`. The snapshot version stays 5 (the same unreleased version as the author's bio and link). A reader sets it from the source's
+  own UTC date (WordPress export `post_modified_gmt`, REST `modified_gmt`) and leaves it nil when the source gives no UTC one: a zone-less
+  `post_modified` / `modified` is not used, as the zone is a guess. A reader hands the date as it reads it; Core drops one before 1990,
+  more than a day ahead of its own clock, or before the item's publish date. An item without a date writes exactly the bytes it wrote
+  before, and a snapshot written before this field has no dates. Core keeps it beside the item's own edit time (`content.source_modified_at`)
+  and tells a search engine it as the item's modified date until the owner first edits the item. The report's sentence for a lost modified
+  date (`nc_modified_date`) is retired: the date is carried.
 
 ## v0.59.0 — 2026-11-10 (a list row's own state; a hidden form field; complete choices — commerce plan CONTRACT_GAPS_2026-11-10)
 
