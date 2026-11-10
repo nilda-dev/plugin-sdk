@@ -57,7 +57,8 @@
       "source_id": "#media:41",
       "url": "{{home}}/wp-content/uploads/harbour.png",
       "alt": "Harbour",
-      "title": "Harbour"
+      "title": "Harbour",
+      "uploaded_at": "2026-08-30T09:00:00Z"
     }
   ],
   "media_policy": {
@@ -683,7 +684,7 @@
     "The byline of 1 author carries the name, plus the bio and website a live read finds: the photo and the user account do not come across, and an export file holds no bio or website.",
     "1 × post type “feedback” was not imported: it holds form entries or requests from people, which an import does not copy.",
     "1 navigation block of type “html” has no menu link in Nilda and was left out.",
-    "1 media file lost its upload date and the post it was attached to: it is dated the import day.",
+    "1 media file comes across without the post it was attached to, which the library does not keep. A file the old site gave no date for is dated the import day, and a file the library already holds keeps the date it was first added.",
     "1 × post type “product” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "1 × post type “wpforms” was not imported: it waits for a later step of the migration (shop, forms or page builder)."
   ]
