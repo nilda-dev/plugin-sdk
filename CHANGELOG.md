@@ -8,6 +8,15 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.59.0 — unreleased (a list row's own state; a hidden form field; complete choices — commerce plan CONTRACT_GAPS_2026-11-10)
+
+- `AdminPage.row_state` (`ListRowState`: `columns`, `actions`), the hook `admin.list.rows` (`AdminListRowsHook`,
+  `AdminListRowsRequest/Result`, `AdminListRow`, `DispatchAdminListRows`) and `MaxRowStateColumns`: cells and buttons
+  worked out per row. An older Core ignores it and draws the page as before.
+- `FormField.hidden`: a value the form carries and nobody sees. An older Core ignores it and draws a normal box.
+- `CommerceProduct.choices_complete`: `Choices` name every combination; `Validate` refuses it without choices. An older
+  Core ignores it.
+
 ## v0.58.0 — 2026-11-06 (item lines on a payment — commerce plan 10.15; a plugin's own fields in the shop — the shop's door D2; write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3; paperless return labels — commerce plan 10.9b; service points — commerce plan 10.9; the storefront's release 1 — commerce plan 1C; a plugin's own licence — commerce 02-PRICING C4; a service answer's `<`, `>` and `&` unescaped on the wire — site import, option A)
 
 - A PLUGIN'S OWN LICENCE (commerce 02-PRICING C4; `licence.go`, `docs/PLUGIN_SDK.md` "Reading your licence and going

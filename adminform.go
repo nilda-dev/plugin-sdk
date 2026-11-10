@@ -119,6 +119,12 @@ type FormField struct {
 	RequiredWhen *FieldCondition `json:"required_when,omitempty"`
 	// ReadOnly shows the value without letting it be changed here (an order number, a created date).
 	ReadOnly bool `json:"read_only,omitempty"`
+	// Hidden (v0.59.0) is a value the form carries and nobody sees: Core does not draw it in the panel or the app, and
+	// posts it back on save exactly as your load answered it (or as the assistant sent it) — a repeater row's own id,
+	// a parent's id. It is checked like its Type and may be Required. Not with ReadOnly (that is a value never posted),
+	// Secret, ShownWhen, RequiredWhen or a Default; not on a stat, message or repeater. The assistant still reads and
+	// sends it: it is not a secret. An older Core ignores the key and draws the field as a normal box, as before.
+	Hidden bool `json:"hidden,omitempty"`
 	// Secret is a text or long-text value that is written and never shown back — licence keys pasted in, a token.
 	// Load it empty; the assistant's confirmation card says how many lines will be sent, never what.
 	Secret bool `json:"secret,omitempty"`

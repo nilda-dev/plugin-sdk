@@ -188,6 +188,13 @@ type AdminPage struct {
 	// sends the row's ReportRowKey cell as the id (reportcells.go). ShownWhen is a list page's alone — on a report
 	// the cell itself says whether the row has the button.
 	Actions []RowAction `json:"actions,omitempty"`
+	// RowState (v0.59.0) is what each row IS that its table cannot say — a status worked out from other tables,
+	// which buttons fit it now. Core asks your `admin.list.rows` hook once per page of rows it shows (at most 50 ids)
+	// and draws the answer: Columns as extra cells after the page's own Columns, and, with Actions, only the row
+	// actions you name for that row (RowState.Actions narrows Actions per row). Nil: the page is drawn as before. A
+	// convenience of the screen, never a lock — your admin.action hook still checks every press. An older Core
+	// ignores it and draws the page as before.
+	RowState *ListRowState `json:"row_state,omitempty"`
 	// Form lets the owner create and edit this list's rows in a form you declare and save yourself (adminform.go).
 	// Nil keeps the list read-only.
 	Form *PageForm `json:"form,omitempty"`
@@ -856,4 +863,64 @@ func (c *Core) HasSetting(key string) bool {
 	default:
 		return true
 	}
+}
+
+// ListRowState declares the cells and buttons a list page's rows take from your admin.list.rows hook (v0.59.0).
+type ListRowState struct {
+	// Columns are cells you compute per row, drawn after the page's Columns in this order, in the same vocabulary
+	// (Type, Badges, Labels, Currency). Each Key is NOT a column of Table — it may not equal one — and they cannot
+	// be searched, sorted or filtered. CurrencyColumn, TypeBy and Reference are not allowed here. At most
+	// MaxRowStateColumns.
+	Columns []ListColumn `json:"columns,omitempty"`
+	// Actions makes your answer decide which of the page's Actions each row offers: a row's Actions list is the
+	// buttons it shows (an empty list: none). A row your answer leaves out shows its buttons as without RowState.
+	// A row action's ShownWhen still applies on top.
+	Actions bool `json:"actions,omitempty"`
+}
+
+// MaxRowStateColumns bounds ListRowState.Columns.
+const MaxRowStateColumns = 4
+
+// AdminListRowsHook is the hook Core calls for a list page with RowState (v0.59.0). Subscribe it like
+// AdminActionHook; the grant is `admin_page`.
+const AdminListRowsHook = "admin.list.rows"
+
+// AdminListRowsRequest names the page and the primary keys (as text) of the rows Core is about to draw.
+type AdminListRowsRequest struct {
+	Page string   `json:"page"`
+	IDs  []string `json:"ids"`
+}
+
+// AdminListRowsResult answers by row id. An id Core did not send is ignored; a cell key not in RowState.Columns,
+// or an action key not in the page's Actions, is dropped.
+type AdminListRowsResult struct {
+	Rows map[string]AdminListRow `json:"rows"`
+}
+
+// AdminListRow is one row's state. Actions has NO omitempty on purpose: [] means "no buttons", while nil is sent
+// as null and Core reads null as "no opinion" (the row shows its buttons as without RowState).
+type AdminListRow struct {
+	Cells   map[string]any `json:"cells,omitempty"`
+	Actions []string       `json:"actions"`
+}
+
+// DispatchAdminListRows routes the admin.list.rows hook to your handler and shapes the reply Nilda expects, the
+// way DispatchAdminAction does; handled=false means the hook was another one.
+func DispatchAdminListRows(ctx context.Context, hook string, payload []byte, fn func(context.Context, AdminListRowsRequest) (AdminListRowsResult, error)) (out []byte, handled bool, err error) {
+	if hook != AdminListRowsHook {
+		return nil, false, nil
+	}
+	if fn == nil {
+		return nil, true, fmt.Errorf("nilda: a list page asked for its rows' state and this plugin registered no handler")
+	}
+	var r AdminListRowsRequest
+	if err := json.Unmarshal(payload, &r); err != nil {
+		return nil, true, fmt.Errorf("nilda: admin.list.rows payload: %w", err)
+	}
+	res, err := fn(ctx, r)
+	if err != nil {
+		return nil, true, err
+	}
+	b, err := json.Marshal(res)
+	return b, true, err
 }

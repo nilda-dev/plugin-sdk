@@ -419,3 +419,19 @@ func (s marksShop) Endpoints(ctx context.Context) CommerceEndpoints {
 	e.PaymentMarks = s.marks
 	return e
 }
+
+func TestChoicesCompleteNeedsChoices(t *testing.T) {
+	p := mug()
+	p.ChoicesComplete = true
+	if err := p.Validate(); err != nil {
+		t.Errorf("complete with choices: %v", err)
+	}
+	p.Choices = nil
+	if err := p.Validate(); err == nil {
+		t.Error("complete with no choices must be refused")
+	}
+	p.ChoicesComplete = false
+	if err := p.Validate(); err != nil {
+		t.Errorf("neither: %v", err)
+	}
+}

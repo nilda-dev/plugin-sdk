@@ -193,6 +193,10 @@ hands a theme unpaginated; past it, Core asks the question and lets your add-to-
 Variations, no two choices of the same combination, no two with the same SKU (Google's variants each need a unique id), a
 SKU of at most 127 bytes, and one currency across the product's and its choices' facts.
 
+`ChoicesComplete` (v0.59.0, `choices_complete`) says `Choices` name every combination that exists, in stock or not.
+Core then draws a combination they do not name as not offered ("Unavailable", add button off, no back-in-stock form)
+and keeps "Sold out" for a named one whose `InStock` is false. It needs `Choices`; an older Core ignores it.
+
 ### Machine facts (`Facts`)
 
 `Price` is for a person and Core never parses it. `Facts` (`CommerceFacts`) is the same product for a machine, written into
