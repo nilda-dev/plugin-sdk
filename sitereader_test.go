@@ -3,7 +3,9 @@ package nilda
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -96,5 +98,21 @@ func TestTheSnapshotVersionIsFiveAndTheModelHasWhatFiveAdded(t *testing.T) {
 	}
 	if _, ok := author.FieldByName("Slug"); ok {
 		t.Error("siteimport.Author has a Slug: a guest author has no slug, so a slug would be a field nothing reads")
+	}
+}
+
+// The contract's own description names the snapshot version: a number written into prose goes stale when the constant moves (it said 4
+// after the bump to 5). Both the Go definition and the published contract.json are held to the constant.
+func TestTheContractDescriptionNamesTheCurrentSnapshotVersion(t *testing.T) {
+	want := "snapshot version " + strconv.Itoa(SiteReaderSnapshotVersion)
+	if d := siteReaderContract(t).Description; !strings.Contains(d, want) {
+		t.Errorf("the contract's description does not say %q: %s", want, d)
+	}
+	raw, err := os.ReadFile("contracts/site.reader/v1/contract.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), want) {
+		t.Errorf("contracts/site.reader/v1/contract.json does not say %q", want)
 	}
 }

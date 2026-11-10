@@ -210,7 +210,8 @@ type Author struct {
 	// Bio and Link (snapshot version 5) are what the source says about the author: the plain-text biography and the author's own
 	// website. A live WordPress read has both (REST /users description and url); an export file has neither, and a reader that
 	// has none leaves them empty, which writes the bytes version 4 wrote. The reader bounds them (a bio of at most 2,000
-	// characters, as long as Nilda's own author bio may be; one address of at most 2,048 bytes) and strips control characters;
+	// characters, as long as Nilda's own author bio may be; one address of at most 2,048 bytes) and strips control and format characters
+	// (a right-to-left override can make a name or an address read backwards);
 	// Core checks them again and drops a link that is not http(s) without dropping the author. There is no slug: a guest author
 	// has none.
 	Bio  string `json:"bio,omitempty"`

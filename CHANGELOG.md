@@ -20,7 +20,7 @@ nothing between v0.59.0 and the next tag was tagged. The tag is the owner's.
   versions 1 to 5; an author written before this field has no bio and no link. An author without them writes exactly the bytes
   version 4 wrote, so every golden that predates the field still reproduces. A reader sets `Bio` only when the source has a
   biography (WordPress REST `/users` `description`) and `Link` only when it has the author's own website (`url`); an export file has
-  neither. Bound them: a bio of at most 2,000 characters, a link of at most 2,048 bytes, no control characters. No slug and no avatar
+  neither. Bound them: a bio of at most 2,000 characters, a link of at most 2,048 bytes, no control and no format characters (Unicode Cc and Cf: a right-to-left override or a zero-width space can make a bio or an address read as something it is not). No slug and no avatar
   (a guest author has no slug; the avatar is a file, which is a media read of its own).
 - EVERYTHING THE SDK SENDS CORE IS ENCODED WITHOUT HTML ESCAPING (`wire.go`). v0.58.0 did it for a provider's answer to a service
   hook; the plugin-side direction still used `json.Marshal`, so a request body (`API.JSON`, `API.Post` and the other helpers that
