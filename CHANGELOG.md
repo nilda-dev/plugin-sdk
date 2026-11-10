@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.59.0 — unreleased (a list row's own state; a hidden form field; complete choices — commerce plan CONTRACT_GAPS_2026-11-10)
+## v0.59.0 — 2026-11-10 (a list row's own state; a hidden form field; complete choices — commerce plan CONTRACT_GAPS_2026-11-10)
 
 - `AdminPage.row_state` (`ListRowState`: `columns`, `actions`), the hook `admin.list.rows` (`AdminListRowsHook`,
   `AdminListRowsRequest/Result`, `AdminListRow`, `DispatchAdminListRows`) and `MaxRowStateColumns`: cells and buttons
