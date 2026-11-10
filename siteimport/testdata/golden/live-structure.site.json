@@ -475,7 +475,7 @@
       "slug": "scheduled-post",
       "body_html": "<!-- wp:paragraph -->\n<p>Hello <strong>world</strong>.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:image {\"id\":71,\"sizeSlug\":\"large\",\"linkDestination\":\"none\"} -->\n<figure class=\"wp-block-image size-large\"><img src=\"https://example.test/wp-content/uploads/2026/10/a.jpg\" alt=\"A\" class=\"wp-image-71\"/></figure>\n<!-- /wp:image -->\n\n<!-- wp:latest-posts {\"postsToShow\":3} /-->",
       "source_status": "scheduled",
-      "scheduled_at": "2026-12-24T07:00:00Z",
+      "scheduled_at": "2031-12-24T07:00:00Z",
       "author_key": "1",
       "term_refs": [
         {
