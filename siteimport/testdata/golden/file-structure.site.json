@@ -463,7 +463,8 @@
         "unmapped": [
           "twitter"
         ]
-      }
+      },
+      "modified_at": "2026-09-01T09:00:00Z"
     },
     {
       "source_id": "102",
@@ -484,7 +485,8 @@
           "harbour"
         ],
         "noindex": true
-      }
+      },
+      "modified_at": "2026-09-02T09:00:00Z"
     },
     {
       "source_id": "201",
@@ -501,7 +503,8 @@
         "origin": "seopress",
         "title": "About Harbour",
         "noindex": true
-      }
+      },
+      "modified_at": "2026-09-01T09:00:00Z"
     },
     {
       "source_id": "202",
@@ -513,7 +516,8 @@
       "source_status": "published",
       "published_at": "2026-09-01T09:00:00Z",
       "menu_order": 2,
-      "author_key": "admin"
+      "author_key": "admin",
+      "modified_at": "2026-09-01T09:00:00Z"
     },
     {
       "source_id": "301",
@@ -551,7 +555,8 @@
           }
         ],
         "year": "2024"
-      }
+      },
+      "modified_at": "2026-09-05T10:00:00Z"
     },
     {
       "source_id": "302",
@@ -572,7 +577,8 @@
       "body_html": "<!-- wp:paragraph --><p>A dock.</p><!-- /wp:paragraph -->",
       "source_status": "published",
       "published_at": "2026-09-07T10:00:00Z",
-      "author_key": "admin"
+      "author_key": "admin",
+      "modified_at": "2026-09-07T10:00:00Z"
     }
   ],
   "not_carried": [
