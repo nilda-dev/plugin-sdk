@@ -174,14 +174,36 @@
   ],
   "not_carried": [
     {
+      "kind": "flag",
+      "name": "comments closed",
+      "count": 4,
+      "reason": "nc_comments_closed"
+    },
+    {
       "kind": "setting",
       "name": "",
       "count": 1,
       "reason": "nc_styles_file"
+    },
+    {
+      "kind": "field",
+      "name": "author profile",
+      "count": 1,
+      "reason": "nc_author_profile"
+    },
+    {
+      "kind": "field",
+      "name": "media date",
+      "count": 1,
+      "reason": "nc_media_date"
     }
   ],
   "warnings": [
     "The old site is called “Harbour Studio” with the tagline “Boats and buildings”. This import did not change your site's name — set it in Settings if you want it.",
-    "The colours, fonts and styles edited in the Site Editor are in the export file, but the theme's own files are not: connect to the live site to bring the theme with them, or import the theme's zip under Themes."
+    "An export file does not hold the site's widgets, logo, icon, front page, reading settings or redirect-manager plugin rules (Redirection, Rank Math, Yoast Premium); connect to the live site to bring the settings and Redirection's rules, and export the other plugins' lists from the plugins themselves.",
+    "4 items had their comments closed on the old site: Nilda has one switch for the comments of the whole site, so they follow that switch.",
+    "The colours, fonts and styles edited in the Site Editor are in the export file, but the theme's own files are not: connect to the live site to bring the theme with them, or import the theme's zip under Themes.",
+    "The byline of 1 author carries the name, plus the bio and website a live read finds: the photo and the user account do not come across, and an export file holds no bio or website.",
+    "1 media file lost its upload date and the post it was attached to: it is dated the import day."
   ]
 }

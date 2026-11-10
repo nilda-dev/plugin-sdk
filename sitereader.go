@@ -33,8 +33,9 @@ const (
 	SiteReaderIdleMinutes = 30
 	// SiteReaderRestarted is the error next answers when the plugin was restarted since start: never "last".
 	SiteReaderRestarted = "reader_restarted"
-	// SiteReaderSnapshotVersion is the version of Core's snapshot encoding this contract's pieces use.
-	SiteReaderSnapshotVersion = 4
+	// SiteReaderSnapshotVersion is the version of Core's snapshot encoding this contract's pieces use. Core compares it for equality:
+	// a reader that names another number is refused as a whole. Version 5 added an author's bio and link (siteimport.Author).
+	SiteReaderSnapshotVersion = 5
 )
 
 // The kinds of a source and of a field the owner fills in.

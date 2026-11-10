@@ -8,8 +8,20 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.59.1 — unreleased (a request's `<`, `>` and `&` go on the wire as themselves — the other direction of v0.58.0's answer fix)
+## v0.60.0 — unreleased (a request's `<`, `>` and `&` go on the wire as themselves; an author's bio and link — snapshot version 5)
 
+This section holds two things that would have been two unreleased headings: the release train allows one (`release_train_test.go`), and
+nothing between v0.59.0 and the next tag was tagged. The tag is the owner's.
+
+- SNAPSHOT VERSION 5: `siteimport.Author` gains `Bio` and `Link` (`json:"bio,omitempty"`, `json:"link,omitempty"`), after `SourceID`.
+  `SiteReaderSnapshotVersion` is 5. Core compares the number for EQUALITY (`readerjob.go`, `readersources.go`): a reader built against
+  this SDK names 5 and a Core that reads only up to 4 refuses it as a whole, and a Core that reads 1 to 5 refuses a reader still
+  naming 4 — so a plugin and a Core move to the same SDK tag together. Core's snapshot (the file a live read is kept in) reads
+  versions 1 to 5; an author written before this field has no bio and no link. An author without them writes exactly the bytes
+  version 4 wrote, so every golden that predates the field still reproduces. A reader sets `Bio` only when the source has a
+  biography (WordPress REST `/users` `description`) and `Link` only when it has the author's own website (`url`); an export file has
+  neither. Bound them: a bio of at most 2,000 characters, a link of at most 2,048 bytes, no control and no format characters (Unicode Cc and Cf: a right-to-left override or a zero-width space can make a bio or an address read as something it is not). No slug and no avatar
+  (a guest author has no slug; the avatar is a file, which is a media read of its own).
 - EVERYTHING THE SDK SENDS CORE IS ENCODED WITHOUT HTML ESCAPING (`wire.go`). v0.58.0 did it for a provider's answer to a service
   hook; the plugin-side direction still used `json.Marshal`, so a request body (`API.JSON`, `API.Post` and the other helpers that
   encode a value) and a service call's input (`Services.Call`, also nested into the request) wrote each `<`, `>` and `&` as a

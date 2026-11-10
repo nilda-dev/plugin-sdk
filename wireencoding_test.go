@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -70,7 +71,7 @@ func TestTheDispatchWritesAnAnswersCharactersThemselves(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := `{"seq":0,"snapshot_version":4,"last":true,"piece":{"items":[{"title":"Fish & chips","body":"<p>a<b>bold</b> line` +
+	want := `{"seq":0,"snapshot_version":` + strconv.Itoa(SiteReaderSnapshotVersion) + `,"last":true,"piece":{"items":[{"title":"Fish & chips","body":"<p>a<b>bold</b> line` +
 		esc("2028") + `sep` + esc("2029") + `end</p>"}],"site_key":"old.example"},"progress":{"phase":"<items> & ` +
 		esc("2028") + esc("2029") + `","done":1,"total":1}}`
 	if string(out) != want {
@@ -109,7 +110,7 @@ func TestARawMemberIsStillCompactedAndValid(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	want := `{"seq":0,"snapshot_version":4,"last":false,"piece":{"items":[{"title":"Caf` + esc("00e9") +
+	want := `{"seq":0,"snapshot_version":` + strconv.Itoa(SiteReaderSnapshotVersion) + `,"last":false,"piece":{"items":[{"title":"Caf` + esc("00e9") +
 		` \"quoted\" \\ back\nslash","html":"` + esc("003c") + "b" + esc("003e") + `<i>&amp;","list":[1,2.50,true,null]}]}}`
 	if string(out) != want {
 		t.Errorf("the dispatch wrote\n %s\nwant\n %s", out, want)

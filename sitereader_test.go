@@ -3,6 +3,10 @@ package nilda
 import (
 	"bytes"
 	"encoding/json"
+	"os"
+	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/nilda-dev/plugin-sdk/siteimport"
@@ -76,5 +80,39 @@ func TestAPieceOfARealSiteIsAValidAnswerToNext(t *testing.T) {
 	}
 	if err := m.ValidateOutput([]byte(`{"seq":0,"last":true}`)); err == nil {
 		t.Error("an answer without its piece and snapshot_version was accepted")
+	}
+}
+
+// The snapshot version is part of the contract: Core compares it for equality, so a reader that sends a different number is refused
+// as a whole. Version 5 added an author's bio and link (siteimport.Author); the number moves with the model, never alone.
+func TestTheSnapshotVersionIsFiveAndTheModelHasWhatFiveAdded(t *testing.T) {
+	if SiteReaderSnapshotVersion != 5 {
+		t.Fatalf("SiteReaderSnapshotVersion = %d, want 5 (bio and link on an author)", SiteReaderSnapshotVersion)
+	}
+	author := reflect.TypeOf(siteimport.Author{})
+	for _, name := range []string{"Bio", "Link"} {
+		f, ok := author.FieldByName(name)
+		if !ok || f.Type.Kind() != reflect.String || !strings.HasSuffix(f.Tag.Get("json"), ",omitempty") {
+			t.Errorf("siteimport.Author.%s is missing, not a string or not omitempty: version 4 bytes must not change (%v)", name, f)
+		}
+	}
+	if _, ok := author.FieldByName("Slug"); ok {
+		t.Error("siteimport.Author has a Slug: a guest author has no slug, so a slug would be a field nothing reads")
+	}
+}
+
+// The contract's own description names the snapshot version: a number written into prose goes stale when the constant moves (it said 4
+// after the bump to 5). Both the Go definition and the published contract.json are held to the constant.
+func TestTheContractDescriptionNamesTheCurrentSnapshotVersion(t *testing.T) {
+	want := "snapshot version " + strconv.Itoa(SiteReaderSnapshotVersion)
+	if d := siteReaderContract(t).Description; !strings.Contains(d, want) {
+		t.Errorf("the contract's description does not say %q: %s", want, d)
+	}
+	raw, err := os.ReadFile("contracts/site.reader/v1/contract.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), want) {
+		t.Errorf("contracts/site.reader/v1/contract.json does not say %q", want)
 	}
 }
