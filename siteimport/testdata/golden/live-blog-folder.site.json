@@ -174,7 +174,8 @@
           "approved": false,
           "created_at": "2026-10-03T08:00:00Z"
         }
-      ]
+      ],
+      "modified_at": "2026-10-02T08:00:00Z"
     },
     {
       "source_id": "example.test/blog#102",
@@ -191,7 +192,8 @@
           "source_id": "example.test/blog#term:category:5",
           "name": "News"
         }
-      ]
+      ],
+      "modified_at": "2026-10-02T08:00:00Z"
     },
     {
       "source_id": "example.test/blog#103",
@@ -206,7 +208,8 @@
           "source_id": "example.test/blog#term:category:5",
           "name": "News"
         }
-      ]
+      ],
+      "modified_at": "2026-10-02T08:00:00Z"
     },
     {
       "source_id": "example.test/blog#104",
@@ -222,7 +225,8 @@
           "source_id": "example.test/blog#term:category:5",
           "name": "News"
         }
-      ]
+      ],
+      "modified_at": "2026-10-02T08:00:00Z"
     },
     {
       "source_id": "example.test/blog#105",
@@ -238,7 +242,8 @@
           "source_id": "example.test/blog#term:category:5",
           "name": "News"
         }
-      ]
+      ],
+      "modified_at": "2026-10-02T08:00:00Z"
     },
     {
       "source_id": "example.test/blog#201",
@@ -251,7 +256,8 @@
       "published_at": "2026-09-01T07:00:00Z",
       "parent_source_id": "example.test/blog#200",
       "menu_order": 3,
-      "author_key": "1"
+      "author_key": "1",
+      "modified_at": "2026-09-01T07:00:00Z"
     }
   ],
   "not_carried": [
@@ -272,12 +278,6 @@
       "name": "media title",
       "count": 1,
       "reason": "nc_media_title"
-    },
-    {
-      "kind": "field",
-      "name": "modified date",
-      "count": 3,
-      "reason": "nc_modified_date"
     },
     {
       "kind": "flag",
@@ -332,7 +332,6 @@
     "1 published post was password-protected in WordPress. Nilda has no per-post password, so it was imported as a draft rather than made public — publish it if it should be open to everyone.",
     "The old site is called “Harbour Blog” with the tagline “Notes from the harbour”. This import did not change your site's name — set it in Settings if you want it.",
     "Post types a plugin keeps out of the REST API cannot be seen by a live read; the export file carries them.",
-    "3 items had been edited after they were first published or saved; their last-edited date is now the import date.",
     "2 media files come across without the posts they were attached to, which the library does not keep. A file the old site gave no usable date for is dated the import day, and a file the library already holds keeps the date it was first added.",
     "2 × post type “wpforms” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "The byline of 1 author carries the name, plus the bio and website a live read finds: the photo and the user account do not come across, and an export file holds no bio or website.",

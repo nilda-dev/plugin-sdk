@@ -135,7 +135,8 @@
       "body_html": "<!-- wp:paragraph --><p>Before.</p><!-- /wp:paragraph --><!-- wp:block {\"ref\":601} /--><!-- wp:paragraph --><p>After.</p><!-- /wp:paragraph -->",
       "source_status": "published",
       "published_at": "2026-09-01T09:00:00Z",
-      "author_key": "admin"
+      "author_key": "admin",
+      "modified_at": "2026-09-01T09:00:00Z"
     },
     {
       "source_id": "103",
@@ -146,7 +147,8 @@
       "body_html": "<!-- wp:paragraph --><p>A pattern that was deleted.</p><!-- /wp:paragraph --><!-- wp:block {\"ref\":699} /-->",
       "source_status": "published",
       "published_at": "2026-09-02T09:00:00Z",
-      "author_key": "admin"
+      "author_key": "admin",
+      "modified_at": "2026-09-02T09:00:00Z"
     },
     {
       "source_id": "201",
@@ -159,7 +161,8 @@
       "published_at": "2026-09-01T09:00:00Z",
       "menu_order": 1,
       "author_key": "admin",
-      "template": "page-wide"
+      "template": "page-wide",
+      "modified_at": "2026-09-01T09:00:00Z"
     },
     {
       "source_id": "202",
@@ -170,7 +173,8 @@
       "source_status": "published",
       "published_at": "2026-09-01T09:00:00Z",
       "menu_order": 2,
-      "author_key": "admin"
+      "author_key": "admin",
+      "modified_at": "2026-09-01T09:00:00Z"
     }
   ],
   "not_carried": [
