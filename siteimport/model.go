@@ -255,6 +255,12 @@ type Item struct {
 	Values   map[string]any `json:"values,omitempty"`
 	SEO      *ItemSEO       `json:"seo,omitempty"`
 	Template string         `json:"template,omitempty"` // _wp_page_template / REST template; kept by the page templates phase when the theme has one of that name, else named
+	// ModifiedAt is when the source says the item was last edited, in UTC (WXR post_modified_gmt, REST modified_gmt); nil when the
+	// source does not say (a zone-less modified time with no GMT one is not a date: the zone is a guess). Snapshot version 5. Core
+	// keeps it beside the item's own edit time, not in place of it, and a search engine is told it as the item's modified date until
+	// the owner first edits the item. A reader hands the date as it reads it; Core drops one before 1990 or more than a day ahead of its
+	// own clock, and raises one earlier than the item's publish date to that date.
+	ModifiedAt *time.Time `json:"modified_at,omitempty"`
 }
 
 // SourcePostType is one custom post type the old site registered.
