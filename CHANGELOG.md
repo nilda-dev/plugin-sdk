@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.60.0 — unreleased (a request's `<`, `>` and `&` go on the wire as themselves; an author's bio and link — snapshot version 5)
+## v0.60.0 — 2026-11-10 (a request's `<`, `>` and `&` go on the wire as themselves; site import: an author's bio and link, a media item's upload date and an item's modified date — snapshot version 5)
 
 This section holds two things that would have been two unreleased headings: the release train allows one (`release_train_test.go`), and
 nothing between v0.59.0 and the next tag was tagged. The tag is the owner's.
