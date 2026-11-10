@@ -3163,7 +3163,8 @@ Door D1 (`docs/SHOP_EVENTS.md` is the whole of it; `shopevents.go`). The shop em
 currency, its `ShopEventLine`s and the visitor's `ConsentSnapshot` copied when the order was placed. Agent class `none`.
 
 - A subscriber decodes with `DecodeShopOrderEvent`, asks `ConsentSnapshot.AdUserDataGranted()` /
-  `AdStorageGranted()` before anything personal or advertising leaves (unknown is no; `NotToldConsent` is all unknown),
+  `AdStorageGranted()` before anything personal or advertising leaves (unknown is no; `NotToldConsent` is all unknown;
+  the shop copies `VisitorConsent(r)` — Core's word on a write, source `ConsentFromCore` — at placement),
   and catches up with `Services.ShopEvents` (`ShopEventsRequest` → `ShopEventsAnswer`, `ValidateFor`).
 - The shop implements `ShopEventsProvider`; `ShopEventsMethods` answers `events.read` and checks every page; `Serve`
   finds it by itself.

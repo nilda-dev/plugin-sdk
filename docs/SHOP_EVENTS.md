@@ -38,15 +38,15 @@ the visitor allowed when they bought. Its four signals are Google Consent Mode v
 
 - `unknown` is not a yes. `AdUserDataGranted()` is the one question to ask before a person's (hashed) data leaves for an
   ad network; `AdStorageGranted()` before advertising measurement.
-- `source: first_touch`: the basket carried the visit's first touch, which Core's page sends only after the visitor allowed
-  analytics, so `analytics_storage` is `granted`; the ad signals are `unknown`.
-- `source: not_told` (`NotToldConsent`): every signal `unknown` — an order placed before the snapshot existed, or one with
-  no first touch.
-
-**What the shop cannot say today.** Core keeps a visitor's consent on its own side and does not tell a plugin's route what
-it is, so the shop has no ad signal to copy: every snapshot's ad signals are `unknown` until Core passes the visitor's
-decision to the shop's checkout. A subscriber built on `AdUserDataGranted()` therefore sends nobody's data — which is
-the correct failure.
+- `source: core`: Core told the shop the visitor's recorded consent with the request that placed the order —
+  `nilda.VisitorConsent(r)`, read from `X-Nilda-Visitor-Consent`, which Core's proxy sets on a request that changes
+  something (not GET, HEAD or OPTIONS) and strips from any client. Every signal is `granted` or `denied`, mapped from
+  Core's categories as the public page maps them for Google's tags; a visitor who never decided is `denied`.
+- `source: first_touch`: Core did not tell (an older Core, a consent it could not read), and the basket carried the
+  visit's first touch, which Core's page sends only after the visitor allowed analytics: `analytics_storage` is
+  `granted`, the ad signals `unknown`.
+- `source: not_told` (`NotToldConsent`): every signal `unknown` — an order placed before the snapshot existed, or by a
+  door with no visitor's browser behind it (a visitor's agent).
 
 ## 4. Catching up: `events.read`
 

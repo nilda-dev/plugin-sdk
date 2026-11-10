@@ -3,6 +3,8 @@ package nilda
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -194,5 +196,44 @@ func TestTheShopEmitsTheEventsContract(t *testing.T) {
 	}
 	if !strings.Contains(siblingSource(t, "commerce", "plugin.json"), `"`+ContractShopEvents+`"`) {
 		t.Error("the shop's plugin.json does not provide shop.events/v1")
+	}
+}
+
+// THE CONSENT CORE TELLS THE SHOP, READ AS CORE SENDS IT (core internal/plugin/visitorconsent.go): the four Consent Mode
+// signals, each granted or denied, on a request that changes something. Anything else — no header (an older Core, a
+// page view, a machine path), a missing signal, a word that is not one, unknown — is not a consent and reads false, so
+// the shop falls back to what it can prove itself.
+func TestVisitorConsentIsReadAsCoreSendsIt(t *testing.T) {
+	req := func(v string) *http.Request {
+		r := httptest.NewRequest(http.MethodPost, "/shop/checkout", nil)
+		if v != "" {
+			r.Header.Set("X-Nilda-Visitor-Consent", v)
+		}
+		return r
+	}
+	c, ok := VisitorConsent(req("ad_storage=granted;ad_user_data=granted;ad_personalization=denied;analytics_storage=denied"))
+	if !ok || c.Source != ConsentFromCore || !c.AdUserDataGranted() || !c.AdStorageGranted() ||
+		c.AdPersonalization != ConsentDenied || c.AnalyticsStorage != ConsentDenied || c.Validate() != nil {
+		t.Fatalf("read %+v %v", c, ok)
+	}
+	for _, bad := range []string{"", "ad_storage=granted", "ad_storage=yes;ad_user_data=granted;ad_personalization=granted;analytics_storage=granted",
+		"ad_storage=unknown;ad_user_data=unknown;ad_personalization=unknown;analytics_storage=unknown",
+		"ad_storage=granted;ad_user_data=granted;ad_personalization=granted;analytics_storage=granted;extra=granted",
+		"ad_storage=granted;ad_storage=denied;ad_personalization=granted;analytics_storage=granted"} {
+		if c, ok := VisitorConsent(req(bad)); ok {
+			t.Errorf("%q read as %+v", bad, c)
+		}
+	}
+	told := c
+	told.AdUserData = ConsentUnknown
+	if told.Validate() == nil {
+		t.Error("a consent Core told with an unknown signal was accepted: Core knows every signal")
+	}
+	src := coreSource(t, "internal", "plugin", "visitorconsent.go")
+	for _, want := range []string{`visitorConsentHeader = "X-Nilda-Visitor-Consent"`,
+		`"ad_storage=" + a + ";ad_user_data=" + a + ";ad_personalization=" + a + ";analytics_storage=" + an`} {
+		if !strings.Contains(src, want) {
+			t.Errorf("Core's visitorconsent.go no longer says %s", want)
+		}
 	}
 }

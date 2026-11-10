@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"slices"
 	"strings"
 	"time"
@@ -66,6 +67,9 @@ const (
 	ConsentFromFirstTouch = "first_touch"
 	// ConsentNotTold: the shop was told nothing; every signal is unknown.
 	ConsentNotTold = "not_told"
+	// ConsentFromCore: Core told the shop the visitor's recorded consent with the request that placed the order
+	// (VisitorConsent); every signal is granted or denied.
+	ConsentFromCore = "core"
 )
 
 // ConsentSnapshot is the visitor's consent when the order was placed, in Google Consent Mode v2's four signals (the
@@ -75,7 +79,7 @@ type ConsentSnapshot struct {
 	AdUserData        string `json:"ad_user_data"`
 	AdPersonalization string `json:"ad_personalization"`
 	AnalyticsStorage  string `json:"analytics_storage"`
-	// Source is where the words came from: ConsentFromFirstTouch or ConsentNotTold.
+	// Source is where the words came from: ConsentFromCore, ConsentFromFirstTouch or ConsentNotTold.
 	Source string `json:"source"`
 	// RecordedAt is when the shop copied it onto the order.
 	RecordedAt time.Time `json:"recorded_at"`
@@ -85,6 +89,37 @@ type ConsentSnapshot struct {
 func NotToldConsent(at time.Time) ConsentSnapshot {
 	return ConsentSnapshot{AdStorage: ConsentUnknown, AdUserData: ConsentUnknown, AdPersonalization: ConsentUnknown,
 		AnalyticsStorage: ConsentUnknown, Source: ConsentNotTold, RecordedAt: at.UTC()}
+}
+
+// VisitorConsent is the visitor's consent as Core recorded it, for a request your resident HTTP server received: the
+// four Consent Mode signals, each granted or denied, Source ConsentFromCore, RecordedAt now. Core sends it on a request
+// that changes something (not GET, HEAD or OPTIONS) — read it in the handler that places the order, and copy it onto
+// the order. A member's is their account's, a visitor's their browser's; one who never decided is denied in every
+// signal. Core strips any value a client sent. ok is false with no header (an older Core, a page view, a declared
+// machine path, a consent Core could not read) or one that is not four known signals once each.
+func VisitorConsent(r *http.Request) (ConsentSnapshot, bool) {
+	raw := r.Header.Get(visitorConsentHeader)
+	if raw == "" {
+		return ConsentSnapshot{}, false
+	}
+	signals := map[string]*string{}
+	c := ConsentSnapshot{Source: ConsentFromCore, RecordedAt: time.Now().UTC()}
+	for name, field := range map[string]*string{"ad_storage": &c.AdStorage, "ad_user_data": &c.AdUserData,
+		"ad_personalization": &c.AdPersonalization, "analytics_storage": &c.AnalyticsStorage} {
+		signals[name] = field
+	}
+	for _, part := range strings.Split(raw, ";") {
+		name, word, _ := strings.Cut(strings.TrimSpace(part), "=")
+		field, known := signals[name]
+		if !known || *field != "" || (word != ConsentGranted && word != ConsentDenied) {
+			return ConsentSnapshot{}, false
+		}
+		*field = word
+	}
+	if c.Validate() != nil {
+		return ConsentSnapshot{}, false
+	}
+	return c, true
 }
 
 // AdUserDataGranted says the visitor allowed their data to be sent to an ad network (ad_user_data granted) — the one
@@ -104,8 +139,11 @@ func (c ConsentSnapshot) Validate() error {
 			return fmt.Errorf("nilda: consent %s is %q; it is granted, denied or unknown", name, v)
 		}
 	}
-	if c.Source != ConsentFromFirstTouch && c.Source != ConsentNotTold {
+	if c.Source != ConsentFromCore && c.Source != ConsentFromFirstTouch && c.Source != ConsentNotTold {
 		return fmt.Errorf("nilda: a consent snapshot's source is %q", c.Source)
+	}
+	if c.Source == ConsentFromCore && slices.Contains([]string{c.AdStorage, c.AdUserData, c.AdPersonalization, c.AnalyticsStorage}, ConsentUnknown) {
+		return errors.New("nilda: a consent Core told is granted or denied in every signal")
 	}
 	if c.Source == ConsentNotTold && c != NotToldConsent(c.RecordedAt) {
 		return errors.New("nilda: a consent the shop was not told is unknown in every signal")

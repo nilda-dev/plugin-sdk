@@ -32,6 +32,7 @@ const (
 	visitorCountryHeader   = "X-Nilda-Visitor-Country"
 	visitorLocaleHeader    = "X-Nilda-Visitor-Locale"
 	visitorKeyHeader       = "X-Nilda-Visitor-Key"
+	visitorConsentHeader   = "X-Nilda-Visitor-Consent"
 	pricesIncludeTaxHeader = "X-Nilda-Prices-Include-Tax"
 )
 

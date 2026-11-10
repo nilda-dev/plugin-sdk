@@ -30,6 +30,9 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
     `DefaultShopEventsRead` = 50) → `ShopEventsAnswer{Events, More}`, `ValidateFor` holding order and bounds.
     `ShopEventsProvider` / `ShopEventsMethods` for the shop (Serve finds it by itself), `Services.ShopEvents` for a
     subscriber. `TestTheShopEmitsTheEventsContract` holds the shop's `shopevents.go` and manifest to it.
+  - `VisitorConsent(r) (ConsentSnapshot, bool)`: the visitor's recorded consent Core's proxy sends on a request that
+    changes something (`X-Nilda-Visitor-Consent`, core `internal/plugin/visitorconsent.go`), source `ConsentFromCore`,
+    every signal granted or denied (`Validate` refuses unknown from Core); ok false with no header or a malformed one.
   - `nildatest.NewShopEvents()`: a fake shop feed — `Record` (numbers and checks an event), `Deliver` (to a plugin's
     HandleEvent), `Events`, and `events.read` through a `Services` desk.
 

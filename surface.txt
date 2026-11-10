@@ -179,6 +179,7 @@ const CommerceOutOfStockCode
 const CommerceRedirectHeader
 const CommerceSignInHeader
 const ConsentDenied
+const ConsentFromCore
 const ConsentFromFirstTouch
 const ConsentGranted
 const ConsentNotTold
@@ -2269,6 +2270,7 @@ func TextBody(string) (json.RawMessage)
 func ValidPaymentMark(string) (bool)
 func ValidPriceGroup(string) (bool)
 func ValidateRecommendations([]Recommendation) (error)
+func VisitorConsent(*http.Request) (ConsentSnapshot, bool)
 func VisitorCountry(*http.Request) (string, bool)
 func VisitorKey(*http.Request) (string)
 func VisitorLocale(*http.Request) (string, bool)
