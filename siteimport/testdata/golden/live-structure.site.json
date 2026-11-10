@@ -110,14 +110,16 @@
       "size": 68,
       "sizes": [
         "https://example.test/wp-content/uploads/a-300x200.png"
-      ]
+      ],
+      "uploaded_at": "2026-09-30T07:00:00Z"
     },
     {
       "source_id": "example.test#media:42",
       "url": "https://example.test/wp-content/uploads/menu.pdf",
       "title": "Menu",
       "mime_type": "application/pdf",
-      "size": 312
+      "size": 312,
+      "uploaded_at": "2026-09-30T07:00:00Z"
     }
   ],
   "media_policy": {
@@ -712,7 +714,7 @@
     "The old site is called “Harbour Blog” with the tagline “Notes from the harbour”. This import did not change your site's name — set it in Settings if you want it.",
     "Post types a plugin keeps out of the REST API cannot be seen by a live read; the export file carries them.",
     "5 items had been edited after they were first published or saved; their last-edited date is now the import date.",
-    "2 media files lost their upload dates and the posts they were attached to: every file is dated the import day.",
+    "2 media files come across without the posts they were attached to, which the library does not keep. A file the old site gave no usable date for is dated the import day, and a file the library already holds keeps the date it was first added.",
     "2 × post type “wpforms” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "Values on ACF options pages are kept outside posts, where neither door reaches; set them again by hand.",
     "The byline of 1 author carries the name, plus the bio and website a live read finds: the photo and the user account do not come across, and an export file holds no bio or website.",
