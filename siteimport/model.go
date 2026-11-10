@@ -258,8 +258,8 @@ type Item struct {
 	// ModifiedAt is when the source says the item was last edited, in UTC (WXR post_modified_gmt, REST modified_gmt); nil when the
 	// source does not say (a zone-less modified time with no GMT one is not a date: the zone is a guess). Snapshot version 5. Core
 	// keeps it beside the item's own edit time, not in place of it, and a search engine is told it as the item's modified date until
-	// the owner first edits the item. A reader hands the date as it reads it; Core drops one before 1990, more than a day ahead of its
-	// own clock, or before the item's publish date.
+	// the owner first edits the item. A reader hands the date as it reads it; Core drops one before 1990 or more than a day ahead of its
+	// own clock, and raises one earlier than the item's publish date to that date.
 	ModifiedAt *time.Time `json:"modified_at,omitempty"`
 }
 
