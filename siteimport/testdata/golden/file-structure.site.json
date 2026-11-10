@@ -387,6 +387,14 @@
       "code": 301,
       "regex": true,
       "enabled": true
+    },
+    {
+      "source_id": "#redirect:post:202",
+      "origin": "post",
+      "from": "{{home}}/old-offer/",
+      "to": "/about/",
+      "code": 301,
+      "enabled": true
     }
   ],
   "plugins": [
@@ -581,12 +589,6 @@
       "reason": "nc_meta_private"
     },
     {
-      "kind": "redirect",
-      "name": "",
-      "count": 1,
-      "reason": "nc_redirect_post"
-    },
-    {
       "kind": "meta",
       "name": "",
       "count": 2,
@@ -677,14 +679,13 @@
     "2 values look like secrets (keys, tokens, passwords) and were not copied: pin, stripe_secret_key",
     "Values on ACF options pages are kept outside posts, where neither door reaches; set them again by hand.",
     "1 page-builder layout (Elementor) waits for the page-builder step; the page came across with its text.",
-    "1 post sent visitors elsewhere on the old site (an SEO plugin setting); here the post is served itself — add the redirect under SEO › Redirects if you still want it.",
     "The SEO plugin's site-wide title patterns and settings were not imported: set them under SEO › Settings.",
     "Yoast keeps category and tag SEO titles where neither the export file nor the WordPress API reaches; set them again on each category.",
     "Rank Math keeps its redirects where neither the export file nor the WordPress API reaches. Export the list from that plugin and add the ones you need under SEO › Redirects.",
     "The byline of 1 author carries the name, plus the bio and website a live read finds: the photo and the user account do not come across, and an export file holds no bio or website.",
     "1 × post type “feedback” was not imported: it holds form entries or requests from people, which an import does not copy.",
     "1 navigation block of type “html” has no menu link in Nilda and was left out.",
-    "1 media file comes across without the post it was attached to, which the library does not keep. A file the old site gave no date for is dated the import day, and a file the library already holds keeps the date it was first added.",
+    "1 media file comes across without the post it was attached to, which the library does not keep. A file the old site gave no usable date for is dated the import day, and a file the library already holds keeps the date it was first added.",
     "1 × post type “product” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "1 × post type “wpforms” was not imported: it waits for a later step of the migration (shop, forms or page builder)."
   ]

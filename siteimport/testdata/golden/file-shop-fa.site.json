@@ -224,7 +224,7 @@
     "2 × post type “product_variation” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "The byline of 1 author carries the name, plus the bio and website a live read finds: the photo and the user account do not come across, and an export file holds no bio or website.",
     "1 comment had the commenter's website; Nilda's comments keep no website.",
-    "1 media file comes across without the post it was attached to, which the library does not keep. A file the old site gave no date for is dated the import day, and a file the library already holds keeps the date it was first added.",
+    "1 media file comes across without the post it was attached to, which the library does not keep. A file the old site gave no usable date for is dated the import day, and a file the library already holds keeps the date it was first added.",
     "1 × post type “shop_coupon” was not imported: it waits for a later step of the migration (shop, forms or page builder)."
   ]
 }

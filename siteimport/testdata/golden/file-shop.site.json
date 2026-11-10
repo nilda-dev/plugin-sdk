@@ -473,7 +473,7 @@
     "The old site is called “Harbour Shop” with the tagline “”. This import did not change your site's name — set it in Settings if you want it.",
     "An export file does not hold the site's widgets, logo, icon, front page, reading settings or redirect-manager plugin rules (Redirection, Rank Math, Yoast Premium); connect to the live site to bring the settings and Redirection's rules, and export the other plugins' lists from the plugins themselves.",
     "29 × post type “product” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
-    "28 media files come across without the posts they were attached to, which the library does not keep. A file the old site gave no date for is dated the import day, and a file the library already holds keeps the date it was first added.",
+    "28 media files come across without the posts they were attached to, which the library does not keep. A file the old site gave no usable date for is dated the import day, and a file the library already holds keeps the date it was first added.",
     "12 × post type “product_variation” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "9 × taxonomy “product_cat” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "9 × taxonomy “product_visibility” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
