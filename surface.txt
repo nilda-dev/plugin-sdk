@@ -892,6 +892,7 @@ field CalendarShade.Label string json:label
 field CalendarShade.Lane string json:lane
 field CalendarShade.Start string json:start
 field CalendarShade.StartDate string json:start_date
+field CallInfo.ActorUserID string
 field CallInfo.Caller string
 field CallInfo.CallerKind string
 field CallInfo.Contract string

@@ -1046,11 +1046,14 @@ which *person* may ask for it. Core runs an ability only for someone who holds `
 `plugin.<key>.configure` — the per-plugin permission your own admin section (`admin_page`) is gated on. An
 Editor who holds `content.edit` and nothing of yours is refused, and the site's chat does not offer them the
 action at all. You declare nothing for this: it is the same list your admin screens use, so a button your
-screen refuses someone is an action the chat refuses them too. What you are NOT told is who that person was:
-the call carries the hook's name, its input and what `nilda.CallOf(ctx)` reads — the request's id, and for a
-call relayed by Core's service desk the contract, the asking plugin and an idempotency key, whether the
-assistant asked (`ViaAssistant`, v0.41.0) and which door Core took the call through (`CallerKind`, v0.53.0: a kind of
-door, never who) — and nothing about the person (a limit Core records in its known issues).
+screen refuses someone is an action the chat refuses them too. **Who that person was** is
+`nilda.CallOf(ctx).ActorUserID` (v0.62.0): their Core user id — who asked the site's assistant, holds the connected
+AI app's grant, pressed your row action or saved your form, ran Core's importer — set by Core from the session and
+never from the arguments, so a model cannot write it. It is an id and nothing more: no name, no address. Keep it on
+what the action changed ("refunded by"). It is empty on Core's own hooks, on a service-desk call, on a visitor's
+call and from an older Core; beside it `CallOf` reads the request's id, a service-desk call's contract, asking
+plugin and idempotency key, whether the assistant asked (`ViaAssistant`, v0.41.0) and which door Core took the call
+through (`CallerKind`, v0.53.0).
 
 `InputSchema` is required and must be a JSON Schema **object** — an agent that cannot see the shape of
 your input will call you with the wrong thing. `ObjectSchema` builds one so you do not hand-write JSON.

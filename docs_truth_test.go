@@ -172,12 +172,14 @@ func TestAKeyHoldsAcrossARestartOnlyUnderTheSameScopes(t *testing.T) {
 	}
 }
 
-// TestTheGuideSaysAnAbilityIsNotToldWhoAsked holds the other half of C10 (Core's 2026-09-24 whole-plan review,
-// I-8): the call carries the hook's name, its input and CallOf's context — a request id, and for a service-desk
-// call the contract, the asking PLUGIN and an idempotency key, whether the assistant asked (v0.41.0) and which door
-// Core took the call through (its caller KIND, v0.53.0: a door, never a person) — and nothing about the person. The
-// wire's own shape: a field added to carry the person turns this red until the sentence is rewritten.
-func TestTheGuideSaysAnAbilityIsNotToldWhoAsked(t *testing.T) {
+// TestTheGuideSaysWhoAnAbilityIsToldActed holds the other half of C10 (Core's 2026-09-24 whole-plan review, I-8),
+// as v0.62.0 closed it (the 2026-11-11 SDK review, finding 15): the call carries the hook's name, its input and
+// CallOf's context — a request id, a service-desk call's contract, asking PLUGIN and idempotency key, whether the
+// assistant asked (v0.41.0), which door (v0.53.0) — and of the person ONE thing, their Core user id
+// (actor_user_id), never a name or an address. Until v0.62.0 this guard held "nothing about the person"; the owner's
+// go-ahead to fix every finding of that review moved it to the narrowest answer the known issue named. The wire's own
+// shape: a second field about the person turns this red until the guide says what it carries.
+func TestTheGuideSaysWhoAnAbilityIsToldActed(t *testing.T) {
 	var fields []string
 	rt := reflect.TypeOf(contract.HookRequest{})
 	for i := range rt.NumField() {
@@ -185,33 +187,33 @@ func TestTheGuideSaysAnAbilityIsNotToldWhoAsked(t *testing.T) {
 			fields = append(fields, f.Name)
 		}
 	}
-	if strings.Join(fields, ",") != "Hook,Payload,RequestId,Contract,IdempotencyKey,Caller,ViaAssistant,CallerKind" {
-		t.Fatalf("contract.HookRequest carries %v now, not only the hook and its input — re-read the guide's "+
-			"\"What you are NOT told is who that person was\"", fields)
+	if strings.Join(fields, ",") != "Hook,Payload,RequestId,Contract,IdempotencyKey,Caller,ViaAssistant,CallerKind,ActorUserId" {
+		t.Fatalf("contract.HookRequest carries %v now — re-read the guide's \"Who that person was\"", fields)
 	}
-	// …and Core sends only that: the ability's input as its payload, the request built from the two, and no gRPC
-	// metadata beside it — the other way the person could travel without the wire's shape changing.
+	// …and Core sends only that: the person as an id from its own mark, set at the doors, and no gRPC metadata beside
+	// it — the other way more of the person could travel without the wire's shape changing.
 	hostGo := coreSource(t, "internal", "plugin", "host.go")
 	for _, want := range []string{
 		"return h.Call(ctx, key, AbilityHookPrefix+name, args)",
-		// The request id rides it too (PC6): the REQUEST that led here, never the person; and whether the assistant
-		// asked (v0.41.0), a yes or no, never who.
 		"handle.Plugin.HandleHook(callCtx, &contract.HookRequest{Hook: hook, Payload: payload,",
 		"RequestId: logger.RequestIDFromContext(ctx)",
+		"ActorUserId: actingUserFrom(ctx)",
+		"if u, ok := auth.UserFromContext(ctx); ok {",
 	} {
 		if !strings.Contains(hostGo, want) {
-			t.Errorf("core's host.go no longer has %q — re-read the guide's \"What you are NOT told is who that person was\"", want)
+			t.Errorf("core's host.go no longer has %q — re-read the guide's \"Who that person was\"", want)
 		}
 	}
 	if strings.Contains(hostGo, "OutgoingContext") {
-		t.Error("core's host.go puts gRPC metadata on a call — re-read whether a plugin is told who asked")
+		t.Error("core's host.go puts gRPC metadata on a call — re-read what a plugin is told about who asked")
+	}
+	if via := coreSource(t, "internal", "plugin", "viaassistant.go"); !strings.Contains(via, "return u.String()") {
+		t.Error("core's viaassistant.go no longer sends the person as their user id alone — re-read the guide")
 	}
 	if doc := strings.Join(strings.Fields(readText(t, "docs/PLUGIN_SDK.md")), " "); !strings.Contains(doc,
-		"What you are NOT told is who that person was: the call carries the hook's name, its input and what `nilda.CallOf(ctx)` reads — "+
-			"the request's id, and for a call relayed by Core's service desk the contract, the asking plugin and an idempotency key, "+
-			"whether the assistant asked (`ViaAssistant`, v0.41.0) and which door Core took the call through (`CallerKind`, "+
-			"v0.53.0: a kind of door, never who) — and nothing about the person") {
-		t.Error("the guide no longer says an ability is not told who asked, which contract.HookRequest makes true")
+		"**Who that person was** is `nilda.CallOf(ctx).ActorUserID` (v0.62.0): their Core user id") ||
+		!strings.Contains(doc, "It is an id and nothing more: no name, no address.") {
+		t.Error("the guide no longer says an ability is told who acted, by id alone, which contract.HookRequest makes true")
 	}
 }
 

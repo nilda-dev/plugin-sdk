@@ -215,6 +215,12 @@ message HookRequest {
   // site's assistant), "mcp" (a connected AI app or the connector REST invoke), "importer" (Core's importer),
   // "owner_ui" (a person's own press). Empty from a Core that does not say, and on Core's own hooks: fail closed.
   string caller_kind = 8;
+  // The Core user id of the PERSON a door acted for: who pressed a row action or saved a form, who asked the site's
+  // assistant or holds the connected AI app's grant, who ran an import (plugin-sdk v0.62.0). Set by Core's own code from
+  // the session, never from the payload; empty on Core's own hooks, on a service-desk call and on a visitor's call. An id
+  // only — never a name or an address — the same id a route's X-Nilda-User carries, so a plugin can record who refunded
+  // an order or apply a rule of its own per person.
+  string actor_user_id = 9;
 }
 
 message HookResponse {

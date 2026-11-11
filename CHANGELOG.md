@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.62.0 — unreleased (security: only Core's proxy reaches a route, payment tokens never reach the log, arguments held to their schema)
+## v0.62.0 — 2026-11-11 (security: only Core's proxy reaches a route, payment tokens never reach the log, arguments held to their schema, who acted)
 
 The fixes of the SDK review of 2026-11-11. All additive; tag at once (docs/RELEASE_TRAIN.md rule 2: a security fix).
 
@@ -43,6 +43,10 @@ The fixes of the SDK review of 2026-11-11. All additive; tag at once (docs/RELEA
   rule where Core normalises the phones it sends.
 - `NewOIDCClient` refuses an issuer, a token endpoint or an authorization endpoint that is not https (a loopback host
   excepted, for tests): the token endpoint receives the client secret, the code and the PKCE verifier.
+- WHO ACTED. `CallInfo.ActorUserID` (contract `HookRequest.actor_user_id`, field 9): the Core user id of the person a
+  door acted for — who pressed a row action or saved a form, who asked the assistant or holds the connected AI app's
+  grant, who ran Core's importer. Set by Core from the session, never from the payload; an id only. Empty on Core's
+  own hooks, service-desk calls and visitors' calls. A plugin can now record who refunded an order.
 - `VisitorCall.VisitorKey`: Core's daily, per-plugin hash of a visitor-tool caller's address, as `VisitorKey(r)` reads
   on a route. Limit by it instead of `IP`, which Core still sends until the plugins limiting by it have moved.
 - Said where an author reads it: `Core.Trash` failing means undo your own mark; `IsFirstRun` is true on a reinstall too,

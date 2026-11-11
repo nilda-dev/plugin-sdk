@@ -31,6 +31,11 @@ type CallInfo struct {
 	// model that writes an ability's arguments cannot write this; empty from a Core that does not say and on Core's
 	// own hooks. Read it with CallerKind.
 	CallerKind string
+	// ActorUserID is the Core user id of the person the door acted for — who pressed a row action or saved a form, who
+	// asked the site's assistant, who ran an import (v0.62.0). Core sets it from the session, never from the payload, so
+	// a model cannot write it; "" on Core's own hooks, a service-desk call, a visitor's call and from an older Core. Keep
+	// it on what the action changed ("refunded by"): a Core user id, never a name or an address.
+	ActorUserID string
 }
 
 // CallHeader is the HTTP header on which the API client names the call it is serving (v0.56.0): inside a hook call
@@ -121,7 +126,8 @@ func EventOf(ctx context.Context) EventInfo {
 // withCall puts a hook request's call context where CallOf finds it.
 func withCall(ctx context.Context, req *contract.HookRequest) context.Context {
 	ci := CallInfo{RequestID: req.GetRequestId(), Contract: req.GetContract(), Caller: req.GetCaller(),
-		IdempotencyKey: req.GetIdempotencyKey(), ViaAssistant: req.GetViaAssistant(), CallerKind: req.GetCallerKind()}
+		IdempotencyKey: req.GetIdempotencyKey(), ViaAssistant: req.GetViaAssistant(), CallerKind: req.GetCallerKind(),
+		ActorUserID: req.GetActorUserId()}
 	if ci == (CallInfo{}) {
 		return ctx
 	}

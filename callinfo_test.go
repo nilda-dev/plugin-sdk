@@ -156,3 +156,14 @@ func TestAPluginTestSetsTheCallerKind(t *testing.T) {
 		t.Errorf("WithCallInfo set importer; CallerKind = %q, %v", kind, ok)
 	}
 }
+
+// TestTheActorRidesTheCall: who a door acted for reaches CallOf (v0.62.0).
+func TestTheActorRidesTheCall(t *testing.T) {
+	ctx := withCall(context.Background(), &contract.HookRequest{Hook: AdminActionHook, ActorUserId: "u-1", CallerKind: CallerKindOwnerUI})
+	if got := CallOf(ctx).ActorUserID; got != "u-1" {
+		t.Fatalf("ActorUserID = %q", got)
+	}
+	if got := CallOf(withCall(context.Background(), &contract.HookRequest{Hook: "content.saved"})).ActorUserID; got != "" {
+		t.Fatalf("a call nobody acted for names %q", got)
+	}
+}
