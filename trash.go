@@ -136,6 +136,11 @@ func trashPath(kind, id string) string {
 // Trash tells Core you moved one of your records to the site's recycle bin (requires `trash`). Call it AFTER your own
 // write marked the row deleted: the bin then offers something you can really bring back.
 //
+// IF IT RETURNS AN ERROR, UNDO YOUR MARK. A row your lists hide and the bin does not list is a row nobody can bring
+// back — Core restarting, your token's hourly allowance spent, a refusal. Mark the row deleted, call Trash, and on an
+// error clear the mark (or keep it and call Trash again before you answer: reporting the same kind and id twice is one
+// entry). Never answer "deleted" on a Trash that failed.
+//
 // Reporting the same kind and id again refreshes its entry — its name, its 30 days — rather than listing it twice.
 // A refusal is an *APIError: 403 for a manifest that does not declare `trash`, 422 for an item Validate refuses.
 func (c *Core) Trash(ctx context.Context, item TrashItem) error {

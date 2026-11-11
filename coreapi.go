@@ -561,6 +561,9 @@ type MediaBytes struct {
 // MediaFile opens a media item's bytes — `media.read`. It reads the item (GET /media/{id}), then the ORIGINAL file
 // through the API's own file route (GET /media/{id}/file) with the plugin's token, so a private item opens too —
 // the one a plugin sells. Close what it answers. A file Core will not serve is an *APIError.
+//
+// The bytes are read with no total timeout: ctx is what bounds the read, so a large file a buyer downloads slowly
+// arrives whole. A handler streaming it on lifts its own response's write deadline too (see StartHTTP).
 func (a *API) MediaFile(ctx context.Context, id string) (*MediaBytes, error) {
 	if a == nil {
 		return nil, errNoAPI
@@ -570,7 +573,13 @@ func (a *API) MediaFile(ctx context.Context, id string) (*MediaBytes, error) {
 		return nil, err
 	}
 	path := "/media/" + url.PathEscape(id) + "/file"
-	res, err := a.do(ctx, http.MethodGet, path, nil, "")
+	// The stream client: no total timeout, so a large file read slowly is not cut mid-download. ctx bounds it — pass
+	// the request's own context when you stream to a visitor, and the download ends when they leave.
+	client := a.stream
+	if client == nil {
+		client = a.http
+	}
+	res, err := a.doWith(ctx, client, http.MethodGet, path, nil, "")
 	if err != nil {
 		return nil, err
 	}

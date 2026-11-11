@@ -560,10 +560,9 @@ const AdminActionHook = "admin.action"
 // The id is the row's PRIMARY KEY, as text, from your own table. Nilda read it out of the row it showed;
 // it never invents one and never sends you a row you did not declare a page for.
 //
-// What you are NOT told is who pressed it: the press carries the page, the button and the row, and nothing
-// about the person — so a refund's own record cannot say who refunded it (a limit Core records in its known
-// issues, as it does for abilities). Who MAY press it is Core's to decide: a person holding `plugin.manage` or
-// your plugin's own `plugin.<key>.configure`.
+// Who pressed it is CallOf(ctx).ActorUserID, the person's Core user id (v0.62.0; "" from an older Core) — keep it
+// on what the action changed ("refunded by"). Who MAY press it is Core's to decide: a person holding `plugin.manage`
+// or your plugin's own `plugin.<key>.configure`.
 type AdminAction struct {
 	Page   string `json:"page"`
 	Action string `json:"action"`

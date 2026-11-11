@@ -210,7 +210,7 @@ func putAttr(out map[string]any, group string, a slog.Attr) {
 	case time.Time:
 		out[key] = v.Format(time.RFC3339Nano)
 	default:
-		out[key] = a.Value.Any()
+		out[key] = redactForLog(a.Value.Any())
 	}
 }
 

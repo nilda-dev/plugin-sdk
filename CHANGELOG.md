@@ -8,6 +8,59 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.62.0 — 2026-11-11 (security: only Core's proxy reaches a route, payment tokens never reach the log, arguments held to their schema, who acted)
+
+The fixes of the SDK review of 2026-11-11. All additive; tag at once (docs/RELEASE_TRAIN.md rule 2: a security fix).
+
+- ONLY CORE'S PROXY REACHES A ROUTE. The resident server listens on loopback, which every process on the machine can
+  dial — another plugin included — with `X-Nilda-User` naming anybody, and `CurrentUser` believed it. Contract:
+  `InitRequest.route_key` (field 14), a secret Core makes per launch and sends on every request it proxies, in
+  `X-Nilda-Route-Key` (`RouteKeyHeader`). `StartHTTP` now wraps the handler in `GuardRoute`, which answers 403 to a
+  request without that exact key (constant-time) and removes the header before the handler runs; wrap your own server
+  in `GuardRoute`. A Core that sends no key changes nothing. NEEDS CORE: generate the key, send it at Init, set it on
+  every proxied request and strip a client's copy.
+- ROUTE BODIES ARE BOUNDED. `StartHTTP` cuts a request body at `DefaultMaxRequestBody` (32 MiB) and keeps its 60-second
+  `DefaultHTTPWriteTimeout`; `StartHTTPWith(h, HTTPOptions{MaxBodyBytes, WriteTimeout})` chooses others. A handler
+  that streams a long download lifts its own response's deadline (`http.NewResponseController(w).SetWriteDeadline`).
+  A BEHAVIOUR CHANGE on rebuilding: a route that takes uploads over 32 MiB must now say so with `StartHTTPWith`.
+  Call `StartHTTP` inside your Init (the route key arrives with it); `GuardRoute` around a handler `StartHTTP` already
+  guards is harmless.
+- A PAID DOWNLOAD IS NO LONGER CUT AT 30 SECONDS. `API.MediaFile` reads the bytes on a client with no total timeout;
+  the caller's ctx bounds it. `http.Client.Timeout` covers the body, so a large file read slowly always stopped.
+- PAYMENT TOKENS NEVER REACH THE LOG. `PaymentCredential`, `PaymentSaved`, `PaymentSavedToken`, `PaymentForgetRequest`
+  and `ClientAction` printed `[redacted]` through fmt, but the logger writes JSON from the fields: logging a
+  `PaymentStartRequest` wrote the saved card's token and the client secret in clear. The logger now writes each as its
+  String at any depth and every other value as before.
+- A CONTRACT REFUSAL NEVER QUOTES THE VALUE. `ContractMethod.ValidateInput` / `ValidateOutput` (and so `Services.Call`
+  and `DispatchServiceHook`) said "type: <the value> has type …" — an owner's application password in a site.reader
+  start, a buyer's address in a carrier's rates, into Core's log. They now say where and which rule, never the value.
+- A VISITOR TOOL'S ARGUMENTS, AND AN ABILITY'S A MODEL WROTE, ARE HELD TO ITS `InputSchema`. Serve compiles each at Init
+  and refuses a call that does not match, as the plugin's answer, before `Run` or `HandleHook` sees it: every visitor
+  tool call, and an ability call whose `CallerKind` is `ai` or `mcp`. Core's importer and a person's own press are not
+  held (Core's own code builds those bodies). No arguments is `{}`. A schema the SDK cannot compile is logged and its
+  calls pass, as before. Core (from the release pinning v0.62.0) holds a visitor tool's arguments too, and like an
+  ability's it refuses a top-level argument the schema does not name.
+- THE DATASTORE POOL. `LimitDatastorePool(db)` holds a pool opened on `Core.DatastoreDSN` to `DatastoreMaxConns` (2);
+  `database/sql` opens without a limit, and Core caps the plugin's role at 20 connections, so an unbounded pool fails
+  its own calls under load. The guide says the rest: ctx on every query, no transaction held across a call to Core,
+  placeholders only.
+- `NormalizePrivacyPhone` reads every script's decimal digits (`۰۹۱۲…`, `٠٩١٢…` are `0912…`). It kept ASCII only, so a
+  number typed on a Persian or Arabic keyboard normalised to "" and was never exported nor erased. Core normalises with
+  this function, so it follows when its pin moves. A BEHAVIOUR CHANGE for a plugin that stores the normal form: a row
+  stored from non-ASCII digits held "" and matches only once it is normalised again.
+- `NewOIDCClient` refuses an issuer, a token endpoint or an authorization endpoint that is not https (a loopback host
+  excepted, for tests): the token endpoint receives the client secret, the code and the PKCE verifier.
+- WHO ACTED. `CallInfo.ActorUserID` (contract `HookRequest.actor_user_id`, field 9): the Core user id of the person a
+  door acted for — who pressed a row action or saved a form, who asked the assistant or holds the connected AI app's
+  grant, who ran Core's importer. Set by Core from the session, never from the payload; an id only. Empty on Core's
+  own hooks, service-desk calls and visitors' calls. A plugin can now record who refunded an order.
+- `VisitorCall.VisitorKey`: Core's daily, per-plugin hash of a visitor-tool caller's address, as `VisitorKey(r)` reads
+  on a route. Limit by it instead of `IP`, which Core still sends until the plugins limiting by it have moved.
+- Said where an author reads it: `Core.Trash` failing means undo your own mark; `IsFirstRun` is true on a reinstall too,
+  so seed without overwriting; `AddressSuggestLimiter` is keyed by `VisitorKey`, not a cookie alone; `ShopOrder.Email`
+  is for delivering the order, never for an ad network without the order's consent; what §6 of the guide means for a
+  route and for egress.
+
 ## v0.61.0 — 2026-11-11 (the shop's order events with their money and the buyer's consent — the shop's door D1)
 
 - THE SHOP'S ORDER EVENTS (door D1, the shop's plan 2026-11-05 §1J; `shopevents.go`, `docs/SHOP_EVENTS.md`). EXPERIMENTAL:

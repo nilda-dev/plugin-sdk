@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"slices"
@@ -111,6 +112,9 @@ func (c *OIDCClient) Discover(ctx context.Context) error {
 	if c.clientID == "" || c.clientSecret == "" {
 		return errors.New("oidc: no client id or secret configured")
 	}
+	if err := oidcSecureURL("issuer", c.issuer); err != nil {
+		return err
+	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 		c.issuer+"/.well-known/openid-configuration", nil)
@@ -139,6 +143,14 @@ func (c *OIDCClient) Discover(ctx context.Context) error {
 	}
 	if meta.AuthorizeURL == "" || meta.TokenURL == "" {
 		return errors.New("oidc: the discovery document names no authorization or token endpoint")
+	}
+	// The token endpoint receives the client secret, the code and the PKCE verifier; the authorization endpoint is where
+	// a person types their password. Neither travels in clear.
+	if err := oidcSecureURL("token endpoint", meta.TokenURL); err != nil {
+		return err
+	}
+	if err := oidcSecureURL("authorization endpoint", meta.AuthorizeURL); err != nil {
+		return err
 	}
 	c.meta = &meta
 	return nil
@@ -264,4 +276,28 @@ func (c *OIDCClient) Exchange(ctx context.Context, req AuthCompleteRequest) (Aut
 		return AuthAssertion{}, errors.New("oidc: the provider returned no id_token")
 	}
 	return AuthAssertion{IDToken: out.IDToken}, nil
+}
+
+// oidcSecureURL refuses an address that is not https — the issuer an owner typed, or an endpoint its document names.
+// Plain http is allowed to a loopback host only, for a provider on the developer's own machine and for tests. An
+// "http://idp.intra" issuer sent the client secret, the authorization code and the PKCE verifier in clear, and let the
+// network answer the discovery document (the 2026-11-11 review of the SDK, finding 16).
+func oidcSecureURL(what, raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return fmt.Errorf("oidc: the %s %q is not an absolute URL", what, raw)
+	}
+	switch u.Scheme {
+	case "https":
+		return nil
+	case "http":
+		host := u.Hostname()
+		if host == "localhost" {
+			return nil
+		}
+		if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+			return nil
+		}
+	}
+	return fmt.Errorf("oidc: the %s %q is not https; a sign-in sends secrets to it", what, raw)
 }

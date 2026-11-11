@@ -103,7 +103,18 @@ type InitRequest struct {
 	// Sent because asking Core for it from Init needs a token the plugin may not hold, and because a webhook
 	// address registered at a processor is useless the day the domain changes. Core RESTARTS a plugin that has a
 	// route when the address changes, so a running plugin always holds the current one — as with its settings.
-	SiteUrl       string `protobuf:"bytes,13,opt,name=site_url,json=siteUrl,proto3" json:"site_url,omitempty"`
+	SiteUrl string `protobuf:"bytes,13,opt,name=site_url,json=siteUrl,proto3" json:"site_url,omitempty"`
+	// A secret Core makes fresh for every launch of a plugin that has a route, and sends on EVERY request its reverse
+	// proxy forwards to the plugin's resident HTTP server, in the header X-Nilda-Route-Key. Empty from a Core that does
+	// not send one, and for a plugin with no route.
+	//
+	// Sent because the resident server listens on a loopback port, and a loopback port is reachable by every process on
+	// the machine — another plugin included, which runs as the same operating-system user. Without it, such a process
+	// could call the server directly with X-Nilda-User set to anybody, and the plugin would believe it: the proxy strips
+	// a CLIENT's X-Nilda-* headers, but a caller that skips the proxy is not a client of it. With it, a request that does
+	// not carry this exact value did not come through Core, and the Go SDK refuses it (nilda.StartHTTP, nilda.GuardRoute)
+	// before any handler reads a header. A plugin in another language compares it in constant time and answers 403.
+	RouteKey      string `protobuf:"bytes,14,opt,name=route_key,json=routeKey,proto3" json:"route_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -225,6 +236,13 @@ func (x *InitRequest) GetRoutePrefix() string {
 func (x *InitRequest) GetSiteUrl() string {
 	if x != nil {
 		return x.SiteUrl
+	}
+	return ""
+}
+
+func (x *InitRequest) GetRouteKey() string {
+	if x != nil {
+		return x.RouteKey
 	}
 	return ""
 }
@@ -578,7 +596,13 @@ type HookRequest struct {
 	// Which door Core took this call through, set by Core's own code and never from the payload (v0.53.0): "ai" (the
 	// site's assistant), "mcp" (a connected AI app or the connector REST invoke), "importer" (Core's importer),
 	// "owner_ui" (a person's own press). Empty from a Core that does not say, and on Core's own hooks: fail closed.
-	CallerKind    string `protobuf:"bytes,8,opt,name=caller_kind,json=callerKind,proto3" json:"caller_kind,omitempty"`
+	CallerKind string `protobuf:"bytes,8,opt,name=caller_kind,json=callerKind,proto3" json:"caller_kind,omitempty"`
+	// The Core user id of the PERSON a door acted for: who pressed a row action or saved a form, who asked the site's
+	// assistant or holds the connected AI app's grant, who ran an import (plugin-sdk v0.62.0). Set by Core's own code from
+	// the session, never from the payload; empty on Core's own hooks, on a service-desk call and on a visitor's call. An id
+	// only — never a name or an address — the same id a route's X-Nilda-User carries, so a plugin can record who refunded
+	// an order or apply a rule of its own per person.
+	ActorUserId   string `protobuf:"bytes,9,opt,name=actor_user_id,json=actorUserId,proto3" json:"actor_user_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -665,6 +689,13 @@ func (x *HookRequest) GetViaAssistant() bool {
 func (x *HookRequest) GetCallerKind() string {
 	if x != nil {
 		return x.CallerKind
+	}
+	return ""
+}
+
+func (x *HookRequest) GetActorUserId() string {
+	if x != nil {
+		return x.ActorUserId
 	}
 	return ""
 }
@@ -1754,7 +1785,7 @@ var File_contract_plugin_proto protoreflect.FileDescriptor
 
 const file_contract_plugin_proto_rawDesc = "" +
 	"\n" +
-	"\x15contract/plugin.proto\x12\x0fnilda.plugin.v2\"\xde\x03\n" +
+	"\x15contract/plugin.proto\x12\x0fnilda.plugin.v2\"\xfb\x03\n" +
 	"\vInitRequest\x12\x1d\n" +
 	"\n" +
 	"plugin_key\x18\x01 \x01(\tR\tpluginKey\x12#\n" +
@@ -1772,7 +1803,8 @@ const file_contract_plugin_proto_rawDesc = "" +
 	" \x01(\fR\fsettingsJson\x12)\n" +
 	"\x10previous_version\x18\v \x01(\tR\x0fpreviousVersion\x12!\n" +
 	"\froute_prefix\x18\f \x01(\tR\vroutePrefix\x12\x19\n" +
-	"\bsite_url\x18\r \x01(\tR\asiteUrl\"\x8f\x02\n" +
+	"\bsite_url\x18\r \x01(\tR\asiteUrl\x12\x1b\n" +
+	"\troute_key\x18\x0e \x01(\tR\brouteKey\"\x8f\x02\n" +
 	"\fInitResponse\x12\x1d\n" +
 	"\n" +
 	"route_addr\x18\x01 \x01(\tR\trouteAddr\x12\x14\n" +
@@ -1799,7 +1831,7 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"\acallers\x18\b \x03(\tR\acallers\"2\n" +
 	"\bSchedule\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
-	"\x04cron\x18\x02 \x01(\tR\x04cron\"\xfd\x01\n" +
+	"\x04cron\x18\x02 \x01(\tR\x04cron\"\xa1\x02\n" +
 	"\vHookRequest\x12\x12\n" +
 	"\x04hook\x18\x01 \x01(\tR\x04hook\x12\x18\n" +
 	"\apayload\x18\x02 \x01(\fR\apayload\x12\x1d\n" +
@@ -1810,7 +1842,8 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"\x06caller\x18\x06 \x01(\tR\x06caller\x12#\n" +
 	"\rvia_assistant\x18\a \x01(\bR\fviaAssistant\x12\x1f\n" +
 	"\vcaller_kind\x18\b \x01(\tR\n" +
-	"callerKind\"(\n" +
+	"callerKind\x12\"\n" +
+	"\ractor_user_id\x18\t \x01(\tR\vactorUserId\"(\n" +
 	"\fHookResponse\x12\x18\n" +
 	"\apayload\x18\x01 \x01(\fR\apayload\"\xb5\x01\n" +
 	"\fEventRequest\x12\x12\n" +

@@ -41,6 +41,11 @@ type API struct {
 	token   string
 	scopes  []string
 	http    *http.Client
+	// stream is the client for a response read as a stream (MediaFile): the same transport and NO total timeout, so a
+	// file a buyer downloads slowly is not cut at 30 seconds — what bounds it is the caller's ctx. http.Client.Timeout
+	// covers reading the body too, so a paid download through the 30-second client stopped at 30 seconds, every time,
+	// on any line slow enough (the 2026-11-11 review of the SDK, finding 8).
+	stream *http.Client
 
 	// maxRetries bounds automatic re-attempts of a retryable failure (429, 5xx, a dropped connection).
 	maxRetries int
@@ -85,11 +90,23 @@ func newAPI(baseURL, token string, scopes []string) *API {
 	if baseURL == "" || token == "" {
 		return nil
 	}
+	transport := NewTransport(nil)
+	// The stream client has no total timeout, so it is bounded by its ctx alone — and a caller who passes one with no
+	// deadline must still not wait for ever on a Core that never answers. So its transport waits at most this long for
+	// the answer to START (the headers); the body then takes as long as it takes.
+	streamBase, _ := http.DefaultTransport.(*http.Transport)
+	var stream http.RoundTripper = transport
+	if streamBase != nil {
+		st := streamBase.Clone()
+		st.ResponseHeaderTimeout = 30 * time.Second
+		stream = NewTransport(st)
+	}
 	return &API{
 		baseURL:    strings.TrimRight(baseURL, "/"),
 		token:      token,
 		scopes:     scopes,
-		http:       &http.Client{Timeout: 30 * time.Second, Transport: NewTransport(nil)},
+		http:       &http.Client{Timeout: 30 * time.Second, Transport: transport},
+		stream:     &http.Client{Transport: stream},
 		maxRetries: defaultMaxRetries,
 	}
 }
@@ -242,6 +259,11 @@ var errNoAPI = errors.New("nilda: this plugin has no API access — declare a ca
 // do sends one attempt with an already-encoded body, so a retry replays exactly the same bytes. contentType
 // labels a non-nil body: JSON for everything but an upload, whose multipart boundary is part of its type.
 func (a *API) do(ctx context.Context, method, path string, payload []byte, contentType string) (*http.Response, error) {
+	return a.doWith(ctx, a.http, method, path, payload, contentType)
+}
+
+// doWith is do on a chosen client: a.http for an answer read whole, a.stream for one read as a stream.
+func (a *API) doWith(ctx context.Context, client *http.Client, method, path string, payload []byte, contentType string) (*http.Response, error) {
 	if a == nil {
 		return nil, errNoAPI
 	}
@@ -266,7 +288,7 @@ func (a *API) do(ctx context.Context, method, path string, payload []byte, conte
 	if id := CallOf(ctx).RequestID; id != "" {
 		req.Header.Set(CallHeader, id)
 	}
-	return a.http.Do(req)
+	return client.Do(req)
 }
 
 // JSON performs a request and decodes a successful response into out (which may be nil to discard it).

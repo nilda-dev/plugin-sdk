@@ -197,6 +197,9 @@ const ContractSiteReader
 const ContractStable
 const CredentialStripeConfirmationToken
 const CredentialStripeSPT
+const DatastoreMaxConns
+const DefaultHTTPWriteTimeout
+const DefaultMaxRequestBody
 const DefaultServicePoints
 const DefaultShopEventsRead
 const DeliverableKey
@@ -578,6 +581,7 @@ const RiskHighest
 const RiskNormal
 const RiskNotAssessed
 const RiskUnknown
+const RouteKeyHeader
 const SchemaBackOrder
 const SchemaDiscontinued
 const SchemaInStock
@@ -888,6 +892,7 @@ field CalendarShade.Label string json:label
 field CalendarShade.Lane string json:lane
 field CalendarShade.Start string json:start
 field CalendarShade.StartDate string json:start_date
+field CallInfo.ActorUserID string
 field CallInfo.Caller string
 field CallInfo.CallerKind string
 field CallInfo.Contract string
@@ -1279,6 +1284,8 @@ field FormSection.Key string json:key
 field FormSection.Label string json:label
 field FormSection.Side bool json:side
 field GRPCPlugin.Impl contract.PluginServiceServer
+field HTTPOptions.MaxBodyBytes int64
+field HTTPOptions.WriteTimeout time.Duration
 field HeadMeta.Canonical string json:canonical
 field HeadMeta.Description string json:description
 field HeadMeta.OGDescription string json:og_description
@@ -2133,6 +2140,7 @@ field VisitorCall.Args json.RawMessage json:args
 field VisitorCall.IP string json:ip
 field VisitorCall.Path string json:path
 field VisitorCall.UserAgent string json:user_agent
+field VisitorCall.VisitorKey string json:visitor_key
 field VisitorTool.Description string
 field VisitorTool.Effect VisitorEffect
 field VisitorTool.InputSchema json.RawMessage
@@ -2228,10 +2236,12 @@ func FieldTypes() ([]string)
 func FilterPeriods() ([]string)
 func FormFieldTypes() ([]string)
 func FormatMinor(int64, string) (string, bool)
+func GuardRoute(http.Handler) (http.Handler)
 func HTTPClient(time.Duration) (*http.Client)
 func HostPluginMap() (map[int]plugin.PluginSet)
 func LabelIn(map[string]string, string) (string)
 func LicenceStates() ([]LicenceState)
+func LimitDatastorePool(*sql.DB) (*sql.DB)
 func LocaleDirection(string) (string)
 func Log() (*slog.Logger)
 func MailAddressBlocked(error) (bool)
@@ -2276,6 +2286,7 @@ func ShowPricesIncludingTax(context.Context) (bool)
 func ShowsPricesIncludingTax(*http.Request) (bool)
 func SplitServiceHook(string) (string, string, bool)
 func StartHTTP(http.Handler) (string, error)
+func StartHTTPWith(http.Handler, HTTPOptions) (string, error)
 func Supports([]string, string) (bool)
 func SupportsOf(PaymentMethod) ([]string)
 func TestHintFor(map[string]string, string) (string)
@@ -2753,6 +2764,7 @@ type FormField
 type FormReplacement
 type FormSection
 type GRPCPlugin
+type HTTPOptions
 type Handler
 type HeadMeta
 type HeadlineMetric

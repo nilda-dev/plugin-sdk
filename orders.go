@@ -74,7 +74,10 @@ type ShopOrder struct {
 	// delivery is owed.
 	Status string `json:"status"`
 	Paid   bool   `json:"paid"`
-	// Email is the buyer's; Locale the language the shop writes to them in.
+	// Email is the buyer's; Locale the language the shop writes to them in. Email is here to DELIVER what the order
+	// bought — a licence key, a ticket — and for nothing else: never send it, hashed or not, to an ad network or an
+	// analytics service unless the order's consent says the buyer allowed it (shop.events/v1's
+	// ConsentSnapshot.AdUserDataGranted).
 	Email  string `json:"email"`
 	Locale string `json:"locale"`
 	// Currency is the order's (ISO 4217); TotalMinor what it cost, in minor units.

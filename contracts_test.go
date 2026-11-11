@@ -641,3 +641,28 @@ var shopAttributeValuesV1 = contractDef{
 
 const valuesAgentReason = "a plugin's value is set by the buyer at checkout, by the owner on the shop's screens and abilities, " +
 	"or by its own plugin through this door; an assistant writing here would write under no plugin's key"
+
+// TestASchemaRefusalNeverQuotesTheValue is the 2026-11-11 review's finding 5: the validator's error carried the
+// offending value — an owner's password into Core's log.
+func TestASchemaRefusalNeverQuotesTheValue(t *testing.T) {
+	c, ok := ContractNamed("site.reader/v1")
+	if !ok {
+		t.Fatal("no site.reader/v1")
+	}
+	m, _ := c.Method("start")
+	for _, raw := range []string{`{"input":"hunter2-SECRET","source":"wp"}`, `{"source":"hunter2-SECRET-a","input":{}, "locale": 5}`} {
+		err := m.ValidateInput([]byte(raw))
+		if err == nil {
+			t.Fatalf("%s passed", raw)
+		}
+		if strings.Contains(err.Error(), "hunter2") || strings.Contains(err.Error(), " 5 ") {
+			t.Fatalf("the refusal quotes the value: %v", err)
+		}
+		if !strings.Contains(err.Error(), "/properties/") {
+			t.Fatalf("the refusal does not say where: %v", err)
+		}
+	}
+	if err := m.ValidateInput([]byte(`{}`)); err == nil || !strings.Contains(err.Error(), "required") {
+		t.Fatalf("a missing property is not named as one: %v", err)
+	}
+}

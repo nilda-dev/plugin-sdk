@@ -221,9 +221,41 @@ func validateAgainst(r *jsonschema.Resolved, raw []byte, method, what string) er
 		return fmt.Errorf("nilda: the %s of %s is not JSON: %w", what, method, err)
 	}
 	if err := r.Validate(v); err != nil {
-		return fmt.Errorf("nilda: the %s of %s does not match its contract: %w", what, method, err)
+		return fmt.Errorf("nilda: the %s of %s does not match its contract: %s", what, method, schemaFailure(err))
 	}
 	return nil
+}
+
+// schemaRefusal reads the validator's own sentence: the schema paths it walked, the keyword that failed, its words.
+var schemaRefusal = regexp.MustCompile(`validating (/\S*|root): `)
+
+// schemaKeyword is a JSON Schema keyword, the first word of the validator's last clause.
+var schemaKeyword = regexp.MustCompile(`^([a-zA-Z]+): `)
+
+// schemaFailure says WHERE a value broke its schema and WHICH rule, and never the value. The validator's own error
+// quotes the instance ("type: hunter2 has type "string", want "object""), and this error travels as the call's
+// answer to Core and into logs — with an owner's application password in site.reader's start, a buyer's address in a
+// carrier's rates (the 2026-11-11 review of the SDK, finding 5). The path and the keyword are the schema's, not the
+// caller's; "required" keeps its words, which name the schema's own properties.
+func schemaFailure(err error) string {
+	msg := err.Error()
+	path := "/"
+	rest := msg
+	if all := schemaRefusal.FindAllStringSubmatchIndex(msg, -1); len(all) > 0 {
+		last := all[len(all)-1]
+		if p := msg[last[2]:last[3]]; p != "root" {
+			path = p
+		}
+		rest = msg[last[1]:]
+	}
+	m := schemaKeyword.FindStringSubmatch(rest)
+	if m == nil {
+		return "at " + path
+	}
+	if m[1] == "required" {
+		return "at " + path + ": " + strings.TrimSpace(rest)
+	}
+	return "at " + path + ": it breaks the schema's \"" + m[1] + "\" rule"
 }
 
 // loadContracts reads and checks every contracts/**/contract.json in fsys.

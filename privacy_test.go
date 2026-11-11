@@ -291,3 +291,21 @@ func TestAnOlderCoreSendsNoPhones(t *testing.T) {
 		t.Errorf("a request without phones writes a phones key: %s (%v)", b, err)
 	}
 }
+
+// TestAPhoneTypedInPersianOrArabicDigitsIsTheSameNumber is the 2026-11-11 review's finding 9.
+func TestAPhoneTypedInPersianOrArabicDigitsIsTheSameNumber(t *testing.T) {
+	for _, in := range []string{"09123456789", "۰۹۱۲ ۳۴۵ ۶۷۸۹", "٠٩١٢٣٤٥٦٧٨٩", "０９１２３４５６７８９"} {
+		if got := NormalizePrivacyPhone(in); got != "09123456789" {
+			t.Errorf("NormalizePrivacyPhone(%q) = %q, want 09123456789", in, got)
+		}
+	}
+	if got := NormalizePrivacyPhone("۰۰۴۳ ۶۶۰ ۱۲۳۴۵۶۷"); got != "436601234567" {
+		t.Errorf("a leading 00 in Persian digits: %q", got)
+	}
+	if !(PrivacyRequest{Phones: []string{"09123456789"}}).AskedPhone("۰۹۱۲۳۴۵۶۷۸۹") {
+		t.Error("a row in Persian digits is not matched by the request")
+	}
+	if d, ok := decimalDigit('𝟗'); !ok || d != 9 {
+		t.Errorf("a mathematical digit nine reads %d %v", d, ok)
+	}
+}

@@ -42,6 +42,11 @@ const (
 // the ONLY way traffic reaches this server in production, and it strips every inbound X-Nilda-* header
 // before asserting its own — a client cannot forge this by sending the header itself.
 //
+// A PROCESS on the same machine could, by dialling the loopback port and skipping the proxy. StartHTTP's guard
+// (GuardRoute) refuses such a request before your handler runs, from a Core that sends a route key at Init; if you
+// serve with your own http.Server, wrap its handler in GuardRoute, or every header this package reads is the
+// caller's to choose.
+//
 // ok is false for an anonymous visitor, which is most public/storefront traffic — not an error. There is
 // nothing wrong with an anonymous request; this simply has nothing to report about who it is.
 //
