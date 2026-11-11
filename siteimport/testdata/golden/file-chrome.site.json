@@ -23,7 +23,8 @@
       "source_id": "#media:41",
       "url": "{{home}}/wp-content/uploads/harbour.png",
       "alt": "Harbour",
-      "title": "Harbour"
+      "title": "Harbour",
+      "uploaded_at": "2026-08-30T09:00:00Z"
     }
   ],
   "media_policy": {
@@ -134,7 +135,8 @@
       "body_html": "<!-- wp:paragraph --><p>Before.</p><!-- /wp:paragraph --><!-- wp:block {\"ref\":601} /--><!-- wp:paragraph --><p>After.</p><!-- /wp:paragraph -->",
       "source_status": "published",
       "published_at": "2026-09-01T09:00:00Z",
-      "author_key": "admin"
+      "author_key": "admin",
+      "modified_at": "2026-09-01T09:00:00Z"
     },
     {
       "source_id": "103",
@@ -145,7 +147,8 @@
       "body_html": "<!-- wp:paragraph --><p>A pattern that was deleted.</p><!-- /wp:paragraph --><!-- wp:block {\"ref\":699} /-->",
       "source_status": "published",
       "published_at": "2026-09-02T09:00:00Z",
-      "author_key": "admin"
+      "author_key": "admin",
+      "modified_at": "2026-09-02T09:00:00Z"
     },
     {
       "source_id": "201",
@@ -158,7 +161,8 @@
       "published_at": "2026-09-01T09:00:00Z",
       "menu_order": 1,
       "author_key": "admin",
-      "template": "page-wide"
+      "template": "page-wide",
+      "modified_at": "2026-09-01T09:00:00Z"
     },
     {
       "source_id": "202",
@@ -169,19 +173,42 @@
       "source_status": "published",
       "published_at": "2026-09-01T09:00:00Z",
       "menu_order": 2,
-      "author_key": "admin"
+      "author_key": "admin",
+      "modified_at": "2026-09-01T09:00:00Z"
     }
   ],
   "not_carried": [
+    {
+      "kind": "flag",
+      "name": "comments closed",
+      "count": 4,
+      "reason": "nc_comments_closed"
+    },
     {
       "kind": "setting",
       "name": "",
       "count": 1,
       "reason": "nc_styles_file"
+    },
+    {
+      "kind": "field",
+      "name": "author profile",
+      "count": 1,
+      "reason": "nc_author_profile"
+    },
+    {
+      "kind": "field",
+      "name": "media date",
+      "count": 1,
+      "reason": "nc_media_date"
     }
   ],
   "warnings": [
     "The old site is called “Harbour Studio” with the tagline “Boats and buildings”. This import did not change your site's name — set it in Settings if you want it.",
-    "The colours, fonts and styles edited in the Site Editor are in the export file, but the theme's own files are not: connect to the live site to bring the theme with them, or import the theme's zip under Themes."
+    "An export file does not hold the site's widgets, logo, icon, front page, reading settings or redirect-manager plugin rules (Redirection, Rank Math, Yoast Premium); connect to the live site to bring the settings and Redirection's rules, and export the other plugins' lists from the plugins themselves.",
+    "4 items had their comments closed on the old site: Nilda has one switch for the comments of the whole site, so they follow that switch.",
+    "The colours, fonts and styles edited in the Site Editor are in the export file, but the theme's own files are not: connect to the live site to bring the theme with them, or import the theme's zip under Themes.",
+    "The byline of 1 author carries the name, plus the bio and website a live read finds: the photo and the user account do not come across, and an export file holds no bio or website.",
+    "1 media file comes across without the post it was attached to, which the library does not keep. A file the old site gave no usable date for is dated the import day, and a file the library already holds keeps the date it was first added."
   ]
 }

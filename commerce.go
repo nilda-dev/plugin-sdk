@@ -291,6 +291,11 @@ type CommerceProduct struct {
 	// it empty on a grid's Products, which never draws it): Core carries them as data so the page follows the shopper's
 	// choice — price, code, stock, photo — before anything is added. At most MaxCommerceChoices (v0.58.0).
 	Choices []CommerceChoice `json:"choices,omitempty"`
+	// ChoicesComplete (v0.59.0) says Choices name EVERY combination that exists — in stock or not. Core then draws a
+	// combination Choices do not name as one the shop does not offer ("M — Unavailable", the add button off, no
+	// back-in-stock form), and keeps "Sold out" for a named one whose InStock is false. False (the default): a
+	// combination not named is drawn as before. Needs Choices.
+	ChoicesComplete bool `json:"choices_complete,omitempty"`
 	// Facts are the product's machine values — a decimal amount, its ISO currency, a schema.org availability and
 	// condition, GTIN, MPN, brand — which Core writes into the page's structured data and never draws (v0.58.0).
 	Facts *CommerceFacts `json:"facts,omitempty"`

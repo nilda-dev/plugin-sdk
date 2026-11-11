@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.59.0 — unreleased (the shop's order events with their money and the buyer's consent — the shop's door D1)
+## v0.61.0 — unreleased (the shop's order events with their money and the buyer's consent — the shop's door D1)
 
 - THE SHOP'S ORDER EVENTS (door D1, the shop's plan 2026-11-05 §1J; `shopevents.go`, `docs/SHOP_EVENTS.md`). EXPERIMENTAL:
   contract `shop.events/v1` (`ContractShopEvents`, `"status": "experimental"`) — its shape may still change in a minor
@@ -35,6 +35,55 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
     every signal granted or denied (`Validate` refuses unknown from Core); ok false with no header or a malformed one.
   - `nildatest.NewShopEvents()`: a fake shop feed — `Record` (numbers and checks an event), `Deliver` (to a plugin's
     HandleEvent), `Events`, and `events.read` through a `Services` desk.
+## v0.60.0 — 2026-11-10 (a request's `<`, `>` and `&` go on the wire as themselves; site import: an author's bio and link, a media item's upload date and an item's modified date — snapshot version 5)
+
+This section holds two things that would have been two unreleased headings: the release train allows one (`release_train_test.go`), and
+nothing between v0.59.0 and the next tag was tagged. The tag is the owner's.
+
+- SNAPSHOT VERSION 5: `siteimport.Author` gains `Bio` and `Link` (`json:"bio,omitempty"`, `json:"link,omitempty"`), after `SourceID`.
+  `SiteReaderSnapshotVersion` is 5. Core compares the number for EQUALITY (`readerjob.go`, `readersources.go`): a reader built against
+  this SDK names 5 and a Core that reads only up to 4 refuses it as a whole, and a Core that reads 1 to 5 refuses a reader still
+  naming 4 — so a plugin and a Core move to the same SDK tag together. Core's snapshot (the file a live read is kept in) reads
+  versions 1 to 5; an author written before this field has no bio and no link. An author without them writes exactly the bytes
+  version 4 wrote, so every golden that predates the field still reproduces. A reader sets `Bio` only when the source has a
+  biography (WordPress REST `/users` `description`) and `Link` only when it has the author's own website (`url`); an export file has
+  neither. Bound them: a bio of at most 2,000 characters, a link of at most 2,048 bytes, no control and no format characters (Unicode Cc and Cf: a right-to-left override or a zero-width space can make a bio or an address read as something it is not). No slug and no avatar
+  (a guest author has no slug; the avatar is a file, which is a media read of its own).
+- SNAPSHOT VERSION 5, a media file's upload date: `siteimport.MediaItem` gains `UploadedAt *time.Time` (`json:"uploaded_at,omitempty"`),
+  after `Private`. The snapshot version stays 5 (this is the same unreleased version as the author's bio and link). A reader sets it
+  from the source's own UTC date for the file (WordPress export `post_date_gmt` of the attachment, REST `date_gmt`) and leaves it nil
+  when the source does not give a UTC one: a zone-less local date is not used, as the zone is a guess. A date before 1990 or more than
+  a day ahead of the reader's clock is dropped. A file without a date writes exactly the bytes it wrote before, and a snapshot
+  written before this field has no dates. Core dates a file it ADDS to the library; a file the library already holds (identical
+  bytes) keeps the date it had. The post a file was attached to is still not carried (Nilda's library has no such link).
+- EVERYTHING THE SDK SENDS CORE IS ENCODED WITHOUT HTML ESCAPING (`wire.go`). v0.58.0 did it for a provider's answer to a service
+  hook; the plugin-side direction still used `json.Marshal`, so a request body (`API.JSON`, `API.Post` and the other helpers that
+  encode a value) and a service call's input (`Services.Call`, also nested into the request) wrote each `<`, `>` and `&` as a
+  six-byte escape, and Core's caps on a request, which count the bytes it reads, were reached at a fraction of the real size
+  (a WordPress page body: about 1.8 bytes a byte, tag-dense HTML up to six). One encoder, `encodeWire`, now serves the answer, the
+  request body and the call input: `json.Marshal`'s encoding (compact, sorted keys, a raw member compacted) with HTML escaping
+  off, no trailing newline, U+2028/U+2029 still escaped. No exported name changes (`surface.txt` untouched). A body that is a
+  `[]byte` or an `io.Reader` is the caller's own bytes and is not re-encoded.
+- COMPATIBLE BOTH WAYS: `<` and `\u003c` are the same character to every JSON decoder, so an older Core reads a newer plugin's
+  bytes and a newer Core reads an older plugin's with no change on either side; `wire_request_test.go` decodes both forms through
+  whole-value, struct, number-preserving and token-by-token decoders and the SDK's own service-answer decode, and holds the sizes.
+- SNAPSHOT VERSION 5, an item's modified date: `siteimport.Item` gains `ModifiedAt *time.Time` (`json:"modified_at,omitempty"`), after
+  `Template`. The snapshot version stays 5 (the same unreleased version as the author's bio and link). A reader sets it from the source's
+  own UTC date (WordPress export `post_modified_gmt`, REST `modified_gmt`) and leaves it nil when the source gives no UTC one: a zone-less
+  `post_modified` / `modified` is not used, as the zone is a guess. A reader hands the date as it reads it; Core drops one before 1990 or
+  more than a day ahead of its own clock, and raises one earlier than the item's publish date to that date. An item without a date writes exactly the bytes it wrote
+  before, and a snapshot written before this field has no dates. Core keeps it beside the item's own edit time (`content.source_modified_at`)
+  and tells a search engine it as the item's modified date until the owner first edits the item. The report's sentence for a lost modified
+  date (`nc_modified_date`) is retired: the date is carried.
+
+## v0.59.0 — 2026-11-10 (a list row's own state; a hidden form field; complete choices — commerce plan CONTRACT_GAPS_2026-11-10)
+
+- `AdminPage.row_state` (`ListRowState`: `columns`, `actions`), the hook `admin.list.rows` (`AdminListRowsHook`,
+  `AdminListRowsRequest/Result`, `AdminListRow`, `DispatchAdminListRows`) and `MaxRowStateColumns`: cells and buttons
+  worked out per row. An older Core ignores it and draws the page as before.
+- `FormField.hidden`: a value the form carries and nobody sees. An older Core ignores it and draws a normal box.
+- `CommerceProduct.choices_complete`: `Choices` name every combination; `Validate` refuses it without choices. An older
+  Core ignores it.
 
 ## v0.58.0 — 2026-11-06 (item lines on a payment — commerce plan 10.15; a plugin's own fields in the shop — the shop's door D2; write commands and experimental contracts — the shop's door D0; hold the money, then capture or void it — commerce plan 10.1; merchant-initiated charges and a card at a reader — the shop's door D5; express wallet buttons — commerce plan 10.2; the processor's risk verdict — commerce plan 10.3; paperless return labels — commerce plan 10.9b; service points — commerce plan 10.9; the storefront's release 1 — commerce plan 1C; a plugin's own licence — commerce 02-PRICING C4; a service answer's `<`, `>` and `&` unescaped on the wire — site import, option A)
 

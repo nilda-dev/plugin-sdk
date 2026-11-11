@@ -9,6 +9,7 @@ const AdminActionHook
 const AdminCalendarHook
 const AdminFormLoadHook
 const AdminFormSaveHook
+const AdminListRowsHook
 const AdminPageCalendar
 const AdminPageList
 const AdminPageReport
@@ -479,6 +480,7 @@ const MaxPriceGroupLength
 const MaxPrivacyRecords
 const MaxRecommendationWhy
 const MaxRecommendations
+const MaxRowStateColumns
 const MaxServicePoints
 const MaxSetupSteps
 const MaxShopEventsRead
@@ -756,6 +758,11 @@ field AdminFormResult.Title string json:title
 field AdminFormResult.Values map[string]any json:values
 field AdminFormResult.Version string json:version
 field AdminFormResult.Warnings []FormError json:warnings
+field AdminListRow.Actions []string json:actions
+field AdminListRow.Cells map[string]any json:cells
+field AdminListRowsRequest.IDs []string json:ids
+field AdminListRowsRequest.Page string json:page
+field AdminListRowsResult.Rows map[string]AdminListRow json:rows
 field AdminPage.Actions []RowAction json:actions
 field AdminPage.Columns []ListColumn json:columns
 field AdminPage.DefaultView string json:default_view
@@ -775,6 +782,7 @@ field AdminPage.Metrics []ReportMetric json:metrics
 field AdminPage.Mobile *PageMobile json:mobile
 field AdminPage.Order string json:order
 field AdminPage.OrderBy string json:order_by
+field AdminPage.RowState *ListRowState json:row_state
 field AdminPage.RowsPage string json:rows_page
 field AdminPage.Search []string json:search
 field AdminPage.Table string json:table
@@ -1014,6 +1022,7 @@ field CommercePreOrder.Note string json:note
 field CommercePreOrder.ShipsBy string json:ships_by
 field CommerceProduct.Badge string json:badge
 field CommerceProduct.Choices []CommerceChoice json:choices
+field CommerceProduct.ChoicesComplete bool json:choices_complete
 field CommerceProduct.Excerpt string json:excerpt
 field CommerceProduct.Extra map[string]string json:extra
 field CommerceProduct.Facts *CommerceFacts json:facts
@@ -1244,6 +1253,7 @@ field FormField.Currency string json:currency
 field FormField.Default any json:default
 field FormField.Fields []FormField json:fields
 field FormField.Help string json:help
+field FormField.Hidden bool json:hidden
 field FormField.Key string json:key
 field FormField.Label string json:label
 field FormField.Max *float64 json:max
@@ -1369,6 +1379,8 @@ field ListFilter.Key string json:key
 field ListFilter.Kind string json:kind
 field ListFilter.Label string json:label
 field ListFilter.Periods []string json:periods
+field ListRowState.Actions bool json:actions
+field ListRowState.Columns []ListColumn json:columns
 field MediaBytes.ContentType string
 field MediaBytes.Disposition string
 field MediaBytes.Item MediaItem
@@ -2195,6 +2207,7 @@ func DispatchAccount(context.Context, string, []byte, AccountHandler) ([]byte, b
 func DispatchAdminAction(context.Context, string, []byte, func(context.Context, AdminAction) (AdminActionResult, error)) ([]byte, bool, error)
 func DispatchAdminCalendar(context.Context, string, []byte, func(context.Context, AdminCalendarRequest) (AdminCalendarResult, error)) ([]byte, bool, error)
 func DispatchAdminForm(context.Context, string, []byte, func(context.Context, AdminFormRequest) (AdminFormResult, error), func(context.Context, AdminFormRequest) (AdminFormResult, error)) ([]byte, bool, error)
+func DispatchAdminListRows(context.Context, string, []byte, func(context.Context, AdminListRowsRequest) (AdminListRowsResult, error)) ([]byte, bool, error)
 func DispatchAdminReport(context.Context, string, []byte, func(context.Context, AdminReportRequest) (AdminReportResult, error)) ([]byte, bool, error)
 func DispatchAuthHook(context.Context, *Core, AuthProvider, string, []byte) ([]byte, bool, error)
 func DispatchCommerceHook(context.Context, *Core, Commerce, string, []byte) ([]byte, bool, error)
@@ -2619,6 +2632,9 @@ type AdminCalendarRequest
 type AdminCalendarResult
 type AdminFormRequest
 type AdminFormResult
+type AdminListRow
+type AdminListRowsRequest
+type AdminListRowsResult
 type AdminPage
 type AdminReportRequest
 type AdminReportResult
@@ -2756,6 +2772,7 @@ type LinkTargetProvider
 type LinkTargetsRequest
 type ListColumn
 type ListFilter
+type ListRowState
 type MediaBytes
 type MediaItem
 type Menu

@@ -549,7 +549,7 @@ var siteReaderV1 = contractDef{
 	name:   ContractSiteReader,
 	status: ContractExperimental,
 	description: "A plugin that READS another platform's site — a WordPress export file or a live WordPress, later Shopify, Wix, " +
-		"Squarespace — and hands Core's importer a neutral description of it (package siteimport, Core's snapshot version 4) in " +
+		"Squarespace — and hands Core's importer a neutral description of it (package siteimport, Core's snapshot version 5) in " +
 		"pieces; Core checks every piece, writes the site as drafts and keeps the report, the publish act and the undo (SITE_READER.md).",
 	methods: []methodDef{
 		{ContractMethod{Name: SiteReaderSources, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",

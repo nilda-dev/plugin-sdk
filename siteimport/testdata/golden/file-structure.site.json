@@ -57,7 +57,8 @@
       "source_id": "#media:41",
       "url": "{{home}}/wp-content/uploads/harbour.png",
       "alt": "Harbour",
-      "title": "Harbour"
+      "title": "Harbour",
+      "uploaded_at": "2026-08-30T09:00:00Z"
     }
   ],
   "media_policy": {
@@ -386,6 +387,14 @@
       "code": 301,
       "regex": true,
       "enabled": true
+    },
+    {
+      "source_id": "#redirect:post:202",
+      "origin": "post",
+      "from": "{{home}}/old-offer/",
+      "to": "/about/",
+      "code": 301,
+      "enabled": true
     }
   ],
   "plugins": [
@@ -454,7 +463,8 @@
         "unmapped": [
           "twitter"
         ]
-      }
+      },
+      "modified_at": "2026-09-01T09:00:00Z"
     },
     {
       "source_id": "102",
@@ -475,7 +485,8 @@
           "harbour"
         ],
         "noindex": true
-      }
+      },
+      "modified_at": "2026-09-02T09:00:00Z"
     },
     {
       "source_id": "201",
@@ -492,7 +503,8 @@
         "origin": "seopress",
         "title": "About Harbour",
         "noindex": true
-      }
+      },
+      "modified_at": "2026-09-01T09:00:00Z"
     },
     {
       "source_id": "202",
@@ -504,7 +516,8 @@
       "source_status": "published",
       "published_at": "2026-09-01T09:00:00Z",
       "menu_order": 2,
-      "author_key": "admin"
+      "author_key": "admin",
+      "modified_at": "2026-09-01T09:00:00Z"
     },
     {
       "source_id": "301",
@@ -530,7 +543,6 @@
         "gallery": [
           "41"
         ],
-        "pin": "1234",
         "related": [
           "101"
         ],
@@ -543,7 +555,8 @@
           }
         ],
         "year": "2024"
-      }
+      },
+      "modified_at": "2026-09-05T10:00:00Z"
     },
     {
       "source_id": "302",
@@ -564,10 +577,17 @@
       "body_html": "<!-- wp:paragraph --><p>A dock.</p><!-- /wp:paragraph -->",
       "source_status": "published",
       "published_at": "2026-09-07T10:00:00Z",
-      "author_key": "admin"
+      "author_key": "admin",
+      "modified_at": "2026-09-07T10:00:00Z"
     }
   ],
   "not_carried": [
+    {
+      "kind": "flag",
+      "name": "comments closed",
+      "count": 4,
+      "reason": "nc_comments_closed"
+    },
     {
       "kind": "meta",
       "name": "",
@@ -575,17 +595,11 @@
       "reason": "nc_meta_private"
     },
     {
-      "kind": "redirect",
-      "name": "",
-      "count": 1,
-      "reason": "nc_redirect_post"
-    },
-    {
       "kind": "meta",
       "name": "",
-      "count": 1,
+      "count": 2,
       "reason": "nc_meta_secret",
-      "detail": "stripe_secret_key"
+      "detail": "pin, stripe_secret_key"
     },
     {
       "kind": "meta",
@@ -648,21 +662,36 @@
       "name": "html",
       "count": 1,
       "reason": "nc_nav_block"
+    },
+    {
+      "kind": "field",
+      "name": "author profile",
+      "count": 1,
+      "reason": "nc_author_profile"
+    },
+    {
+      "kind": "field",
+      "name": "media date",
+      "count": 1,
+      "reason": "nc_media_date"
     }
   ],
   "warnings": [
     "The old site is called “Harbour Studio” with the tagline “Boats and buildings”. This import did not change your site's name — set it in Settings if you want it.",
+    "An export file does not hold the site's widgets, logo, icon, front page, reading settings or redirect-manager plugin rules (Redirection, Rank Math, Yoast Premium); connect to the live site to bring the settings and Redirection's rules, and export the other plugins' lists from the plugins themselves.",
+    "4 items had their comments closed on the old site: Nilda has one switch for the comments of the whole site, so they follow that switch.",
     "3 private plugin values (names starting with “_”) were not imported.",
     "3 custom values belong to no field group and were not imported: author_bio, plain_note, faq",
+    "2 values look like secrets (keys, tokens, passwords) and were not copied: pin, stripe_secret_key",
     "Values on ACF options pages are kept outside posts, where neither door reaches; set them again by hand.",
     "1 page-builder layout (Elementor) waits for the page-builder step; the page came across with its text.",
-    "1 value looks like a secret (a key, a token or a password) and was not copied: stripe_secret_key",
-    "1 post sent visitors elsewhere on the old site (an SEO plugin setting); here the post is served itself — add the redirect under SEO › Redirects if you still want it.",
     "The SEO plugin's site-wide title patterns and settings were not imported: set them under SEO › Settings.",
     "Yoast keeps category and tag SEO titles where neither the export file nor the WordPress API reaches; set them again on each category.",
     "Rank Math keeps its redirects where neither the export file nor the WordPress API reaches. Export the list from that plugin and add the ones you need under SEO › Redirects.",
+    "The byline of 1 author carries the name, plus the bio and website a live read finds: the photo and the user account do not come across, and an export file holds no bio or website.",
     "1 × post type “feedback” was not imported: it holds form entries or requests from people, which an import does not copy.",
     "1 navigation block of type “html” has no menu link in Nilda and was left out.",
+    "1 media file comes across without the post it was attached to, which the library does not keep. A file the old site gave no usable date for is dated the import day, and a file the library already holds keeps the date it was first added.",
     "1 × post type “product” was not imported: it waits for a later step of the migration (shop, forms or page builder).",
     "1 × post type “wpforms” was not imported: it waits for a later step of the migration (shop, forms or page builder)."
   ]

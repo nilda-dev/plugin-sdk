@@ -1565,6 +1565,23 @@ table and the values it must hold (`in`) or must not (`not_in`); a null cell rea
 a hold is set. It is a convenience of the screen and not a lock — your `admin.action` hook still checks the row,
 because the assistant presses the same buttons and a row may have changed a second ago.
 
+**Row state: a status the table cannot say** (v0.59.0). A row's status is often worked out from other tables, so no
+column holds it. Declare `row_state` on a list page and subscribe `admin.list.rows` (`nilda.AdminListRowsHook`, grant
+`admin_page`): Core asks it once per page of rows (at most 50 ids) through `nilda.DispatchAdminListRows` and draws
+`columns` as extra cells after the page's own, and, with `"actions": true`, only the row actions you name per row.
+The Go types are `nilda.ListRowState`, `nilda.AdminListRowsRequest`, `nilda.AdminListRowsResult` and `nilda.AdminListRow` (its `Actions` is sent as `[]` or `null`, never omitted). `"actions": []` means no buttons; leaving a row out (or `null`) means "no opinion". It is a convenience of the screen,
+not a lock, and an older Core draws the page as before.
+
+```json
+{ "key": "orders", "kind": "list", "table": "orders", "columns": [ … ], "actions": [ … ],
+  "row_state": { "columns": [ { "key": "status", "label": "Status", "type": "badge" } ], "actions": true } }
+```
+
+```json
+{"page":"orders","ids":["5b0c","9e21"]}
+{"rows":{"5b0c":{"cells":{"status":"processing"},"actions":["capture","cancel"]},"9e21":{"actions":[]}}}
+```
+
 ```json
 { "key": "bookings", "kind": "list", "table": "nb_bookings", "columns": [ … ],
   "actions": [ { "key": "approve", "label": "Approve", "shown_when": { "column": "status", "in": ["requested"] } } ],
@@ -3471,3 +3488,10 @@ because an arbitrary blob defeats the typed schema the seam exists to provide.
 **Structural fields.** `FieldRepeater` and `FieldGroup` take sub-fields in `WidgetField.Fields`, which is
 what makes a list-shaped widget expressible. Nesting is bounded at two levels **by Core**, not by asking
 plugins to behave: a limit a supplier is trusted to respect is not a limit.
+
+### A hidden form field (`hidden`, v0.59.0)
+
+A `nilda.FormField` with `"hidden": true` is carried by the form and never drawn: Core posts it back on save exactly as
+your load answered it (a repeater row's own id, a parent's id). It is checked like its type and may be `required`; it
+cannot be `read_only` (that is never posted), `secret`, conditional or have a default, nor be a stat, message or
+repeater. The assistant still reads and sends it. An older Core draws it as a normal box.

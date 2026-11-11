@@ -329,3 +329,65 @@ func TestEveryPeriodIsNamedOnceAndTheListFitsTheCap(t *testing.T) {
 		t.Errorf("periods = %d, cap = %d: a change here is a change to what Core and the app draw", len(seen), MaxListFilters)
 	}
 }
+
+func TestDispatchAdminListRowsRoutesOnlyItsHook(t *testing.T) {
+	if _, handled, _ := DispatchAdminListRows(context.Background(), "content.saved", nil, nil); handled {
+		t.Error("another hook must not be handled")
+	}
+	if _, handled, err := DispatchAdminListRows(context.Background(), AdminListRowsHook, []byte(`{}`), nil); !handled || err == nil {
+		t.Errorf("a nil handler must be an error: handled=%v err=%v", handled, err)
+	}
+	if _, handled, err := DispatchAdminListRows(context.Background(), AdminListRowsHook, []byte("{"),
+		func(context.Context, AdminListRowsRequest) (AdminListRowsResult, error) {
+			return AdminListRowsResult{}, nil
+		}); !handled || err == nil {
+		t.Errorf("bad JSON must be an error: handled=%v err=%v", handled, err)
+	}
+	var got AdminListRowsRequest
+	out, handled, err := DispatchAdminListRows(context.Background(), AdminListRowsHook,
+		[]byte(`{"page":"orders","ids":["a","b"]}`),
+		func(_ context.Context, r AdminListRowsRequest) (AdminListRowsResult, error) {
+			got = r
+			return AdminListRowsResult{Rows: map[string]AdminListRow{"a": {Actions: []string{}}}}, nil
+		})
+	if !handled || err != nil {
+		t.Fatalf("handled=%v err=%v", handled, err)
+	}
+	if got.Page != "orders" || len(got.IDs) != 2 {
+		t.Errorf("request arrived as %+v", got)
+	}
+	if string(out) != `{"rows":{"a":{"actions":[]}}}` {
+		t.Errorf("wire = %s", out)
+	}
+}
+
+func TestAdminListRowEmptyActionsIsSentAsEmptyList(t *testing.T) {
+	b, _ := json.Marshal(AdminListRow{Actions: []string{}})
+	if string(b) != `{"actions":[]}` {
+		t.Errorf("empty = %s", b)
+	}
+	b, _ = json.Marshal(AdminListRow{})
+	if string(b) != `{"actions":null}` {
+		t.Errorf("nil = %s", b)
+	}
+}
+
+func TestListRowStateJSONNames(t *testing.T) {
+	b, _ := json.Marshal(AdminPage{RowState: &ListRowState{Columns: []ListColumn{{Key: "status"}}, Actions: true}})
+	for _, want := range []string{`"row_state":{`, `"columns":[`, `"actions":true`} {
+		if !strings.Contains(string(b), want) {
+			t.Errorf("%s missing from %s", want, b)
+		}
+	}
+	b, _ = json.Marshal(FormField{Key: "x", Hidden: true})
+	if !strings.Contains(string(b), `"hidden":true`) {
+		t.Errorf("hidden missing from %s", b)
+	}
+	b, _ = json.Marshal(CommerceProduct{ChoicesComplete: true})
+	if !strings.Contains(string(b), `"choices_complete":true`) {
+		t.Errorf("choices_complete missing from %s", b)
+	}
+	if MaxRowStateColumns != 4 {
+		t.Errorf("MaxRowStateColumns = %d", MaxRowStateColumns)
+	}
+}
