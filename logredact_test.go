@@ -3,6 +3,7 @@ package nilda
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -94,5 +95,32 @@ func TestTheRedactionHoldsForRecursiveEmbeddedAndCyclicValues(t *testing.T) {
 	}
 	if !strings.Contains(out, `"Note":"n"`) || !strings.Contains(out, "[cycle]") {
 		t.Fatalf("the embedded struct's other fields or the cycle marker are missing:\n%s", out)
+	}
+}
+
+// The second review round of 2026-11-11: a slice holding itself twice was 2^64 visits on the logging goroutine.
+func TestASliceHoldingItselfEndsAtOnce(t *testing.T) {
+	s := make([]any, 2)
+	s[0], s[1] = s, s
+	done := make(chan string, 1)
+	go func() {
+		var buf bytes.Buffer
+		newLogger(&buf, "gw").Info("x", "v", s)
+		done <- buf.String()
+	}()
+	select {
+	case out := <-done:
+		if !strings.Contains(out, "[cycle]") {
+			t.Fatalf("no cycle marker: %s", out)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("logging a self-holding slice did not end")
+	}
+	wide := make([]any, 0, 20000)
+	for i := 0; i < 20000; i++ {
+		wide = append(wide, map[string]any{"i": i})
+	}
+	if v := redactForLog(wide); !strings.Contains(fmt.Sprint(v), "[truncated]") {
+		t.Fatal("a value past the node budget was walked whole")
 	}
 }

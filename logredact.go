@@ -44,7 +44,7 @@ func redactForLog(v any) any {
 	if !holdsSecret(rv.Type()) {
 		return v
 	}
-	return redactValue(rv, map[uintptr]bool{}, 0)
+	return redactValue(rv, &redactWalk{path: map[redactNode]bool{}}, 0)
 }
 
 // holdsSecret reports whether a value of t can carry a redacted type anywhere inside it. Only a COMPLETE answer is
@@ -112,17 +112,38 @@ func holdsWalk(t reflect.Type, open map[reflect.Type]bool) (holds, complete bool
 }
 
 // maxRedactDepth bounds the walk: a value nested deeper is written as a marker, never walked into a stack overflow.
-const maxRedactDepth = 64
+// maxRedactNodes bounds it in breadth: a slice that holds itself twice is a cycle met on every branch, 2^64 visits deep,
+// and the walk ran on the logging goroutine (the second review round of 2026-11-11). Past it the rest is a marker.
+const (
+	maxRedactDepth = 64
+	maxRedactNodes = 10000
+)
+
+// redactWalk is one walk's state: the maps, pointers and slices open on the current path, and the values visited.
+type redactWalk struct {
+	path  map[redactNode]bool
+	nodes int
+}
+
+// redactNode names one map, pointer or slice: a slice by its first element AND its length, so a sub-slice of it is a
+// different value, not a cycle.
+type redactNode struct {
+	at  uintptr
+	len int
+}
 
 // redactValue is v as the logger writes it, with every redacted type replaced by its String. A map or pointer met again
 // on its own path is a cycle, written "[cycle]": json.Marshal answered one with an error the handler reported, and a
 // walk without this check overflowed the stack — a crash recover cannot catch (the review of 2026-11-11).
-func redactValue(v reflect.Value, path map[uintptr]bool, depth int) any {
+func redactValue(v reflect.Value, w *redactWalk, depth int) any {
 	if !v.IsValid() {
 		return nil
 	}
 	if depth > maxRedactDepth {
 		return "[too deep]"
+	}
+	if w.nodes++; w.nodes > maxRedactNodes {
+		return "[truncated]"
 	}
 	if v.Type().Implements(redactedType) {
 		if v.Kind() == reflect.Pointer && v.IsNil() {
@@ -134,39 +155,42 @@ func redactValue(v reflect.Value, path map[uintptr]bool, depth int) any {
 		return v.Interface()
 	}
 	switch v.Kind() {
-	case reflect.Pointer, reflect.Map:
+	case reflect.Pointer, reflect.Map, reflect.Slice:
 		if v.IsNil() {
 			return nil
 		}
-		at := v.Pointer()
-		if path[at] {
+		n := redactNode{at: v.Pointer()}
+		if v.Kind() == reflect.Slice {
+			n.len = v.Len()
+		}
+		if w.path[n] {
 			return "[cycle]"
 		}
-		path[at] = true
-		defer delete(path, at)
+		w.path[n] = true
+		defer delete(w.path, n)
 	}
 	switch v.Kind() {
 	case reflect.Interface:
 		if v.IsNil() {
 			return nil
 		}
-		return redactValue(v.Elem(), path, depth+1)
+		return redactValue(v.Elem(), w, depth+1)
 	case reflect.Pointer:
-		return redactValue(v.Elem(), path, depth+1)
+		return redactValue(v.Elem(), w, depth+1)
 	case reflect.Slice, reflect.Array:
 		if v.Kind() == reflect.Slice && v.IsNil() {
 			return nil
 		}
 		out := make([]any, v.Len())
 		for i := range out {
-			out[i] = redactValue(v.Index(i), path, depth+1)
+			out[i] = redactValue(v.Index(i), w, depth+1)
 		}
 		return out
 	case reflect.Map:
 		out := make(map[string]any, v.Len())
 		it := v.MapRange()
 		for it.Next() {
-			out[mapKey(it.Key())] = redactValue(it.Value(), path, depth+1)
+			out[mapKey(it.Key())] = redactValue(it.Value(), w, depth+1)
 		}
 		return out
 	case reflect.Struct:
@@ -178,7 +202,7 @@ func redactValue(v reflect.Value, path map[uintptr]bool, depth int) any {
 			v = c
 		}
 		out := map[string]any{}
-		redactStruct(v, out, path, depth)
+		redactStruct(v, out, w, depth)
 		return out
 	}
 	return v.Interface()
@@ -186,7 +210,7 @@ func redactValue(v reflect.Value, path map[uintptr]bool, depth int) any {
 
 // redactStruct writes v's exported fields into out under their JSON names, embedded structs inlined as
 // encoding/json inlines them.
-func redactStruct(v reflect.Value, out map[string]any, path map[uintptr]bool, depth int) {
+func redactStruct(v reflect.Value, out map[string]any, w *redactWalk, depth int) {
 	t := v.Type()
 	for i := 0; i < t.NumField(); i++ {
 		f := t.Field(i)
@@ -213,7 +237,7 @@ func redactStruct(v reflect.Value, out map[string]any, path map[uintptr]bool, de
 					}
 					fv = reflect.NewAt(ft, unsafe.Pointer(fv.UnsafeAddr())).Elem()
 				}
-				redactStruct(fv, out, path, depth+1)
+				redactStruct(fv, out, w, depth+1)
 				continue
 			}
 		}
@@ -226,7 +250,7 @@ func redactStruct(v reflect.Value, out map[string]any, path map[uintptr]bool, de
 		if strings.Contains(","+opts+",", ",omitempty,") && emptyValue(fv) {
 			continue
 		}
-		out[name] = redactValue(fv, path, depth+1)
+		out[name] = redactValue(fv, w, depth+1)
 	}
 }
 
