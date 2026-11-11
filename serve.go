@@ -39,7 +39,7 @@ type InitResult struct {
 	RouteAddr string // "host:port" of the resident HTTP server; empty unless the `route` capability
 	// Hooks are the hook names to receive. The content-lifecycle hooks require `hooks`; a provider's own hooks
 	// are admitted by that provider's grant instead — commerce.* by `commerce`, search.* by
-	// `search_provider`, admin.action/admin.report/admin.calendar/admin.form.load/admin.form.save/setup.status by
+	// `search_provider`, admin.action/admin.report/admin.calendar/admin.list.rows/admin.form.load/admin.form.save/setup.status by
 	// `admin_page`, field.* by
 	// `field`, auth.* by `auth_provider`, widget.* by `widget`, render.assets by `render.assets`, link.targets by `route`,
 	// payment.describe/payment.start/payment.refund/payment.sync/payment.saved.forget/payment.capture/payment.void/payment.reprice

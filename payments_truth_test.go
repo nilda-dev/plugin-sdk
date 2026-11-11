@@ -266,15 +266,17 @@ func TestTheSiteThePaymentsAreHeldToIsCores(t *testing.T) {
 	service := flat("internal", "payments", "service.go")
 	main := flat("cmd", "server", "main.go")
 	// stable.NewService also takes the translation service now (Core's 96aee2586, 2026-10-27: the D-49 shared values
-	// became a NewService parameter); the site the REST API answers from is still a.stableSite.
+	// became a NewService parameter); the site the REST API answers from is stable.SiteSource over the settings (Core's
+	// #320 moved the adapter out of cmd/server).
 	for where, want := range map[string]struct{ src, text string }{
 		"payments: the setting first":            {service, `if u := strings.TrimSpace(s.siteURL(ctx)); u != "" { return u }`},
 		"payments: then APP_BASE_URL":            {service, "return s.appURL }"},
 		"main.go: the setting is site.base_url":  {main, "SiteURL: a.settingsSvc.SiteBaseURL"},
 		"main.go: the fallback is the env":       {main, "AppBaseURL: a.cfg.AppBaseURL"},
-		"main.go: GET /site reads the setting":   {main, "return stable.SiteFromSettings(ctx, a.settingsSvc, a.cfg.I18NDefault)"},
+		"main.go: GET /site reads the setting":   {main, "stable.SiteSource(a.settingsSvc, a.cfg.I18NDefault)"},
+		"stable: the source reads the settings":  {flat("internal", "api", "stable", "site.go"), "return func(ctx context.Context) Site { return SiteFromSettings(ctx, settings, locale) }"},
 		"stable: it reads site.base_url":         {flat("internal", "api", "stable", "site.go"), `BaseURL: settings.GetString(ctx, "site.base_url"),`},
-		"main.go: the REST API is built from it": {main, "stableAPI := stable.NewService(a.store, a.stableSite, a.translationSvc, a.log)"},
+		"main.go: the REST API is built from it": {main, "stableAPI := stable.NewService(a.store, stable.SiteSource(a.settingsSvc, a.cfg.I18NDefault), a.translationSvc, a.log)"},
 		"main.go: that is the REST API's":        {main, "a.srv.Mount(rest.PathV1, stable.NewHandlers(stableAPI,"},
 		"settings: SiteBaseURL's key":            {flat("internal", "settings", "browser.go"), `const keySiteBaseURL = "site.base_url"`},
 		"stable: the field is base_url":          {flat("internal", "api", "stable", "contract.go"), "BaseURL string `json:\"base_url\"`"},
