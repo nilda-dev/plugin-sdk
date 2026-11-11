@@ -1060,7 +1060,9 @@ your input will call you with the wrong thing. `ObjectSchema` builds one so you 
 
 **It is also held.** `Serve` compiles each ability's and each visitor tool's `InputSchema` at `Init`, and a call
 whose arguments do not match it — a wrong type, a value past a declared `maximum`, a missing required property — is
-refused as your answer before `Run` or your `HandleHook` sees it. The refusal says where and which rule, never the
+refused as your answer before `Run` or your `HandleHook` sees it: every visitor tool's call, and an ability's when a
+model wrote the arguments (`CallerKind` `ai` or `mcp`; Core's importer and a person's own press build theirs in
+Core's own code and are not held). The refusal says where and which rule, never the
 value. A call with no arguments is checked as `{}`. A schema the SDK cannot compile (an external `$ref`) is logged at
 `Init` and its calls pass unchecked, so a plugin that loaded before still loads.
 

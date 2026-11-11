@@ -86,3 +86,24 @@ func TestARouteBodyIsBounded(t *testing.T) {
 		t.Fatalf("a 4 KiB body read past a 1 KiB bound: %v", readErr)
 	}
 }
+
+// The review of 2026-11-11: StartHTTP(GuardRoute(mux)) answered 403 to everything, the inner guard looking for the header
+// the outer one had removed.
+func TestAGuardInsideAGuardLetsCoresRequestThrough(t *testing.T) {
+	routeKey.Store("k")
+	t.Cleanup(func() { routeKey.Store("") })
+	addr, err := StartHTTP(GuardRoute(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = io.WriteString(w, "ok") })))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, _ := http.NewRequest(http.MethodGet, "http://"+addr+"/", nil)
+	req.Header.Set(RouteKeyHeader, "k")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("a doubly guarded route answered %d", res.StatusCode)
+	}
+}

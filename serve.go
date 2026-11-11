@@ -213,17 +213,28 @@ func currentRouteKey() string {
 // (CurrentUser, AgentOf, VisitorConsent, …) is whatever the caller chose to write. The header is removed before your
 // handler sees the request. From a Core that sends none, every request passes, as before this existed — such a Core
 // is the one place left where the loopback port must be kept from other processes by the deployment.
+//
+// Wrapping twice is harmless — StartHTTP(GuardRoute(mux)) — the inner guard passes a request the outer one let in. And
+// the key is the one Core sends at Init, so StartHTTP belongs inside your Init: started earlier, in main, the server
+// answers everything until Init arrives.
 func GuardRoute(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		got := r.Header.Get(RouteKeyHeader)
-		if key := currentRouteKey(); key != "" && subtle.ConstantTimeCompare([]byte(got), []byte(key)) != 1 {
-			http.Error(w, "this address answers only requests from the site", http.StatusForbidden)
-			return
+		if r.Context().Value(routeGuardedKey{}) == nil {
+			got := r.Header.Get(RouteKeyHeader)
+			if key := currentRouteKey(); key != "" && subtle.ConstantTimeCompare([]byte(got), []byte(key)) != 1 {
+				http.Error(w, "this address answers only requests from the site", http.StatusForbidden)
+				return
+			}
+			r.Header.Del(RouteKeyHeader)
+			r = r.WithContext(context.WithValue(r.Context(), routeGuardedKey{}, true))
 		}
-		r.Header.Del(RouteKeyHeader)
 		h.ServeHTTP(w, r)
 	})
 }
+
+// routeGuardedKey marks a request a GuardRoute let in, so a second guard around the same handler does not look for the
+// header the first one removed (the separate review of 2026-11-11).
+type routeGuardedKey struct{}
 
 // pluginServer adapts the author's Handler onto the gRPC contract (runs inside the plugin process).
 type pluginServer struct {
@@ -370,8 +381,9 @@ func (s *pluginServer) HandleHook(ctx context.Context, req *contract.HookRequest
 	// documented pattern fail at runtime with an error naming the author's own ability. The worry behind
 	// it cannot happen — Core dispatches `ability:<name>` only for abilities this plugin declared at Init,
 	// so the only names that arrive are the author's own.
-	// A declared ability's or visitor tool's arguments are held to its InputSchema first, Run or not (argschema.go).
-	if err := s.args.check(req.Hook, req.Payload); err != nil {
+	// A visitor tool's arguments, and an ability's a model wrote, are held to its InputSchema first, Run or not
+	// (argschema.go).
+	if err := s.args.check(req.Hook, req.GetCallerKind(), req.Payload); err != nil {
 		return nil, asAnswer(err)
 	}
 	if out, handled, err := dispatchAbility(ctx, s.abilityRun, req.Hook, req.Payload); handled {

@@ -23,7 +23,8 @@ func TestArgumentsAreHeldToTheInputSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 	call := func(hook, payload string) error {
-		_, err := s.HandleHook(context.Background(), &contract.HookRequest{Hook: hook, Payload: []byte(payload)})
+		_, err := s.HandleHook(context.Background(), &contract.HookRequest{Hook: hook, Payload: []byte(payload),
+			CallerKind: CallerKindAI})
 		return err
 	}
 	for hook, bad := range map[string][]string{
@@ -51,5 +52,32 @@ func TestArgumentsAreHeldToTheInputSchema(t *testing.T) {
 	}
 	if ran != 2 {
 		t.Fatalf("a good call did not run (%d)", ran)
+	}
+}
+
+// The arguments of an ability Core's own code builds — its importer's, a person's own press — or that a Core naming no
+// door sends, are not held here: refusing them would stop an import that worked before (the review of 2026-11-11).
+func TestOnlyAModelsArgumentsToAnAbilityAreHeld(t *testing.T) {
+	ran := 0
+	s := &pluginServer{handler: &recordingHandler{}}
+	if _, err := s.wire(InitResult{Abilities: []Ability{{Name: "import_rows", Label: "Import", Description: "d",
+		Class: ClassWrite, InputSchema: json.RawMessage(`{"type":"object","required":["rows"]}`),
+		Run: func(context.Context, json.RawMessage) (any, error) { ran++; return nil, nil }}}}); err != nil {
+		t.Fatal(err)
+	}
+	for _, kind := range []string{CallerKindImporter, CallerKindOwnerUI, ""} {
+		if _, err := s.HandleHook(context.Background(), &contract.HookRequest{Hook: AbilityHook("import_rows"),
+			Payload: []byte(`{}`), CallerKind: kind}); err != nil {
+			t.Fatalf("a %q call was refused: %v", kind, err)
+		}
+	}
+	for _, kind := range []string{CallerKindAI, CallerKindMCP} {
+		if _, err := s.HandleHook(context.Background(), &contract.HookRequest{Hook: AbilityHook("import_rows"),
+			Payload: []byte(`{}`), CallerKind: kind}); err == nil {
+			t.Fatalf("a %q call with a missing required argument ran", kind)
+		}
+	}
+	if ran != 3 {
+		t.Fatalf("ran %d times, want 3", ran)
 	}
 }

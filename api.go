@@ -91,12 +91,22 @@ func newAPI(baseURL, token string, scopes []string) *API {
 		return nil
 	}
 	transport := NewTransport(nil)
+	// The stream client has no total timeout, so it is bounded by its ctx alone — and a caller who passes one with no
+	// deadline must still not wait for ever on a Core that never answers. So its transport waits at most this long for
+	// the answer to START (the headers); the body then takes as long as it takes.
+	streamBase, _ := http.DefaultTransport.(*http.Transport)
+	var stream http.RoundTripper = transport
+	if streamBase != nil {
+		st := streamBase.Clone()
+		st.ResponseHeaderTimeout = 30 * time.Second
+		stream = NewTransport(st)
+	}
 	return &API{
 		baseURL:    strings.TrimRight(baseURL, "/"),
 		token:      token,
 		scopes:     scopes,
 		http:       &http.Client{Timeout: 30 * time.Second, Transport: transport},
-		stream:     &http.Client{Transport: transport},
+		stream:     &http.Client{Transport: stream},
 		maxRetries: defaultMaxRetries,
 	}
 }

@@ -17,6 +17,12 @@ import (
 // not match it, before Run or your HandleHook sees them, as the plugin's answer (the refusal names where and which
 // rule, never the value). Core may check too; this is the check a plugin can rely on whatever Core it runs under.
 //
+// WHO IS HELD. A visitor tool's call always: only a stranger's agent makes one. An ability's call when a MODEL wrote the
+// arguments — CallerKind ai or mcp. Not Core's importer or a person's own press, whose arguments Core's own code builds:
+// those bodies were never held to the plugin's schema, and refusing them here would stop an import that worked
+// yesterday (the separate review of this change, 2026-11-11). Not a call from a Core that names no door either: such a
+// Core marks its importer as nothing, and checks the assistant's calls itself.
+//
 // A schema this SDK cannot compile (one that names an external $ref, say) is LOGGED at Init and its calls go through
 // unchecked, as they did before: a plugin that loaded yesterday keeps loading. ObjectSchema's always compile.
 
@@ -53,10 +59,14 @@ func compileArgSchemas(abilities []Ability, tools []VisitorTool) argSchemas {
 	return out
 }
 
-// check refuses a call whose arguments do not match its declared schema. A hook with no compiled schema passes.
-func (s argSchemas) check(hook string, payload []byte) error {
+// check refuses a call whose arguments do not match its declared schema. A hook with no compiled schema passes, and so
+// does an ability's call whose arguments no model wrote (kind is CallOf's CallerKind).
+func (s argSchemas) check(hook, kind string, payload []byte) error {
 	r, ok := s[hook]
 	if !ok {
+		return nil
+	}
+	if strings.HasPrefix(hook, "ability:") && kind != CallerKindAI && kind != CallerKindMCP {
 		return nil
 	}
 	args := json.RawMessage(payload)

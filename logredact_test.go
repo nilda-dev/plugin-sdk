@@ -59,3 +59,40 @@ func TestTheLoggerLeavesOrdinaryValuesAlone(t *testing.T) {
 		t.Fatalf("a json.Marshaler was not used: %s", got["lic"])
 	}
 }
+
+// The separate review of 2026-11-11 found three ways past the redaction; each is held here.
+type redactA struct{ B *redactB }
+type redactB struct {
+	A   *redactA
+	Tok PaymentSavedToken
+}
+type innerSecret struct{ Saved PaymentSavedToken }
+type withEmbedded struct {
+	innerSecret
+	Note string
+}
+
+func TestTheRedactionHoldsForRecursiveEmbeddedAndCyclicValues(t *testing.T) {
+	var buf bytes.Buffer
+	log := newLogger(&buf, "gw")
+	// A recursive type asked about from the outside first: its answer was cached "no secret" while it was still open.
+	a := &redactA{B: &redactB{Tok: PaymentSavedToken{Token: "LEAKR1"}}}
+	log.Info("recursive", "a", a)
+	log.Info("recursive again", "holder", struct{ A *redactA }{a})
+	// An unexported embedded struct: json promotes its exported fields.
+	log.Info("embedded", "v", withEmbedded{innerSecret: innerSecret{Saved: PaymentSavedToken{Token: "LEAKE1"}}, Note: "n"})
+	// Cycles: a map holding itself, and a pointer cycle in a type that holds a token.
+	m := map[string]any{"k": "v"}
+	m["self"] = m
+	a.B.A = a
+	log.Info("cycles", "m", m, "a", a)
+	out := buf.String()
+	for _, leak := range []string{"LEAKR1", "LEAKE1"} {
+		if strings.Contains(out, leak) {
+			t.Fatalf("a token reached the log (%s):\n%s", leak, out)
+		}
+	}
+	if !strings.Contains(out, `"Note":"n"`) || !strings.Contains(out, "[cycle]") {
+		t.Fatalf("the embedded struct's other fields or the cycle marker are missing:\n%s", out)
+	}
+}

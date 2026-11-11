@@ -22,6 +22,9 @@ The fixes of the SDK review of 2026-11-11. All additive; tag at once (docs/RELEA
 - ROUTE BODIES ARE BOUNDED. `StartHTTP` cuts a request body at `DefaultMaxRequestBody` (32 MiB) and keeps its 60-second
   `DefaultHTTPWriteTimeout`; `StartHTTPWith(h, HTTPOptions{MaxBodyBytes, WriteTimeout})` chooses others. A handler
   that streams a long download lifts its own response's deadline (`http.NewResponseController(w).SetWriteDeadline`).
+  A BEHAVIOUR CHANGE on rebuilding: a route that takes uploads over 32 MiB must now say so with `StartHTTPWith`.
+  Call `StartHTTP` inside your Init (the route key arrives with it); `GuardRoute` around a handler `StartHTTP` already
+  guards is harmless.
 - A PAID DOWNLOAD IS NO LONGER CUT AT 30 SECONDS. `API.MediaFile` reads the bytes on a client with no total timeout;
   the caller's ctx bounds it. `http.Client.Timeout` covers the body, so a large file read slowly always stopped.
 - PAYMENT TOKENS NEVER REACH THE LOG. `PaymentCredential`, `PaymentSaved`, `PaymentSavedToken`, `PaymentForgetRequest`
@@ -31,16 +34,20 @@ The fixes of the SDK review of 2026-11-11. All additive; tag at once (docs/RELEA
 - A CONTRACT REFUSAL NEVER QUOTES THE VALUE. `ContractMethod.ValidateInput` / `ValidateOutput` (and so `Services.Call`
   and `DispatchServiceHook`) said "type: <the value> has type …" — an owner's application password in a site.reader
   start, a buyer's address in a carrier's rates, into Core's log. They now say where and which rule, never the value.
-- AN ABILITY'S OR A VISITOR TOOL'S ARGUMENTS ARE HELD TO ITS `InputSchema`. Serve compiles each at Init and refuses a
-  call that does not match, as the plugin's answer, before `Run` or `HandleHook` sees it — an anonymous visitor's agent
-  included. No arguments is `{}`. A schema the SDK cannot compile is logged and its calls pass, as before.
+- A VISITOR TOOL'S ARGUMENTS, AND AN ABILITY'S A MODEL WROTE, ARE HELD TO ITS `InputSchema`. Serve compiles each at Init
+  and refuses a call that does not match, as the plugin's answer, before `Run` or `HandleHook` sees it: every visitor
+  tool call, and an ability call whose `CallerKind` is `ai` or `mcp`. Core's importer and a person's own press are not
+  held (Core's own code builds those bodies). No arguments is `{}`. A schema the SDK cannot compile is logged and its
+  calls pass, as before. Core (from the release pinning v0.62.0) holds a visitor tool's arguments too, and like an
+  ability's it refuses a top-level argument the schema does not name.
 - THE DATASTORE POOL. `LimitDatastorePool(db)` holds a pool opened on `Core.DatastoreDSN` to `DatastoreMaxConns` (2);
   `database/sql` opens without a limit, and Core caps the plugin's role at 20 connections, so an unbounded pool fails
   its own calls under load. The guide says the rest: ctx on every query, no transaction held across a call to Core,
   placeholders only.
 - `NormalizePrivacyPhone` reads every script's decimal digits (`۰۹۱۲…`, `٠٩١٢…` are `0912…`). It kept ASCII only, so a
-  number typed on a Persian or Arabic keyboard normalised to "" and was never exported nor erased. NEEDS CORE: the same
-  rule where Core normalises the phones it sends.
+  number typed on a Persian or Arabic keyboard normalised to "" and was never exported nor erased. Core normalises with
+  this function, so it follows when its pin moves. A BEHAVIOUR CHANGE for a plugin that stores the normal form: a row
+  stored from non-ASCII digits held "" and matches only once it is normalised again.
 - `NewOIDCClient` refuses an issuer, a token endpoint or an authorization endpoint that is not https (a loopback host
   excepted, for tests): the token endpoint receives the client secret, the code and the PKCE verifier.
 - WHO ACTED. `CallInfo.ActorUserID` (contract `HookRequest.actor_user_id`, field 9): the Core user id of the person a
