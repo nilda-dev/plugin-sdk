@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.61.0 — unreleased (the shop's order events with their money and the buyer's consent — the shop's door D1)
+## v0.61.0 — 2026-11-11 (the shop's order events with their money and the buyer's consent — the shop's door D1)
 
 - THE SHOP'S ORDER EVENTS (door D1, the shop's plan 2026-11-05 §1J; `shopevents.go`, `docs/SHOP_EVENTS.md`). EXPERIMENTAL:
   contract `shop.events/v1` (`ContractShopEvents`, `"status": "experimental"`) — its shape may still change in a minor
