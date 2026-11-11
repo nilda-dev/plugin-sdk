@@ -1,6 +1,6 @@
 # Shop events — the shop's orders, as they happen, with their money and the buyer's consent (door D1)
 
-Status: EXPERIMENTAL (`"status": "experimental"`, `WRITE_COMMANDS.md` §5) from the release after v0.58.0. The shop's door D1
+Status: EXPERIMENTAL (`"status": "experimental"`, `WRITE_COMMANDS.md` §5) from v0.61.0. The shop's door D1
 (plan 2026-11-05 §1J). Go: `shopevents.go`; test kit: `nildatest.ShopEvents`.
 
 ## 1. What it is for
