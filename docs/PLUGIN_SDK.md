@@ -3172,6 +3172,22 @@ door D0. Both experimental, every method agent class `none`.
 - Test against `nildatest.AttributeShop` (`NewAttributeShop`): it places orders by the shop's rules and keeps the
   snapshot, answers the write commands, and proxies addresses bounded.
 
+### The shop's order events (`shop.events/v1`, experimental)
+
+Door D1 (`docs/SHOP_EVENTS.md` is the whole of it; `shopevents.go`). The shop emits five events (`ShopEventTypes()`:
+`EventShopOrderPlaced`, `EventShopOrderPaid`, `EventShopOrderCancelled`, `EventShopOrderRefunded`,
+`EventShopOrderFulfilled`), each a `ShopOrderEvent` with its `event_id`, `sequence`, the order's money net of tax in its
+currency, its `ShopEventLine`s and the visitor's `ConsentSnapshot` copied when the order was placed. Agent class `none`.
+
+- A subscriber decodes with `DecodeShopOrderEvent`, asks `ConsentSnapshot.AdUserDataGranted()` /
+  `AdStorageGranted()` before anything personal or advertising leaves (unknown is no; `NotToldConsent` is all unknown;
+  the shop copies `VisitorConsent(r)` — Core's word on a write, source `ConsentFromCore` — at placement),
+  and catches up with `Services.ShopEvents` (`ShopEventsRequest` → `ShopEventsAnswer`, `ValidateFor`).
+- The shop implements `ShopEventsProvider`; `ShopEventsMethods` answers `events.read` and checks every page; `Serve`
+  finds it by itself.
+- Test against `nildatest.ShopEvents` (`NewShopEvents`): it records events as the shop would, delivers them to your
+  `HandleEvent`, and answers the read.
+
 ### The shop's catalogue (`shop.catalog/v1`)
 
 The shop provides it; a channel plugin — a Google Merchant feed, a marketplace, an AI agent's catalogue — requires it

@@ -8,6 +8,34 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.61.0 — unreleased (the shop's order events with their money and the buyer's consent — the shop's door D1)
+
+- THE SHOP'S ORDER EVENTS (door D1, the shop's plan 2026-11-05 §1J; `shopevents.go`, `docs/SHOP_EVENTS.md`). EXPERIMENTAL:
+  contract `shop.events/v1` (`ContractShopEvents`, `"status": "experimental"`) — its shape may still change in a minor
+  release until its first Nilda plugin ships green on it.
+  - Five events in the shop's namespace (`ShopEventTypes()`): `EventShopOrderPlaced` `ecommerce.order.placed`,
+    `EventShopOrderPaid` `ecommerce.order.paid`, `EventShopOrderCancelled` `ecommerce.order.cancelled`,
+    `EventShopOrderRefunded` `ecommerce.order.refunded` (one per refund, `refund_minor` and each line's
+    `quantity_refunded`), `EventShopOrderFulfilled` `ecommerce.order.fulfilled` (one per shipment, `fulfillment_id`). The
+    shop's older `ecommerce.order_paid` and siblings are unchanged.
+  - Their data is `ShopOrderEvent`: the shop's `event_id` (kept by every re-emission) and `sequence`, the order's id and
+    reference, `occurred_at`, `currency`, `net_minor` (goods after discounts, tax and delivery excluded — the sum of the
+    lines'), `shipping_minor`, `tax_minor`, `total_minor`, `refunded_minor`, `lines` (`ShopEventLine`: SKU, quantities so
+    far, `net_minor`, `tax_minor`) and `consent`. No email, name or address. `Validate` holds it; `DecodeShopOrderEvent`
+    is a subscriber's checked decode.
+  - `ConsentSnapshot`: Consent Mode v2's four signals, each `ConsentGranted` / `ConsentDenied` / `ConsentUnknown`, with
+    `Source` (`ConsentFromFirstTouch`, `ConsentNotTold`) and `RecordedAt`, copied onto the order at placement;
+    `NotToldConsent(at)`; `AdUserDataGranted()` and `AdStorageGranted()` read unknown as no.
+  - `events.read` (`ShopEventsRead`): `ShopEventsRequest{AfterSequence, Limit}` (at most `MaxShopEventsRead` = 100,
+    `DefaultShopEventsRead` = 50) → `ShopEventsAnswer{Events, More}`, `ValidateFor` holding order and bounds.
+    `ShopEventsProvider` / `ShopEventsMethods` for the shop (Serve finds it by itself), `Services.ShopEvents` for a
+    subscriber. `TestTheShopEmitsTheEventsContract` holds the shop's `shopevents.go` and manifest to it.
+  - `VisitorConsent(r) (ConsentSnapshot, bool)`: the visitor's recorded consent Core's proxy sends on a request that
+    changes something (`X-Nilda-Visitor-Consent`, core `internal/plugin/visitorconsent.go`), source `ConsentFromCore`,
+    every signal granted or denied (`Validate` refuses unknown from Core); ok false with no header or a malformed one.
+  - `nildatest.NewShopEvents()`: a fake shop feed — `Record` (numbers and checks an event), `Deliver` (to a plugin's
+    HandleEvent), `Events`, and `events.read` through a `Services` desk.
+
 ## v0.60.0 — 2026-11-10 (a request's `<`, `>` and `&` go on the wire as themselves; site import: an author's bio and link, a media item's upload date and an item's modified date — snapshot version 5)
 
 This section holds two things that would have been two unreleased headings: the release train allows one (`release_train_test.go`), and

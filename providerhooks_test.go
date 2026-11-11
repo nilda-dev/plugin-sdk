@@ -105,6 +105,7 @@ func TestEveryExportedProviderInterfaceIsInTheTable(t *testing.T) {
 		"AttributeValidator":      "rides on AttributeProvider: AttributeMethods answers validate with it",
 		"AddressSuggester":        "rides on AttributeProvider: AttributeMethods answers address.suggest and address.resolve with it",
 		"AttributeValuesProvider": "Serve answers it through AttributeValuesMethods; Core subscribes it from provides — ATTRIBUTES.md",
+		"ShopEventsProvider":      "Serve answers it through ShopEventsMethods; Core subscribes it from provides — SHOP_EVENTS.md",
 		"CredentialPayer":         "rides on PaymentGateway: payment.start, which its row subscribes, carries the credential",
 	}
 	wired := map[string]bool{}
