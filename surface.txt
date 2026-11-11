@@ -197,6 +197,9 @@ const ContractSiteReader
 const ContractStable
 const CredentialStripeConfirmationToken
 const CredentialStripeSPT
+const DatastoreMaxConns
+const DefaultHTTPWriteTimeout
+const DefaultMaxRequestBody
 const DefaultServicePoints
 const DefaultShopEventsRead
 const DeliverableKey
@@ -578,6 +581,7 @@ const RiskHighest
 const RiskNormal
 const RiskNotAssessed
 const RiskUnknown
+const RouteKeyHeader
 const SchemaBackOrder
 const SchemaDiscontinued
 const SchemaInStock
@@ -1279,6 +1283,8 @@ field FormSection.Key string json:key
 field FormSection.Label string json:label
 field FormSection.Side bool json:side
 field GRPCPlugin.Impl contract.PluginServiceServer
+field HTTPOptions.MaxBodyBytes int64
+field HTTPOptions.WriteTimeout time.Duration
 field HeadMeta.Canonical string json:canonical
 field HeadMeta.Description string json:description
 field HeadMeta.OGDescription string json:og_description
@@ -2228,10 +2234,12 @@ func FieldTypes() ([]string)
 func FilterPeriods() ([]string)
 func FormFieldTypes() ([]string)
 func FormatMinor(int64, string) (string, bool)
+func GuardRoute(http.Handler) (http.Handler)
 func HTTPClient(time.Duration) (*http.Client)
 func HostPluginMap() (map[int]plugin.PluginSet)
 func LabelIn(map[string]string, string) (string)
 func LicenceStates() ([]LicenceState)
+func LimitDatastorePool(*sql.DB) (*sql.DB)
 func LocaleDirection(string) (string)
 func Log() (*slog.Logger)
 func MailAddressBlocked(error) (bool)
@@ -2276,6 +2284,7 @@ func ShowPricesIncludingTax(context.Context) (bool)
 func ShowsPricesIncludingTax(*http.Request) (bool)
 func SplitServiceHook(string) (string, string, bool)
 func StartHTTP(http.Handler) (string, error)
+func StartHTTPWith(http.Handler, HTTPOptions) (string, error)
 func Supports([]string, string) (bool)
 func SupportsOf(PaymentMethod) ([]string)
 func TestHintFor(map[string]string, string) (string)
@@ -2753,6 +2762,7 @@ type FormField
 type FormReplacement
 type FormSection
 type GRPCPlugin
+type HTTPOptions
 type Handler
 type HeadMeta
 type HeadlineMetric

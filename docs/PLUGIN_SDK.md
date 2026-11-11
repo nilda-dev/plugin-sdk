@@ -256,6 +256,24 @@ JOIN public.core_content c ON c.id = o.content_id
 WHERE o.created_at > now() - interval '7 days'
 ```
 
+**Bound your connections the moment you open them.** Every connection you hold is one the site cannot use —
+a Nilda Cloud site has a pool of five — and `database/sql` opens without any limit, while Core calls you up to
+sixteen times at once. `nilda.LimitDatastorePool` holds you to `nilda.DatastoreMaxConns` (two):
+
+```go
+db, err := sql.Open("pgx", core.DatastoreDSN) // any Postgres driver; the SDK imports none
+if err != nil {
+	return nilda.InitResult{}, err
+}
+nilda.LimitDatastorePool(db)
+```
+
+Then three rules no setting keeps for you: pass the call's `ctx` to every query (`QueryContext`, `ExecContext`,
+`BeginTx`), so a query never outlives the hook that asked; **never hold a transaction, or a connection, while you
+call Core** (`core.API()`, `Services`, `Payments`) or anything else over the network — the call may need the
+connection you are holding, and both then wait for a timeout; and build SQL with placeholders (`$1`) only — a table
+or column chosen at run time comes from a fixed list in your code, never from a request.
+
 **Your role has `SELECT`, `INSERT`, `UPDATE`, `DELETE` — and no DDL at all.** `CREATE TABLE` fails.
 `DROP TABLE` fails. `ALTER` fails. Postgres refuses them; this is not a rule you are asked to respect.
 
@@ -1035,6 +1053,12 @@ door, never who) — and nothing about the person (a limit Core records in its k
 `InputSchema` is required and must be a JSON Schema **object** — an agent that cannot see the shape of
 your input will call you with the wrong thing. `ObjectSchema` builds one so you do not hand-write JSON.
 
+**It is also held.** `Serve` compiles each ability's and each visitor tool's `InputSchema` at `Init`, and a call
+whose arguments do not match it — a wrong type, a value past a declared `maximum`, a missing required property — is
+refused as your answer before `Run` or your `HandleHook` sees it. The refusal says where and which rule, never the
+value. A call with no arguments is checked as `{}`. A schema the SDK cannot compile (an external `$ref`) is logged at
+`Init` and its calls pass unchecked, so a plugin that loaded before still loads.
+
 Set `Run` and the SDK dispatches for you. Leave it nil and the call arrives at your `HandleHook` under
 `nilda.AbilityHook("create_product")`; `ability:` is a reserved hook namespace either way.
 
@@ -1286,6 +1310,33 @@ Core's proxy is the only way traffic reaches your server, and it strips every in
 before setting its own, so a visitor cannot claim to be somebody by sending one. What you get is an id and a
 name — never a token or a session you could replay against Core. On a `webhook_paths` endpoint you get
 nothing, always: a machine's call carries no one's identity, which is what makes exempting it from CSRF safe.
+
+**Only the proxy gets in (`GuardRoute`).** Your server listens on loopback, and loopback is not private: any
+process on the machine can dial it — another plugin included, since plugins run as the same operating-system
+user — and send `X-Nilda-User` naming anybody without ever passing the proxy. So Core makes a secret for every
+launch, sends it at `Init`, and puts it on every request it forwards (`nilda.RouteKeyHeader`). `nilda.StartHTTP`
+wraps your handler in `nilda.GuardRoute`, which answers 403 to a request without that exact key — compared in
+constant time — and removes the header before your handler runs. Serving with your own `http.Server`? Wrap its
+handler yourself:
+
+```go
+srv := &http.Server{Handler: nilda.GuardRoute(mux), ReadHeaderTimeout: 10 * time.Second}
+```
+
+A Core that sends no key is an older one; every request then passes, as before.
+
+**Bodies are bounded, and so is a response's time.** `StartHTTP` cuts a request body at
+`nilda.DefaultMaxRequestBody` (32 MiB; a read past it fails with `*http.MaxBytesError`) and a response at
+`nilda.DefaultHTTPWriteTimeout` (60 seconds). A route that takes larger uploads, or one that streams for longer,
+says so with `nilda.StartHTTPWith`:
+
+```go
+addr, err := nilda.StartHTTPWith(s.router(), nilda.HTTPOptions{MaxBodyBytes: 200 << 20})
+```
+
+One handler that streams a long download — a paid file to a buyer on a slow line — lifts the deadline for its own
+response only, with `http.NewResponseController(w).SetWriteDeadline(time.Time{})`, and reads the file with
+`core.API().MediaFile(r.Context(), id)`, which has no total timeout of its own: the visitor leaving is what ends it.
 
 ### Where a visitor is, the tax tables and the seller (`VisitorCountry`, `Reference`)
 
@@ -2089,7 +2140,8 @@ answer these requests. A blocklist kept as hashes is found the same way: hash th
 **Asked by phone.** A guest who booked with a phone number and no address is found by `PrivacyRequest.Phones`. Only an
 operator holding `privacy.manage` types a phone — a phone is never verified the way a signed-in person's address is, so
 Core never sends one for a person's own request — and Core sends each in its one normal form,
-`nilda.NormalizePrivacyPhone`: the digits, a leading `00` dropped, 6 to 20 digits or nothing. Match your rows by that
+`nilda.NormalizePrivacyPhone`: the digits — of any script, so `۰۹۱۲…` typed on a Persian keyboard and `٠٩١٢…` on an
+Arabic one are the same number as `0912…` — a leading `00` dropped, 6 to 20 digits or nothing. Match your rows by that
 form (`req.AskedPhone(row.Phone)`), **never by a suffix, a prefix or a fuzzy match**: an erasure that matched another
 guest cannot be taken back. The rule does not guess a country, so `+43 660 1234567` and `0660 1234567` are two numbers;
 Core's screen takes several and tells the operator to type both forms. A record found by phone names that phone
@@ -2484,7 +2536,15 @@ you give, for 30 days.
 ```go
 // after your own write marked the discount deleted
 err := core.Trash(ctx, nilda.TrashItem{Kind: "discount", ID: d.ID, Name: d.Code}) // needs the `trash` capability
+if err != nil {
+	p.unmarkDeleted(ctx, d.ID) // never leave a row your lists hide and the bin does not list
+	return err
+}
 ```
+
+**If `Trash` fails, undo your mark.** A row your own lists hide and the bin does not list is a row nobody can bring
+back. Clear the mark on an error — or call `Trash` again before you answer; the same kind and id twice is one entry —
+and never tell anybody it was deleted.
 
 Core then calls you, never anybody else, about that item — subscribe both hooks (the grant is `trash`, not `hooks`):
 
@@ -2723,6 +2783,10 @@ document names as its authorization endpoint; on `oauth2` it is your manifest's 
 else is refused and the person lands back on the login page. The start endpoint is public and
 unauthenticated, so an unchecked answer would be an open redirect wearing the site's domain.
 
+**The issuer is https.** `NewOIDCClient` refuses an issuer, a token endpoint or an authorization endpoint that is not
+`https://` — the token endpoint receives the client secret, the code and the PKCE verifier — except on a loopback host
+(`localhost`, `127.0.0.1`, `::1`), for a provider on your own machine and for tests. `Ready` says so to the owner.
+
 **Reaching your identity provider.** On the `oidc` flow, declare no host in `network` for it: Nilda's egress
 proxy allows the host of the issuer URL the site owner typed in the setting `issuer_setting` names — you
 cannot name it in advance, because it is different at every company that installs you. That is the issuer's
@@ -2783,6 +2847,9 @@ func (p *Shop) Init(ctx context.Context, core *nilda.Core) (nilda.InitResult, er
 	return nilda.InitResult{}, nil
 }
 ```
+
+`IsFirstRun` is also true on a **reinstall** — an uninstall keeps your tables and every row, and the new install
+starts from no version — so seed with `INSERT … ON CONFLICT DO NOTHING`, never by overwriting.
 
 `UpgradedFrom` is exact-match on purpose rather than a range: a data step is written against a specific
 shape, and "anything before 1.1" quietly includes versions that never existed and shapes you never shipped.
@@ -2892,6 +2959,12 @@ still reaches Core, but as an opaque line at debug, with no level and no fields.
 
 Nothing is filtered inside your process, deliberately: Core applies the site's configured level. If both
 ends filtered, an owner turning the level up to debug your plugin would still see nothing.
+
+**A payment's tokens never reach the line.** `nilda.PaymentCredential`, `nilda.PaymentSaved`,
+`nilda.PaymentSavedToken`, `nilda.PaymentForgetRequest` and `nilda.ClientAction` print as `[redacted]` through `fmt`,
+and the logger writes them the same way at any depth — `core.Log().Debug("start", "req", in)` with a whole
+`nilda.PaymentStartRequest` keeps the session's fields and drops the card's token and the client secret. Anything
+else you log is written as it is: a token of your own (a processor's API key, a refresh token) is yours to leave out.
 
 ### What Core says about the call you are handling (`CallOf`, `EventOf`)
 
@@ -3270,6 +3343,12 @@ OS user as Core; nothing in-process stops a determined plugin opening a raw sock
 constrains a hostile plugin is the capability gate, the scoped token, the per-plugin database role, the
 egress declaration — and, for real enforcement, deployment-level controls documented in Core's
 `internal/plugin/egress.go`.
+
+Two consequences an author can act on. Another plugin can dial your route's loopback port directly, skipping
+Core's proxy: `StartHTTP` (and `GuardRoute` for a server of your own) refuses any request that does not carry the
+route key Core sent this launch. And the egress proxy is the path a well-behaved client takes, not a wall: what
+stops a process opening a socket of its own is the deployment's network rules, so never treat a host's absence from
+your `network` list as a promise that nothing on the machine can reach it.
 
 The distinction is stated plainly because the older word for it — "sandbox" — promised something that was
 never built, and readers reasonably believed it.

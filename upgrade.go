@@ -15,6 +15,10 @@ package nilda
 //
 // Use it for seed data: the default categories, the starter template, the row your plugin cannot work
 // without. On an upgrade it is false, so the seed does not overwrite what the owner has since changed.
+//
+// It is ALSO true on a reinstall: an uninstall keeps your tables and every row, and the next install starts from no
+// version. And it can be true twice, when Core could not write the record after your first Init (see UpgradedFrom).
+// So seed with INSERT … ON CONFLICT DO NOTHING, or after checking the row is not there — never by overwriting.
 func (c *Core) IsFirstRun() bool {
 	return c != nil && c.PreviousVersion == ""
 }

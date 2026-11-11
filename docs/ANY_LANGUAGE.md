@@ -153,6 +153,7 @@ Called once, before anything else. The request carries everything you are allowe
 | `kv_namespace` | your Dragonfly namespace (operations go through `HostService`) |
 | `route_prefix` | the URL prefix Nilda proxies to you. Register handlers under it — the **full** path is forwarded |
 | `previous_version` | the version you last completed an `Init` at; empty on a fresh install |
+| `route_key` | a secret made for this launch. Core's proxy sends it on every request it forwards to your route, in `X-Nilda-Route-Key`: answer **403** to any request whose header is not this exact value (compare in constant time), and remove the header before your code reads the request. Empty from an older Nilda, and for a plugin with no route |
 | `host_broker_id` | the stream id to dial for `HostService` (see §4) |
 
 You answer with:

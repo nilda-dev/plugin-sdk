@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // ANSWERING THE SITE'S PRIVACY REQUESTS ABOUT THE PEOPLE IN YOUR OWN TABLES (Core D-103; docs/PLUGIN_SDK.md,
@@ -111,16 +112,21 @@ const (
 	maxPrivacyPhoneDigits = 20
 )
 
-// NormalizePrivacyPhone is the one rule a phone number is compared by: its ASCII digits, a leading "00" dropped, and
-// "" when fewer than 6 or more than 20 digits remain. "+43 660 1234567" and "0043 660 1234567" are one number
-// (436601234567); "0660 1234567" is another (06601234567), because the rule never guesses a country. It is exact on
-// purpose — never a suffix or a fuzzy match: an erasure that matched the wrong guest cannot be taken back. Match your
-// rows by this form (booking's blocklist uses the same rule).
+// NormalizePrivacyPhone is the one rule a phone number is compared by: its digits, written as ASCII, a leading "00"
+// dropped, and "" when fewer than 6 or more than 20 digits remain. "+43 660 1234567" and "0043 660 1234567" are one
+// number (436601234567); "0660 1234567" is another (06601234567), because the rule never guesses a country. It is
+// exact on purpose — never a suffix or a fuzzy match: an erasure that matched the wrong guest cannot be taken back.
+// Match your rows by this form (booking's blocklist uses the same rule).
+//
+// A digit is any decimal digit Unicode knows, read as its value: "۰۹۱۲ ۳۴۵ ۶۷۸۹" (Persian) and "٠٩١٢٣٤٥٦٧٨٩" (Arabic-
+// Indic) are 09123456789, as the same number typed with ASCII digits is. It used to keep ASCII digits only, so a
+// number a guest typed on a Persian or Arabic keyboard normalised to "" and was never found — neither exported nor
+// erased, with nothing saying so (the 2026-11-11 review of the SDK, finding 9).
 func NormalizePrivacyPhone(phone string) string {
 	var digits strings.Builder
 	for _, r := range phone {
-		if r >= '0' && r <= '9' {
-			digits.WriteRune(r)
+		if d, ok := decimalDigit(r); ok {
+			digits.WriteByte('0' + d)
 		}
 	}
 	out := strings.TrimPrefix(digits.String(), "00")
@@ -317,4 +323,21 @@ func DispatchPrivacyHook(ctx context.Context, h PersonalDataHolder, hook string,
 	}
 	b, err := json.Marshal(res)
 	return b, true, err
+}
+
+// decimalDigit is r's value when r is a decimal digit of any script (Unicode category Nd). Unicode writes every such
+// digit in a run of ten, zero first, so the value is the distance from the start of its run, modulo ten (some runs —
+// the mathematical digits — follow one another directly).
+func decimalDigit(r rune) (byte, bool) {
+	if r >= '0' && r <= '9' {
+		return byte(r - '0'), true
+	}
+	if r < 0x80 || !unicode.Is(unicode.Nd, r) {
+		return 0, false
+	}
+	start := r
+	for unicode.Is(unicode.Nd, start-1) {
+		start--
+	}
+	return byte((r - start) % 10), true
 }

@@ -113,6 +113,18 @@ message InitRequest {
   // route when the address changes, so a running plugin always holds the current one — as with its settings.
   string site_url = 13;
 
+  // A secret Core makes fresh for every launch of a plugin that has a route, and sends on EVERY request its reverse
+  // proxy forwards to the plugin's resident HTTP server, in the header X-Nilda-Route-Key. Empty from a Core that does
+  // not send one, and for a plugin with no route.
+  //
+  // Sent because the resident server listens on a loopback port, and a loopback port is reachable by every process on
+  // the machine — another plugin included, which runs as the same operating-system user. Without it, such a process
+  // could call the server directly with X-Nilda-User set to anybody, and the plugin would believe it: the proxy strips
+  // a CLIENT's X-Nilda-* headers, but a caller that skips the proxy is not a client of it. With it, a request that does
+  // not carry this exact value did not come through Core, and the Go SDK refuses it (nilda.StartHTTP, nilda.GuardRoute)
+  // before any handler reads a header. A plugin in another language compares it in constant time and answers 403.
+  string route_key = 14;
+
   // WHEN A FIELD IS REMOVED FROM THIS MESSAGE, ITS NUMBER GOES ON A `reserved` LINE IN THE SAME COMMIT.
   //
   // protobuf identifies a field by its NUMBER, not its name. So the day a field is dropped here and its

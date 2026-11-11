@@ -2,6 +2,7 @@ package nilda
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"runtime/debug"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/hashicorp/go-plugin"
@@ -100,8 +102,7 @@ func Serve(h Handler) {
 }
 
 // StartHTTP starts the plugin's resident HTTP server on an ephemeral localhost port and returns its
-// address for InitResult.RouteAddr. Localhost-only: the ONLY way traffic reaches it in production is
-// Core's reverse proxy of the declared prefix.
+// address for InitResult.RouteAddr, with the defaults HTTPOptions documents. It is StartHTTPWith(h, HTTPOptions{}).
 //
 // # The timeouts, and why they are not yours to forget
 //
@@ -112,23 +113,74 @@ func Serve(h Handler) {
 //
 // Every author writing `http.Serve` by hand makes the same omission, which is the argument for this helper
 // existing at all. ReadHeaderTimeout is the one that closes the slowloris; the others bound a body that
-// never ends and a client that never reads its answer. A long-running handler is unaffected: WriteTimeout
-// starts at the request, and a plugin doing minute-long work should be answering on a queue, not holding a
-// proxied HTTP connection open.
+// never ends and a client that never reads its answer. WriteTimeout starts at the request, so a handler that
+// streams something long — a paid download to a buyer on a slow line — lifts it for its own response:
+//
+//	_ = http.NewResponseController(w).SetWriteDeadline(time.Time{}) // this response only
+//
+// Work that takes minutes otherwise belongs on a queue, not on a proxied HTTP connection held open.
+//
+// # Only Core's proxy gets in
+//
+// The server listens on loopback, and loopback is not private: every process on the machine can dial it,
+// another plugin included — it runs as the same operating-system user. Such a caller skips the proxy, so it
+// can send X-Nilda-User naming anybody, and CurrentUser would believe it. So the handler is wrapped in
+// GuardRoute: from a Core that sends a route key at Init, a request without that exact key is answered 403
+// before your handler runs. See GuardRoute.
+//
+// # Bodies are bounded
+//
+// A request body is cut at HTTPOptions.MaxBodyBytes (DefaultMaxRequestBody): a read past it fails with
+// *http.MaxBytesError, and the connection is closed. A plugin's memory is capped and the supervisor kills it
+// on breach, so one unbounded upload must not be able to take every route of the plugin down with it.
 //
 // A serve error is LOGGED rather than dropped. It was `_ = http.Serve(...)`, so a listener that died took
 // the plugin's whole route surface with it in silence: every request 502'd through Core and the plugin's
 // own log said nothing at all.
-func StartHTTP(h http.Handler) (string, error) {
+func StartHTTP(h http.Handler) (string, error) { return StartHTTPWith(h, HTTPOptions{}) }
+
+// DefaultMaxRequestBody is the request body StartHTTP takes when HTTPOptions.MaxBodyBytes is zero: 32 MiB.
+const DefaultMaxRequestBody = 32 << 20
+
+// DefaultHTTPWriteTimeout is how long StartHTTP lets one response take when HTTPOptions.WriteTimeout is zero.
+const DefaultHTTPWriteTimeout = 60 * time.Second
+
+// HTTPOptions tune StartHTTPWith. The zero value is StartHTTP's defaults.
+type HTTPOptions struct {
+	// MaxBodyBytes bounds every request body: zero is DefaultMaxRequestBody, a negative number no bound at all.
+	// Raise it for a route that takes uploads; a handler can also bound one route lower with http.MaxBytesReader.
+	MaxBodyBytes int64
+	// WriteTimeout bounds one response: zero is DefaultHTTPWriteTimeout, a negative number none. One handler can
+	// lift it for its own response instead (see StartHTTP).
+	WriteTimeout time.Duration
+}
+
+// StartHTTPWith is StartHTTP with the body bound and the write timeout chosen. The read timeouts, the guard
+// (GuardRoute) and the loopback listener are the same.
+func StartHTTPWith(h http.Handler, o HTTPOptions) (string, error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return "", fmt.Errorf("plugin http listen: %w", err)
 	}
+	limit := o.MaxBodyBytes
+	if limit == 0 {
+		limit = DefaultMaxRequestBody
+	}
+	if limit > 0 {
+		h = http.MaxBytesHandler(h, limit)
+	}
+	write := o.WriteTimeout
+	if write == 0 {
+		write = DefaultHTTPWriteTimeout
+	}
+	if write < 0 {
+		write = 0 // http.Server: zero is none
+	}
 	srv := &http.Server{
-		Handler:           h,
+		Handler:           GuardRoute(h),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       60 * time.Second,
-		WriteTimeout:      60 * time.Second,
+		WriteTimeout:      write,
 		IdleTimeout:       120 * time.Second,
 	}
 	go func() {
@@ -140,6 +192,39 @@ func StartHTTP(h http.Handler) (string, error) {
 	return ln.Addr().String(), nil
 }
 
+// RouteKeyHeader is the header on which Core's proxy proves a request came through it: the route key Core sent this
+// launch at Init (InitRequest.route_key). GuardRoute checks it and removes it, so no handler, log or echo sees it.
+const RouteKeyHeader = "X-Nilda-Route-Key"
+
+// routeKey is this launch's route key, set at Init before the plugin's own Init runs (so a StartHTTP inside it
+// already enforces it). One plugin per process: the key is the process's.
+var routeKey atomic.Value // string
+
+func currentRouteKey() string {
+	k, _ := routeKey.Load().(string)
+	return k
+}
+
+// GuardRoute lets through only requests that came through Core's proxy. StartHTTP wraps your handler in it; wrap
+// your own server's handler in it if you do not use StartHTTP.
+//
+// From a Core that sends a route key at Init, a request whose RouteKeyHeader is not that key — compared in constant
+// time — is answered 403 and your handler never runs: it did not come through Core, so every X-Nilda-* header on it
+// (CurrentUser, AgentOf, VisitorConsent, …) is whatever the caller chose to write. The header is removed before your
+// handler sees the request. From a Core that sends none, every request passes, as before this existed — such a Core
+// is the one place left where the loopback port must be kept from other processes by the deployment.
+func GuardRoute(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got := r.Header.Get(RouteKeyHeader)
+		if key := currentRouteKey(); key != "" && subtle.ConstantTimeCompare([]byte(got), []byte(key)) != 1 {
+			http.Error(w, "this address answers only requests from the site", http.StatusForbidden)
+			return
+		}
+		r.Header.Del(RouteKeyHeader)
+		h.ServeHTTP(w, r)
+	})
+}
+
 // pluginServer adapts the author's Handler onto the gRPC contract (runs inside the plugin process).
 type pluginServer struct {
 	contract.UnimplementedPluginServiceServer
@@ -149,8 +234,10 @@ type pluginServer struct {
 	abilityRun map[string]func(context.Context, json.RawMessage) (any, error)
 	// visitorRun holds the visitor tools' Run functions, keyed by name, written once in Init like abilityRun.
 	visitorRun map[string]func(context.Context, VisitorCall) (any, error)
-	broker     *plugin.GRPCBroker // injected by GRPCPlugin.GRPCServer
-	conn       *grpc.ClientConn   // the dialed HostService broker stream
+	// args are the abilities' and visitor tools' compiled input schemas, written once in Init (argschema.go).
+	args   argSchemas
+	broker *plugin.GRPCBroker // injected by GRPCPlugin.GRPCServer
+	conn   *grpc.ClientConn   // the dialed HostService broker stream
 }
 
 func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (resp *contract.InitResponse, err error) {
@@ -162,6 +249,8 @@ func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (res
 		return nil, fmt.Errorf("dial host service: %w", err)
 	}
 	s.conn = conn
+	// Before the plugin's own Init: a StartHTTP inside it must already refuse what did not come through Core.
+	routeKey.Store(req.GetRouteKey())
 	core := &Core{
 		PluginKey:       req.PluginKey,
 		NildaVersion:    req.NildaVersion,
@@ -218,6 +307,7 @@ func (s *pluginServer) wire(res InitResult) (*contract.InitResponse, error) {
 		})
 	}
 	s.visitorRun = visitorRunners(res.VisitorTools)
+	s.args = compileArgSchemas(res.Abilities, res.VisitorTools)
 	return out, nil
 }
 
@@ -280,6 +370,10 @@ func (s *pluginServer) HandleHook(ctx context.Context, req *contract.HookRequest
 	// documented pattern fail at runtime with an error naming the author's own ability. The worry behind
 	// it cannot happen — Core dispatches `ability:<name>` only for abilities this plugin declared at Init,
 	// so the only names that arrive are the author's own.
+	// A declared ability's or visitor tool's arguments are held to its InputSchema first, Run or not (argschema.go).
+	if err := s.args.check(req.Hook, req.Payload); err != nil {
+		return nil, asAnswer(err)
+	}
 	if out, handled, err := dispatchAbility(ctx, s.abilityRun, req.Hook, req.Payload); handled {
 		if err != nil {
 			return nil, asAnswer(err)

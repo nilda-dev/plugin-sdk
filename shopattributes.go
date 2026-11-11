@@ -1210,7 +1210,11 @@ func NewAddressSuggestLimiter() *AddressSuggestLimiter {
 }
 
 // Allow records one call by visitor at now and reports whether it is within the bound. A refused call is not counted;
-// a call naming no visitor is refused (the shop names each by its basket's or session's id).
+// a call naming no visitor is refused.
+//
+// Key it by VisitorKey(r) — Core's hash of the visitor's address, the same all day — and not by a basket or session
+// id alone: a cookie is the caller's to drop, so a script that sends none is a new visitor on every call and spends
+// the merchant's provider budget without bound. With both, ask twice — once per key — and refuse when either says no.
 func (l *AddressSuggestLimiter) Allow(visitor string, now time.Time) bool {
 	if visitor == "" {
 		return false

@@ -286,3 +286,18 @@ func TestTheClientIdentifiesItselfToTheEgressProxy(t *testing.T) {
 			"to a declared host is refused", seen)
 	}
 }
+
+// TestAnIssuerThatIsNotHTTPSIsRefused is the 2026-11-11 review's finding 16.
+func TestAnIssuerThatIsNotHTTPSIsRefused(t *testing.T) {
+	for _, issuer := range []string{"http://idp.intra", "ftp://idp.example", "idp.example"} {
+		c := NewOIDCClient(issuer, "id", "secret")
+		if err := c.Discover(context.Background()); err == nil || !strings.Contains(err.Error(), "oidc:") {
+			t.Fatalf("%s: %v", issuer, err)
+		}
+	}
+	for _, raw := range []string{"https://idp.example", "http://127.0.0.1:8080", "http://localhost/x", "http://[::1]:9"} {
+		if err := oidcSecureURL("issuer", raw); err != nil {
+			t.Fatalf("%s refused: %v", raw, err)
+		}
+	}
+}
