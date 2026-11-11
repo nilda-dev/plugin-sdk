@@ -2139,6 +2139,7 @@ field VisitorCall.Args json.RawMessage json:args
 field VisitorCall.IP string json:ip
 field VisitorCall.Path string json:path
 field VisitorCall.UserAgent string json:user_agent
+field VisitorCall.VisitorKey string json:visitor_key
 field VisitorTool.Description string
 field VisitorTool.Effect VisitorEffect
 field VisitorTool.InputSchema json.RawMessage

@@ -5,13 +5,15 @@ import (
 	"time"
 )
 
-// YOUR DATASTORE'S CONNECTIONS ARE THE SITE'S CONNECTIONS (`datastore`).
+// YOUR DATASTORE'S CONNECTIONS ARE THE DATABASE SERVER'S CONNECTIONS (`datastore`).
 //
-// Core.DatastoreDSN opens your own schema on the site's own Postgres, and every connection you hold is one the site
-// cannot use: a Nilda Cloud site has a pool of FIVE. database/sql opens as many as it is asked for by default — no
-// limit at all — and Core calls a plugin up to sixteen times at once, besides the public traffic on its route. So a
-// plugin that opens the DSN and does nothing else can hold every connection the site has, and the site waits for it
-// (the 2026-11-11 review of the SDK, finding 4).
+// Core.DatastoreDSN logs in as your plugin's own role on the site's Postgres. Core caps that role — at most 20
+// connections, a statement at most a minute, a transaction idle at most a minute, a lock waited for at most ten seconds
+// (core's internal/plugin/datastore.go, pluginRoleBounds) — so a plugin cannot take the site's own pool, but every
+// connection it holds is still one the database server serves, beside the site, its backups and every other plugin.
+// database/sql opens as many as it is asked for by default — no limit at all — and Core calls a plugin up to sixteen
+// times at once, besides the public traffic on its route: a plugin that opens the DSN and does nothing else runs into
+// the role's cap under load, and its own calls then fail (the 2026-11-11 review of the SDK, finding 4).
 //
 // Bound the pool the moment you open it:
 //
@@ -31,13 +33,13 @@ import (
 //     fixed list in your code, never from a request; nothing a visitor, the owner or a model sends becomes SQL text.
 
 // DatastoreMaxConns is how many connections LimitDatastorePool lets a plugin hold at once. Two: one for the request
-// in hand and one for the one beside it; past that a query waits for a free one — inside its ctx — instead of taking
-// a third from the site.
+// in hand and one for the one beside it; past that a query waits for a free one — inside its ctx — instead of opening
+// another on the database server.
 const DatastoreMaxConns = 2
 
 // LimitDatastorePool bounds a pool opened on Core.DatastoreDSN to DatastoreMaxConns connections, one kept idle, each
 // closed after 30 minutes (5 idle), so a restarted Postgres or a failover is reconnected rather than held broken. It
-// returns db. Lower it further if you like; raising it spends connections the site needs.
+// returns db. Raise it only as far as you measured you need, and below the role's cap of 20.
 func LimitDatastorePool(db *sql.DB) *sql.DB {
 	if db == nil {
 		return nil

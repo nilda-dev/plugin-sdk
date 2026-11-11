@@ -256,9 +256,11 @@ JOIN public.core_content c ON c.id = o.content_id
 WHERE o.created_at > now() - interval '7 days'
 ```
 
-**Bound your connections the moment you open them.** Every connection you hold is one the site cannot use —
-a Nilda Cloud site has a pool of five — and `database/sql` opens without any limit, while Core calls you up to
-sixteen times at once. `nilda.LimitDatastorePool` holds you to `nilda.DatastoreMaxConns` (two):
+**Bound your connections the moment you open them.** Your role is capped by Core at 20 connections, a statement
+of at most a minute and a transaction idle at most a minute, and every connection you hold is one the database
+server serves beside the site. `database/sql` opens without any limit while Core calls you up to sixteen times at
+once, so an unbounded pool meets the cap under load and your own calls fail. `nilda.LimitDatastorePool` holds you to
+`nilda.DatastoreMaxConns` (two):
 
 ```go
 db, err := sql.Open("pgx", core.DatastoreDSN) // any Postgres driver; the SDK imports none
@@ -1094,7 +1096,8 @@ because a visitor has none. Core cannot see inside `Run`, so keeping that ceilin
 it is reuse: call the code your public route calls, behind the same checks, and return what that page would
 show.
 
-`Run` gets a `nilda.VisitorCall` — the arguments, the page path, the caller's address and agent string — and
+`Run` gets a `nilda.VisitorCall` — the arguments, the page path, and `VisitorKey`, Core's daily hash of the caller's
+address (limit by it; the raw `IP` is still sent for a limiter that has not moved to the key) — and
 no identity, on purpose: the tool acts for nobody, and one that answered a signed-in caller differently would
 grow a private surface on a public endpoint. The address is for your anti-abuse checks, never to vary the
 answer. Leave `Run` nil and the call reaches `HandleHook` under `nilda.VisitorToolHook(name)`, the

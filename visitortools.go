@@ -42,8 +42,8 @@ import (
 // else is a second public door beside the first, and the narrower of two doors stops being true.
 //
 // Run gets no identity, on purpose: it acts for nobody, and a tool that answered a signed-in caller differently
-// would grow a private surface on a public endpoint. VisitorCall carries the page, the caller's address and agent
-// string for your anti-abuse checks only.
+// would grow a private surface on a public endpoint. VisitorCall carries the page and the caller's visitor key (and,
+// from Core, still its address) for your anti-abuse checks only.
 
 // VisitorEffect is what a visitor tool does: read or submit. There is no third.
 type VisitorEffect string
@@ -82,7 +82,12 @@ type VisitorCall struct {
 	Args json.RawMessage `json:"args,omitempty"`
 	// Path is the page the agent was on, with its leading slash: "/shop/product/mug".
 	Path string `json:"path"`
-	// IP and UserAgent are the caller's, for your anti-abuse checks — never to vary the answer by who asked.
+	// VisitorKey is Core's opaque key for the caller's address — a keyed hash that changes every UTC day and is not the
+	// same for two plugins, never the address (VisitorKey reads the same thing on your route). Limit a caller by it.
+	// "" from a Core that does not send it. From v0.62.0.
+	VisitorKey string `json:"visitor_key,omitempty"`
+	// IP is the caller's address, for an anti-abuse check that needs the address itself. Prefer VisitorKey: an address
+	// is personal data, and a tool that only limits has no reason to hold one. UserAgent is not sent by Core.
 	IP        string `json:"ip,omitempty"`
 	UserAgent string `json:"user_agent,omitempty"`
 	// Agent is the AI agent behind the call when it proved who it is (Web Bot Auth) — its operator and what the site's

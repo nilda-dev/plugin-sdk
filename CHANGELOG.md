@@ -35,13 +35,16 @@ The fixes of the SDK review of 2026-11-11. All additive; tag at once (docs/RELEA
   call that does not match, as the plugin's answer, before `Run` or `HandleHook` sees it — an anonymous visitor's agent
   included. No arguments is `{}`. A schema the SDK cannot compile is logged and its calls pass, as before.
 - THE DATASTORE POOL. `LimitDatastorePool(db)` holds a pool opened on `Core.DatastoreDSN` to `DatastoreMaxConns` (2);
-  `database/sql` opens without a limit, and a Cloud site has five. The guide says the rest: ctx on every query, no
-  transaction held across a call to Core, placeholders only.
+  `database/sql` opens without a limit, and Core caps the plugin's role at 20 connections, so an unbounded pool fails
+  its own calls under load. The guide says the rest: ctx on every query, no transaction held across a call to Core,
+  placeholders only.
 - `NormalizePrivacyPhone` reads every script's decimal digits (`۰۹۱۲…`, `٠٩١٢…` are `0912…`). It kept ASCII only, so a
   number typed on a Persian or Arabic keyboard normalised to "" and was never exported nor erased. NEEDS CORE: the same
   rule where Core normalises the phones it sends.
 - `NewOIDCClient` refuses an issuer, a token endpoint or an authorization endpoint that is not https (a loopback host
   excepted, for tests): the token endpoint receives the client secret, the code and the PKCE verifier.
+- `VisitorCall.VisitorKey`: Core's daily, per-plugin hash of a visitor-tool caller's address, as `VisitorKey(r)` reads
+  on a route. Limit by it instead of `IP`, which Core still sends until the plugins limiting by it have moved.
 - Said where an author reads it: `Core.Trash` failing means undo your own mark; `IsFirstRun` is true on a reinstall too,
   so seed without overwriting; `AddressSuggestLimiter` is keyed by `VisitorKey`, not a cookie alone; `ShopOrder.Email`
   is for delivering the order, never for an ad network without the order's consent; what §6 of the guide means for a
