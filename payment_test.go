@@ -538,3 +538,29 @@ func TestAResolutionCarriesItsInstrument(t *testing.T) {
 		t.Errorf("an empty instrument is sent anyway: %s", b)
 	}
 }
+
+func TestUnmatchedIsOnlyAResolvedRefundCoreKept(t *testing.T) {
+	if FailureUnmatched != "unmatched" {
+		t.Fatalf("FailureUnmatched = %q; it is the wire value Core sends", FailureUnmatched)
+	}
+	cases := []struct {
+		r    PaymentRefund
+		want bool
+	}{
+		{PaymentRefund{Status: RefundResolved, External: true, FailureCode: FailureUnmatched}, true},
+		{PaymentRefund{Status: RefundResolved, FailureCode: FailureUnmatched}, true},
+		{PaymentRefund{Status: RefundResolved, External: true}, false},
+		{PaymentRefund{Status: RefundResolved, FailureCode: PaymentFailDeclined}, false}, // a reversed refund's reason
+		{PaymentRefund{Status: RefundRejected, FailureCode: FailureUnmatched}, false},
+		{PaymentRefund{Status: RefundPending, FailureCode: FailureUnmatched}, false},
+	}
+	for _, c := range cases {
+		if got := c.r.Unmatched(); got != c.want {
+			t.Errorf("%+v.Unmatched() = %v, want %v", c.r, got, c.want)
+		}
+	}
+	var r PaymentRefund
+	if err := json.Unmarshal([]byte(`{"id":"u1","status":"resolved","external":true,"failure_code":"unmatched"}`), &r); err != nil || !r.Unmatched() {
+		t.Fatalf("Core's answer read as %+v %v; want Unmatched", r, err)
+	}
+}

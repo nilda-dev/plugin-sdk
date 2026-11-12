@@ -8,6 +8,35 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.63.0 — unreleased (payments: a refund Core kept as money no payment holds, a reversed refund no longer counts)
+
+Core's payments security review (2026-11-12) changed what a gateway hears back about refunds. Additive; a money fix
+(docs/RELEASE_TRAIN.md rule 2: tag at once).
+
+Added:
+
+- `nilda.FailureUnmatched` (`"unmatched"`) and `PaymentRefund.Unmatched()`. `ReportExternalRefund` may answer with a
+  resolved refund whose `failure_code` is `"unmatched"`: NOT a refund of the payment, but money the processor gave back
+  that Nilda holds on no payment (a payment after a refusal, a second payment of the order, more than was paid, or one
+  beside refunds still pending at the bank). Nothing of the order changed and the consumer is not told; the owner
+  settles it. Its id can be read with `GetRefund` and reported reversed with `ReverseRefund`. Before, a refund past
+  what was paid was a 422.
+- An external refund that passes the cap only because a Nilda refund is still being asked of its gateway is refused
+  with 503: report it again shortly (fail the webhook); a 503 is never final.
+
+Changed:
+
+- `RefundedMinor` is what the session's resolved refunds gave back LESS ANY REVERSED: a reversed refund no longer
+  counts, and the payment can be refunded again up to what was paid. Before, a reversal left the total unchanged.
+- PAYMENTS.md: ONE STABLE PROCESSOR REFERENCE PER PAYMENT. A gateway reports a payment (Resolve, Authorize, a capture's
+  answer) under one reference for its whole life — the charge (Stripe: `ch_…`, never `pi_…` in one report and the
+  charge in another). Core treats money on a paid payment under another reference as a second payment of the order, and
+  a refund made at the processor while it is open is answered `Unmatched()` and kept for the owner.
+- `nildatest.Payments` does all of the above as Core does: a reversal is taken off the refunded total, an external
+  refund past what was paid or on a refused payment is kept unmatched (read and reversed by its gateway, never seen by
+  the consumer), and one past the cap only because of a refund still `requested` is a 503.
+
+
 ## v0.62.0 — 2026-11-11 (security: only Core's proxy reaches a route, payment tokens never reach the log, arguments held to their schema, who acted)
 
 The fixes of the SDK review of 2026-11-11. All additive; tag at once (docs/RELEASE_TRAIN.md rule 2: a security fix).

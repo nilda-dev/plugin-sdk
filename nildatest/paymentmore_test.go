@@ -126,8 +126,12 @@ func TestAReversedRefundStaysResolvedAndIsToldAgain(t *testing.T) {
 	if len(w.pay.Deliveries()) != before+1 || w.pay.Deliveries()[before].Refund.ReversedAt == nil {
 		t.Fatal("the consumer was not told the refund was reversed")
 	}
-	if got, _ := w.pay.GetSession(s.ID); got.RefundedMinor != 234 {
-		t.Fatalf("refunded total = %d; a reversal does not change what was booked", got.RefundedMinor)
+	if got, _ := w.pay.GetSession(s.ID); got.RefundedMinor != 0 {
+		t.Fatalf("refunded total = %d; a reversed refund no longer counts", got.RefundedMinor)
+	}
+	// The payment can be refunded again up to what was paid.
+	if _, err := w.shopAPI.CreateRefund(ctx, "r2", s.ID, nilda.PaymentRefundParams{AmountMinor: s.AmountMinor}); err != nil {
+		t.Fatalf("refunding the whole payment again after a reversal: %v", err)
 	}
 }
 
@@ -146,12 +150,69 @@ func TestARefundMadeAtTheProcessorIsBookedOnce(t *testing.T) {
 	if got, _ := w.pay.GetSession(s.ID); got.RefundedMinor != 500 {
 		t.Fatalf("refunded total = %d, want 500 once", got.RefundedMinor)
 	}
-	if _, err := w.gwAPI.ReportExternalRefund(ctx, s.ID, nilda.PaymentExternalRefund{AmountMinor: 800, Currency: "EUR", ProviderRef: "re_2"}); httpStatus(t, err) != http.StatusUnprocessableEntity {
-		t.Fatalf("an external refund past what was paid answered %v, want 422", err)
+	// Past what was paid: money no payment holds, kept for the owner — never booked against the order.
+	w.pay.Deliver(ctx)
+	before := len(w.pay.Deliveries())
+	loose, err := w.gwAPI.ReportExternalRefund(ctx, s.ID, nilda.PaymentExternalRefund{AmountMinor: 800, Currency: "EUR", ProviderRef: "re_2"})
+	if err != nil || !loose.Unmatched() || loose.FailureCode != nilda.FailureUnmatched {
+		t.Fatalf("an external refund past what was paid answered %+v %v, want an unmatched refund", loose, err)
+	}
+	w.pay.Deliver(ctx)
+	if got, _ := w.pay.GetSession(s.ID); got.RefundedMinor != 500 || len(w.pay.Deliveries()) != before {
+		t.Fatalf("an unmatched refund changed the order: refunded %d, %d deliveries (want 500, %d)",
+			got.RefundedMinor, len(w.pay.Deliveries()), before)
+	}
+	if again, err := w.gwAPI.ReportExternalRefund(ctx, s.ID, nilda.PaymentExternalRefund{AmountMinor: 800, Currency: "EUR", ProviderRef: "re_2"}); err != nil || again.ID != loose.ID {
+		t.Fatalf("the same unmatched refund twice answered %+v %v", again, err)
+	}
+	if read, err := w.gwAPI.GetRefund(ctx, loose.ID); err != nil || !read.Unmatched() {
+		t.Fatalf("GetRefund of an unmatched refund = %+v %v", read, err)
+	}
+	if rev, err := w.gwAPI.ReverseRefund(ctx, loose.ID, nilda.PaymentRejection{FailureCode: nilda.PaymentFailDeclined}); err != nil || rev.ReversedAt == nil || !rev.Unmatched() {
+		t.Fatalf("ReverseRefund of an unmatched refund = %+v %v", rev, err)
+	}
+	if got, _ := w.pay.GetSession(s.ID); got.RefundedMinor != 500 {
+		t.Fatalf("reversing an unmatched refund changed the order: refunded %d", got.RefundedMinor)
 	}
 	// What Nilda may still refund counts what was refunded elsewhere.
 	if _, err := w.shopAPI.CreateRefund(ctx, "r-over", s.ID, nilda.PaymentRefundParams{AmountMinor: 800}); httpStatus(t, err) != http.StatusUnprocessableEntity {
 		t.Fatalf("a refund past what is left after the external one answered %v, want 422", err)
+	}
+}
+
+func TestAnExternalRefundBesideOneNildaIsStillAskingIsAskedAgain(t *testing.T) {
+	w, s := paidWorld(t)
+	ctx := context.Background()
+	// Nilda's own refund is requested and its gateway not asked yet: with it, the processor's refund passes the cap.
+	if _, err := w.shopAPI.CreateRefund(ctx, "r1", s.ID, nilda.PaymentRefundParams{AmountMinor: 1000}); err != nil {
+		t.Fatal(err)
+	}
+	ext := nilda.PaymentExternalRefund{AmountMinor: 500, Currency: "EUR", ProviderRef: "re_dash"}
+	_, err := w.gwAPI.ReportExternalRefund(ctx, s.ID, ext)
+	if httpStatus(t, err) != http.StatusServiceUnavailable {
+		t.Fatalf("an external refund past the cap only because of a refund still being asked answered %v, want 503", err)
+	}
+	if got, _ := w.pay.GetSession(s.ID); got.RefundedMinor != 0 {
+		t.Fatalf("a 503 booked %d", got.RefundedMinor)
+	}
+}
+
+func TestARefundOnARefusedPaymentIsKeptUnmatched(t *testing.T) {
+	w := newWorld(t)
+	ctx := context.Background()
+	s, err := w.shopAPI.CreateSession(ctx, "k1", params())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.gwAPI.Reject(ctx, s.ID, nilda.PaymentRejection{FailureCode: nilda.PaymentFailDeclined}); err != nil {
+		t.Fatal(err)
+	}
+	rf, err := w.gwAPI.ReportExternalRefund(ctx, s.ID, nilda.PaymentExternalRefund{AmountMinor: 1234, Currency: "EUR", ProviderRef: "re_late"})
+	if err != nil || !rf.Unmatched() {
+		t.Fatalf("a refund of money taken after a refusal answered %+v %v, want an unmatched refund", rf, err)
+	}
+	if _, err := w.shopAPI.GetRefund(ctx, rf.ID); httpStatus(t, err) != http.StatusNotFound {
+		t.Fatalf("the consumer read an unmatched refund: %v", err)
 	}
 }
 

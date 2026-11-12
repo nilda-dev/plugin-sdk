@@ -59,7 +59,10 @@ type Payments struct {
 	sessions  map[string]*nilda.PaymentSession
 	order     []string // session ids, oldest first
 	refunds   map[string]*nilda.PaymentRefund
-	refundDue map[string]bool          // refunds the delivery job still has to ask their gateway about
+	refundDue map[string]bool // refunds the delivery job still has to ask their gateway about
+	// unmatched are refunds made at the processor that Core KEPT as money no payment holds, in the refund's shape it
+	// answers with (FailureCode nilda.FailureUnmatched): never booked against the order, never told to a consumer.
+	unmatched map[string]*nilda.PaymentRefund
 	reported  map[string]reportedMoney // session id → what a processor took that did not match, as Core keeps it
 	keys      map[string]replay        // caller + idempotency key → the first answer
 	disputes  map[string]*nilda.PaymentDispute
@@ -136,6 +139,7 @@ func NewPayments() *Payments {
 		sessions:  map[string]*nilda.PaymentSession{},
 		refunds:   map[string]*nilda.PaymentRefund{},
 		refundDue: map[string]bool{},
+		unmatched: map[string]*nilda.PaymentRefund{},
 		reported:  map[string]reportedMoney{},
 		keys:      map[string]replay{},
 		disputes:  map[string]*nilda.PaymentDispute{},
@@ -212,11 +216,15 @@ func (p *Payments) GetSession(id string) (nilda.PaymentSession, bool) {
 	return *s, true
 }
 
-// GetRefund returns a refund as Core holds it now.
+// GetRefund returns a refund as Core holds it now — or a refund made at the processor that Core kept as money no
+// payment holds (its Unmatched is true).
 func (p *Payments) GetRefund(id string) (nilda.PaymentRefund, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	r, ok := p.refunds[id]
+	if !ok {
+		r, ok = p.unmatched[id]
+	}
 	if !ok {
 		return nilda.PaymentRefund{}, false
 	}
@@ -946,6 +954,10 @@ func (p *Payments) readRefund(caller, id string) (nilda.PaymentRefund, error) {
 	defer p.mu.Unlock()
 	rf, ok := p.refunds[id]
 	if !ok {
+		// A refund kept as money no payment holds is the gateway's to read, never the consumer's: it is not the order's.
+		if u, ok := p.unmatched[id]; ok && p.sessions[u.Session].Gateway == caller {
+			return *u, nil
+		}
 		return nilda.PaymentRefund{}, notFound("no refund %q", id)
 	}
 	s := p.sessions[rf.Session]
@@ -1291,12 +1303,7 @@ func (p *Payments) refundFits(s *nilda.PaymentSession, amount int64) error {
 		return &apiError{http.StatusConflict, "CONFLICT",
 			fmt.Sprintf("only a resolved payment can be refunded; this one is %s", s.Status)}
 	}
-	var committed int64
-	for _, rf := range p.refunds {
-		if rf.Session == s.ID && rf.Status != nilda.RefundRejected {
-			committed += rf.AmountMinor
-		}
-	}
+	committed := p.committedRefunds(s.ID)
 	// What the payer's bank has taken or is taking back, as Core counts it (v0.40.0): an open chargeback refuses any
 	// refund, a lost one's amount is already given back — one in another currency counts as the whole payment.
 	var lost int64
@@ -1321,6 +1328,40 @@ func (p *Payments) refundFits(s *nilda.PaymentSession, amount int64) error {
 			amount, committed+amount, s.AmountMinor, lost)
 	}
 	return nil
+}
+
+// committedRefunds is what a session's refunds have taken back or are taking, as Core's SumCommittedRefunds counts it:
+// every refund not rejected and not reversed, and every refund made at the processor that Core kept for a person on
+// this payment and that was not reversed — money that left, which uncounted would let the payment be refunded again
+// beside it. Callers hold p.mu.
+func (p *Payments) committedRefunds(session string) int64 {
+	var committed int64
+	for _, rf := range p.refunds {
+		if rf.Session == session && rf.Status != nilda.RefundRejected && rf.ReversedAt == nil {
+			committed += rf.AmountMinor
+		}
+	}
+	if s := p.sessions[session]; s != nil && s.Status == nilda.PaymentResolved {
+		for _, u := range p.unmatched {
+			if u.Session == session && u.ReversedAt == nil {
+				committed += u.AmountMinor
+			}
+		}
+	}
+	return committed
+}
+
+// recountRefunded sets a session's RefundedMinor to what its resolved refunds gave back, less any reversed — as
+// Core's recountRefunded does, capped at what was paid. Callers hold p.mu.
+func (p *Payments) recountRefunded(session string) {
+	s := p.sessions[session]
+	var total int64
+	for _, rf := range p.refunds {
+		if rf.Session == session && rf.Status == nilda.RefundResolved && rf.ReversedAt == nil {
+			total += rf.AmountMinor
+		}
+	}
+	s.RefundedMinor = min(total, s.AmountMinor)
 }
 
 // askRefund sends payment.refund for a requested refund. An unanswered one stays requested and is asked
@@ -1379,7 +1420,7 @@ func (p *Payments) moveRefund(rf *nilda.PaymentRefund, to string) bool {
 	rf.Status = to
 	rf.UpdatedAt = time.Now().UTC()
 	if to == nilda.RefundResolved {
-		p.sessions[rf.Session].RefundedMinor += rf.AmountMinor
+		p.recountRefunded(rf.Session)
 	}
 	p.owe(owed{session: rf.Session, refund: rf.ID})
 	return true
@@ -1400,6 +1441,24 @@ func (p *Payments) reportRefund(caller, id, verb string, body []byte) (any, erro
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	rf, ok := p.refunds[id]
+	if !ok {
+		// A refund Core kept as money no payment holds can be reported reversed (and only that): recorded on it once,
+		// with no money moved and nothing of the order changed.
+		if u, ok := p.unmatched[id]; ok && verb == "reverse" && p.sessions[u.Session].Gateway == caller {
+			var r nilda.PaymentRejection
+			if err := json.Unmarshal(body, &r); err != nil {
+				return nil, invalid("the body is not a rejection: %v", err)
+			}
+			if err := r.Validate(); err != nil {
+				return nil, invalid("%v", err)
+			}
+			if u.ReversedAt == nil {
+				now := time.Now().UTC()
+				u.ReversedAt, u.UpdatedAt = &now, now
+			}
+			return *u, nil
+		}
+	}
 	if !ok || p.sessions[rf.Session].Gateway != caller {
 		return nil, notFound("no refund %q", id)
 	}
@@ -1430,8 +1489,8 @@ func (p *Payments) reportRefund(caller, id, verb string, body []byte) (any, erro
 			return nil, invalid("%v", err)
 		}
 		// Only a refund that went through can be undone; it STAYS resolved (a final status), gains ReversedAt, and
-		// the consumer is told again. The session's refunded total is not changed: what the consumer booked is the
-		// consumer's to correct.
+		// the consumer is told again. It no longer counts in the session's refunded total: the payment can be
+		// refunded again up to what was paid.
 		if rf.Status != nilda.RefundResolved {
 			return nil, &apiError{http.StatusConflict, "CONFLICT",
 				fmt.Sprintf("only a resolved refund can be reversed; this one is %s", rf.Status)}
@@ -1442,6 +1501,7 @@ func (p *Payments) reportRefund(caller, id, verb string, body []byte) (any, erro
 		now := time.Now().UTC()
 		rf.ReversedAt, rf.UpdatedAt = &now, now
 		rf.FailureCode, rf.FailureMessage = r.FailureCode, r.FailureMessage
+		p.recountRefunded(rf.Session)
 		p.owe(owed{session: rf.Session, refund: rf.ID})
 		return *rf, nil
 	case "reject":

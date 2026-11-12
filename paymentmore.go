@@ -23,9 +23,10 @@ import (
 //   - A DISPUTE is a second object beside its session; the session's state machine is untouched (resolved stays
 //     final). A gateway reports each dispute as a SNAPSHOT; Core keeps one row per dispute and tells the consumer.
 //   - A REFUND CAN BE REVERSED after it succeeded (a card refund the bank sent back): it stays resolved, gains
-//     ReversedAt, and the consumer is told again.
+//     ReversedAt, no longer counts in the session's RefundedMinor, and the consumer is told again.
 //   - A REFUND MADE AT THE PROCESSOR, outside Nilda (in the Stripe Dashboard), is reported by the gateway, so the
-//     consumer's books and Core's refunded total stay right.
+//     consumer's books and Core's refunded total stay right — unless it gives back money no payment holds, which
+//     Core keeps for the owner and answers as PaymentRefund.Unmatched.
 //   - A MISSED WEBHOOK has a pull path: Core asks a gateway that implements PaymentSyncer to look a session up
 //     at its processor (payment.sync), and the gateway reports what it finds through the usual calls.
 //   - A GATEWAY'S OWN SECRET (a webhook signing secret its processor showed once) is kept by Core, encrypted, and

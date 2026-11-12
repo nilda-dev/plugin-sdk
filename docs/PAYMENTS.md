@@ -103,7 +103,9 @@ own `supports`**, the list Core copied from the method when the payment was made
 `Supports`, or `refund` + `partial_refund` when it lists nothing and `Refunds` is true). `refund` is needed for
 any refund, `partial_refund` for one of less than was paid. The gateway is never asked again — a gateway whose
 key was removed made every old payment unrefundable while Core asked it. A gateway that is not RUNNING is a 503:
-ask again later. `RefundedMinor` on the session is the sum of its resolved refunds. `CreateRefund` answers
+ask again later. `refunded_minor` (`RefundedMinor`) on a session is what its resolved refunds gave back, **less
+any reversed** (`reversed_at` set): a reversed refund no longer counts, and the payment can be refunded again up
+to what was paid. `CreateRefund` answers
 with the refund **`requested`**: Core asks the gateway from its delivery job a moment later, never inside the
 consumer's own call (an owner's refund button has five seconds; a processor may take fifteen), and the consumer
 hears how it ends as `payment.refund.updated`.
@@ -111,11 +113,20 @@ hears how it ends as `payment.refund.updated`.
 **A refund can be reversed** after it went through — a bank sent the money back (Stripe: up to 30 days). The
 gateway reports it (`ReverseRefund`); only a `resolved` refund can be, and it STAYS `resolved` (final): Core sets
 its `reversed_at`, keeps the reason in `failure_code`/`failure_message`, and tells the consumer again through
-`payment.refund.updated`. `RefundedMinor` is not changed — what was booked is the consumer's to correct.
+`payment.refund.updated`. It no longer counts in `RefundedMinor`: the money is with the merchant again, and the
+payment can be refunded again up to what was paid.
 
 **A refund made at the processor**, outside Nilda — by hand in its dashboard — is reported by the gateway
 (`ReportExternalRefund`, keyed by the processor's refund id). Core records it as a refund that is `resolved` at
 once and `external`, adds it to `RefundedMinor`, and tells the consumer, so the shop's books match the money.
+
+**An unmatched refund.** `ReportExternalRefund` may answer with a refund whose `failure_code` is `"unmatched"`
+(`nilda.FailureUnmatched`; `PaymentRefund.Unmatched()` reports it). That is NOT a refund of the payment: the
+processor gave back money Nilda holds on no payment (a payment after a refusal, a second payment of the order, more
+than was paid, or one beside refunds still pending at the bank). Nothing of the order changed and the consumer is
+not told; the owner settles it. Its `id` can be read with `GetRefund` and reported reversed with `ReverseRefund`
+(both answer 200). An external refund that passes the cap only because a Nilda refund is still being asked of its
+gateway is refused with **503**: report it again shortly; a 503 is never final.
 
 **A dispute** — a payer's bank questioning a payment — is a SECOND object beside the session; the session's state
 machine never moves for it (`resolved` stays final). The gateway reports each dispute as a snapshot of what the
@@ -572,6 +583,15 @@ default:
 }
 ```
 
+### One stable processor reference per payment
+
+A gateway reports a payment (`Resolve`, `Authorize`, a capture's answer) under ONE reference for its whole life —
+the charge (Stripe: the `ch_…`/latest charge id, never the PaymentIntent `pi_…` in one report and the charge in
+another). Core treats money reported on a paid payment under a different reference as a SECOND payment of the
+order, even of the same amount: it is kept as money no payment holds, and a refund made at the processor while it
+is open is answered as `Unmatched()` and kept for the owner — never booked as the order's refund. A gateway that
+names one payment by two references makes the owner settle its refunds by hand.
+
 ### Refunds
 
 `RefundPayment(r, s)` asks the processor to give `r.AmountMinor` back — **`r.ID` is the idempotency key**.
@@ -976,7 +996,7 @@ Calls into Core, under `/api/rest/v1`, with the plugin's token; answers inside `
 | `POST /payments/refunds/{id}/resolve` | gateway | `{"provider_ref"}` | the refund |
 | `POST /payments/refunds/{id}/reject` | gateway | `{"failure_code","failure_message","provider_ref"}` | the refund |
 | `POST /payments/refunds/{id}/reverse` | gateway | `{"failure_code","failure_message","provider_ref"}` | the refund, `reversed_at` set |
-| `POST /payments/sessions/{id}/external-refunds` | gateway | `{"amount_minor","currency","provider_ref","reason"}` | the refund, `external` |
+| `POST /payments/sessions/{id}/external-refunds` | gateway | `{"amount_minor","currency","provider_ref","reason"}` | the refund, `external` — or one with `failure_code` `"unmatched"`, kept for the owner; 503: report it again shortly |
 | `POST /payments/sessions/{id}/disputes` | gateway | `{"provider_ref","stage","status","reason","amount_minor","currency","respond_by","evidence_submitted_at","funds_held","refundable","url","opened_at"}` | the dispute |
 | `GET /payments/sessions/{id}/disputes` | either side of it | — | `[dispute]`, oldest first |
 | `GET /payments/disputes/{id}` | either side of it | — | the dispute |

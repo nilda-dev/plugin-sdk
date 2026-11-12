@@ -254,6 +254,7 @@ const ExpressStepQuote
 const ExpressStepStart
 const ExpressToken
 const ExpressTotalChanged
+const FailureUnmatched
 const FieldBoolean
 const FieldCheckbox
 const FieldColor
@@ -2570,6 +2571,7 @@ method (PaymentExternalRefund) Validate() (error)
 method (PaymentForgetRequest) GoString() (string)
 method (PaymentForgetRequest) String() (string)
 method (PaymentMandate) Validate() (error)
+method (PaymentRefund) Unmatched() (bool)
 method (PaymentRefundParams) Validate() (error)
 method (PaymentRejection) Validate() (error)
 method (PaymentReprice) Validate() (error)

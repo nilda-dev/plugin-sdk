@@ -2435,7 +2435,9 @@ fulfilment hint on the session; disputes — a gateway reports a `nilda.PaymentD
 both sides read a `nilda.PaymentDispute` with `ListDisputes` and `GetDispute`, its status moves by
 `nilda.DisputeCanMove` and ends when `nilda.DisputeFinal` says so, and a consumer that implements
 `nilda.PaymentDisputeConsumer` hears a `nilda.PaymentDisputeUpdate`; a refund undone at the processor
-(`ReverseRefund`) and one made there (`ReportExternalRefund` with a `nilda.PaymentExternalRefund`); a gateway that
+(`ReverseRefund`) and one made there (`ReportExternalRefund` with a `nilda.PaymentExternalRefund`) — whose answer
+may be `PaymentRefund.Unmatched()` (`failure_code` `nilda.FailureUnmatched`): money Core kept for the owner, not a
+refund of the payment; a gateway that
 implements `nilda.PaymentSyncer` answers `payment.sync` (a `nilda.PaymentSyncRequest`), the pull path for a
 missed webhook; a gateway's own secrets kept by Core (`SetSecret`, `GetSecret`); and `core.SiteURL`, the site's
 public address. Serve subscribes the two optional interfaces' hooks only when your handler implements them.

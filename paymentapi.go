@@ -237,7 +237,9 @@ func (p *Payments) RejectRefund(ctx context.Context, refundID string, r PaymentR
 
 // ReverseRefund reports that a refund that had gone through was undone at the processor — a bank sent the money
 // back. Only a resolved refund can be reversed; it stays resolved, Core sets its ReversedAt and tells the consumer
-// again. The rejection's code and message say why ("the card was closed").
+// again, and it no longer counts in the session's RefundedMinor: the payment can be refunded again up to what was
+// paid. The rejection's code and message say why ("the card was closed"). An Unmatched refund is reversed the same
+// way; nothing of the order changes.
 func (p *Payments) ReverseRefund(ctx context.Context, refundID string, r PaymentRejection) (PaymentRefund, error) {
 	if err := r.Validate(); err != nil {
 		return PaymentRefund{}, err
@@ -248,6 +250,10 @@ func (p *Payments) ReverseRefund(ctx context.Context, refundID string, r Payment
 // ReportExternalRefund reports a refund made at the processor outside Nilda — by hand in its dashboard — on a
 // session routed to you. Core records it as a resolved, External refund, adds it to the session's refunded total
 // and tells the consumer, so the shop's books match the processor's. The same ProviderRef twice is one refund.
+//
+// The answer may be Unmatched(): NOT a refund of the payment but money Nilda holds on no payment, kept for the owner;
+// nothing of the order changed. A 503 is never final: the refund passes the cap only because a refund Nilda asked
+// for is still waiting for its gateway, so report it again shortly (fail the webhook, and the processor redelivers).
 func (p *Payments) ReportExternalRefund(ctx context.Context, sessionID string, r PaymentExternalRefund) (PaymentRefund, error) {
 	if err := r.Validate(); err != nil {
 		return PaymentRefund{}, err

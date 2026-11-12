@@ -313,7 +313,8 @@ type PaymentSession struct {
 	AuthorizationExpiresAt *time.Time `json:"authorization_expires_at,omitempty"`
 	CaptureRequestedMinor  int64      `json:"capture_requested_minor,omitempty"`
 	VoidRequested          bool       `json:"void_requested,omitempty"`
-	// RefundedMinor is the sum of the session's RESOLVED refunds.
+	// RefundedMinor is the sum of the session's RESOLVED refunds, less any reversed (ReversedAt set): a reversed
+	// refund no longer counts, and the payment can be refunded again up to what was paid.
 	RefundedMinor int64     `json:"refunded_minor"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
@@ -338,6 +339,20 @@ type PaymentRefund struct {
 	ReversedAt *time.Time `json:"reversed_at,omitempty"`
 	CreatedAt  time.Time  `json:"created_at"`
 	UpdatedAt  time.Time  `json:"updated_at"`
+}
+
+// FailureUnmatched is the failure_code Core puts on a refund-shaped answer that is NOT a refund of the payment
+// (PaymentRefund.Unmatched).
+const FailureUnmatched = "unmatched"
+
+// Unmatched reports whether Core kept this external refund as money no payment holds, rather than booking it as a
+// refund of the payment: Payments.ReportExternalRefund may answer with a resolved refund whose FailureCode is
+// FailureUnmatched. The processor gave back money Nilda holds on no payment — a payment after a refusal, a second
+// payment of the order, more than was paid, or one beside refunds still pending at the bank. Nothing of the order
+// changed and the consumer is not told; the owner settles it. Its ID can be read with GetRefund and reported
+// reversed with ReverseRefund. A gateway answers its processor's webhook as handled either way.
+func (r PaymentRefund) Unmatched() bool {
+	return r.Status == RefundResolved && r.FailureCode == FailureUnmatched
 }
 
 // PaymentSessionParams is what a CONSUMER sends to begin a payment (Payments.CreateSession).

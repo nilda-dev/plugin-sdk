@@ -196,7 +196,10 @@ func (p *Payments) readDispute(caller, id string) (nilda.PaymentDispute, error) 
 
 // externalRefund records a refund made at the processor outside Nilda (Core's ReportExternalRefund): resolved at
 // once, External, added to the session's refunded total, the consumer told. The same processor refund twice is
-// one refund.
+// one refund. A refund of money no payment holds — on a payment Nilda refused, or past what was paid — is KEPT for
+// the owner instead and answered in the refund's shape with FailureCode nilda.FailureUnmatched: nothing of the
+// order changes and the consumer is not told. One past the cap only because a refund Nilda asked for is still
+// waiting for its gateway is a 503, never final: the gateway reports it again shortly.
 func (p *Payments) externalRefund(caller, sessionID string, body []byte) (nilda.PaymentRefund, error) {
 	if err := p.may(caller, "payment_gateway"); err != nil {
 		return nilda.PaymentRefund{}, err
@@ -220,6 +223,24 @@ func (p *Payments) externalRefund(caller, sessionID string, body []byte) (nilda.
 			return *rf, nil
 		}
 	}
+	for _, u := range p.unmatched {
+		if u.Session == sessionID && u.ProviderRef == r.ProviderRef {
+			return *u, nil // already kept: the same answer again
+		}
+	}
+	now := time.Now().UTC()
+	keep := func() (nilda.PaymentRefund, error) {
+		u := &nilda.PaymentRefund{ID: newID(), Session: sessionID, AmountMinor: r.AmountMinor, Currency: currency,
+			Status: nilda.RefundResolved, ProviderRef: r.ProviderRef, External: true, FailureCode: nilda.FailureUnmatched,
+			FailureMessage: "kept as money no payment holds: not booked against the order; the owner settles it",
+			CreatedAt:      now, UpdatedAt: now}
+		p.unmatched[u.ID] = u
+		return *u, nil
+	}
+	// A refund on a payment Nilda refused gives back money the processor took after the refusal: no payment holds it.
+	if s.Status == nilda.PaymentRejected {
+		return keep()
+	}
 	if s.Status != nilda.PaymentResolved {
 		return nilda.PaymentRefund{}, &apiError{http.StatusConflict, "CONFLICT",
 			fmt.Sprintf("only a resolved payment has refunds; this one is %s", s.Status)}
@@ -227,16 +248,27 @@ func (p *Payments) externalRefund(caller, sessionID string, body []byte) (nilda.
 	if currency != s.Currency {
 		return nilda.PaymentRefund{}, invalid("the refund is in %s, the payment in %s", currency, s.Currency)
 	}
-	if s.RefundedMinor+r.AmountMinor > s.AmountMinor {
-		return nilda.PaymentRefund{}, invalid("a refund of %d would take this payment's refunds past the %d paid",
-			r.AmountMinor, s.AmountMinor)
+	committed := p.committedRefunds(sessionID)
+	if committed > s.AmountMinor || r.AmountMinor > s.AmountMinor-committed {
+		var asking int64
+		for _, rf := range p.refunds {
+			if rf.Session == sessionID && rf.Status == nilda.RefundRequested && rf.ReversedAt == nil {
+				asking += rf.AmountMinor
+			}
+		}
+		if rest := committed - asking; rest <= s.AmountMinor && r.AmountMinor <= s.AmountMinor-rest {
+			return nilda.PaymentRefund{}, &apiError{http.StatusServiceUnavailable, "UNAVAILABLE",
+				"refunds Nilda asked for on this payment are still waiting for their gateway's answer, and with them " +
+					"this refund would give back more than was paid; report it again shortly"}
+		}
+		// More given back than the payment holds: money the processor had beside it.
+		return keep()
 	}
-	now := time.Now().UTC()
 	rf := &nilda.PaymentRefund{ID: newID(), Session: sessionID, AmountMinor: r.AmountMinor, Currency: currency,
 		Status: nilda.RefundResolved, Reason: runes(r.Reason, maxPaymentText), ProviderRef: r.ProviderRef,
 		External: true, CreatedAt: now, UpdatedAt: now}
 	p.refunds[rf.ID] = rf
-	s.RefundedMinor += rf.AmountMinor
+	p.recountRefunded(sessionID)
 	p.owe(owed{session: sessionID, refund: rf.ID})
 	return *rf, nil
 }
