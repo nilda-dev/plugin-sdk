@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.63.0 — unreleased (payments: a refund Core kept as money no payment holds, a reversed refund no longer counts)
+## v0.63.0 — 2026-11-12 (payments: a refund Core kept as money no payment holds, a reversed refund no longer counts)
 
 Core's payments security review (2026-11-12) changed what a gateway hears back about refunds. Additive; a money fix
 (docs/RELEASE_TRAIN.md rule 2: tag at once).
