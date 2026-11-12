@@ -586,11 +586,12 @@ default:
 ### One stable processor reference per payment
 
 A gateway reports a payment (`Resolve`, `Authorize`, a capture's answer) under ONE reference for its whole life —
-the charge (Stripe: the `ch_…`/latest charge id, never the PaymentIntent `pi_…` in one report and the charge in
-another). Core treats money reported on a paid payment under a different reference as a SECOND payment of the
-order, even of the same amount: it is kept as money no payment holds, and a refund made at the processor while it
-is open is answered as `Unmatched()` and kept for the owner — never booked as the order's refund. A gateway that
-names one payment by two references makes the owner settle its refunds by hand.
+its stable payment id (Stripe: the PaymentIntent `pi_…`; never a Checkout Session `cs_…` for a paid payment, and
+never the PaymentIntent in one report and a charge in another). Core treats money reported on a paid payment under
+a different reference as a SECOND payment of the order, even of the same amount: it is kept as money no payment
+holds, and a refund made at the processor while it is open is answered as `Unmatched()` and kept for the owner —
+never booked as the order's refund. A gateway that names one payment by two references makes the owner settle its
+refunds by hand.
 
 ### Refunds
 

@@ -29,9 +29,10 @@ Changed:
 - `RefundedMinor` is what the session's resolved refunds gave back LESS ANY REVERSED: a reversed refund no longer
   counts, and the payment can be refunded again up to what was paid. Before, a reversal left the total unchanged.
 - PAYMENTS.md: ONE STABLE PROCESSOR REFERENCE PER PAYMENT. A gateway reports a payment (Resolve, Authorize, a capture's
-  answer) under one reference for its whole life — the charge (Stripe: `ch_…`, never `pi_…` in one report and the
-  charge in another). Core treats money on a paid payment under another reference as a second payment of the order, and
-  a refund made at the processor while it is open is answered `Unmatched()` and kept for the owner.
+  answer) under one reference for its whole life — its stable payment id (Stripe: the PaymentIntent `pi_…`; never a
+  Checkout Session `cs_…` for a paid payment, and never the PaymentIntent in one report and a charge in another).
+  Core treats money on a paid payment under another reference as a second payment of the order, and a refund made at
+  the processor while it is open is answered `Unmatched()` and kept for the owner.
 - `nildatest.Payments` does all of the above as Core does: a reversal is taken off the refunded total, an external
   refund past what was paid or on a refused payment is kept unmatched (read and reversed by its gateway, never seen by
   the consumer), and one past the cap only because of a refund still `requested` is a 503.
