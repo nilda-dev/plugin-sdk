@@ -1,6 +1,9 @@
 const AttributeShopKey
 const WriteManifestEnv
 const WritePreviewEnv
+field AssistantHole.Gap string
+field AssistantHole.Unit string
+field AssistantHole.Where string
 field AttributeDraftLine.ID string
 field AttributeDraftLine.Product string
 field AttributeDraftLine.Quantity int64
@@ -106,6 +109,7 @@ field Visitor.ShowPricesIncludingTax bool
 func AsAgent(*http.Request, nilda.Agent) (*http.Request)
 func AsUser(*http.Request, nilda.Viewer) (*http.Request)
 func AsksForSignIn(*http.Response) (bool)
+func AssistantHoles([]byte) ([]AssistantHole, error)
 func CheckPersonalDataHolder(context.Context, nilda.PersonalDataHolder, string) (error)
 func CheckPersonalDataHolderByPhone(context.Context, nilda.PersonalDataHolder, string) (error)
 func FromVisitor(*http.Request, Visitor) (*http.Request)
@@ -262,6 +266,7 @@ method (*Trash) Core(string, ...string) (*nilda.Core, *Host, *httptest.Server)
 method (*Trash) Items(string) ([]TrashEntry)
 method (*Trash) Purge(context.Context, string, HookFunc, TrashEntry) (error)
 method (*Trash) Restore(context.Context, string, HookFunc, TrashEntry) (error)
+type AssistantHole
 type AttributeDraftLine
 type AttributeOrder
 type AttributeOrderDraft
