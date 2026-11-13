@@ -785,7 +785,9 @@ func TestDoorD5sRulesAreCores(t *testing.T) {
 		{inperson, "inperson.go", "return cur.Status == StatusAuthorized || (cur.Status == StatusPending && cur.Reader != \"\" && cur.FailureCode != FailAmountMismatch)"},
 		{capture, "capture.go", "case !voidable(cur): return false, conflict(cur.Status)"},
 		{capture, "capture.go", "return voidable(cur) && cur.VoidRequested &&"},
-		{capture, "capture.go", "if cur.Status != StatusAuthorized && !(cur.VoidRequested && voidable(cur)) {"},
+		// Core states the owed-hold rule once, in holdOwed (core #378), and asks it as !holdOwed(cur): the same rule as before.
+		{capture, "capture.go", "return cur.Status == StatusAuthorized || (cur.VoidRequested && voidable(cur))"},
+		{capture, "capture.go", "if !holdOwed(cur) {"},
 		{kitCapture, "nildatest/paymentcapture.go", "if s.Status == nilda.PaymentAuthorized || (s.VoidRequested && voidable(*s)) { return false }"},
 		{capture, "capture.go", "case cur.Status == StatusCreated && cur.Reader != \"\":"},
 		{kitCapture, "nildatest/paymentcapture.go", "case s.Status == nilda.PaymentCreated && s.Reader != \"\":"},
