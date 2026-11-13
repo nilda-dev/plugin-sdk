@@ -102,7 +102,13 @@ func manifestBounds() []manifestBound {
 		{name: "MaxManifestSearchNameLen", got: MaxManifestSearchNameLen, unit: unitRunes, file: manifest,
 			literal: `case utf8\.RuneCountInString\(name\) > ([0-9]+):\s+p\.add\("search\.name"`},
 
-		{name: "MaxManifestAbilities", got: MaxManifestAbilities, file: "plugin/schema_abilities.go", core: "maxDeclaredAbilities"},
+		// Not a count (owner D4, Core's agent-control C4): the bytes of one plugin's labels, descriptions and input
+		// schemas together. The install measures the words (validateAbilities' running total), Init the schemas too
+		// (overAbilityBudget) — both are len, so bytes.
+		{name: "MaxManifestAbilityDefinitionBytes", got: MaxManifestAbilityDefinitionBytes, unit: unitBytes,
+			file: "plugin/schema_abilities.go", core: "maxAbilityDefinitionBytes",
+			evidence: []string{"words += len(a.Label) + len(a.Description)", "if words > maxAbilityDefinitionBytes {",
+				"total += len(a.Label) + len(a.Description) + len(a.InputSchema)"}},
 		{name: "MaxManifestAbilityDescriptionLen", got: MaxManifestAbilityDescriptionLen, unit: unitRunes, file: "plugin/schema_abilities.go",
 			core: "maxAbilityDescriptionLen"},
 		{name: "MaxManifestVisitorTools", got: MaxManifestVisitorTools, file: "plugin/schema_visitortools.go", core: "maxVisitorTools"},

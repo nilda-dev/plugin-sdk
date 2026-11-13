@@ -387,7 +387,7 @@ const MaxCommerceNote
 const MaxCommerceRating
 const MaxDisputesPerSession
 const MaxListFilters
-const MaxManifestAbilities
+const MaxManifestAbilityDefinitionBytes
 const MaxManifestAbilityDescriptionLen
 const MaxManifestAccountHostLen
 const MaxManifestAccountNameLen

@@ -8,17 +8,33 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.65.0 — unreleased (nildatest: what the assistant cannot reach yet)
+## v0.65.0 — unreleased (abilities: a size budget instead of a count; nildatest: what the assistant cannot reach yet)
 
-Additive; test helper only. Mirrors Core #430 and #431 (the agent doors, `nilda plugin check`'s assistant check).
+Core's agent-control C4 (owner decision D4, 2026-11-13): no ability count that forces work back to the panel (Core
+#432). **Removes one constant** — the owner's decision (`SDK_ALLOW_SURFACE_REMOVAL=1`). And a test helper mirroring
+Core #430 and #431 (the agent doors, `nilda plugin check`'s assistant check).
+
+Removed:
+
+- `nilda.MaxManifestAbilities` (200). Core no longer counts a plugin's abilities; a plugin offers as many as it has.
+  A test that compared `len(abilities)` with it holds the size below instead.
 
 Added:
 
+- `nilda.MaxManifestAbilityDefinitionBytes` (1 MiB): what one plugin's abilities put in front of a model — the bytes
+  of their labels, descriptions and input schemas together. Core's install refuses a manifest whose labels and
+  descriptions alone cross it; a running plugin whose schemas take it over is reported (the plugin's record,
+  `plugins_installed`, the Plugins screen), never cut.
 - `nildatest.AssistantHoles(raw []byte) ([]AssistantHole, error)` and `nildatest.AssistantHole` (`Where`, `Unit`,
   `Gap`): which of Core's own holes a plugin.json declares — the surfaces the site's assistant cannot operate yet, each
   with the unit of Core's plan that closes it. Today `manifest.account` and `manifest.editor_commands`, both C3. Held
   to Core's `internal/plugin/agentdoors.go` and to Core's assistant check of every first-party manifest. A key that is
   null, `""`, `false` or `0` is unset; an empty list or object is the surface, used.
+
+Changed:
+
+- `nildatest.ManifestAbilities` holds the abilities to that budget, schemas included, and fails naming the size and
+  the limit — with or without `NILDA_WRITE_MANIFEST=1`, so an over-budget list is never written.
 
 
 ## v0.64.0 — 2026-11-13 (nildatest: Payments answers users from a Site)

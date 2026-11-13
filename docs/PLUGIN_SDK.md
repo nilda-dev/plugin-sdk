@@ -715,19 +715,22 @@ at your keyboard rather than at an install:
 ```go
 func TestTheAbilitiesFitCoresBounds(t *testing.T) {
 	var m struct {
-		Abilities []struct{ Name, Description string } `json:"abilities"`
+		Abilities []struct{ Name, Label, Description string } `json:"abilities"`
 	}
 	raw, _ := os.ReadFile("plugin.json")
 	if err := json.Unmarshal(raw, &m); err != nil {
 		t.Fatal(err)
 	}
-	if len(m.Abilities) > nilda.MaxManifestAbilities {
-		t.Errorf("%d abilities, Core takes at most %d", len(m.Abilities), nilda.MaxManifestAbilities)
-	}
+	words := 0
 	for _, a := range m.Abilities {
+		words += len(a.Label) + len(a.Description)
 		if n := utf8.RuneCountInString(a.Description); n > nilda.MaxManifestAbilityDescriptionLen {
 			t.Errorf("%s: a description of %d characters", a.Name, n)
 		}
+	}
+	if words > nilda.MaxManifestAbilityDefinitionBytes {
+		t.Errorf("the abilities' labels and descriptions are %d bytes, Core takes at most %d", words,
+			nilda.MaxManifestAbilityDefinitionBytes)
 	}
 }
 ```
@@ -785,7 +788,7 @@ locale code) is not here — the pattern is the rule, and `nilda plugin check` s
 | `MaxManifestFormReplacements` | 4 | form_replacements |
 | `MaxManifestFormSlugs` | 8 | one form replacement's form_slugs |
 | `MaxManifestSearchNameLen` | 40 characters | search.name, the engine's name |
-| `MaxManifestAbilities` | 200 | abilities |
+| `MaxManifestAbilityDefinitionBytes` | 1 MiB | every ability's label, description and input schema together — not a count: a plugin offers as many abilities as it has (Core's D4, v0.65.0). The install refuses the labels and descriptions over it; a running plugin whose schemas take it over is reported, not cut. `nildatest.ManifestAbilities` holds all three to it |
 | `MaxManifestAbilityDescriptionLen` | 2,000 characters | an ability's description |
 | `MaxManifestVisitorTools` | 16 | visitor_tools |
 | `MaxManifestVisitorToolDescriptionLen` | 1,000 characters | a visitor tool's description |
