@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.64.0 — unreleased (nildatest: Payments answers users from a Site)
+## v0.64.0 — 2026-11-13 (nildatest: Payments answers users from a Site)
 
 Additive; test helper only.
 
