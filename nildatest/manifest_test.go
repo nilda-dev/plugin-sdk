@@ -217,3 +217,40 @@ func TestManifestAbilitiesHoldsTheDefinitionBudget(t *testing.T) {
 		t.Fatalf("%d abilities inside the budget failed: %s", len(list), failed)
 	}
 }
+
+// A0b: an ability's effect is declared in plugin.json beside always_ask, which follows the effect's rule — the
+// manifest Core reviews is the one Init returns, and a Core before A0b still asks.
+func TestManifestAbilitiesWritesTheEffect(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "plugin.json")
+	if err := os.WriteFile(path, []byte("{\n  \"key\": \"shop\"\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	list := []nilda.Ability{
+		{Name: "refund", Label: "Refund", Description: "Refund an order.", Class: nilda.ClassWrite, Effect: nilda.EffectMoney},
+		{Name: "list_orders", Label: "List orders", Description: "List the orders.", Class: nilda.ClassRead, Effect: nilda.EffectNone},
+	}
+	t.Setenv(WriteManifestEnv, "1")
+	if failed := run(t, path, list); failed != "" {
+		t.Fatalf("writing failed: %s", failed)
+	}
+	got, _ := os.ReadFile(path)
+	s := strings.Join(strings.Fields(string(got)), " ")
+	for _, want := range []string{`"name": "refund"`, `"effect": "money"`, `"always_ask": true`, `"effect": "none"`} {
+		if !strings.Contains(s, want) {
+			t.Errorf("plugin.json has no %s:\n%s", want, got)
+		}
+	}
+	if strings.Count(s, `"always_ask": true`) != 1 {
+		t.Errorf("want always_ask on the money ability alone:\n%s", got)
+	}
+	t.Setenv(WriteManifestEnv, "")
+	if failed := run(t, path, list); failed != "" {
+		t.Fatalf("the written manifest does not hold: %s", failed)
+	}
+	// A changed effect is a changed declaration.
+	list[1].Effect = nilda.EffectBulk
+	if failed := run(t, path, list); !strings.Contains(failed, "list_orders differs") {
+		t.Errorf("a changed effect passed: %q", failed)
+	}
+}

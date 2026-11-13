@@ -8,11 +8,12 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.65.0 — unreleased (abilities: a size budget instead of a count; nildatest: what the assistant cannot reach yet)
+## v0.65.0 — unreleased (abilities: a size budget instead of a count, and their effects; nildatest: what the assistant cannot reach yet)
 
 Core's agent-control C4 (owner decision D4, 2026-11-13): no ability count that forces work back to the panel (Core
 #432). **Removes one constant** — the owner's decision (`SDK_ALLOW_SURFACE_REMOVAL=1`). And a test helper mirroring
-Core #430 and #431 (the agent doors, `nilda plugin check`'s assistant check).
+Core #430 and #431 (the agent doors, `nilda plugin check`'s assistant check). And unit A0b of Core's agent-control
+plan, the effect vocabulary (Core #433, `module.ToolEffect`, `module.RuleOf`), which needs a Core that reads `effect`.
 
 Removed:
 
@@ -30,11 +31,23 @@ Added:
   with the unit of Core's plan that closes it. Today `manifest.account` and `manifest.editor_commands`, both C3. Held
   to Core's `internal/plugin/agentdoors.go` and to Core's assistant check of every first-party manifest. A key that is
   null, `""`, `false` or `0` is unset; an empty list or object is the surface, used.
+- `nilda.Effect` and its eleven words, Core's own: `EffectNone`, `EffectMoney`, `EffectCredential`, `EffectRedirect`,
+  `EffectSpend`, `EffectDeletePermanent`, `EffectRole`, `EffectOutboundMail`, `EffectBulk`, `EffectPublish`,
+  `EffectOutward`; `nilda.Effects()`, `Effect.Known()` and `Effect.AlwaysAsks()` (Core's rule: is the person asked
+  before every call). Held to Core's `internal/module/effect.go`, words and rule table.
+- `Ability.Effect` — on the wire (`Ability.effect`, proto field 9) and in plugin.json (`"effect"`, written by
+  `nildatest.ManifestAbilities`). `Serve` refuses an effect Core does not know at Init.
+- `SettingField.Effect` (`"effect"` in plugin.json), and `SettingField.MarshalJSON`, which refuses an unknown effect.
 
 Changed:
 
 - `nildatest.ManifestAbilities` holds the abilities to that budget, schemas included, and fails naming the size and
   the limit — with or without `NILDA_WRITE_MANIFEST=1`, so an over-budget list is never written.
+- `always_ask` is sent and written from the effect too: an ability's or a setting's `always_ask` is now `AlwaysAsk`
+  OR `Effect.AlwaysAsks()`, so a Core that reads only `always_ask` (before Core's A0b) still asks for money, mail,
+  bulk and the rest. `AlwaysAsk` stays, and stays readable by Core, for plugins built before effects. `AlwaysAsk`
+  beside an effect that does not ask (`none`, `publish`, `spend`, `outward`) is refused — at Init for an ability,
+  when it marshals for a setting — as Core refuses the contradiction in a manifest.
 
 
 ## v0.64.0 — 2026-11-13 (nildatest: Payments answers users from a Site)

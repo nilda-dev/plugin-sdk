@@ -292,6 +292,9 @@ func (s *pluginServer) wire(res InitResult) (*contract.InitResponse, error) {
 	if err := checkAbilityCallers(res.Abilities); err != nil {
 		return nil, err
 	}
+	if err := checkAbilityEffects(res.Abilities); err != nil {
+		return nil, err
+	}
 	if err := checkVisitorTools(res.VisitorTools); err != nil {
 		return nil, err
 	}
@@ -461,8 +464,8 @@ func abilitiesToContract(list []Ability) []*contract.Ability {
 	for _, ab := range list {
 		out = append(out, &contract.Ability{
 			Name: ab.Name, Label: ab.Label, Description: ab.Description,
-			Class: string(ab.Class), InputSchema: string(ab.InputSchema), ReadOnly: ab.ReadOnly, AlwaysAsk: ab.AlwaysAsk,
-			Callers: ab.Callers,
+			Class: string(ab.Class), InputSchema: string(ab.InputSchema), ReadOnly: ab.ReadOnly,
+			AlwaysAsk: abilityAlwaysAsks(ab), Effect: string(ab.Effect), Callers: ab.Callers,
 		})
 	}
 	return out

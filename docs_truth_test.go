@@ -884,17 +884,17 @@ func TestTheAssistantSavesSettingsThroughTheSectionsOwnSave(t *testing.T) {
 			t.Errorf("core's plugin settings tools no longer have %q — re-read the guide's \"Who saves them\"", want)
 		}
 	}
-	// settingsTarget is the one gate: the preview and the apply ask it, and so does the always-ask check that decides
+	// settingsTarget is the one gate: the preview and the apply ask it, and so does the effect check (settingsSetEffect) that decides
 	// whether a field marked always_ask makes the change ask the person (v0.41.0) — and, since Core's 2026-10-30
 	// review, the redaction that keeps every secret field out of what the AI-changes ledger stores of the call. Each
 	// asker is held by its own function, so a fifth one, or one of these four gone, is seen.
 	if n := strings.Count(src, "s.settingsTarget(ctx, v, in)"); n != 4 {
-		t.Errorf("core asks settingsTarget %d times, want the preview, the apply, the always-ask check and the redaction", n)
+		t.Errorf("core asks settingsTarget %d times, want the preview, the apply, the effect check and the redaction", n)
 	}
 	for _, decl := range []string{
 		"func (s *Service) previewSettingsSet(",
 		"func (s *Service) toolSettingsSet(",
-		"func (s *Service) settingsSetAlwaysAsks(",
+		"func (s *Service) settingsSetEffect(",
 		"func (s *Service) redactSettingsSet(",
 	} {
 		i := strings.Index(src, decl)
@@ -910,7 +910,7 @@ func TestTheAssistantSavesSettingsThroughTheSectionsOwnSave(t *testing.T) {
 			t.Errorf("core's %s no longer asks settingsTarget — re-read the guide's \"Who saves them\"", decl)
 		}
 	}
-	for _, want := range []string{"AlwaysAsk:    s.settingsSetAlwaysAsks,", "RedactArgs:   s.redactSettingsSet,",
+	for _, want := range []string{"EffectOf:     s.settingsSetEffect,", "RedactArgs:   s.redactSettingsSet,",
 		"for _, f := range page.Fields { if f.Secret { delete(in.Values, f.Key) } }"} {
 		if !strings.Contains(src, want) && !strings.Contains(flat, want) {
 			t.Errorf("core's plugin_settings_set no longer has %q — re-read the guide's \"a secret … is never read back or repeated\"", want)

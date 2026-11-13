@@ -27,12 +27,15 @@ type manifestAbility struct {
 	AlwaysAsk bool `json:"always_ask,omitempty"`
 	// Callers: the caller kinds Core may call it for (nilda.Ability.Callers, v0.53.0).
 	Callers []string `json:"callers,omitempty"`
+	// Effect: what it does in the world, in Core's vocabulary (nilda.Ability.Effect, v0.65.0). AlwaysAsk is written
+	// from it too when its rule asks, as the SDK sends it at Init.
+	Effect string `json:"effect,omitempty"`
 }
 
 // same reports whether two declarations of one ability agree, field by field.
 func (m manifestAbility) same(o manifestAbility) bool {
 	return m.Name == o.Name && m.Label == o.Label && m.Description == o.Description && m.Class == o.Class &&
-		m.AlwaysAsk == o.AlwaysAsk && slices.Equal(m.Callers, o.Callers)
+		m.AlwaysAsk == o.AlwaysAsk && slices.Equal(m.Callers, o.Callers) && m.Effect == o.Effect
 }
 
 // ManifestAbilities holds plugin.json's "abilities" to the abilities your Init returns.
@@ -65,7 +68,7 @@ func ManifestAbilities(t testing.TB, manifestPath string, abilities []nilda.Abil
 	want := make([]manifestAbility, 0, len(abilities))
 	for _, a := range abilities {
 		want = append(want, manifestAbility{Name: a.Name, Label: a.Label, Description: a.Description, Class: string(a.Class),
-			AlwaysAsk: a.AlwaysAsk, Callers: a.Callers})
+			AlwaysAsk: a.AlwaysAsk || a.Effect.AlwaysAsks(), Callers: a.Callers, Effect: string(a.Effect)})
 	}
 	raw, err := os.ReadFile(manifestPath)
 	if err != nil {
