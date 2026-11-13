@@ -831,7 +831,7 @@ locale code) is not here — the pattern is the rule, and `nilda plugin check` s
 | `MaxManifestLegalNoticeLen` | 12,000 characters | legal_notice |
 | `MaxManifestAccountNameLen` | 80 characters | account.name |
 | `MaxManifestAccountHostLen` | 253 bytes | account.host (a host name is ASCII) |
-| `MaxManifestBytes` | 2 MiB | plugin.json itself, in the package |
+| `MaxManifestBytes` | 8 MiB | plugin.json itself, in the package |
 
 ### What you do with personal data (`processing`)
 

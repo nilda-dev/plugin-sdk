@@ -8,9 +8,9 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.66.0 — unreleased (nildatest: no assistant holes left after Core's C3)
+## v0.66.0 — unreleased (plugin.json may be 8 MiB; nildatest: no assistant holes left after Core's C3)
 
-Test helper only; no change to the Go API. Mirrors Core #437 (C3).
+Additive: a bound grows, and a test helper follows Core. Mirrors Core #439 (C4b, manifest size) and #437 (C3).
 
 Changed:
 
@@ -18,6 +18,8 @@ Changed:
   `manifest.account` (the owner's account at the plugin's service) and `manifest.editor_commands` (the "/" commands),
   their tools, so every surface a manifest declares now reaches the site's assistant. A hole Core opens again is
   listed again.
+- `nilda.MaxManifestBytes` is 8 MiB (was 2 MiB), Core's `maxManifestBytes`: the most plugin.json itself may weigh in
+  the package. Sized by Core from the shop, whose plugin.json had reached 1,805,576 bytes of the old 2 MiB.
 
 
 ## v0.65.0 — 2026-11-13 (abilities: a size budget instead of a count, and their effects; nildatest: what the assistant cannot reach yet)

@@ -232,5 +232,5 @@ const (
 	// MaxManifestAccountHostLen bounds account.host: bytes (a host name is ASCII).
 	MaxManifestAccountHostLen = 253
 	// MaxManifestBytes bounds plugin.json itself, in the package: bytes.
-	MaxManifestBytes = 2 << 20
+	MaxManifestBytes = 8 << 20
 )
