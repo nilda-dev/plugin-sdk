@@ -363,7 +363,7 @@ func TestThePaymentRoutesAreCores(t *testing.T) {
 	}
 	consumer, gateway := grants("CapPaymentSession"), grants("CapPaymentGateway")
 	core := map[string]string{} // "METHOD /payments/…" -> who
-	for _, m := range regexp.MustCompile(`g\.(GET|POST|PUT|PATCH|DELETE)\("([^"]+)", h\.(\w+)\)`).FindAllStringSubmatch(src, -1) {
+	for _, m := range regexp.MustCompile(`[gr]\.(GET|POST|PUT|PATCH|DELETE)\("([^"]+)", h\.(\w+)\)`).FindAllStringSubmatch(src, -1) {
 		fn := from(t, src, "func (h *RESTHandlers) "+m[3]+"(c *gin.Context) {", "core's rest.go")
 		c := regexp.MustCompile(`caller\(c, apistandards\.(\w+), (side\w+)\)`).FindStringSubmatch(upTo(t, fn, "\n}", "core's "+m[3]))
 		if c == nil {
