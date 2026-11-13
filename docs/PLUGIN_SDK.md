@@ -1022,9 +1022,10 @@ writes it) and `SettingField.Effect` to one of `nilda.Effects()`:
 
 `Effect.AlwaysAsks()` answers the last column, held to Core's rule table. The SDK writes `always_ask` beside the
 effect — at Init and in plugin.json — whenever the effect asks, so a Core that reads only `always_ask` (one before
-Core's unit A0b) still asks; you need not set `AlwaysAsk` as well, and setting it never makes an effect ask less.
-An effect Core does not know is asked every call there (it fails closed), so `Serve` refuses one at Init and a
-`SettingField` with one does not marshal. Empty is undeclared: the class gates the call as before. `nilda plugin
+Core's unit A0b) still asks; you need not set `AlwaysAsk` as well. The effect is Core's authority, so `AlwaysAsk`
+beside an effect that does not ask (`none`, `publish`, `spend`, `outward`) is a contradiction Core refuses — and so
+does the SDK, at Init and when a `SettingField` marshals. An effect Core does not know is asked every call there (it
+fails closed), so `Serve` refuses one at Init and a `SettingField` with one does not marshal. Empty is undeclared: the class gates the call as before. `nilda plugin
 check` accepts `"effect"` from a Core that reads it (Core's A0b); an older one names it as an unknown field.
 
 **A door no model may open (`Callers`, `CallerKind`, v0.53.0).** Some actions take what no model may hold — an

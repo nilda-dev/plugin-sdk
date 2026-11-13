@@ -113,14 +113,14 @@ type SettingField struct {
 	// shop's order alerts are mailed is EffectRedirect, say. Core asks the person before the assistant saves a change
 	// to a field whose effect asks (Effect.AlwaysAsks), whatever a connector was granted. Its JSON carries
 	// `"always_ask": true` beside the effect when the effect asks, so a Core that reads only always_ask asks all the
-	// same; an effect Core does not know does not marshal.
+	// same. An effect Core does not know does not marshal, nor does AlwaysAsk beside an effect that does not ask.
 	Effect Effect `json:"effect,omitempty"`
 }
 
 // MarshalJSON writes the field as plugin.json declares it, with always_ask set when its Effect asks.
 func (f SettingField) MarshalJSON() ([]byte, error) {
-	if f.Effect != "" && !f.Effect.Known() {
-		return nil, fmt.Errorf("setting %q declares the effect %q, which Core does not know — use one of %v", f.Key, f.Effect, Effects())
+	if err := checkEffect("setting", f.Key, f.Effect, f.AlwaysAsk); err != nil {
+		return nil, err
 	}
 	type plain SettingField // without this method
 	p := plain(f)

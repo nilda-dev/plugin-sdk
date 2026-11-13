@@ -45,7 +45,9 @@ Changed:
   the limit — with or without `NILDA_WRITE_MANIFEST=1`, so an over-budget list is never written.
 - `always_ask` is sent and written from the effect too: an ability's or a setting's `always_ask` is now `AlwaysAsk`
   OR `Effect.AlwaysAsks()`, so a Core that reads only `always_ask` (before Core's A0b) still asks for money, mail,
-  bulk and the rest. `AlwaysAsk` stays, and stays readable by Core, for plugins built before effects.
+  bulk and the rest. `AlwaysAsk` stays, and stays readable by Core, for plugins built before effects. `AlwaysAsk`
+  beside an effect that does not ask (`none`, `publish`, `spend`, `outward`) is refused — at Init for an ability,
+  when it marshals for a setting — as Core refuses the contradiction in a manifest.
 
 
 ## v0.64.0 — 2026-11-13 (nildatest: Payments answers users from a Site)

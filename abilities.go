@@ -101,7 +101,8 @@ type Ability struct {
 	// those. Core holds each effect to one rule at every door; an effect that AlwaysAsks makes Core ask the person
 	// before every call, whatever a connector was granted. The SDK sends always_ask beside it (AlwaysAsk, or the
 	// effect's rule), so a Core that reads only always_ask asks all the same. Serve refuses an effect Core does not
-	// know. Declare it in plugin.json too (nildatest.ManifestAbilities writes it).
+	// know, and AlwaysAsk beside an effect that does not ask (Core holds the effect, and refuses the contradiction).
+	// Declare it in plugin.json too (nildatest.ManifestAbilities writes it).
 	Effect Effect
 	// Callers names the caller kinds Core may call this ability for (v0.53.0): CallerKindImporter,
 	// CallerKindOwnerUI, CallerKindAI, CallerKindMCP. Empty means the site's assistant and connected AI apps, as

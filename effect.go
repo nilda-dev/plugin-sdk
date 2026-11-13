@@ -68,7 +68,8 @@ var effectAsks = map[Effect]bool{
 // granted — Core's rule for it. An empty effect obliges nothing; an effect outside the vocabulary asks (fail closed).
 //
 // The SDK writes it as `always_ask` beside `effect` (on the wire, and in plugin.json through
-// nildatest.ManifestAbilities and SettingField's JSON), so a Core that reads only always_ask asks all the same.
+// nildatest.ManifestAbilities and SettingField's JSON), so a Core that reads only always_ask asks all the same. The
+// reverse is refused: AlwaysAsk set beside an effect that does not ask contradicts it, and Core holds the effect.
 func (e Effect) AlwaysAsks() bool {
 	if e == "" {
 		return false
@@ -96,13 +97,29 @@ func Effects() []Effect {
 // abilityAlwaysAsks is what an ability's always_ask says to Core: the author's own AlwaysAsk, or its effect's rule.
 func abilityAlwaysAsks(a Ability) bool { return a.AlwaysAsk || a.Effect.AlwaysAsks() }
 
-// checkAbilityEffects refuses an effect Core does not know: Core would ask before every call of it, and nobody would
-// know why.
+// checkAbilityEffects refuses an effect Core does not know — Core would ask before every call of it, and nobody would
+// know why — and AlwaysAsk beside an effect whose rule does not ask, which Core refuses as a contradiction.
 func checkAbilityEffects(list []Ability) error {
 	for _, a := range list {
-		if a.Effect != "" && !a.Effect.Known() {
-			return fmt.Errorf("ability %q declares the effect %q, which Core does not know — use one of %v", a.Name, a.Effect, Effects())
+		if err := checkEffect("ability", a.Name, a.Effect, a.AlwaysAsk); err != nil {
+			return err
 		}
+	}
+	return nil
+}
+
+// checkEffect is one declaration's effect against Core's rules: known, and not contradicted by always_ask. The
+// manifest's effect is Core's authority (its A0b), so always_ask true beside an effect that does not ask is an error
+// there, not a louder effect.
+func checkEffect(what, name string, e Effect, alwaysAsk bool) error {
+	switch {
+	case e == "":
+		return nil
+	case !e.Known():
+		return fmt.Errorf("%s %q declares the effect %q, which Core does not know — use one of %v", what, name, e, Effects())
+	case alwaysAsk && !e.AlwaysAsks():
+		return fmt.Errorf("%s %q sets AlwaysAsk beside the effect %q, whose rule does not ask — declare the effect "+
+			"that says why it asks (money, redirect, outbound_mail, …) and drop AlwaysAsk", what, name, e)
 	}
 	return nil
 }

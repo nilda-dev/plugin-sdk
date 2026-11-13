@@ -159,3 +159,25 @@ func TestASettingsEffectIsWrittenWithItsAlwaysAsk(t *testing.T) {
 		}
 	}
 }
+
+// AlwaysAsk and an effect must not contradict (Core A0b: the manifest's effect is the authority, and always_ask true
+// beside an effect whose rule does not ask is a manifest error). The SDK says it at Init and when a setting marshals,
+// rather than let Core refuse the install.
+func TestAlwaysAskBesideAnEffectThatDoesNotAskIsRefused(t *testing.T) {
+	for _, e := range []Effect{EffectNone, EffectPublish, EffectSpend, EffectOutward} {
+		err := checkAbilityEffects([]Ability{{Name: "act", AlwaysAsk: true, Effect: e}})
+		if err == nil || !strings.Contains(err.Error(), "act") || !strings.Contains(err.Error(), string(e)) {
+			t.Errorf("AlwaysAsk beside %q passed or was not named: %v", e, err)
+		}
+		if _, err := json.Marshal(SettingField{Key: "to", AlwaysAsk: true, Effect: e}); err == nil {
+			t.Errorf("a setting with always_ask beside %q marshalled", e)
+		}
+	}
+	// Beside an effect that asks it says the same thing twice, which is allowed; alone it is the older word.
+	if err := checkAbilityEffects([]Ability{{Name: "refund", AlwaysAsk: true, Effect: EffectMoney}, {Name: "old", AlwaysAsk: true}}); err != nil {
+		t.Errorf("AlwaysAsk beside an asking effect, or alone, refused: %v", err)
+	}
+	if _, err := json.Marshal(SettingField{Key: "to", AlwaysAsk: true, Effect: EffectRedirect}); err != nil {
+		t.Errorf("a setting with always_ask beside redirect refused: %v", err)
+	}
+}
