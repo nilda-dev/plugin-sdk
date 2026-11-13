@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.65.0 — unreleased (abilities: a size budget instead of a count, and their effects; nildatest: what the assistant cannot reach yet)
+## v0.65.0 — 2026-11-13 (abilities: a size budget instead of a count, and their effects; nildatest: what the assistant cannot reach yet)
 
 Core's agent-control C4 (owner decision D4, 2026-11-13): no ability count that forces work back to the panel (Core
 #432). **Removes one constant** — the owner's decision (`SDK_ALLOW_SURFACE_REMOVAL=1`). And a test helper mirroring
