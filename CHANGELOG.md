@@ -14,6 +14,10 @@ Additive: a bound grows, and a test helper follows Core. Mirrors Core #439 (C4b,
 
 Changed:
 
+- A `SettingField` with `Effect: EffectCredential` that is not `Secret: true` no longer marshals: the SDK refuses it
+  at build/check time, naming the field, instead of leaving Core to refuse the install (Core #438,
+  `schema_abilities.go`). Without `secret` the assistant's `plugin_settings` would show the model the credential.
+  A plugin that declared one must add `Secret: true`.
 - `nildatest.AssistantHoles` answers an empty list for every manifest: Core's C3 gave the last two of its holes,
   `manifest.account` (the owner's account at the plugin's service) and `manifest.editor_commands` (the "/" commands),
   their tools, so every surface a manifest declares now reaches the site's assistant. A hole Core opens again is

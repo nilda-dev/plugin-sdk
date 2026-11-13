@@ -2982,7 +2982,8 @@ never emptied, each field's own type; a secret can be written that way and is ne
 **What the assistant reads.** `plugin_settings` shows the assistant — and so the AI provider behind it — every
 field's current value, except a `secret` one, which it names and says only whether it is set. So `secret` is the
 line between "a person may see it" and "the model sees it": a webhook URL with a token in it, or any other
-credential, in a plain text field reaches the model. Mark it `secret`.
+credential, in a plain text field reaches the model. Mark it `secret`. A field with `Effect: nilda.EffectCredential` **must** be `secret` — the SDK refuses to marshal it
+otherwise, as Core refuses the install.
 
 **Not configured is the first state every integration is in.** `HasSetting` before you do work that cannot
 succeed without a value — a plugin that fails to start until it is configured cannot be configured, because

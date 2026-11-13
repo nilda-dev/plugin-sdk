@@ -122,6 +122,10 @@ func (f SettingField) MarshalJSON() ([]byte, error) {
 	if err := checkEffect("setting", f.Key, f.Effect, f.AlwaysAsk); err != nil {
 		return nil, err
 	}
+	if f.Effect == EffectCredential && !f.Secret {
+		return nil, fmt.Errorf("setting %q declares the effect %q but is not Secret — a credential field must be "+
+			"secret: true, or the assistant would show its value to the model (Core refuses it at install)", f.Key, f.Effect)
+	}
 	type plain SettingField // without this method
 	p := plain(f)
 	p.AlwaysAsk = f.AlwaysAsk || f.Effect.AlwaysAsks()
