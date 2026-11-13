@@ -1001,6 +1001,32 @@ saves it, whatever a connector was granted; a person's own press in the panel is
 `CallOf(ctx).ViaAssistant` says when the assistant asked for a hook call, so your own limits (a daily refund count,
 say) hold on the screen's door as they do on the ability's.
 
+**Say what it does: `Effect` (v0.65.0).** `AlwaysAsk` says *that* the person is asked; an effect says *why*, in the
+one vocabulary Core's own tools use, and Core holds each effect to one rule at every door — the panel's chat, a
+connected AI app, a build, an automation. Set `Ability.Effect` (`"effect"` in plugin.json; `nildatest.ManifestAbilities`
+writes it) and `SettingField.Effect` to one of `nilda.Effects()`:
+
+| Effect | What it is | Asked before every call |
+|---|---|---|
+| `EffectMoney` | a refund, a capture, a void, a payout | yes |
+| `EffectCredential` | an API key, a secret, a password — a person's to change, never a tool's | yes |
+| `EffectRedirect` | where money, mail, data or sign-ins go: a payout account, a webhook, a mail relay | yes |
+| `EffectDeletePermanent` | gone for good, no recycle bin brings it back | yes |
+| `EffectRole` | hands somebody powers: a role, an invite, who may sign in | yes |
+| `EffectOutboundMail` | mail to customers or visitors | yes |
+| `EffectBulk` | many items in one call | yes |
+| `EffectSpend` | spends the owner's AI credit or a paid provider (a build asks before running it) | no |
+| `EffectOutward` | fetches from or sends to an address outside the site (a build asks before running it) | no |
+| `EffectPublish` | makes something visible to the public (the class's own preview is the question) | no |
+| `EffectNone` | none of these: the class's own gate is the whole answer | no |
+
+`Effect.AlwaysAsks()` answers the last column, held to Core's rule table. The SDK writes `always_ask` beside the
+effect — at Init and in plugin.json — whenever the effect asks, so a Core that reads only `always_ask` (one before
+Core's unit A0b) still asks; you need not set `AlwaysAsk` as well, and setting it never makes an effect ask less.
+An effect Core does not know is asked every call there (it fails closed), so `Serve` refuses one at Init and a
+`SettingField` with one does not marshal. Empty is undeclared: the class gates the call as before. `nilda plugin
+check` accepts `"effect"` from a Core that reads it (Core's A0b); an older one names it as an unknown field.
+
 **A door no model may open (`Callers`, `CallerKind`, v0.53.0).** Some actions take what no model may hold — an
 import of the owner's guest list from another tool, which Core's importer hands over and the assistant never sees.
 Declare such an ability `Callers: []string{nilda.CallerKindImporter}` (`"callers": ["importer"]` in plugin.json;

@@ -107,7 +107,25 @@ type SettingField struct {
 	Help        string `json:"help,omitempty"`
 	// AlwaysAsk makes the assistant ask the person before it saves a change to this field, whatever a connector was
 	// granted (v0.41.0) — for a setting that sends the site's data somewhere, such as where order alerts are mailed.
+	// Declare Effect instead (v0.65.0): it says why, and the SDK writes always_ask from it.
 	AlwaysAsk bool `json:"always_ask,omitempty"`
+	// Effect is what saving a change to this field does in the world that its page cannot say (v0.65.0): where the
+	// shop's order alerts are mailed is EffectRedirect, say. Core asks the person before the assistant saves a change
+	// to a field whose effect asks (Effect.AlwaysAsks), whatever a connector was granted. Its JSON carries
+	// `"always_ask": true` beside the effect when the effect asks, so a Core that reads only always_ask asks all the
+	// same; an effect Core does not know does not marshal.
+	Effect Effect `json:"effect,omitempty"`
+}
+
+// MarshalJSON writes the field as plugin.json declares it, with always_ask set when its Effect asks.
+func (f SettingField) MarshalJSON() ([]byte, error) {
+	if f.Effect != "" && !f.Effect.Known() {
+		return nil, fmt.Errorf("setting %q declares the effect %q, which Core does not know — use one of %v", f.Key, f.Effect, Effects())
+	}
+	type plain SettingField // without this method
+	p := plain(f)
+	p.AlwaysAsk = f.AlwaysAsk || f.Effect.AlwaysAsks()
+	return json.Marshal(p)
 }
 
 // AdminPage is one page inside your plugin's section of the sidebar.

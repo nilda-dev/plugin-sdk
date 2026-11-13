@@ -439,7 +439,12 @@ type Ability struct {
 	// The caller kinds Core may call this ability for (HookRequest.caller_kind's values). Empty means the site's
 	// assistant and connected AI apps, as before; one that names neither "ai" nor "mcp" is in no list a model reads
 	// (v0.53.0, booking's import doors).
-	Callers       []string `protobuf:"bytes,8,rep,name=callers,proto3" json:"callers,omitempty"`
+	Callers []string `protobuf:"bytes,8,rep,name=callers,proto3" json:"callers,omitempty"`
+	// What the ability does in the world that its class cannot say (plugin-sdk v0.65.0), in Core's effect vocabulary:
+	// none | money | credential | redirect | spend | delete_permanent | role | outbound_mail | bulk | publish | outward.
+	// Empty is undeclared: the class gates it as before. An effect Core does not know fails closed (asked every call).
+	// always_ask is still sent, set when the effect's rule asks, for a Core that reads only it.
+	Effect        string `protobuf:"bytes,9,opt,name=effect,proto3" json:"effect,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -528,6 +533,13 @@ func (x *Ability) GetCallers() []string {
 		return x.Callers
 	}
 	return nil
+}
+
+func (x *Ability) GetEffect() string {
+	if x != nil {
+		return x.Effect
+	}
+	return ""
 }
 
 type Schedule struct {
@@ -1818,7 +1830,7 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x16\n" +
 	"\x06effect\x18\x03 \x01(\tR\x06effect\x12!\n" +
 	"\finput_schema\x18\x04 \x01(\tR\vinputSchema\x12\x14\n" +
-	"\x05paths\x18\x05 \x03(\tR\x05paths\"\xe4\x01\n" +
+	"\x05paths\x18\x05 \x03(\tR\x05paths\"\xfc\x01\n" +
 	"\aAbility\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05label\x18\x02 \x01(\tR\x05label\x12 \n" +
@@ -1828,7 +1840,8 @@ const file_contract_plugin_proto_rawDesc = "" +
 	"\tread_only\x18\x06 \x01(\bR\breadOnly\x12\x1d\n" +
 	"\n" +
 	"always_ask\x18\a \x01(\bR\talwaysAsk\x12\x18\n" +
-	"\acallers\x18\b \x03(\tR\acallers\"2\n" +
+	"\acallers\x18\b \x03(\tR\acallers\x12\x16\n" +
+	"\x06effect\x18\t \x01(\tR\x06effect\"2\n" +
 	"\bSchedule\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04cron\x18\x02 \x01(\tR\x04cron\"\xa1\x02\n" +

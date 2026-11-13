@@ -194,6 +194,11 @@ message Ability {
   // assistant and connected AI apps, as before; one that names neither "ai" nor "mcp" is in no list a model reads
   // (v0.53.0, booking's import doors).
   repeated string callers = 8;
+  // What the ability does in the world that its class cannot say (plugin-sdk v0.65.0), in Core's effect vocabulary:
+  // none | money | credential | redirect | spend | delete_permanent | role | outbound_mail | bulk | publish | outward.
+  // Empty is undeclared: the class gates it as before. An effect Core does not know fails closed (asked every call).
+  // always_ask is still sent, set when the effect's rule asks, for a Core that reads only it.
+  string effect = 9;
 }
 
 message Schedule {

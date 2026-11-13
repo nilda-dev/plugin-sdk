@@ -93,8 +93,16 @@ type Ability struct {
 	// site (an export, a webhook to an outside address). In the panel's chat and the app the person answers Core's
 	// card; over MCP the client asks them (elicitation); a connection that can do neither is refused. A grant
 	// answers every other ability — this is for the few no setting should answer. Declare it in plugin.json too
-	// (nildatest.ManifestAbilities writes it).
+	// (nildatest.ManifestAbilities writes it). Declare Effect instead (v0.65.0): it says why, and the SDK sends
+	// always_ask from it.
 	AlwaysAsk bool
+	// Effect is what the ability does in the world that its Class cannot say (v0.65.0) — EffectMoney for a refund,
+	// EffectOutboundMail for mail to customers, EffectBulk for many items in one call, EffectNone when it is none of
+	// those. Core holds each effect to one rule at every door; an effect that AlwaysAsks makes Core ask the person
+	// before every call, whatever a connector was granted. The SDK sends always_ask beside it (AlwaysAsk, or the
+	// effect's rule), so a Core that reads only always_ask asks all the same. Serve refuses an effect Core does not
+	// know. Declare it in plugin.json too (nildatest.ManifestAbilities writes it).
+	Effect Effect
 	// Callers names the caller kinds Core may call this ability for (v0.53.0): CallerKindImporter,
 	// CallerKindOwnerUI, CallerKindAI, CallerKindMCP. Empty means the site's assistant and connected AI apps, as
 	// before. An ability that names neither CallerKindAI nor CallerKindMCP is in no tool list a model reads, and Core

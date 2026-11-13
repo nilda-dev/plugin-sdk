@@ -213,6 +213,17 @@ const DisputeLost
 const DisputeNeedsResponse
 const DisputeUnderReview
 const DisputeWon
+const EffectBulk
+const EffectCredential
+const EffectDeletePermanent
+const EffectMoney
+const EffectNone
+const EffectOutboundMail
+const EffectOutward
+const EffectPublish
+const EffectRedirect
+const EffectRole
+const EffectSpend
 const EmailDate
 const EmailHTML
 const EmailList
@@ -703,6 +714,7 @@ field Ability.AlwaysAsk bool
 field Ability.Callers []string
 field Ability.Class Class
 field Ability.Description string
+field Ability.Effect Effect
 field Ability.InputSchema json.RawMessage
 field Ability.Label string
 field Ability.Name string
@@ -1922,6 +1934,7 @@ field ServiceResult.RequestID string json:request_id
 field SettingField.AlwaysAsk bool json:always_ask
 field SettingField.Choices []string json:choices
 field SettingField.Default any json:default
+field SettingField.Effect Effect json:effect
 field SettingField.Help string json:help
 field SettingField.Key string json:key
 field SettingField.Label string json:label
@@ -2232,6 +2245,7 @@ func DispatchTrash(context.Context, string, []byte, func(context.Context, TrashR
 func DisputeCanMove(string, string) (bool)
 func DisputeFinal(string) (bool)
 func DocumentData(string, string, []byte) (DocumentRef)
+func Effects() ([]Effect)
 func EventOf(context.Context) (EventInfo)
 func FieldTypes() ([]string)
 func FilterPeriods() ([]string)
@@ -2548,6 +2562,8 @@ method (DocumentsRequest) Validate() (error)
 method (DocumentsResult) Validate() (error)
 method (EUVATRateSet) Reduced(string, string) ([]EUVATRate)
 method (EUVATRateSet) Standard(string) (int, bool)
+method (Effect) AlwaysAsks() (bool)
+method (Effect) Known() (bool)
 method (ExchangeRateSet) Rate(string, string) (*big.Rat, bool)
 method (ExpressAnswer) Validate() (error)
 method (ExpressPayer) Validate() (error)
@@ -2599,6 +2615,7 @@ method (ServicePoint) Validate() (error)
 method (ServicePointsRequest) Validate() (error)
 method (ServicePointsResult) Validate() (error)
 method (ServicePointsResult) ValidateFor(ServicePointsRequest) (error)
+method (SettingField) MarshalJSON() ([]byte, error)
 method (SetupStatus) Validate() (error)
 method (ShipAddress) Validate() (error)
 method (ShopEventsAnswer) ValidateFor(ShopEventsRequest) (error)
@@ -2739,6 +2756,7 @@ type DocumentsRequest
 type DocumentsResult
 type EUVATRate
 type EUVATRateSet
+type Effect
 type EmailTemplateDecl
 type EmailTemplateText
 type EmailVariable
