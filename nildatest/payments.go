@@ -49,6 +49,11 @@ type Payments struct {
 	// Now is the clock a kept method's next charge is judged by (a subscription's interval); nil is time.Now. Move it
 	// forward to charge next month's renewal in a test.
 	Now func() time.Time
+	// Site, when set, answers the routes a plugin holding users.read calls beside the payment ones (GET /users and
+	// GET /users/{id}), from that Site's accounts and under that Site's scope check — so a test that needs both a
+	// payment service and the site's users runs on one fake Core. Set it before the first call. Nil is the old
+	// behaviour: only /payments is served and /users is a 404.
+	Site *Site
 
 	mu        sync.Mutex
 	hosts     map[string]*Host // plugin key → the fake Core it was given, for its grants
@@ -393,6 +398,13 @@ func (p *Payments) CreateSession(ctx context.Context, consumer string, params ni
 func (p *Payments) routes(caller string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+		if len(parts) > 0 && parts[0] == "users" && p.Site != nil {
+			p.mu.Lock()
+			h := p.hosts[caller]
+			p.mu.Unlock()
+			p.Site.serve(h, w, r)
+			return
+		}
 		if len(parts) < 2 || parts[0] != "payments" {
 			writeError(w, notFound("no such route: %s %s", r.Method, r.URL.Path))
 			return

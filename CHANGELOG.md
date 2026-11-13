@@ -8,6 +8,17 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.64.0 — unreleased (nildatest: Payments answers users from a Site)
+
+Additive; test helper only.
+
+Added:
+
+- `nildatest.Payments.Site` (`*Site`). Set it and the fake Core `Payments.Core` hands out also answers `GET /users` and
+  `GET /users/{id}` from that Site's accounts, under the plugin's own `users.read` grant, so a test needing both
+  payments and the site's users runs on one fake. Nil (the default) is unchanged: only `/payments` is served.
+
+
 ## v0.63.0 — 2026-11-12 (payments: a refund Core kept as money no payment holds, a reversed refund no longer counts)
 
 Core's payments security review (2026-11-12) changed what a gateway hears back about refunds. Additive; a money fix

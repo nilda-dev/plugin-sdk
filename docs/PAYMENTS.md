@@ -644,6 +644,10 @@ layer, the confirm step, refunds — and it drives your gateway through the same
 delivers a request as Core's proxy does on a webhook path: the body byte for byte, the caller's headers, and
 no `X-Nilda-*` header.
 
+A plugin that also holds `users.read` (a shop reading its members' accounts) sets `pay.Site = site` — a
+`nildatest.Site` — before calling `Core`: `GET /users` and `GET /users/{id}` are then answered from that site's
+accounts, under the plugin's own grants. With no `Site` set, only `/payments` is served, as before.
+
 ## 5. Taking payments (a consumer)
 
 Declare `payment_session`. A consumer implements `nilda.PaymentConsumer`, and Serve answers its three hooks:

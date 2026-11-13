@@ -48,6 +48,7 @@ field Event.Type string
 field Host.EmailRefusal error
 field Host.Fail error
 field Payments.Now func() time.Time
+field Payments.Site *Site
 field Payments.SiteURL string
 field Revocation.Provider string
 field Revocation.Reason string

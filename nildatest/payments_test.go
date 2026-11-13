@@ -912,3 +912,35 @@ func TestTheKitRefusesANULInPaymentTextAsCoreDoes(t *testing.T) {
 		t.Fatalf("a clean pending report after the refusal: %+v %v", got, err)
 	}
 }
+
+// A Payments given a Site answers the users routes from it, under the plugin's own grants; without one /users is
+// not served, as before.
+func TestPaymentsAnswersUsersFromASite(t *testing.T) {
+	ctx := context.Background()
+	site := NewSite()
+	id := site.AddUser(nilda.User{Email: "member@example.com"})
+
+	pay := NewPayments()
+	pay.Site = site
+	core, _, srv := pay.Core("shop", "payment_session", "users.read")
+	defer srv.Close()
+	u, err := core.API().User(ctx, id)
+	if err != nil || u.Email != "member@example.com" {
+		t.Fatalf("a read of a user through Payments with a Site = %+v, %v", u, err)
+	}
+
+	// Without users.read the Site's own scope check refuses it.
+	bare, _, srv2 := pay.Core("bare", "payment_session")
+	defer srv2.Close()
+	if _, err := bare.API().User(ctx, id); err == nil {
+		t.Fatal("a plugin without users.read read a user")
+	}
+
+	// No Site: the same 404/refusal as today.
+	plain := NewPayments()
+	core3, _, srv3 := plain.Core("shop", "payment_session", "users.read")
+	defer srv3.Close()
+	if _, err := core3.API().User(ctx, id); err == nil {
+		t.Fatal("a Payments with no Site served /users")
+	}
+}
