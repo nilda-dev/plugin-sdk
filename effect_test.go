@@ -181,3 +181,21 @@ func TestAlwaysAskBesideAnEffectThatDoesNotAskIsRefused(t *testing.T) {
 		t.Errorf("a setting with always_ask beside redirect refused: %v", err)
 	}
 }
+
+// Core refuses, at install, a settings field whose effect is credential and which is not secret (core #438): the
+// assistant would show the model a credential it names. The SDK says it when the field marshals instead.
+func TestACredentialSettingMustBeSecret(t *testing.T) {
+	_, err := json.Marshal(SettingField{Key: "api_key", Effect: EffectCredential})
+	if err == nil || !strings.Contains(err.Error(), `"api_key"`) || !strings.Contains(err.Error(), "secret") {
+		t.Errorf("a credential setting without secret marshalled or did not say why: %v", err)
+	}
+	if _, err := json.Marshal(AdminPage{Key: "s", Fields: []SettingField{{Key: "api_key", Effect: EffectCredential}}}); err == nil {
+		t.Error("a page holding a credential setting without secret marshalled")
+	}
+	if _, err := json.Marshal(SettingField{Key: "api_key", Effect: EffectCredential, Secret: true}); err != nil {
+		t.Errorf("a secret credential setting refused: %v", err)
+	}
+	if _, err := json.Marshal(SettingField{Key: "to", Effect: EffectRedirect}); err != nil {
+		t.Errorf("a non-credential setting needing no secret refused: %v", err)
+	}
+}
