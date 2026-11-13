@@ -122,8 +122,12 @@ const (
 
 	// What the AI can do (`abilities`, `visitor_tools`, `site_files`).
 
-	// MaxManifestAbilities bounds abilities: a count.
-	MaxManifestAbilities = 200
+	// MaxManifestAbilityDefinitionBytes bounds what one plugin's abilities put in front of a model: the bytes of their
+	// labels, descriptions and input schemas together. It replaced a count of abilities (Core's D4, v0.65.0): there
+	// is no limit on how many a plugin offers. The install refuses the manifest when the labels and descriptions alone
+	// cross it; a running plugin whose schemas take it over is reported, not cut. nildatest.ManifestAbilities holds
+	// your abilities to it, schemas included.
+	MaxManifestAbilityDefinitionBytes = 1 << 20
 	// MaxManifestAbilityDescriptionLen bounds an ability's description: characters.
 	MaxManifestAbilityDescriptionLen = 2000
 	// MaxManifestVisitorTools bounds visitor_tools: a count.

@@ -172,3 +172,48 @@ func TestTheManifestDeclaresAnAbilitysCallers(t *testing.T) {
 		t.Error("a manifest whose callers differ from Init's was accepted")
 	}
 }
+
+// D4 (Core's agent-control C4, 2026-11-13): Core no longer counts abilities, it bounds what one plugin's abilities put
+// in front of a model — labels, descriptions and input schemas together, nilda.MaxManifestAbilityDefinitionBytes.
+// ManifestAbilities holds a plugin to it at the author's keyboard, schemas included, and says the size — even with
+// NILDA_WRITE_MANIFEST=1, since writing an over-budget list only moves the refusal to the install.
+func TestManifestAbilitiesHoldsTheDefinitionBudget(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "plugin.json")
+	if err := os.WriteFile(path, []byte("{\n  \"key\": \"shop\"\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	schema := nilda.ObjectSchema(map[string]any{"note": map[string]any{"type": "string",
+		"description": strings.Repeat("s", 1000)}})
+	var list []nilda.Ability
+	total := 0
+	for i := 0; total <= nilda.MaxManifestAbilityDefinitionBytes; i++ {
+		a := nilda.Ability{Name: fmt.Sprintf("act_%d", i), Label: "Act", Description: strings.Repeat("d", 1500),
+			Class: nilda.ClassRead, InputSchema: schema}
+		total += len(a.Label) + len(a.Description) + len(a.InputSchema)
+		list = append(list, a)
+	}
+	// Far more than the 200 Core once counted: the count is gone, the size is what stops it.
+	if len(list) <= 200 {
+		t.Fatalf("the fixture has only %d abilities; it must pass the old count to show the count is gone", len(list))
+	}
+	t.Setenv(WriteManifestEnv, "1")
+	failed := run(t, path, list)
+	if failed == "" {
+		t.Fatalf("%d bytes of abilities passed a %d-byte budget", total, nilda.MaxManifestAbilityDefinitionBytes)
+	}
+	for _, want := range []string{fmt.Sprint(total), fmt.Sprint(nilda.MaxManifestAbilityDefinitionBytes), "input schemas"} {
+		if !strings.Contains(failed, want) {
+			t.Errorf("the failure does not say %q: %s", want, failed)
+		}
+	}
+	if got, _ := os.ReadFile(path); strings.Contains(string(got), "abilities") {
+		t.Errorf("an over-budget list was written into plugin.json:\n%.200s", got)
+	}
+
+	// One ability fewer than the budget allows writes, however many there are.
+	list = list[:len(list)-1]
+	if failed := run(t, path, list); failed != "" {
+		t.Fatalf("%d abilities inside the budget failed: %s", len(list), failed)
+	}
+}

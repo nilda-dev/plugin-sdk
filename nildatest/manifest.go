@@ -50,8 +50,18 @@ func (m manifestAbility) same(o manifestAbility) bool {
 //
 // Writing replaces only the "abilities" value (or adds it before the closing brace), so the rest of the file keeps
 // its order and spacing.
+//
+// It also holds the abilities to Core's budget, nilda.MaxManifestAbilityDefinitionBytes: their labels, descriptions
+// and input schemas together, in bytes. There is no limit on how many abilities a plugin offers, only on how much
+// they put in front of a model. Past the budget the test fails naming the size, with or without
+// NILDA_WRITE_MANIFEST=1 — Core's install refuses the words, and Init reports the schemas.
 func ManifestAbilities(t testing.TB, manifestPath string, abilities []nilda.Ability) {
 	t.Helper()
+	if size := abilityDefinitionBytes(abilities); size > nilda.MaxManifestAbilityDefinitionBytes {
+		t.Fatalf("%s: the %d abilities' labels, descriptions and input schemas are %d bytes together, over Core's "+
+			"%d-byte budget for one plugin (nilda.MaxManifestAbilityDefinitionBytes) — shorten the descriptions or "+
+			"the input schemas", manifestPath, len(abilities), size, nilda.MaxManifestAbilityDefinitionBytes)
+	}
 	want := make([]manifestAbility, 0, len(abilities))
 	for _, a := range abilities {
 		want = append(want, manifestAbility{Name: a.Name, Label: a.Label, Description: a.Description, Class: string(a.Class),
@@ -87,6 +97,16 @@ func ManifestAbilities(t testing.TB, manifestPath string, abilities []nilda.Abil
 		t.Fatalf("write %s: %v", manifestPath, err)
 	}
 	t.Logf("wrote %d abilities into %s (%s)", len(want), manifestPath, diff)
+}
+
+// abilityDefinitionBytes is what the abilities put in front of a model, as Core measures it (plugin/schema_abilities.go
+// overAbilityBudget): the bytes of every label, description and input schema, as the schema goes over the wire.
+func abilityDefinitionBytes(abilities []nilda.Ability) int {
+	total := 0
+	for _, a := range abilities {
+		total += len(a.Label) + len(a.Description) + len(a.InputSchema)
+	}
+	return total
 }
 
 // keySpan finds the byte span of a top-level value ("abilities", "visitor_tools"), or -1, -1 when there is none.

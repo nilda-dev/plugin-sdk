@@ -167,14 +167,17 @@ func TestTwoAbilitiesWithOneNameAreRefused(t *testing.T) {
 // Class this package declares. A hand-written SDK list would agree with itself — a class added to the SDK
 // alone, or to Core alone and to this test, would pass.
 // "On a hosted site without the AI-execution plan, the site's assistant runs only `read` abilities", and every class on a
-// self-hosted install — held to Core's gate: every tool enter()s through policyGate, which refuses a class that
-// mutates() unless AIExecuteOpen (self-hosted, or the plan on a hosted site; D-96), and
+// self-hosted install — held to Core's gate: every tool enter()s through enterSpec and its policyGate, which refuses a
+// class that mutates() unless AIExecuteOpen (self-hosted, or the plan on a hosted site; D-96), and
 // mutates() is every class ranked above read; a plugin's ability is run through enter() like a Core tool.
 func TestTheGuideSaysAHostedSiteWithoutThePlanRunsOnlyReadAbilities(t *testing.T) {
 	flat := func(s string) string { return strings.Join(strings.Fields(s), " ") }
 	guard := flat(coreSource(t, "internal", "agent", "guardrails.go"))
 	for _, want := range []string{
-		"if r, blocked := s.policyGate(ctx, pol, spec); blocked { return owner, r }",
+		// enter hands the spec it found to enterSpec (Core's C4 split it out for find_tools over MCP), and enterSpec
+		// is where the policy gate refuses.
+		"return owner, s.enterSpec(ctx, spec)",
+		"if r, blocked := s.policyGate(ctx, pol, spec); blocked { return r }",
 		// Core now lets a PERSON's press of Undo through the line (aichanges.go's withPersonsUndo): they put back by hand what an
 		// agent did. That is not the assistant running an ability — the mark is set by RunUndo alone, on an unexported
 		// key, and the inverse it runs is one of Core's own tools (toolCreates), never a plugin's.
