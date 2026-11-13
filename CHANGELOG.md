@@ -8,6 +8,19 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.65.0 — unreleased (nildatest: what the assistant cannot reach yet)
+
+Additive; test helper only. Mirrors Core #430 and #431 (the agent doors, `nilda plugin check`'s assistant check).
+
+Added:
+
+- `nildatest.AssistantHoles(raw []byte) ([]AssistantHole, error)` and `nildatest.AssistantHole` (`Where`, `Unit`,
+  `Gap`): which of Core's own holes a plugin.json declares — the surfaces the site's assistant cannot operate yet, each
+  with the unit of Core's plan that closes it. Today `manifest.account` and `manifest.editor_commands`, both C3. Held
+  to Core's `internal/plugin/agentdoors.go` and to Core's assistant check of every first-party manifest. A key that is
+  null, `""`, `false` or `0` is unset; an empty list or object is the surface, used.
+
+
 ## v0.64.0 — 2026-11-13 (nildatest: Payments answers users from a Site)
 
 Additive; test helper only.

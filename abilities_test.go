@@ -178,7 +178,10 @@ func TestTheGuideSaysAHostedSiteWithoutThePlanRunsOnlyReadAbilities(t *testing.T
 		// Core now lets a PERSON's press of Undo through the line (aichanges.go's withPersonsUndo): they put back by hand what an
 		// agent did. That is not the assistant running an ability — the mark is set by RunUndo alone, on an unexported
 		// key, and the inverse it runs is one of Core's own tools (toolCreates), never a plugin's.
-		"if spec.Class.mutates() && !license.AIExecuteOpen() && !isPersonsUndo(ctx) {",
+		// And a canvas edit (canvasedit.go, D-113: the builder's AI bar is free): a Core verb that declares
+		// module.Tool.CanvasEdit, called from the page builder on the panel's transport. Only the module-tool wrapper
+		// marks it — held below — so a plugin's ability never carries the mark.
+		"if spec.Class.mutates() && !license.AIExecuteOpen() && !isPersonsUndo(ctx) && !isCanvasEdit(ctx) {",
 	} {
 		if !strings.Contains(guard, want) {
 			t.Errorf("core's guardrails.go no longer has %q — re-read the guide's hosted-site sentence", want)
@@ -191,6 +194,29 @@ func TestTheGuideSaysAHostedSiteWithoutThePlanRunsOnlyReadAbilities(t *testing.T
 		!strings.Contains(changes, "ctx = withoutChangeRecord(withPersonsUndo(withPanelSession(ctx, user, string(ClassAccess))))") ||
 		!strings.Contains(changes, "doc, err := decodePlannedResult(s.InvokeForChat(ctx, call.Tool, call.Args))") {
 		t.Error("core's way past the AI-execution line is no longer a person's Undo alone (RunUndo) — re-read the guide's hosted-site sentence")
+	}
+	// The canvas mark's one setter is the module-tool wrapper (Core's own verbs, from their CanvasEdit declaration): its
+	// declaration and that one call are the only two mentions in Core's agent package, and the ability runner is not one.
+	if !strings.Contains(flat(coreSource(t, "internal", "agent", "moduletools.go")), "ctx = withCanvasEdit(ctx, t, args)") ||
+		!strings.Contains(flat(coreSource(t, "internal", "agent", "canvasedit.go")),
+			"func withCanvasEdit(ctx context.Context, t module.Tool, args json.RawMessage) context.Context {") ||
+		strings.Contains(coreSource(t, "internal", "agent", "abilities.go"), "withCanvasEdit(") {
+		t.Error("core's canvas-edit mark is no longer set by the module-tool wrapper alone — re-read the guide's hosted-site sentence")
+	}
+	agentDir := filepath.Join("..", "core", "internal", "agent")
+	entries, err := os.ReadDir(agentDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	marks := 0
+	for _, e := range entries {
+		if n := e.Name(); strings.HasSuffix(n, ".go") && !strings.HasSuffix(n, "_test.go") {
+			marks += strings.Count(coreSource(t, "internal", "agent", n), "withCanvasEdit(")
+		}
+	}
+	if marks != 2 {
+		t.Errorf("core's agent package mentions withCanvasEdit( %d times, want its declaration and the module-tool "+
+			"wrapper's one call — re-read the guide's hosted-site sentence", marks)
 	}
 	if lic := flat(coreSource(t, "internal", "license", "license.go")); !strings.Contains(lic,
 		"func AIExecuteOpen() bool { return !authz.Hosted() || IsProUnlocked(FeatureAIExecute) }") {
