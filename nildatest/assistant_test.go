@@ -110,9 +110,34 @@ func TestCoreHolesAreCoresPendingDoors(t *testing.T) {
 	}
 }
 
+// withHoles puts holes in coreHoles for one test and takes them out after it. Since Core's C3 closed the last of its
+// plan's holes there is no real one to read, so AssistantHoles' machinery is driven with made-up ones, as Core's own
+// TestCheckForAssistantNamesCoresHolesWithTheirUnit does.
+func withHoles(t *testing.T, holes map[string]coreHole) {
+	t.Helper()
+	saved := coreHoles
+	coreHoles = holes
+	t.Cleanup(func() { coreHoles = saved })
+}
+
+// testHole is a gap made up for the tests, behind two surfaces at once.
+var testHole = coreHole{unit: "C9", gap: "a gap the test made up, behind two surfaces at once"}
+
+// C3 closed the account and the "/" editor commands: a manifest that declares both has no hole of Core's left.
+func TestAssistantHolesAfterC3SaysNone(t *testing.T) {
+	got, err := AssistantHoles([]byte(`{"key":"shop","account":{"name":"Acme"},"editor_commands":[{"name":"x"}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Errorf("C3 closed both doors, and the SDK still says %v", got)
+	}
+}
+
 func TestAssistantHoles(t *testing.T) {
+	withHoles(t, map[string]coreHole{"manifest.account": testHole, "manifest.editor_commands": testHole})
 	hole := func(where string) AssistantHole {
-		return AssistantHole{Where: where, Unit: coreHoles[where].unit, Gap: coreHoles[where].gap}
+		return AssistantHole{Where: where, Unit: testHole.unit, Gap: testHole.gap}
 	}
 	cases := []struct {
 		name, raw string
@@ -152,7 +177,7 @@ func TestAssistantHoles(t *testing.T) {
 	}
 	// A hole says what the assistant cannot do yet, and the unit of Core's plan that closes it.
 	got, _ := AssistantHoles([]byte(`{"account":{}}`))
-	if len(got) != 1 || got[0].Gap == "" || got[0].Unit != "C3" {
+	if len(got) != 1 || got[0].Gap != testHole.gap || got[0].Unit != "C9" {
 		t.Errorf("a hole names no gap or no unit: %+v", got)
 	}
 }

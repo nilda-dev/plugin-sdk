@@ -1106,10 +1106,11 @@ owner granting the second should be agreeing to exactly that. It appears on thei
 
 **What the assistant cannot reach yet is Core's, not yours** (`nildatest.AssistantHoles`, v0.65.0). Every surface a
 manifest declares reaches the site's assistant — in the panel's chat and over MCP — through a tool: your abilities
-as themselves, your pages through their kind's tools, and so on. A few surfaces Core does not reach yet, each named
-with the unit of Core's plan that closes it: today an `account` block (whether the owner's account at your service is
-connected) and `editor_commands` (the "/" commands), both closed by Core's C3. `nilda plugin check` lists them as
-Core's holes, never as yours; no install is refused for them and there is nothing to change in your plugin.
+as themselves, your pages through their kind's tools, and so on. A surface Core does not reach yet is named with
+the unit of Core's plan that closes it. **Today there is none**: the last two, an `account` block (whether the
+owner's account at your service is connected) and `editor_commands` (the "/" commands), were closed by Core's C3
+(core #437), so on a Core built since then `AssistantHoles` answers an empty list. `nilda plugin check` lists such
+holes as Core's, never as yours; no install is refused for them and there is nothing to change in your plugin.
 `nildatest.AssistantHoles(raw)` answers the same list from your plugin.json's bytes — each hole's surface
 (`Where`, as `"manifest.account"`), the `Unit` that closes it and the `Gap` in the owner's words — so your own
 documentation, or a test, can say them; a key that is null, `""`, `false` or `0` is unset, as Core reads it. It is
