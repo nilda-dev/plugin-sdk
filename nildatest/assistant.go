@@ -21,12 +21,10 @@ type coreHole struct{ unit, gap string }
 // coreHoles mirrors the Pending entries of Core's agent doors (core internal/plugin/agentdoors.go): every surface
 // of a manifest the assistant cannot reach yet. TestCoreHolesAreCoresPendingDoors holds it to Core's source, and
 // TestAssistantHolesAreCoresHoles to Core's own check of every first-party manifest.
-var coreHoles = map[string]coreHole{
-	"manifest.account": {unit: "C3", gap: "the assistant cannot see whether the owner's account at the plugin's " +
-		"service is connected, disconnect it, or hand the owner the link to connect it"},
-	"manifest.editor_commands": {unit: "C3",
-		gap: "the assistant cannot list a plugin's \"/\" editor commands or insert one into content"},
-}
+//
+// Empty since Core's C3 (core #437) gave the last two — a plugin's account and its "/" editor commands — their
+// tools: every surface a manifest declares now reaches the assistant. A hole Core opens again is added here.
+var coreHoles = map[string]coreHole{}
 
 // AssistantHoles answers which of Core's own holes a plugin.json uses: the surfaces it declares that the site's
 // assistant — in the panel's chat and over MCP — cannot operate yet, each with the unit of Core's plan that closes

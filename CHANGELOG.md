@@ -8,6 +8,18 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.66.0 — unreleased (nildatest: no assistant holes left after Core's C3)
+
+Test helper only; no change to the Go API. Mirrors Core #437 (C3).
+
+Changed:
+
+- `nildatest.AssistantHoles` answers an empty list for every manifest: Core's C3 gave the last two of its holes,
+  `manifest.account` (the owner's account at the plugin's service) and `manifest.editor_commands` (the "/" commands),
+  their tools, so every surface a manifest declares now reaches the site's assistant. A hole Core opens again is
+  listed again.
+
+
 ## v0.65.0 — 2026-11-13 (abilities: a size budget instead of a count, and their effects; nildatest: what the assistant cannot reach yet)
 
 Core's agent-control C4 (owner decision D4, 2026-11-13): no ability count that forces work back to the panel (Core
