@@ -98,7 +98,7 @@ func TestTheGuidesNumbersAndNamesAreCores(t *testing.T) {
 	// Core's f6609f820 (2026-10-30): one string's bound is the longest text a page declares — its help — and is
 	// counted in characters (it was 400, counted with len(), so in bytes).
 	for _, c := range []string{"maxTranslationLocales = 12", "maxTranslationStrings = 1500", "maxTranslationLen     = maxDeclaredHelpLen",
-		"maxDeclaredHelpLen = 500", "maxTranslationLocaleBytes = 192 << 10", "maxTranslationBytes = 1 << 20"} {
+		"maxDeclaredHelpLen = 500", "maxTranslationLocaleBytes = 768 << 10", "maxTranslationBytes = 3 << 20"} {
 		has(manifest, "internal/plugin/schema_manifest.go", c)
 	}
 	has(manifest, "internal/plugin/schema_manifest.go",
@@ -107,7 +107,7 @@ func TestTheGuidesNumbersAndNamesAreCores(t *testing.T) {
 	has(manifest, "internal/plugin/schema_manifest.go", "size += len(src) + len(translated)")
 	has(coreSource(t, "internal", "plugin", "adminpages.go"), "internal/plugin/adminpages.go", "man.Translations[locale]")
 	says(guide, "PLUGIN_SDK.md", "12 languages, 1500 strings each, 500 characters a string, source")
-	says(guide, "PLUGIN_SDK.md", "192 KiB a language, and 1 MiB for all of them together as stored")
+	says(guide, "PLUGIN_SDK.md", "768 KiB a language, and 3 MiB for all of them together as stored")
 	says(guide, "PLUGIN_SDK.md", "The string bound is counted in characters, not bytes")
 
 	// A field type's choices.

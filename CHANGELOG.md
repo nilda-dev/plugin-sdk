@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.66.0 — unreleased (plugin.json may be 8 MiB; nildatest: no assistant holes left after Core's C3; an ability's way back)
+## v0.66.0 — unreleased (plugin.json may be 8 MiB; translations may be 768 KiB a language, 3 MiB in all; nildatest: no assistant holes left after Core's C3; an ability's way back)
 
 Additive: a bound grows, and a test helper follows Core. Mirrors Core #439 (C4b, manifest size) and #437 (C3). And unit
 B4a of Core's agent-control plan, an ability's way back on the AI changes ledger, SDK-first: EXPERIMENTAL until Core
@@ -36,6 +36,10 @@ Added:
 
 Changed:
 
+- The translation bounds follow Core #455 (C4c): `MaxManifestTranslationLocaleBytes` is 768 KiB (was 192 KiB) and
+  `MaxManifestTranslationBytes` is 3 MiB (was 1 MiB) — four times the largest plugin measured (commerce `fa`, 177,095 B a
+  language, 748,993 B in all), the same headroom as the manifest bound. Strings (1,500) and length (500) are unchanged. A
+  manifest within the new bounds needs the Core that has them.
 - The guide says what Core #446 does with a secret (the owner's D1: a secret is a person's to type). The site's
   assistant can no longer write one: `plugin_settings_set` refuses a value for a `secret` settings field, naming the
   field and the plugin's settings screen (a blank one keeps the stored value), and `plugin_form_save` refuses one for a
