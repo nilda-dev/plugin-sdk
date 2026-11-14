@@ -8,9 +8,31 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.66.0 — unreleased (plugin.json may be 8 MiB; nildatest: no assistant holes left after Core's C3)
+## v0.66.0 — unreleased (plugin.json may be 8 MiB; nildatest: no assistant holes left after Core's C3; an ability's way back)
 
-Additive: a bound grows, and a test helper follows Core. Mirrors Core #439 (C4b, manifest size) and #437 (C3).
+Additive: a bound grows, and a test helper follows Core. Mirrors Core #439 (C4b, manifest size) and #437 (C3). And unit
+B4a of Core's agent-control plan, an ability's way back on the AI changes ledger, SDK-first: EXPERIMENTAL until Core
+reads it (B4b).
+
+Added:
+
+- `Ability.Undo` (`nilda.AbilityUndo`: `By`, `Check`, `NoUndo`, `Compensation`), built with `nilda.UndoBy(ability)` or
+  `nilda.NoUndo(reason, compensation)` — the ability of this plugin that takes the change back, the read that says
+  whether the target is still as the change left it, or why there is no way back and what makes up for it. On the wire
+  as `Ability.undo` (proto field 10, message `AbilityUndo`); in plugin.json as `"undo"`, written by
+  `nildatest.ManifestAbilities`. Absent is every ability before: no recorded way back. EXPERIMENTAL.
+- `nilda.WayBack` (`Args`, `Target`, `Version`) and `nilda.UndoTarget` (`Kind`, `ID`): one call's way back, carried in
+  its result as the field `undo`. `Serve` holds it to the declaration — the inverse's input schema, a whole target
+  (always), a version (a string compared for equality) exactly when a check is declared — and takes one that could not
+  run off the answer, logged.
+- `nilda.UndoReason` and its five keys, Core translates them: `UndoReasonSent`, `UndoReasonOutside`,
+  `UndoReasonPermanent`, `UndoReasonQueued`, `UndoReasonInPlugin`; `nilda.UndoReasons()` and `UndoReason.Known()`.
+- `Serve` refuses at Init a way back Core could not take: an inverse, check or compensation the plugin does not declare,
+  a credential's (a person's own act), one an Undo's two doors do not both reach, an inverse that changes nothing
+  (`read`, `analyze`) or obliges less than the change by Core's `Rule.Loses` (an undeclared effect counts as outward),
+  a money change undone by something that is not money, a check that is not `read` or whose input schema is not exactly
+  `{"kind", "id"}`, `By` beside `NoUndo` or beside a compensation, a reason outside the vocabulary, and any `Undo` on a
+  `read` or `analyze` ability.
 
 Changed:
 

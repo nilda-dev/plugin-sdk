@@ -199,6 +199,30 @@ message Ability {
   // Empty is undeclared: the class gates it as before. An effect Core does not know fails closed (asked every call).
   // always_ask is still sent, set when the effect's rule asks, for a Core that reads only it.
   string effect = 9;
+  // The ability's way back, for Core's AI changes ledger (plugin-sdk v0.66.0, EXPERIMENTAL until Core reads it). Absent
+  // is a plugin built before it: Core records the change as having no recorded way back, as it always has.
+  AbilityUndo undo = 10;
+}
+
+// AbilityUndo is how one ability's change is taken back on Core's AI changes ledger, or why it cannot be. Exactly one
+// of `by` and `no_undo` is set. The arguments of the inverse are not here: they depend on the call (a created id), so
+// each call's result carries them as its `undo` field — {"args": {...}, "target": {"kind", "id"}, "version"} — and
+// Core reads that field only for an ability whose `by` is set.
+message AbilityUndo {
+  // The inverse: another ability of the SAME plugin (or this one) that Core calls with the result's undo.args when a
+  // person presses Undo. One that changes something (not read or analyze), reached by both of the doors an undo runs
+  // through (callers empty, or naming "ai" and "mcp"), never a person's own act (credential), and whose effect obliges
+  // at least what the change's does (Core's Rule.Loses; an undeclared effect is outward) — a money change's is money.
+  string by = 1;
+  // A read-class ability of the same plugin that answers whether the target is still as the change left it: Core calls
+  // it with exactly {"kind", "id"} (the result's undo.target, both strings) and compares the answer's "version", a
+  // string, for equality with the result's undo.version before running the inverse. Empty: the inverse runs without a
+  // check (as a built-in creation's does). The result's undo.target is required whenever `by` is set.
+  string check = 2;
+  // Why the change cannot be undone, as a key Core translates: sent | outside | permanent | queued | in_plugin.
+  string no_undo = 3;
+  // An ability of the same plugin that makes up for a change with no way back (a correction mail), or empty.
+  string compensation = 4;
 }
 
 message Schedule {

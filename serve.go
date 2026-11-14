@@ -246,9 +246,11 @@ type pluginServer struct {
 	// visitorRun holds the visitor tools' Run functions, keyed by name, written once in Init like abilityRun.
 	visitorRun map[string]func(context.Context, VisitorCall) (any, error)
 	// args are the abilities' and visitor tools' compiled input schemas, written once in Init (argschema.go).
-	args   argSchemas
-	broker *plugin.GRPCBroker // injected by GRPCPlugin.GRPCServer
-	conn   *grpc.ClientConn   // the dialed HostService broker stream
+	args argSchemas
+	// wayBacks are the declared inverses, by ability hook, that a call's `undo` is held to (abilityundo.go).
+	wayBacks wayBacks
+	broker   *plugin.GRPCBroker // injected by GRPCPlugin.GRPCServer
+	conn     *grpc.ClientConn   // the dialed HostService broker stream
 }
 
 func (s *pluginServer) Init(ctx context.Context, req *contract.InitRequest) (resp *contract.InitResponse, err error) {
@@ -295,6 +297,9 @@ func (s *pluginServer) wire(res InitResult) (*contract.InitResponse, error) {
 	if err := checkAbilityEffects(res.Abilities); err != nil {
 		return nil, err
 	}
+	if err := checkAbilityUndo(res.Abilities); err != nil {
+		return nil, err
+	}
 	if err := checkVisitorTools(res.VisitorTools); err != nil {
 		return nil, err
 	}
@@ -322,6 +327,7 @@ func (s *pluginServer) wire(res InitResult) (*contract.InitResponse, error) {
 	}
 	s.visitorRun = visitorRunners(res.VisitorTools)
 	s.args = compileArgSchemas(res.Abilities, res.VisitorTools)
+	s.wayBacks = declaredWayBacks(res.Abilities)
 	return out, nil
 }
 
@@ -393,7 +399,8 @@ func (s *pluginServer) HandleHook(ctx context.Context, req *contract.HookRequest
 		if err != nil {
 			return nil, asAnswer(err)
 		}
-		return &contract.HookResponse{Payload: out}, nil
+		// A call's way back is held to its ability's declared inverse before Core reads it (abilityundo.go).
+		return &contract.HookResponse{Payload: s.wayBacks.keep(req.Hook, s.args, out)}, nil
 	}
 	// A visitor tool with a Run, the same way; one without falls through to HandleHook.
 	if out, handled, err := dispatchVisitorTool(ctx, s.visitorRun, req.Hook, req.Payload); handled {
@@ -425,7 +432,8 @@ func (s *pluginServer) HandleHook(ctx context.Context, req *contract.HookRequest
 	if err != nil {
 		return nil, asAnswer(err)
 	}
-	return &contract.HookResponse{Payload: out}, nil
+	// An ability handled here, without a Run, has its way back held the same way.
+	return &contract.HookResponse{Payload: s.wayBacks.keep(req.Hook, s.args, out)}, nil
 }
 
 func (s *pluginServer) HandleEvent(ctx context.Context, req *contract.EventRequest) (resp *contract.EventResponse, err error) {
@@ -466,6 +474,7 @@ func abilitiesToContract(list []Ability) []*contract.Ability {
 			Name: ab.Name, Label: ab.Label, Description: ab.Description,
 			Class: string(ab.Class), InputSchema: string(ab.InputSchema), ReadOnly: ab.ReadOnly,
 			AlwaysAsk: abilityAlwaysAsks(ab), Effect: string(ab.Effect), Callers: ab.Callers,
+			Undo: undoContract(ab.Undo),
 		})
 	}
 	return out

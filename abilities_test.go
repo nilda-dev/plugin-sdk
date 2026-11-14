@@ -190,11 +190,19 @@ func TestTheGuideSaysAHostedSiteWithoutThePlanRunsOnlyReadAbilities(t *testing.T
 			t.Errorf("core's guardrails.go no longer has %q — re-read the guide's hosted-site sentence", want)
 		}
 	}
-	// The mark's one setter is RunUndo (its declaration and that one call are the only two mentions), and it runs the
-	// stored inverse — a Core tool's name, from creationUndo or the tool's undoSpec.
+	// The mark's one setter is RunUndo's session (undoSession, since Core #440 — its declaration and that one call are the
+	// only two mentions), and it runs the stored inverse — a Core tool's name, from creationUndo or the tool's undoSpec.
+	// WHEN CORE READS Ability.Undo (B4b) a plugin's inverse runs under this mark too: B4b decides whether it may cross the
+	// line on a hosted site without the plan, and the guide's hosted-site sentence says what it decided.
 	changes := flat(coreSource(t, "internal", "agent", "aichanges.go"))
+	// undoSession's own callers are pinned too (B4a review F5): its declaration and exactly two calls — RunUndo, which runs
+	// the inverse, and UndoHolds, which asks its check — so a third door into the mark cannot appear unread.
 	if n := strings.Count(changes, "withPersonsUndo("); n != 2 ||
-		!strings.Contains(changes, "ctx = withoutChangeRecord(withPersonsUndo(withPanelSession(ctx, user, string(ClassAccess))))") ||
+		strings.Count(changes, "undoSession(") != 3 ||
+		!strings.Contains(changes, "func (s *Service) undoSession(ctx context.Context, record bool) (context.Context, bool) {") ||
+		!strings.Contains(changes, "ctx, ok := s.undoSession(ctx, opt.Record)") ||
+		!strings.Contains(changes, "ctx, ok := s.undoSession(ctx, false) return ok && s.undoStillHolds(ctx, call.Check)") ||
+		!strings.Contains(changes, "ctx = withPersonsUndo(withPanelSession(ctx, user, string(ClassAccess)))") ||
 		!strings.Contains(changes, "doc, err := decodePlannedResult(s.InvokeForChat(ctx, call.Tool, call.Args))") {
 		t.Error("core's way past the AI-execution line is no longer a person's Undo alone (RunUndo) — re-read the guide's hosted-site sentence")
 	}
