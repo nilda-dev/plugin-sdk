@@ -34,6 +34,16 @@ Added:
   `{"kind", "id"}`, `By` beside `NoUndo` or beside a compensation, a reason outside the vocabulary, and any `Undo` on a
   `read` or `analyze` ability.
 
+- `nilda.EffectSignIn` (`"sign_in"`), Core's new effect: a setting that decides who can sign in (identity provider issuer,
+  client id, preset, scopes/groups claim). A person's own act and asked before every call, like `EffectCredential` — but
+  allowed on any `SettingField`, secret or not: the value stays visible, the assistant can never set it. Only
+  `EffectCredential` still needs `Secret: true`. Allowed on abilities; an Undo may not name it as an inverse, and
+  nothing weaker may take its change back. Mirrors Core's `module.EffectSignIn`.
+- `FormField.Effect` (manifest key `effect`), as `SettingField.Effect` on a form's field and a repeater's sub-field, held
+  to the same rules when the field marshals: an effect Core does not know is refused, `EffectCredential` needs
+  `Secret: true`, `EffectSignIn` is allowed on a field whose value stays visible. Core reads it in a follow-up unit; until
+  then it ignores the key.
+
 Changed:
 
 - The translation bounds follow Core #455 (C4c): `MaxManifestTranslationLocaleBytes` is 768 KiB (was 192 KiB) and

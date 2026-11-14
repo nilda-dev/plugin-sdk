@@ -1010,6 +1010,7 @@ writes it) and `SettingField.Effect` to one of `nilda.Effects()`:
 |---|---|---|
 | `EffectMoney` | a refund, a capture, a void, a payout | yes |
 | `EffectCredential` | an API key, a secret, a password — a person's to change, never a tool's | yes |
+| `EffectSignIn` | a setting that decides who can sign in (identity provider issuer, client id, preset, scopes/groups claim) — a person's to change, never a tool's, but the field is not secret: its value stays visible | yes |
 | `EffectRedirect` | where money, mail, data or sign-ins go: a payout account, a webhook, a mail relay | yes |
 | `EffectDeletePermanent` | gone for good, no recycle bin brings it back | yes |
 | `EffectRole` | hands somebody powers: a role, an invite, who may sign in | yes |
@@ -1065,7 +1066,7 @@ change it, and which neither the input nor any later look can recover. `Run` hol
 ledger line, cannot call a Go function.
 
 `Init` refuses a way back Core could not take, naming the ability: an inverse, check or compensation this plugin does
-not declare; one whose effect is a person's own act (`EffectCredential`); one an Undo's door does not reach — an Undo
+not declare; one whose effect is a person's own act (`EffectCredential`, `EffectSignIn`); one an Undo's door does not reach — an Undo
 is pressed in the panel and by a connected app, so the inverse names no `Callers`, or both `CallerKindAI` and
 `CallerKindMCP`; an inverse of class `read` or `analyze`, which changes nothing; **an inverse that obliges less than
 the change** — Core's rule for its effect may be stricter, never weaker: a person's act, asked every call, asked before
@@ -3059,7 +3060,7 @@ and never the value — a plain field's value is shown back. A secret is never r
 field's current value, except a `secret` one, which it names and says only whether it is set. So `secret` is the
 line between "a person may see it" and "the model sees it": a webhook URL with a token in it, or any other
 credential, in a plain text field reaches the model. Mark it `secret`. A field with `Effect: nilda.EffectCredential` **must** be `secret` — the SDK refuses to marshal it
-otherwise, as Core refuses the install.
+otherwise, as Core refuses the install. `FormField.Effect` follows the same rules (Core reads it in a follow-up unit). `Effect: nilda.EffectSignIn` has no such rule: a sign-in setting (an issuer, a client id) is a person's to change but its value stays visible to the assistant.
 
 **Not configured is the first state every integration is in.** `HasSetting` before you do work that cannot
 succeed without a value — a plugin that fails to start until it is configured cannot be configured, because

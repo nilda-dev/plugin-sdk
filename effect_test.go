@@ -263,3 +263,72 @@ func TestTheEffectRulesAreCores(t *testing.T) {
 		t.Error("an ability with no effect is not outward, as Core reads it")
 	}
 }
+
+// sign_in: a person's own act like credential, but on a field whose value stays visible — the settings that decide who
+// can sign in (issuer, client id, preset, scopes/groups claim). Core's module.EffectSignIn: HumanOnly, AlwaysAsk.
+func TestSignInIsAPersonsOwnActOnAVisibleField(t *testing.T) {
+	if EffectSignIn != "sign_in" {
+		t.Fatalf("EffectSignIn = %q", EffectSignIn)
+	}
+	if !EffectSignIn.Known() || !EffectSignIn.AlwaysAsks() {
+		t.Error("sign_in is unknown to the SDK or does not ask before every call")
+	}
+	if r := ruleOf(EffectSignIn); r != ruleOf(EffectCredential) || !r.humanOnly {
+		t.Errorf("sign_in's rule = %+v, want credential's (human only, always asks)", r)
+	}
+	// Allowed on a non-secret field, and written with always_ask; credential still needs a secret.
+	raw, err := json.Marshal(SettingField{Key: "oidc_issuer", Effect: EffectSignIn})
+	if err != nil || !strings.Contains(string(raw), `"always_ask":true`) || !strings.Contains(string(raw), `"effect":"sign_in"`) {
+		t.Errorf("a non-secret sign_in field = %s, %v", raw, err)
+	}
+	if _, err := json.Marshal(SettingField{Key: "oidc_secret", Effect: EffectSignIn, Secret: true}); err != nil {
+		t.Errorf("a secret sign_in field refused: %v", err)
+	}
+	if _, err := json.Marshal(SettingField{Key: "k", Effect: EffectCredential}); err == nil {
+		t.Error("a non-secret credential field marshalled")
+	}
+	// Allowed on an ability; AlwaysAsk beside it is the same thing twice.
+	if err := checkAbilityEffects([]Ability{{Name: "set_issuer", Effect: EffectSignIn, AlwaysAsk: true}}); err != nil {
+		t.Errorf("sign_in on an ability refused: %v", err)
+	}
+	// It ranks with credential: nothing weaker may take it back, and no Undo may name it as an inverse.
+	if l := ruleOf(EffectSignIn).loses(ruleOf(EffectRedirect)); strings.Join(l, ",") != "a person's own act" {
+		t.Errorf("sign_in -> redirect loses %v", l)
+	}
+	if l := ruleOf(EffectSpend).loses(ruleOf(EffectSignIn)); len(l) != 0 {
+		t.Errorf("spend -> sign_in loses %v", l)
+	}
+}
+
+// A FormField declares an Effect as a SettingField does (manifest key `effect`), held to the same rules: an effect
+// Core does not know does not marshal, credential needs Secret, sign_in is allowed on a value that stays visible.
+func TestAFormFieldsEffectIsHeldToASettingFieldsRules(t *testing.T) {
+	raw, err := json.Marshal(FormField{Key: "issuer", Label: "Issuer", Type: "text", Effect: EffectSignIn})
+	if err != nil || !strings.Contains(string(raw), `"effect":"sign_in"`) {
+		t.Errorf("a non-secret sign_in form field = %s, %v", raw, err)
+	}
+	if _, err := json.Marshal(FormField{Key: "k", Type: "text", Effect: EffectCredential, Secret: true}); err != nil {
+		t.Errorf("a secret credential form field refused: %v", err)
+	}
+	if _, err := json.Marshal(FormField{Key: "to", Type: "text", Effect: EffectRedirect}); err != nil {
+		t.Errorf("a non-credential form field refused: %v", err)
+	}
+	_, err = json.Marshal(FormField{Key: "api_key", Type: "text", Effect: EffectCredential})
+	if err == nil || !strings.Contains(err.Error(), `"api_key"`) || !strings.Contains(err.Error(), "secret") {
+		t.Errorf("a credential form field without secret marshalled or did not say why: %v", err)
+	}
+	if _, err := json.Marshal(FormField{Key: "x", Type: "text", Effect: "refundd"}); err == nil {
+		t.Error("a form field with an effect Core does not know marshalled")
+	}
+	if raw, err := json.Marshal(FormField{Key: "x", Type: "text"}); err != nil || strings.Contains(string(raw), "effect") {
+		t.Errorf("an undeclared effect is written: %s, %v", raw, err)
+	}
+	// A repeater's sub-field is held to the same rule, and so is a whole form.
+	sub := FormField{Key: "rows", Type: "repeater", Fields: []FormField{{Key: "k", Type: "text", Effect: EffectCredential}}}
+	if _, err := json.Marshal(sub); err == nil {
+		t.Error("a credential repeater sub-field without secret marshalled")
+	}
+	if _, err := json.Marshal(PageForm{Fields: []FormField{{Key: "k", Type: "text", Effect: EffectCredential}}}); err == nil {
+		t.Error("a form holding a credential field without secret marshalled")
+	}
+}
