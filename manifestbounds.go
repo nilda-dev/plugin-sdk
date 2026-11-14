@@ -91,10 +91,10 @@ const (
 	// MaxManifestTranslationLen bounds one string, its source and its translation each: characters.
 	MaxManifestTranslationLen = 500
 	// MaxManifestTranslationLocaleBytes bounds one language's sources and translations together — what an admin reading
-	// in it receives: bytes.
-	MaxManifestTranslationLocaleBytes = 192 << 10
-	// MaxManifestTranslationBytes bounds every source and translation of every language together, as stored: bytes.
-	MaxManifestTranslationBytes = 1 << 20
+	// in it receives: bytes. Core #455 (C4c) raised it from 192 KiB to 768 KiB.
+	MaxManifestTranslationLocaleBytes = 768 << 10
+	// MaxManifestTranslationBytes bounds every source and translation of every language together, as stored: bytes. Core #455 raised it from 1 MiB to 3 MiB.
+	MaxManifestTranslationBytes = 3 << 20
 
 	// The rest of what the plugin adds to the site (`editor_commands`, `fields`, `auth_providers`, `webhook_paths`,
 	// `form_replacements`, `search`).

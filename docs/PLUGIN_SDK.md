@@ -776,8 +776,8 @@ locale code) is not here — the pattern is the rule, and `nilda plugin check` s
 | `MaxManifestTranslationLocales` | 12 | the languages translations declares |
 | `MaxManifestTranslationStrings` | 1,500 | one language's strings |
 | `MaxManifestTranslationLen` | 500 characters | one string, its source and its translation each |
-| `MaxManifestTranslationLocaleBytes` | 192 KiB | one language's sources and translations together |
-| `MaxManifestTranslationBytes` | 1 MiB | every source and translation of every language together |
+| `MaxManifestTranslationLocaleBytes` | 768 KiB | one language's sources and translations together |
+| `MaxManifestTranslationBytes` | 3 MiB | every source and translation of every language together |
 | `MaxManifestEditorCommands` | 24 | editor_commands |
 | `MaxManifestCommandKeywords` | 16 | one editor command's keywords |
 | `MaxManifestEditorCommandContentBytes` | 32 KiB | one editor command's content |
@@ -3023,9 +3023,9 @@ by your plugin key — so a translated name cannot scatter somebody's arrangemen
 
 Bounded, because an admin's browser receives its own language's table with your section on every admin page load
 (Core sends that one language, never the others): 12 languages, 1500 strings each, 500 characters a string, source
-or translation — 192 KiB a language, and 1 MiB for all of them together as stored. The string bound is counted in
+or translation — 768 KiB a language, and 3 MiB for all of them together as stored. The string bound is counted in
 characters, not bytes: it is the longest text a page declares (a field's `help`), so whatever fits there fits its
-translation, a Persian or Arabic one as much as an English one. The 192 KiB and the 1 MiB are counted in bytes,
+translation, a Persian or Arabic one as much as an English one. The 768 KiB and the 3 MiB (four times the largest plugin measured, Core #455) are counted in bytes,
 where a Persian or Arabic letter takes two. Past any of those the package is refused at install rather than quietly truncated.
 
 **You ship no JavaScript into the admin.** You declare; Core draws the controls. Every other CMS extends its
