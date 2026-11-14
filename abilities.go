@@ -111,6 +111,13 @@ type Ability struct {
 	// import of the owner's guest list. Still check CallerKind(ctx) in Run: an older Core does not know this field.
 	// Declare it in plugin.json too (nildatest.ManifestAbilities writes it).
 	Callers []string
+	// Undo is how this ability's change is taken back on Core's AI changes ledger, or why it cannot be (v0.66.0,
+	// EXPERIMENTAL until Core reads it): UndoBy names the ability of this plugin that takes it back, and each call's
+	// result carries that call's way back as its `undo` field (WayBack); NoUndo says why there is none, in a word Core
+	// translates, and what makes up for it. Zero is every ability before: no recorded way back. Serve refuses at Init
+	// an inverse Core could not run — see abilityundo.go. Declare it in plugin.json too (nildatest.ManifestAbilities
+	// writes it).
+	Undo AbilityUndo
 	// Run executes the ability. Optional — leave it nil to handle the dispatch yourself in HandleHook,
 	// where the hook name is AbilityHook(Name).
 	//

@@ -254,3 +254,43 @@ func TestManifestAbilitiesWritesTheEffect(t *testing.T) {
 		t.Errorf("a changed effect passed: %q", failed)
 	}
 }
+
+// B4a: an ability's declared way back (nilda.Ability.Undo, EXPERIMENTAL) is written into plugin.json as "undo" — the
+// inverse and its check, or the reason there is none and what makes up for it — and held like every other field. An
+// ability that declares none writes no key, as a v0.65 manifest has none.
+func TestManifestAbilitiesWritesTheWayBack(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "plugin.json")
+	if err := os.WriteFile(path, []byte("{\n  \"key\": \"shop\"\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	list := []nilda.Ability{
+		{Name: "set_price", Label: "Set a price", Description: "Set a price.", Class: nilda.ClassWrite,
+			Undo: nilda.AbilityUndo{By: "set_price", Check: "price_version"}},
+		{Name: "price_version", Label: "Price version", Description: "Read a price's version.", Class: nilda.ClassRead},
+		{Name: "mail", Label: "Mail", Description: "Mail the customers.", Class: nilda.ClassWrite,
+			Effect: nilda.EffectOutboundMail, Undo: nilda.NoUndo(nilda.UndoReasonSent, "")},
+	}
+	t.Setenv(WriteManifestEnv, "1")
+	if failed := run(t, path, list); failed != "" {
+		t.Fatalf("writing failed: %s", failed)
+	}
+	got, _ := os.ReadFile(path)
+	s := strings.Join(strings.Fields(string(got)), " ")
+	for _, want := range []string{`"undo": { "by": "set_price", "check": "price_version" }`, `"undo": { "no_undo": "sent" }`} {
+		if !strings.Contains(s, want) {
+			t.Errorf("plugin.json has no %s:\n%s", want, got)
+		}
+	}
+	if strings.Count(s, `"undo"`) != 2 {
+		t.Errorf("want undo on two abilities, none on the read:\n%s", got)
+	}
+	t.Setenv(WriteManifestEnv, "")
+	if failed := run(t, path, list); failed != "" {
+		t.Fatalf("the written manifest does not hold: %s", failed)
+	}
+	list[2].Undo = nilda.NoUndo(nilda.UndoReasonOutside, "")
+	if failed := run(t, path, list); !strings.Contains(failed, "mail differs") {
+		t.Errorf("a changed way back passed: %q", failed)
+	}
+}

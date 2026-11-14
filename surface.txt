@@ -679,6 +679,11 @@ const TrackReturnedToSender
 const TrashPurgeHook
 const TrashRestoreHook
 const TrashRetention
+const UndoReasonInPlugin
+const UndoReasonOutside
+const UndoReasonPermanent
+const UndoReasonQueued
+const UndoReasonSent
 const UserStatusActive
 const UserStatusBanned
 const UserStatusPending
@@ -720,9 +725,14 @@ field Ability.Label string
 field Ability.Name string
 field Ability.ReadOnly bool
 field Ability.Run func(ctx context.Context, args json.RawMessage) (any, error)
+field Ability.Undo AbilityUndo
 field AbilityChange.After string json:after
 field AbilityChange.Before string json:before
 field AbilityChange.Label string json:label
+field AbilityUndo.By string
+field AbilityUndo.Check string
+field AbilityUndo.Compensation string
+field AbilityUndo.NoUndo UndoReason
 field AccountFinish.Code string json:code
 field AccountFinish.Error string json:error
 field AccountFinish.Iss string json:iss
@@ -2133,6 +2143,8 @@ field TrashItem.Name string
 field TrashRef.ID string json:id
 field TrashRef.Kind string json:kind
 field UndoInput.RecordID string json:record_id
+field UndoTarget.ID string json:id
+field UndoTarget.Kind string json:kind
 field User.CreatedAt time.Time json:created_at
 field User.DisplayName string json:display_name
 field User.Email string json:email
@@ -2170,6 +2182,9 @@ field WalletAddress.City string json:city
 field WalletAddress.Country string json:country
 field WalletAddress.PostalCode string json:postal_code
 field WalletAddress.Region string json:region
+field WayBack.Args any json:args
+field WayBack.Target UndoTarget json:target
+field WayBack.Version string json:version
 field WidgetDef.Category string json:category
 field WidgetDef.Fields []WidgetField json:fields
 field WidgetDef.Label string json:label
@@ -2268,6 +2283,7 @@ func NewAddressSuggestLimiter() (*AddressSuggestLimiter)
 func NewCoreForTest(string, []string, contract.HostServiceClient, string, string, []string) (*Core)
 func NewOIDCClient(string, string, string, ...string) (*OIDCClient)
 func NewTransport(http.RoundTripper) (http.RoundTripper)
+func NoUndo(UndoReason, string) (AbilityUndo)
 func NormalizePrivacyEmail(string) (string)
 func NormalizePrivacyPhone(string) (string)
 func NotToldConsent(time.Time) (ConsentSnapshot)
@@ -2306,6 +2322,8 @@ func Supports([]string, string) (bool)
 func SupportsOf(PaymentMethod) ([]string)
 func TestHintFor(map[string]string, string) (string)
 func TextBody(string) (json.RawMessage)
+func UndoBy(string) (AbilityUndo)
+func UndoReasons() ([]UndoReason)
 func ValidPaymentMark(string) (bool)
 func ValidPriceGroup(string) (bool)
 func ValidateRecommendations([]Recommendation) (error)
@@ -2635,6 +2653,7 @@ method (TaxTable) Of(string) ([]TaxReferenceRow)
 method (TrackRequest) Validate() (error)
 method (TrackResult) Validate() (error)
 method (TrashItem) Validate() (error)
+method (UndoReason) Known() (bool)
 method (VisitorTool) Validate() (error)
 method (VoidRequest) Validate() (error)
 method (VoidResult) Validate() (error)
@@ -2643,6 +2662,7 @@ type API
 type APIError
 type Ability
 type AbilityChange
+type AbilityUndo
 type AccountFinish
 type AccountHandler
 type AccountStart
@@ -2970,6 +2990,8 @@ type TrackResult
 type TrashItem
 type TrashRef
 type UndoInput
+type UndoReason
+type UndoTarget
 type User
 type UserQuery
 type Viewer
@@ -2979,6 +3001,7 @@ type VisitorTool
 type VoidRequest
 type VoidResult
 type WalletAddress
+type WayBack
 type WidgetDef
 type WidgetField
 type WidgetProvider

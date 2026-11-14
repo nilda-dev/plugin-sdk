@@ -30,12 +30,39 @@ type manifestAbility struct {
 	// Effect: what it does in the world, in Core's vocabulary (nilda.Ability.Effect, v0.65.0). AlwaysAsk is written
 	// from it too when its rule asks, as the SDK sends it at Init.
 	Effect string `json:"effect,omitempty"`
+	// Undo: its way back on Core's AI changes ledger, or why it has none (nilda.Ability.Undo, v0.66.0, EXPERIMENTAL).
+	Undo *manifestUndo `json:"undo,omitempty"`
+}
+
+// manifestUndo is an ability's declared way back as plugin.json writes it.
+type manifestUndo struct {
+	By           string `json:"by,omitempty"`
+	Check        string `json:"check,omitempty"`
+	NoUndo       string `json:"no_undo,omitempty"`
+	Compensation string `json:"compensation,omitempty"`
+}
+
+// undoOf is u as plugin.json declares it; nil when it declares nothing, so a manifest before v0.66.0 holds.
+func undoOf(u nilda.AbilityUndo) *manifestUndo {
+	if u == (nilda.AbilityUndo{}) {
+		return nil
+	}
+	return &manifestUndo{By: u.By, Check: u.Check, NoUndo: string(u.NoUndo), Compensation: u.Compensation}
+}
+
+// sameUndo compares two declared ways back, none with none.
+func sameUndo(a, b *manifestUndo) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
 
 // same reports whether two declarations of one ability agree, field by field.
 func (m manifestAbility) same(o manifestAbility) bool {
 	return m.Name == o.Name && m.Label == o.Label && m.Description == o.Description && m.Class == o.Class &&
-		m.AlwaysAsk == o.AlwaysAsk && slices.Equal(m.Callers, o.Callers) && m.Effect == o.Effect
+		m.AlwaysAsk == o.AlwaysAsk && slices.Equal(m.Callers, o.Callers) && m.Effect == o.Effect &&
+		sameUndo(m.Undo, o.Undo)
 }
 
 // ManifestAbilities holds plugin.json's "abilities" to the abilities your Init returns.
@@ -68,7 +95,8 @@ func ManifestAbilities(t testing.TB, manifestPath string, abilities []nilda.Abil
 	want := make([]manifestAbility, 0, len(abilities))
 	for _, a := range abilities {
 		want = append(want, manifestAbility{Name: a.Name, Label: a.Label, Description: a.Description, Class: string(a.Class),
-			AlwaysAsk: a.AlwaysAsk || a.Effect.AlwaysAsks(), Callers: a.Callers, Effect: string(a.Effect)})
+			AlwaysAsk: a.AlwaysAsk || a.Effect.AlwaysAsks(), Callers: a.Callers, Effect: string(a.Effect),
+			Undo: undoOf(a.Undo)})
 	}
 	raw, err := os.ReadFile(manifestPath)
 	if err != nil {
