@@ -36,6 +36,13 @@ Added:
 
 Changed:
 
+- The guide says what Core #446 does with a secret (the owner's D1: a secret is a person's to type). The site's
+  assistant can no longer write one: `plugin_settings_set` refuses a value for a `secret` settings field, naming the
+  field and the plugin's settings screen (a blank one keeps the stored value), and `plugin_form_save` refuses one for a
+  `secret` form field, a repeater row's included. A value shaped like a known secret key in a settings field that is
+  not `secret` is refused on the screen and through the assistant alike. Nothing to change in a plugin; the guide had
+  said the assistant could write a secret. The docs guard follows Core: the secret refusal on all three askers, the
+  redaction through `settingsPage`, and the shaped-key check in `declaredValues`.
 - A `SettingField` with `Effect: EffectCredential` that is not `Secret: true` no longer marshals: the SDK refuses it
   at build/check time, naming the field, instead of leaving Core to refuse the install (Core #438,
   `schema_abilities.go`). Without `secret` the assistant's `plugin_settings` would show the model the credential.
