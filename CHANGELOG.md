@@ -22,14 +22,17 @@ Added:
   as `Ability.undo` (proto field 10, message `AbilityUndo`); in plugin.json as `"undo"`, written by
   `nildatest.ManifestAbilities`. Absent is every ability before: no recorded way back. EXPERIMENTAL.
 - `nilda.WayBack` (`Args`, `Target`, `Version`) and `nilda.UndoTarget` (`Kind`, `ID`): one call's way back, carried in
-  its result as the field `undo`. `Serve` holds it to the declaration — the inverse's input schema, a whole target, a
-  version exactly when a check is declared — and takes one that could not run off the answer, logged.
+  its result as the field `undo`. `Serve` holds it to the declaration — the inverse's input schema, a whole target
+  (always), a version (a string compared for equality) exactly when a check is declared — and takes one that could not
+  run off the answer, logged.
 - `nilda.UndoReason` and its five keys, Core translates them: `UndoReasonSent`, `UndoReasonOutside`,
   `UndoReasonPermanent`, `UndoReasonQueued`, `UndoReasonInPlugin`; `nilda.UndoReasons()` and `UndoReason.Known()`.
 - `Serve` refuses at Init a way back Core could not take: an inverse, check or compensation the plugin does not declare,
-  a credential's (a person's own act), one an Undo's two doors do not both reach, a money change undone by something
-  that is not money, a check that is not `read`, `By` beside `NoUndo`, a reason outside the vocabulary, and any `Undo`
-  on a `read` or `analyze` ability.
+  a credential's (a person's own act), one an Undo's two doors do not both reach, an inverse that changes nothing
+  (`read`, `analyze`) or obliges less than the change by Core's `Rule.Loses` (an undeclared effect counts as outward),
+  a money change undone by something that is not money, a check that is not `read` or whose input schema is not exactly
+  `{"kind", "id"}`, `By` beside `NoUndo` or beside a compensation, a reason outside the vocabulary, and any `Undo` on a
+  `read` or `analyze` ability.
 
 Changed:
 

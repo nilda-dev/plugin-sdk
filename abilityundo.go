@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strings"
 
 	"github.com/nilda-dev/plugin-sdk/contract"
 )
@@ -38,10 +39,13 @@ import (
 // or NoUndo, or write the struct to add a Check. The zero value declares nothing.
 type AbilityUndo struct {
 	// By is the inverse: an ability of this plugin — this one, for a change that is its own inverse (set a price back)
-	// — that Core calls with the result's undo.args when a person presses Undo.
+	// — that Core calls with the result's undo.args when a person presses Undo. It changes something (not read or
+	// analyze), and its effect obliges at least what this ability's does (Core's Rule.Loses: a person's act, asked
+	// every call, asked before a run, charged; no effect counts as outward) — stricter, never weaker.
 	By string
 	// Check is a read-class ability of this plugin that says whether the target is still as the change left it. Core
-	// calls it with {"kind": …, "id": …} (the result's undo.target) and compares its answer's "version" with the result's
+	// calls it with {"kind": …, "id": …} (the result's undo.target) — its InputSchema must be exactly that object, both
+	// strings, both required — and compares its answer's "version", a JSON string, for equality with the result's
 	// undo.version before running the inverse, so an Undo never overwrites a later edit. Empty: no check (as a creation
 	// undone into the bin needs none). Only beside By.
 	Check string
@@ -119,9 +123,10 @@ type WayBack struct {
 	// Args are the inverse's arguments, a JSON object held to its InputSchema.
 	Args any `json:"args"`
 	// Target is what the call changed — the ledger's object, which also finds the later changes an Undo would overwrite.
+	// Required, both its kind and its id: without it Core could not tell what a later change stands on.
 	Target UndoTarget `json:"target,omitzero"`
-	// Version is the target's version as the call left it, which the declared Check must answer for the Undo to run.
-	// Required with a Check, refused without one.
+	// Version is the target's version as the call left it, a string compared for equality with the "version" the
+	// declared Check answers; the Undo runs only while they are equal. Required with a Check, refused without one.
 	Version string `json:"version,omitempty"`
 }
 
@@ -146,16 +151,13 @@ func reachedByUndo(a Ability) bool {
 	return len(a.Callers) == 0 || (slices.Contains(a.Callers, CallerKindAI) && slices.Contains(a.Callers, CallerKindMCP))
 }
 
-// humanOnly reports whether Core's rule for e is a person's own act, which no tool performs (Core's Rule.HumanOnly):
-// a credential.
-func humanOnly(e Effect) bool { return e == EffectCredential }
-
 // changesNothing reports whether an ability of class c changes nothing, so has nothing to take back.
 func changesNothing(c Class) bool { return c == ClassRead || c == ClassAnalyze }
 
 // checkAbilityUndo refuses a way back Core could not take: one that names an ability this plugin does not declare, a
-// person's own act, a door an Undo is not pressed at, a money change undone by something that is not money, a check
-// that is not a read, or a reason Core does not translate.
+// person's own act, a door an Undo is not pressed at, an inverse that changes nothing or obliges less than the change
+// (a money change undone by something that is not money, among them), a check that is not a read or is called with
+// more or less than the target, or a reason Core does not translate.
 func checkAbilityUndo(list []Ability) error {
 	byName := map[string]Ability{}
 	for _, a := range list {
@@ -169,7 +171,7 @@ func checkAbilityUndo(list []Ability) error {
 		switch {
 		case !ok:
 			return o, fmt.Errorf("ability %q names %q as its %s, which this plugin does not declare", a.Name, name, role)
-		case humanOnly(o.Effect):
+		case abilityRule(o).humanOnly:
 			return o, fmt.Errorf("ability %q names %q as its %s, whose effect %q is a person's own act that no tool "+
 				"performs", a.Name, name, role, o.Effect)
 		case !reachedByUndo(o):
@@ -197,9 +199,20 @@ func checkAbilityUndo(list []Ability) error {
 			if err != nil {
 				return err
 			}
+			if changesNothing(inv.Class) {
+				return fmt.Errorf("ability %q names %q as its inverse, which is of class %q and changes nothing — "+
+					"name the ability that puts the change back", a.Name, u.By, inv.Class)
+			}
 			if a.Effect == EffectMoney && inv.Effect != EffectMoney {
 				return fmt.Errorf("ability %q moves money (effect money), and its inverse %q does not — taking a money "+
 					"change back moves money too, so declare the inverse's effect money", a.Name, u.By)
+			}
+			// AN INVERSE MAY BE STRICTER, NEVER WEAKER (Core's module Rule.Loses): an Undo is a call of its own, and an
+			// inverse that drops an obligation the change had — asked every call, asked before a run, charged — is a
+			// door round it. An ability with no effect is outward to Core, so its inverse must ask before a run too.
+			if lost := abilityRule(a).loses(abilityRule(inv)); len(lost) > 0 {
+				return fmt.Errorf("ability %q is undone by %q, which drops what %q obliges: %s — declare an inverse "+
+					"whose effect obliges at least as much", a.Name, u.By, a.Name, strings.Join(lost, ", "))
 			}
 			if u.Check != "" {
 				chk, err := other(a, "check", u.Check)
@@ -209,6 +222,10 @@ func checkAbilityUndo(list []Ability) error {
 				if chk.Class != ClassRead {
 					return fmt.Errorf("ability %q names %q as its check, which is of class %q — a check only reads, "+
 						"so it must be of class read", a.Name, u.Check, chk.Class)
+				}
+				if err := checkSchemaIsTarget(chk.InputSchema); err != nil {
+					return fmt.Errorf("ability %q names %q as its check, whose input schema %v — Core calls a check "+
+						"with the target alone, {\"kind\": string, \"id\": string}, both required", a.Name, u.Check, err)
 				}
 			}
 		case u.NoUndo != "":
@@ -226,6 +243,38 @@ func checkAbilityUndo(list []Ability) error {
 		default:
 			return fmt.Errorf("ability %q names a compensation (%q) and no reason there is no way back — use NoUndo",
 				a.Name, u.Compensation)
+		}
+	}
+	return nil
+}
+
+// checkSchemaIsTarget holds a check's input schema to what Core calls it with: an object of exactly "kind" and "id",
+// both strings, both required. The error reads after "whose input schema".
+func checkSchemaIsTarget(raw json.RawMessage) error {
+	var schema struct {
+		Type       string `json:"type"`
+		Properties map[string]struct {
+			Type string `json:"type"`
+		} `json:"properties"`
+		Required []string `json:"required"`
+	}
+	if len(raw) == 0 || json.Unmarshal(raw, &schema) != nil || schema.Type != "object" {
+		return fmt.Errorf("is not an object of kind and id")
+	}
+	for name, p := range schema.Properties {
+		if name != "kind" && name != "id" {
+			return fmt.Errorf("takes %q as well", name)
+		}
+		if p.Type != "string" {
+			return fmt.Errorf("takes %q as %q, not a string", name, p.Type)
+		}
+	}
+	for _, name := range []string{"kind", "id"} {
+		if _, ok := schema.Properties[name]; !ok {
+			return fmt.Errorf("does not take %q", name)
+		}
+		if !slices.Contains(schema.Required, name) {
+			return fmt.Errorf("does not mark %q required", name)
 		}
 	}
 	return nil
@@ -278,7 +327,7 @@ func (w wayBacks) keep(hook string, args argSchemas, out []byte) []byte {
 }
 
 // checkWayBack is one call's way back against its declaration: an object of arguments the inverse's schema accepts,
-// a whole target, and a version exactly when there is a check to compare it with.
+// a whole target (always), and a version exactly when there is a check to compare it with.
 func checkWayBack(decl AbilityUndo, args argSchemas, raw json.RawMessage) error {
 	var wb struct {
 		Args    json.RawMessage `json:"args"`
@@ -299,12 +348,14 @@ func checkWayBack(decl AbilityUndo, args argSchemas, raw json.RawMessage) error 
 			return fmt.Errorf("undo.args do not match the input schema of %q: %s", decl.By, schemaFailure(err))
 		}
 	}
-	if (wb.Target.Kind == "") != (wb.Target.ID == "") {
-		return fmt.Errorf("undo.target names a kind or an id without the other")
+	// The target, whole, always: Core finds the later changes an Undo would overwrite by it, and finds none without one.
+	if wb.Target.Kind == "" || wb.Target.ID == "" {
+		return fmt.Errorf("undo.target needs both its kind and its id — Core finds the later changes an Undo would " +
+			"overwrite by them")
 	}
 	switch {
-	case decl.Check != "" && (wb.Target.ID == "" || wb.Version == ""):
-		return fmt.Errorf("the declared check %q has nothing to compare without undo.target and undo.version", decl.Check)
+	case decl.Check != "" && wb.Version == "":
+		return fmt.Errorf("the declared check %q has nothing to compare without undo.version", decl.Check)
 	case decl.Check == "" && wb.Version != "":
 		return fmt.Errorf("undo.version is set and no check is declared to compare it — declare AbilityUndo.Check")
 	}

@@ -48,20 +48,70 @@ const (
 	EffectOutward Effect = "outward"
 )
 
-// effectAsks is Core's rule table (module.effectRules) reduced to the half a plugin's declaration carries to a Core
-// that reads only always_ask: whether the person is asked before every call.
-var effectAsks = map[Effect]bool{
-	EffectNone:            false,
-	EffectMoney:           true,
-	EffectCredential:      true,
-	EffectRedirect:        true,
-	EffectSpend:           false,
-	EffectDeletePermanent: true,
-	EffectRole:            true,
-	EffectOutboundMail:    true,
-	EffectBulk:            true,
-	EffectPublish:         false,
-	EffectOutward:         false,
+// effectRule is what an effect obliges every door to do — Core's module.Rule, field for field.
+type effectRule struct {
+	humanOnly bool // a person's own act: no tool performs it
+	alwaysAsk bool // the person is asked before every call; never a step of a build or an automation
+	asksInRun bool // a build asks before running it
+	billed    bool // counted as charged
+}
+
+// effectRules is Core's rule table (module.effectRules), row by row; TestTheEffectRulesAreCores holds it there.
+var effectRules = map[Effect]effectRule{
+	EffectNone:            {},
+	EffectPublish:         {},
+	EffectMoney:           {alwaysAsk: true},
+	EffectRedirect:        {alwaysAsk: true},
+	EffectDeletePermanent: {alwaysAsk: true},
+	EffectRole:            {alwaysAsk: true},
+	EffectOutboundMail:    {alwaysAsk: true},
+	EffectBulk:            {alwaysAsk: true},
+	EffectCredential:      {humanOnly: true, alwaysAsk: true},
+	EffectSpend:           {asksInRun: true, billed: true},
+	EffectOutward:         {asksInRun: true},
+}
+
+// ruleOf is the rule e obliges, as Core's RuleOf: nothing for an undeclared effect, Core's failClosed for one outside
+// the vocabulary.
+func ruleOf(e Effect) effectRule {
+	if e == "" {
+		return effectRule{}
+	}
+	if r, ok := effectRules[e]; ok {
+		return r
+	}
+	return effectRule{alwaysAsk: true, asksInRun: true}
+}
+
+// abilityRule is the rule Core holds an ability to: an ability that declares no effect runs in another process that may
+// call anything, so Core reads it as outward (its agent/abilities.go).
+func abilityRule(a Ability) effectRule {
+	if a.Effect == "" {
+		return ruleOf(EffectOutward)
+	}
+	return ruleOf(a.Effect)
+}
+
+// loses names every obligation r has that to lacks, in Core's words (module Rule.Loses): a rule that asks every time,
+// or is a person's, is never in a run, so it keeps the question before one; being charged is kept only by a person's
+// act.
+func (r effectRule) loses(to effectRule) []string {
+	neverInARun := to.alwaysAsk || to.humanOnly
+	var out []string
+	for _, o := range []struct {
+		had, has bool
+		words    string
+	}{
+		{r.humanOnly, to.humanOnly, "a person's own act"},
+		{r.alwaysAsk, to.alwaysAsk, "asks before every call"},
+		{r.asksInRun, to.asksInRun || neverInARun, "asks before a build runs it"},
+		{r.billed, to.billed || to.humanOnly, "is counted as charged"},
+	} {
+		if o.had && !o.has {
+			out = append(out, o.words)
+		}
+	}
+	return out
 }
 
 // AlwaysAsks reports whether Core asks the person before EVERY call with this effect, whatever a connector was
@@ -70,24 +120,18 @@ var effectAsks = map[Effect]bool{
 // The SDK writes it as `always_ask` beside `effect` (on the wire, and in plugin.json through
 // nildatest.ManifestAbilities and SettingField's JSON), so a Core that reads only always_ask asks all the same. The
 // reverse is refused: AlwaysAsk set beside an effect that does not ask contradicts it, and Core holds the effect.
-func (e Effect) AlwaysAsks() bool {
-	if e == "" {
-		return false
-	}
-	asks, ok := effectAsks[e]
-	return asks || !ok
-}
+func (e Effect) AlwaysAsks() bool { return ruleOf(e).alwaysAsk }
 
 // Known reports whether e is in Core's vocabulary.
 func (e Effect) Known() bool {
-	_, ok := effectAsks[e]
+	_, ok := effectRules[e]
 	return ok
 }
 
 // Effects lists the vocabulary, sorted.
 func Effects() []Effect {
-	out := make([]Effect, 0, len(effectAsks))
-	for e := range effectAsks {
+	out := make([]Effect, 0, len(effectRules))
+	for e := range effectRules {
 		out = append(out, e)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })

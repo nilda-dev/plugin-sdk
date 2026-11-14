@@ -22,7 +22,7 @@ func undoPlugin() []Ability {
 		{Name: "delete_product", Class: ClassDestructive, InputSchema: obj},
 		{Name: "set_price", Class: ClassWrite, InputSchema: obj,
 			Undo: AbilityUndo{By: "set_price", Check: "product_version"}},
-		{Name: "product_version", Class: ClassRead, InputSchema: obj},
+		{Name: "product_version", Class: ClassRead, InputSchema: checkSchema},
 		{Name: "capture", Class: ClassWrite, Effect: EffectMoney, InputSchema: obj, Undo: UndoBy("refund")},
 		{Name: "refund", Class: ClassWrite, Effect: EffectMoney, InputSchema: obj},
 		{Name: "mail_customers", Class: ClassWrite, Effect: EffectOutboundMail, InputSchema: obj,
@@ -31,13 +31,45 @@ func undoPlugin() []Ability {
 		{Name: "import_rows", Class: ClassWrite, InputSchema: obj, Callers: []string{CallerKindImporter}},
 		{Name: "set_api_key", Class: ClassAccess, Effect: EffectCredential, InputSchema: obj},
 		{Name: "list_products", Class: ClassRead, InputSchema: obj},
+		{Name: "audit_products", Class: ClassAnalyze, InputSchema: obj},
+		{Name: "draft_note", Class: ClassAdditive, Effect: EffectNone, InputSchema: obj},
+		{Name: "send_offer", Class: ClassWrite, Effect: EffectOutboundMail, InputSchema: obj},
+		{Name: "buy_credit", Class: ClassWrite, Effect: EffectSpend, InputSchema: obj},
 	}
 }
+
+// checkSchema is what a check is called with: the target, {"kind", "id"}, both strings, both required.
+var checkSchema = ObjectSchema(map[string]any{
+	"kind": map[string]any{"type": "string"}, "id": map[string]any{"type": "string"}}, "kind", "id")
 
 func TestAWellDeclaredWayBackPassesInit(t *testing.T) {
 	s := &pluginServer{handler: &recordingHandler{}}
 	if _, err := s.wire(InitResult{Abilities: undoPlugin()}); err != nil {
 		t.Fatalf("Init refused a plugin whose ways back are all sound: %v", err)
+	}
+}
+
+// withCheck is undoPlugin with the check's input schema replaced.
+func withCheck(schema json.RawMessage) []Ability {
+	list := undoPlugin()
+	for i := range list {
+		if list[i].Name == "product_version" {
+			list[i].InputSchema = schema
+		}
+	}
+	return list
+}
+
+// A stricter inverse is fine: an ordinary change taken back by something that asks every time, an outward one by
+// another outward one, a charged one by a charged one.
+func TestAStricterInverseIsAllowed(t *testing.T) {
+	list := append(undoPlugin(),
+		Ability{Name: "tidy", Class: ClassWrite, Effect: EffectNone, Undo: UndoBy("send_offer")},
+		Ability{Name: "fetch", Class: ClassWrite, Effect: EffectOutward, Undo: UndoBy("delete_product")},
+		Ability{Name: "spend_more", Class: ClassWrite, Effect: EffectSpend, Undo: UndoBy("buy_credit")},
+	)
+	if err := checkAbilityUndo(list); err != nil {
+		t.Errorf("a stricter inverse was refused: %v", err)
 	}
 }
 
@@ -73,6 +105,32 @@ func TestInitRefusesAWayBackCoreCouldNotTake(t *testing.T) {
 		{"a compensation alone, with no reason", with("mail_customers", AbilityUndo{Compensation: "mail_correction"}), "reason"},
 		{"a way back from a read, which changes nothing", with("list_products", UndoBy("delete_product")), "changes nothing"},
 		{"no way back from a read, which changes nothing", with("list_products", NoUndo(UndoReasonSent, "")), "changes nothing"},
+		{"a way back from an analysis, which changes nothing", with("audit_products", UndoBy("delete_product")), "changes nothing"},
+		{"a compensation beside a way back", with("create_product",
+			AbilityUndo{By: "delete_product", Compensation: "mail_correction"}), "compensation"},
+		// AN INVERSE IS HELD TO EVERY OBLIGATION THE CHANGE HAD (Core's module Rule.Loses): stricter, never weaker.
+		{"an inverse that changes nothing (a read)", with("create_product", UndoBy("list_products")), "changes nothing"},
+		{"an inverse that changes nothing (an analysis)", with("create_product", UndoBy("audit_products")), "changes nothing"},
+		{"mail undone by something that does not ask every time", with("send_offer", UndoBy("draft_note")),
+			"asks before every call"},
+		{"a charged change undone by something not charged", with("buy_credit", UndoBy("draft_note")), "charged"},
+		{"a charged change undone by money, which asks but is not counted as charged", with("buy_credit",
+			UndoBy("refund")), "charged"},
+		// An ability that declares no effect is outward to Core (its abilities.go): a build asks before running it, so its
+		// inverse must ask too, and EffectNone does not.
+		{"an undeclared (outward) change undone by an effect of none", with("create_product", UndoBy("draft_note")),
+			"asks before a build runs it"},
+		// A CHECK IS CALLED WITH THE TARGET AND NOTHING ELSE: its schema is exactly {"kind", "id"}, strings, required.
+		{"a check whose schema takes only an id", withCheck(ObjectSchema(map[string]any{
+			"id": map[string]any{"type": "string"}}, "id")), "kind"},
+		{"a check whose schema takes more than the target", withCheck(ObjectSchema(map[string]any{
+			"kind": map[string]any{"type": "string"}, "id": map[string]any{"type": "string"},
+			"sku": map[string]any{"type": "string"}}, "kind", "id")), "sku"},
+		{"a check whose schema does not require the id", withCheck(ObjectSchema(map[string]any{
+			"kind": map[string]any{"type": "string"}, "id": map[string]any{"type": "string"}}, "kind")), "required"},
+		{"a check whose id is a number", withCheck(ObjectSchema(map[string]any{
+			"kind": map[string]any{"type": "string"}, "id": map[string]any{"type": "integer"}}, "kind", "id")), "string"},
+		{"a check with no schema", withCheck(nil), "kind"},
 	} {
 		list := c.list
 		if c.words == "mcp_only" {
@@ -173,15 +231,27 @@ func TestTheResultCarriesTheWayBackAndServeHoldsIt(t *testing.T) {
 		"arguments the inverse's schema refuses": {ID: "p9", Undo: &WayBack{Args: map[string]any{"id": 9}}},
 		"arguments that are not an object":       {ID: "p9", Undo: &WayBack{Args: []string{"p9"}}},
 		"a target with a kind and no id":         {ID: "p9", Undo: &WayBack{Args: map[string]any{"id": "p9"}, Target: UndoTarget{Kind: "product"}}},
-		"a version with no check to compare it":  {ID: "p9", Undo: &WayBack{Args: map[string]any{"id": "p9"}, Version: "v1"}},
+		"a target with an id and no kind":        {ID: "p9", Undo: &WayBack{Args: map[string]any{"id": "p9"}, Target: UndoTarget{ID: "p9"}}},
+		"a version with no check to compare it": {ID: "p9", Undo: &WayBack{Args: map[string]any{"id": "p9"},
+			Target: UndoTarget{Kind: "product", ID: "p9"}, Version: "v1"}},
 	} {
 		if out := call("create_product", bad); out["undo"] != nil || string(out["id"]) != `"p9"` {
 			t.Errorf("%s: kept (%v)", why, out)
 		}
 	}
-	// A declared check has nothing to compare without the target and the version the change left.
-	if out := call("set_price", created{ID: "p1", Undo: &WayBack{Args: map[string]any{"id": "p1"}}}); out["undo"] != nil {
-		t.Errorf("a checked way back with no version was kept: %v", out)
+	// A way back names what it changed, always: Core finds the later changes an Undo would overwrite by the target,
+	// and finds none without one.
+	if out := call("create_product", created{ID: "p9", Undo: &WayBack{Args: map[string]any{"id": "p9"}}}); out["undo"] != nil {
+		t.Errorf("a way back with no target was kept: %v", out)
+	}
+	// A declared check has nothing to compare without the version the change left — target or not.
+	for _, wb := range []*WayBack{
+		{Args: map[string]any{"id": "p1"}},
+		{Args: map[string]any{"id": "p1"}, Target: UndoTarget{Kind: "product", ID: "p1"}},
+	} {
+		if out := call("set_price", created{ID: "p1", Undo: wb}); out["undo"] != nil {
+			t.Errorf("a checked way back with no version was kept: %v", out)
+		}
 	}
 	// An ability that declares no inverse carries none: an `undo` field of its own is the plugin's business, untouched.
 	if out := call("mail_customers", map[string]any{"undo": "whatever"}); string(out["undo"]) != `"whatever"` {
@@ -207,5 +277,38 @@ func TestTheReasonsAreAClosedVocabulary(t *testing.T) {
 	}
 	if UndoReason("because").Known() || UndoReason("").Known() {
 		t.Error("a word outside the vocabulary is known")
+	}
+}
+
+// An ability with no Run reaches the author's HandleHook, and its way back is held there too: the documented path of
+// handling an ability yourself is not a way round the check.
+func TestAWayBackFromHandleHookIsHeldToo(t *testing.T) {
+	h := &recordingHandler{}
+	s := &pluginServer{handler: h}
+	if _, err := s.wire(InitResult{Abilities: undoPlugin()}); err != nil { // no Run anywhere
+		t.Fatal(err)
+	}
+	answer := func(payload string) map[string]json.RawMessage {
+		t.Helper()
+		h.answer = []byte(payload)
+		resp, err := s.HandleHook(context.Background(), &contract.HookRequest{Hook: AbilityHook("create_product"),
+			Payload: []byte(`{"id":"p1"}`), CallerKind: CallerKindAI})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out map[string]json.RawMessage
+		if err := json.Unmarshal(resp.GetPayload(), &out); err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+	if out := answer(`{"id":"p9","undo":{"args":{"id":9},"target":{"kind":"product","id":"p9"}}}`); out["undo"] != nil {
+		t.Errorf("HandleHook's unsound way back was kept: %v", out)
+	}
+	if out := answer(`{"id":"p9","undo":{"args":{"id":"p9"},"target":{"kind":"product","id":"p9"}}}`); out["undo"] == nil {
+		t.Errorf("HandleHook's sound way back was taken off: %v", out)
+	}
+	if len(h.seen) != 2 {
+		t.Errorf("the calls did not reach HandleHook: %v", h.seen)
 	}
 }

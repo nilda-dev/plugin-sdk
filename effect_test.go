@@ -199,3 +199,67 @@ func TestACredentialSettingMustBeSecret(t *testing.T) {
 		t.Errorf("a non-credential setting needing no secret refused: %v", err)
 	}
 }
+
+// B4a review F1: an inverse is held to every obligation of the change it takes back, by Core's own rule (module
+// Rule.Loses). So the SDK's whole rule table — a person's act, asked every call, asked before a run, charged — is Core's,
+// row by row, and its loses reads as Core's does: the four obligations and the one shortcut (a rule that asks every
+// time, or is a person's, is never in a run).
+func TestTheEffectRulesAreCores(t *testing.T) {
+	src := coreSource(t, "internal", "module", "effect.go")
+	table := src[strings.Index(src, "var effectRules = map[ToolEffect]Rule{"):]
+	table = table[:strings.Index(table, "\n}\n")]
+	rows := regexp.MustCompile(`(?m)^\s*Effect(\w+):\s*\{([^}]*)\},`).FindAllStringSubmatch(table, -1)
+	if len(rows) != len(Effects()) {
+		t.Fatalf("core's effectRules has %d rows this guard read, the SDK %d effects", len(rows), len(Effects()))
+	}
+	words := map[string]Effect{}
+	for word, name := range sdkEffects(t) {
+		words[strings.TrimPrefix(name, "Effect")] = Effect(word)
+	}
+	for _, m := range rows {
+		e, ok := words[m[1]]
+		if !ok {
+			t.Errorf("core's effectRules row %s is no SDK effect", m[1])
+			continue
+		}
+		want := effectRule{
+			humanOnly: strings.Contains(m[2], "HumanOnly: true"), alwaysAsk: strings.Contains(m[2], "AlwaysAsk: true"),
+			asksInRun: strings.Contains(m[2], "AsksInRun: true"), billed: strings.Contains(m[2], "Billed: true"),
+		}
+		if got := ruleOf(e); got != want {
+			t.Errorf("ruleOf(%q) = %+v, core's effectRules says %+v", e, got, want)
+		}
+	}
+	if !strings.Contains(src, "var failClosed = Rule{AlwaysAsk: true, AsksInRun: true}") ||
+		ruleOf("refundd") != (effectRule{alwaysAsk: true, asksInRun: true}) {
+		t.Error("an unknown effect's rule is not core's failClosed")
+	}
+	flat := strings.Join(strings.Fields(src), " ")
+	for _, line := range []string{
+		"neverInARun := to.AlwaysAsk || to.HumanOnly",
+		`{r.HumanOnly, to.HumanOnly, "a person's own act"},`,
+		`{r.AlwaysAsk, to.AlwaysAsk, "asks before every call"},`,
+		`{r.AsksInRun, to.AsksInRun || neverInARun, "asks before a build runs it"},`,
+		`{r.Billed, to.Billed || to.HumanOnly, "is counted as charged"},`,
+	} {
+		if !strings.Contains(flat, line) {
+			t.Errorf("core's Rule.Loses no longer says %q — re-read effectRule.loses", line)
+		}
+	}
+	// Spot checks of loses itself against the cases Core's comment names: outward -> money loses nothing, spend ->
+	// money drops the charge, spend -> credential loses nothing.
+	if l := ruleOf(EffectOutward).loses(ruleOf(EffectMoney)); len(l) != 0 {
+		t.Errorf("outward -> money loses %v", l)
+	}
+	if l := ruleOf(EffectSpend).loses(ruleOf(EffectMoney)); strings.Join(l, ",") != "is counted as charged" {
+		t.Errorf("spend -> money loses %v", l)
+	}
+	if l := ruleOf(EffectSpend).loses(ruleOf(EffectCredential)); len(l) != 0 {
+		t.Errorf("spend -> credential loses %v", l)
+	}
+	// An ability that declares no effect is outward to Core (its agent/abilities.go).
+	if !strings.Contains(coreSource(t, "internal", "agent", "abilities.go"), "if a.Effect == \"\" {\n\t\ta.Effect = module.EffectOutward") ||
+		abilityRule(Ability{}) != ruleOf(EffectOutward) {
+		t.Error("an ability with no effect is not outward, as Core reads it")
+	}
+}

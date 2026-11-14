@@ -1037,13 +1037,14 @@ back — or a whole command — in one press. A Core tool says how; a plugin's a
   `Undo: nilda.UndoBy("delete_product")` names the ability of your plugin that takes the change back — this one, for a
   change that is its own inverse. Write the struct to add a check,
   `nilda.AbilityUndo{By: "set_price", Check: "price_version"}`: a `read` ability Core calls with `{"kind", "id"}` before the inverse runs, whose answer's
-  `"version"` must still be the one the change left — so an Undo never overwrites a later edit. Or
+  `"version"` must still be the one the change left — so an Undo never overwrites a later edit. Its `InputSchema` is
+  exactly that object (both strings, both required), and the version is a JSON string compared for equality. Or
   `Undo: nilda.NoUndo(nilda.UndoReasonSent, "send_correction")`: there is none, why, and — `""` for none — the ability
   that makes up for it.
 - **The way back from one call**, in that call's result: a field `undo` holding a `nilda.WayBack` — the inverse's
-  `Args`, the `Target` the call changed (`nilda.UndoTarget{Kind, ID}`, the ledger's object, which also finds the later
-  changes an Undo would overwrite) and, with a check, the `Version` it left. A result with no `undo` changed nothing
-  that needs one.
+  `Args`, the `Target` the call changed (`nilda.UndoTarget{Kind, ID}`, required: the ledger's object, by which Core
+  finds the later changes an Undo would overwrite) and, with a check, the `Version` it left. A result with no `undo`
+  changed nothing that needs one.
 
 ```go
 abilities := []nilda.Ability{
@@ -1066,8 +1067,12 @@ ledger line, cannot call a Go function.
 `Init` refuses a way back Core could not take, naming the ability: an inverse, check or compensation this plugin does
 not declare; one whose effect is a person's own act (`EffectCredential`); one an Undo's door does not reach — an Undo
 is pressed in the panel and by a connected app, so the inverse names no `Callers`, or both `CallerKindAI` and
-`CallerKindMCP`; a money change (`EffectMoney`) whose inverse is not money; a check that is not `read`; `By` and
-`NoUndo` together; and any `Undo` on a `read` or `analyze` ability, which changes nothing. A reason is a
+`CallerKindMCP`; an inverse of class `read` or `analyze`, which changes nothing; **an inverse that obliges less than
+the change** — Core's rule for its effect may be stricter, never weaker: a person's act, asked every call, asked before
+a build runs it, counted as charged (an ability with no `Effect` is outward to Core, so a build asks before running
+it, and its inverse must ask too); a money change (`EffectMoney`) whose inverse is not money; a check that is not
+`read`, or whose schema takes more or less than the target; `By` and `NoUndo` together, or a compensation beside `By`;
+and any `Undo` on a `read` or `analyze` ability. A reason is a
 `nilda.UndoReason`, one of `nilda.UndoReasons()` (`UndoReason.Known()` asks), which Core says in the reader's language:
 
 | Reason | Why there is no way back |
@@ -1079,12 +1084,19 @@ is pressed in the panel and by a connected app, so the inverse names no `Callers
 | `UndoReasonInPlugin` | take it back in your plugin's screens (what Core says today) |
 
 A call's `undo` is held too, before Core sees it: arguments that are not an object or that the inverse's `InputSchema`
-refuses, a target with a kind and no id, a version with no check to compare it, or a check with no version. Such a
+refuses, a missing or half target, a version with no check to compare it, or a check with no version. Such a
 way back is taken off the answer and logged — the change happened, so the call still succeeds, and Core records it as
 having no way back rather than one that would fail when pressed. An ability with no declared inverse is never touched:
 an `undo` field of its own is its own. Absent `Undo` is every ability before v0.66.0; a Core before B4b ignores the
 declaration, reads the result's `undo` as part of your answer, and `nilda plugin check` names `"undo"` as an unknown
 field.
+
+**What Core does with it (B4b, not landed).** The SDK's checks are the author's early warning, not Core's guarantee:
+another language's plugin, or a plugin that skips `Serve`, sends what it likes. So Core re-validates all of it on its
+side; takes the inverse's tool from the declaration's `by` (the manifest and Init), never from a result; namespaces
+the target's kind per plugin (`<plugin key>.<kind>`), so one plugin's `product` is never another's; shows the person
+the stored arguments before an inverse that asks every time (a money one) runs; bounds the arguments it stores, as it
+bounds every ledger entry's; and keeps the result's `undo` out of what the model reads.
 
 **A door no model may open (`Callers`, `CallerKind`, v0.53.0).** Some actions take what no model may hold — an
 import of the owner's guest list from another tool, which Core's importer hands over and the assistant never sees.
