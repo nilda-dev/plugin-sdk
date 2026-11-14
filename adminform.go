@@ -126,7 +126,8 @@ type FormField struct {
 	// sends it: it is not a secret. An older Core ignores the key and draws the field as a normal box, as before.
 	Hidden bool `json:"hidden,omitempty"`
 	// Secret is a text or long-text value that is written and never shown back — licence keys pasted in, a token.
-	// Load it empty; the assistant's confirmation card says how many lines will be sent, never what.
+	// Load it empty. A person types it, on your screen: Core refuses the assistant's save that gives one a value
+	// (Core #446).
 	Secret bool `json:"secret,omitempty"`
 }
 

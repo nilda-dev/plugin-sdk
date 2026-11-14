@@ -866,36 +866,53 @@ func TestARowActionsRefusalIsTheOwnersReasonAndNotAFailure(t *testing.T) {
 
 // Core's D-87 (2026-09-24): the site's assistant saves a plugin's settings. The guide says it goes through the
 // same save as the admin section, for a person who may configure the plugin — held to Core's tool: the gate is
-// CanConfigure in the preview and the apply alike, the save is SaveAdminPage, and a secret's card says only
-// that it will be replaced.
+// CanConfigure in the preview and the apply alike, and the save is SaveAdminPage.
+//
+// AND A SECRET IS A PERSON'S TO TYPE (Core #446, the owner's D1, 2026-11-13). The assistant's call giving a secret field a
+// value is refused naming the field and the plugin's settings screen (module.PersonsCredential), in the preview, the
+// apply and the effect the gate reads alike — the effect is a credential, which no build, automation or grant runs — and
+// a blank one keeps the stored secret. A value shaped like a known secret in a field that is NOT secret is refused on
+// both doors (the screen's and the tool's save share declaredValues), naming the field and never the value.
 func TestTheAssistantSavesSettingsThroughTheSectionsOwnSave(t *testing.T) {
 	src := coreSource(t, "internal", "plugin", "module.go")
 	flat := strings.Join(strings.Fields(src), " ")
 	for _, want := range []string{
 		"if !CanConfigure(can, key) {",
 		"if err := s.SaveAdminPage(ctx, man.Key, page.Key, in.Values); err != nil {",
-		// "a secret … is never read back or repeated": the preview's card, and the read tool's answer.
-		`row["secret"] = "will be replaced; the value is not shown"`,
+		// "a secret is never read back or repeated": the read tool's answer names it and says only whether it is set.
 		`if f.Secret { row["secret"], row["set"] = true, f.Set if f.Unreadable { row["unreadable"], row["note"] = true, settings.UnreadableSecretNote } } else { row["value"] = pg.Values[f.Key] }`,
 		// "only after they approved the change": the tool stages a preview and needs a person's own sign-in.
 		"Preview: s.previewSettingsSet, Invoke: module.Typed(s.toolSettingsSet), Authorize: \"core_auth\",",
+		// "a secret is a person's to type": a call giving one a value is refused, naming the field and the screen…
+		"if field := secretGiven(page.Fields, in.Values); field != \"\" { return Manifest{}, AdminPageSpec{}, module.PersonsCredential(field, pluginPageScreen(man.Key, page.Key)) }",
+		// …a blank one is not given, and keeps the stored secret…
+		"if typed, isText := v.(string); !isText || strings.TrimSpace(typed) != \"\" { return f.Key }",
+		// …and the gate reads such a call as a credential: a person's act, which no build, automation or grant runs.
+		"if module.IsPersonsCredential(err) { return module.EffectCredential }",
+		`return "/admin/plugin/" + pluginKey + "/" + pageKey`,
 	} {
 		if !strings.Contains(flat, want) {
 			t.Errorf("core's plugin settings tools no longer have %q — re-read the guide's \"Who saves them\"", want)
 		}
 	}
-	// settingsTarget is the one gate: the preview and the apply ask it, and so does the effect check (settingsSetEffect) that decides
-	// whether a field marked always_ask makes the change ask the person (v0.41.0) — and, since Core's 2026-10-30
-	// review, the redaction that keeps every secret field out of what the AI-changes ledger stores of the call. Each
-	// asker is held by its own function, so a fifth one, or one of these four gone, is seen.
-	if n := strings.Count(src, "s.settingsTarget(ctx, v, in)"); n != 4 {
-		t.Errorf("core asks settingsTarget %d times, want the preview, the apply, the effect check and the redaction", n)
+	// settingsTarget is the one gate of a call that writes: the preview, the apply and the effect check (settingsSetEffect,
+	// which decides whether a field marked always_ask makes the change ask the person, v0.41.0, and answers a secret given
+	// a value as a credential) ask it, and it asks settingsPage — the person, the page and its declared fields. The
+	// redaction that keeps every secret field out of what the AI-changes ledger stores asks settingsPage itself (since
+	// Core #446), so it redacts a call settingsTarget refuses too. Each asker is held by its own function, so a new one, or
+	// one of these gone, is seen.
+	if n := strings.Count(src, "s.settingsTarget(ctx, v, in)"); n != 3 {
+		t.Errorf("core asks settingsTarget %d times, want the preview, the apply and the effect check", n)
 	}
-	for _, decl := range []string{
-		"func (s *Service) previewSettingsSet(",
-		"func (s *Service) toolSettingsSet(",
-		"func (s *Service) settingsSetEffect(",
-		"func (s *Service) redactSettingsSet(",
+	if n := strings.Count(src, "s.settingsPage(ctx, v, in)"); n != 2 {
+		t.Errorf("core asks settingsPage %d times, want settingsTarget and the redaction", n)
+	}
+	for decl, asks := range map[string]string{
+		"func (s *Service) previewSettingsSet(": "s.settingsTarget(ctx, v, in)",
+		"func (s *Service) toolSettingsSet(":    "s.settingsTarget(ctx, v, in)",
+		"func (s *Service) settingsSetEffect(":  "s.settingsTarget(ctx, v, in)",
+		"func (s *Service) settingsTarget(":     "s.settingsPage(ctx, v, in)",
+		"func (s *Service) redactSettingsSet(":  "s.settingsPage(ctx, v, in)",
 	} {
 		i := strings.Index(src, decl)
 		if i < 0 {
@@ -906,24 +923,77 @@ func TestTheAssistantSavesSettingsThroughTheSectionsOwnSave(t *testing.T) {
 		if end := strings.Index(body, "\n}\n"); end >= 0 {
 			body = body[:end]
 		}
-		if !strings.Contains(body, "s.settingsTarget(ctx, v, in)") {
-			t.Errorf("core's %s no longer asks settingsTarget — re-read the guide's \"Who saves them\"", decl)
+		if !strings.Contains(body, asks) {
+			t.Errorf("core's %s no longer asks %s — re-read the guide's \"Who saves them\"", decl, asks)
 		}
 	}
 	for _, want := range []string{"EffectOf:     s.settingsSetEffect,", "RedactArgs:   s.redactSettingsSet,",
 		"for _, f := range page.Fields { if f.Secret { delete(in.Values, f.Key) } }"} {
 		if !strings.Contains(src, want) && !strings.Contains(flat, want) {
-			t.Errorf("core's plugin_settings_set no longer has %q — re-read the guide's \"a secret … is never read back or repeated\"", want)
+			t.Errorf("core's plugin_settings_set no longer has %q — re-read the guide's \"a secret is never read back or repeated\"", want)
 		}
+	}
+	// "a value shaped like a secret key, in a field that is not secret, is refused": in declaredValues, which the
+	// screen's save (SaveAdminPage → saveDeclaredPage) and the tool's check (CheckAdminPage) both run.
+	pages := coreSource(t, "internal", "plugin", "adminpages.go")
+	i := strings.Index(pages, "func declaredValues(")
+	if i < 0 {
+		t.Fatal("core's adminpages.go no longer declares declaredValues — re-read the guide's \"Who saves them\"")
+	}
+	body := pages[i:]
+	body = strings.Join(strings.Fields(body[:strings.Index(body, "\n}\n")]), " ")
+	for _, want := range []string{
+		"for _, f := range page.Fields { if f.Secret { continue } if str, ok := in[f.Key].(string); ok { if _, secret := security.LooksLikeSecret(str); secret {",
+		`return nil, refusal.WithDetails([]map[string]string{{"field": f.Key, "message": refusal.Message}})`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("core's declaredValues no longer has %q — re-read the guide's \"Who saves them\"", want)
+		}
+	}
+	if n := strings.Count(pages, "declaredValues(pluginKey, man, pageKey, in)"); n != 2 {
+		t.Errorf("core runs declaredValues %d times in adminpages.go, want the check and the save", n)
+	}
+	if !strings.Contains(coreSource(t, "internal", "plugin", "adminpages_handlers.go"), "h.svc.SaveAdminPage(c.Request.Context(), key, c.Param(\"page\"), body)") {
+		t.Error("core's settings screen no longer saves through SaveAdminPage — re-read the guide's \"Both go through the same save\"")
 	}
 	guide := strings.Join(strings.Fields(readText(t, "docs/PLUGIN_SDK.md")), " ")
 	for _, want := range []string{
 		"A person who may configure your plugin, on your section of the admin — or the site's assistant (`plugin_settings_set`), for a person who may configure your plugin and only after they approved the change. Both go through the same save",
+		"**A secret is a person's to type.** The assistant's call that gives a `secret` field a value is refused, naming the field and your settings screen",
+		"a blank one keeps the value stored",
+		"a value shaped like a known secret key, typed into a field that is not `secret`, is refused on either door, naming the field and never the value",
 		"`plugin_settings` shows the assistant — and so the AI provider behind it — every field's current value, except a `secret` one",
 	} {
 		if !strings.Contains(guide, want) {
 			t.Errorf("PLUGIN_SDK.md no longer says %q, which core's module.go makes true", want)
 		}
+	}
+	if strings.Contains(guide, "a secret can be written that way") {
+		t.Error("PLUGIN_SDK.md still says the assistant can write a secret, which core refuses since #446")
+	}
+}
+
+// Core #446 holds a form's secret to the same rule (the owner's D1): plugin_form_save refuses a call that gives a
+// `secret` form field a value — a repeater row's included — naming the field and the screen, first, in the preview,
+// the save and the effect alike. The guide's form bullet says so.
+func TestTheAssistantTypesNoSecretIntoAForm(t *testing.T) {
+	flat := strings.Join(strings.Fields(coreSource(t, "internal", "plugin", "admintools.go")), " ")
+	for _, want := range []string{
+		"if field := formSecretGiven(form.Fields, in.Values); field != \"\" { return man, page, form, module.PersonsCredential(field, pluginPageScreen(man.Key, page.Key)) }",
+		"case f.Secret: if typed, isText := v.(string); !isText || strings.TrimSpace(typed) != \"\" { return f.Key }",
+		"if inner := formSecretGiven(f.Fields, row); inner != \"\" { return f.Key + \".\" + inner",
+	} {
+		if !strings.Contains(flat, want) {
+			t.Errorf("core's plugin_form_save no longer has %q — re-read the guide's form bullet on secrets", want)
+		}
+	}
+	guide := strings.Join(strings.Fields(readText(t, "docs/PLUGIN_SDK.md")), " ")
+	want := "the assistant's save that gives one a value — a repeater row's included — is refused, naming the field and your screen"
+	if !strings.Contains(guide, want) {
+		t.Errorf("PLUGIN_SDK.md no longer says %q, which core's admintools.go makes true", want)
+	}
+	if strings.Contains(guide, "keeps its value off the assistant's confirmation card, which says only how many lines") {
+		t.Error("PLUGIN_SDK.md still says the assistant sends a form's secret, which core refuses since #446")
 	}
 }
 

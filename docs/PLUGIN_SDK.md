@@ -1820,8 +1820,9 @@ What the assistant's save means for your hook:
 - **The same save is made once.** A save repeated within ten minutes — the same values at the same version, or the
   same `Idempotency-Key` from the panel or the app — is answered as the first. Make your version change whenever
   what you store changes (a gift card's balance, not only its note), so a repeat after that is a conflict.
-- **`"secret": true`** on a text or long-text field (licence keys pasted in) keeps its value off the assistant's
-  confirmation card, which says only how many lines; load such a field empty.
+- **`"secret": true`** on a text or long-text field (licence keys pasted in) is a person's to type, on your screen:
+  the assistant's save that gives one a value — a repeater row's included — is refused, naming the field and your
+  screen, before anything is staged (Core #446). Load such a field empty.
 
 The Go types are `nilda.PageForm` (the block), `nilda.FormSection`, `nilda.FormField` and `nilda.FieldCondition`
 (`shown_when`, `required_when`) for the declaration; `nilda.AdminFormRequest` and `nilda.AdminFormResult` for the two
@@ -3047,7 +3048,12 @@ callback to write.
 **Who saves them.** A person who may configure your plugin, on your section of the admin — or the site's
 assistant (`plugin_settings_set`), for a person who may configure your plugin and only after they approved the
 change. Both go through the same save, so the same rules hold: only the fields you declared, a required field
-never emptied, each field's own type; a secret can be written that way and is never read back or repeated.
+never emptied, each field's own type. **A secret is a person's to type.** The assistant's call that gives a `secret`
+field a value is refused, naming the field and your settings screen, which the assistant tells the person to open;
+Core reads such a call as a credential, a person's own act, so no build, automation or connector grant runs it either.
+A blank one is not a value: a blank one keeps the value stored, as the screen's untouched box does. And a value
+shaped like a known secret key, typed into a field that is not `secret`, is refused on either door, naming the field
+and never the value — a plain field's value is shown back. A secret is never read back or repeated (Core #446).
 
 **What the assistant reads.** `plugin_settings` shows the assistant — and so the AI provider behind it — every
 field's current value, except a `secret` one, which it names and says only whether it is set. So `secret` is the
