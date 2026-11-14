@@ -29,6 +29,10 @@ const (
 	// EffectCredential: an API key, a secret, a password. A person's to change, never a tool's. Asked before every
 	// call.
 	EffectCredential Effect = "credential"
+	// EffectSignIn: a setting that decides who can sign in — an identity provider's issuer, a client id, a preset, the
+	// scopes or groups claim. A person's to change, never a tool's, like a credential, but the field is NOT secret: its
+	// value stays visible, and the assistant can read it and never set it. Asked before every call.
+	EffectSignIn Effect = "sign_in"
 	// EffectRedirect: where money, mail, data or sign-ins go — a payout account, a webhook, a mail relay. Asked
 	// before every call.
 	EffectRedirect Effect = "redirect"
@@ -67,6 +71,7 @@ var effectRules = map[Effect]effectRule{
 	EffectOutboundMail:    {alwaysAsk: true},
 	EffectBulk:            {alwaysAsk: true},
 	EffectCredential:      {humanOnly: true, alwaysAsk: true},
+	EffectSignIn:          {humanOnly: true, alwaysAsk: true},
 	EffectSpend:           {asksInRun: true, billed: true},
 	EffectOutward:         {asksInRun: true},
 }

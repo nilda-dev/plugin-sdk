@@ -263,3 +263,39 @@ func TestTheEffectRulesAreCores(t *testing.T) {
 		t.Error("an ability with no effect is not outward, as Core reads it")
 	}
 }
+
+// sign_in: a person's own act like credential, but on a field whose value stays visible — the settings that decide who
+// can sign in (issuer, client id, preset, scopes/groups claim). Core's module.EffectSignIn: HumanOnly, AlwaysAsk.
+func TestSignInIsAPersonsOwnActOnAVisibleField(t *testing.T) {
+	if EffectSignIn != "sign_in" {
+		t.Fatalf("EffectSignIn = %q", EffectSignIn)
+	}
+	if !EffectSignIn.Known() || !EffectSignIn.AlwaysAsks() {
+		t.Error("sign_in is unknown to the SDK or does not ask before every call")
+	}
+	if r := ruleOf(EffectSignIn); r != ruleOf(EffectCredential) || !r.humanOnly {
+		t.Errorf("sign_in's rule = %+v, want credential's (human only, always asks)", r)
+	}
+	// Allowed on a non-secret field, and written with always_ask; credential still needs a secret.
+	raw, err := json.Marshal(SettingField{Key: "oidc_issuer", Effect: EffectSignIn})
+	if err != nil || !strings.Contains(string(raw), `"always_ask":true`) || !strings.Contains(string(raw), `"effect":"sign_in"`) {
+		t.Errorf("a non-secret sign_in field = %s, %v", raw, err)
+	}
+	if _, err := json.Marshal(SettingField{Key: "oidc_secret", Effect: EffectSignIn, Secret: true}); err != nil {
+		t.Errorf("a secret sign_in field refused: %v", err)
+	}
+	if _, err := json.Marshal(SettingField{Key: "k", Effect: EffectCredential}); err == nil {
+		t.Error("a non-secret credential field marshalled")
+	}
+	// Allowed on an ability; AlwaysAsk beside it is the same thing twice.
+	if err := checkAbilityEffects([]Ability{{Name: "set_issuer", Effect: EffectSignIn, AlwaysAsk: true}}); err != nil {
+		t.Errorf("sign_in on an ability refused: %v", err)
+	}
+	// It ranks with credential: nothing weaker may take it back, and no Undo may name it as an inverse.
+	if l := ruleOf(EffectSignIn).loses(ruleOf(EffectRedirect)); strings.Join(l, ",") != "a person's own act" {
+		t.Errorf("sign_in -> redirect loses %v", l)
+	}
+	if l := ruleOf(EffectSpend).loses(ruleOf(EffectSignIn)); len(l) != 0 {
+		t.Errorf("spend -> sign_in loses %v", l)
+	}
+}

@@ -223,6 +223,7 @@ const EffectOutward
 const EffectPublish
 const EffectRedirect
 const EffectRole
+const EffectSignIn
 const EffectSpend
 const EmailDate
 const EmailHTML
