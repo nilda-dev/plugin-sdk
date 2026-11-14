@@ -129,6 +129,26 @@ type FormField struct {
 	// Load it empty. A person types it, on your screen: Core refuses the assistant's save that gives one a value
 	// (Core #446).
 	Secret bool `json:"secret,omitempty"`
+	// Effect is what saving a change to this field does in the world, as SettingField.Effect (manifest key `effect`):
+	// EffectCredential for a key or password (it must be Secret), EffectSignIn for a value that decides who can sign
+	// in (an issuer, a client id; allowed on a field whose value stays visible), EffectRedirect for where mail or money
+	// goes. An effect Core does not know does not marshal. Core reads it from its follow-up unit; until then it is
+	// ignored there.
+	Effect Effect `json:"effect,omitempty"`
+}
+
+// MarshalJSON writes the field as plugin.json declares it, held to SettingField's rules for its Effect: one Core
+// knows, and a credential only on a Secret field.
+func (f FormField) MarshalJSON() ([]byte, error) {
+	if err := checkEffect("form field", f.Key, f.Effect, false); err != nil {
+		return nil, err
+	}
+	if f.Effect == EffectCredential && !f.Secret {
+		return nil, fmt.Errorf("form field %q declares the effect %q but is not Secret — a credential field must be "+
+			"secret: true, or the assistant would show its value to the model", f.Key, f.Effect)
+	}
+	type plain FormField // without this method
+	return json.Marshal(plain(f))
 }
 
 // FieldCondition names another field of the same form (or of the same repeater row) and the value it must hold.

@@ -39,6 +39,10 @@ Added:
   allowed on any `SettingField`, secret or not: the value stays visible, the assistant can never set it. Only
   `EffectCredential` still needs `Secret: true`. Allowed on abilities; an Undo may not name it as an inverse, and
   nothing weaker may take its change back. Mirrors Core's `module.EffectSignIn`.
+- `FormField.Effect` (manifest key `effect`), as `SettingField.Effect` on a form's field and a repeater's sub-field, held
+  to the same rules when the field marshals: an effect Core does not know is refused, `EffectCredential` needs
+  `Secret: true`, `EffectSignIn` is allowed on a field whose value stays visible. Core reads it in a follow-up unit; until
+  then it ignores the key.
 
 Changed:
 

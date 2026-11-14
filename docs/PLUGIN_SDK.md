@@ -3060,7 +3060,7 @@ and never the value — a plain field's value is shown back. A secret is never r
 field's current value, except a `secret` one, which it names and says only whether it is set. So `secret` is the
 line between "a person may see it" and "the model sees it": a webhook URL with a token in it, or any other
 credential, in a plain text field reaches the model. Mark it `secret`. A field with `Effect: nilda.EffectCredential` **must** be `secret` — the SDK refuses to marshal it
-otherwise, as Core refuses the install. `Effect: nilda.EffectSignIn` has no such rule: a sign-in setting (an issuer, a client id) is a person's to change but its value stays visible to the assistant.
+otherwise, as Core refuses the install. `FormField.Effect` follows the same rules (Core reads it in a follow-up unit). `Effect: nilda.EffectSignIn` has no such rule: a sign-in setting (an issuer, a client id) is a person's to change but its value stays visible to the assistant.
 
 **Not configured is the first state every integration is in.** `HasSetting` before you do work that cannot
 succeed without a value — a plugin that fails to start until it is configured cannot be configured, because

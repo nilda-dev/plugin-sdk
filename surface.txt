@@ -1280,6 +1280,7 @@ field FormError.Message string json:message
 field FormField.Choices []string json:choices
 field FormField.Currency string json:currency
 field FormField.Default any json:default
+field FormField.Effect Effect json:effect
 field FormField.Fields []FormField json:fields
 field FormField.Help string json:help
 field FormField.Hidden bool json:hidden
@@ -2587,6 +2588,7 @@ method (ExchangeRateSet) Rate(string, string) (*big.Rat, bool)
 method (ExpressAnswer) Validate() (error)
 method (ExpressPayer) Validate() (error)
 method (ExpressRequest) Validate() (error)
+method (FormField) MarshalJSON() ([]byte, error)
 method (LabelRequest) Validate() (error)
 method (LabelResult) Validate() (error)
 method (LabelResult) ValidateFor(LabelRequest) (error)

@@ -887,8 +887,11 @@ func TestTheAssistantSavesSettingsThroughTheSectionsOwnSave(t *testing.T) {
 		"if field := secretGiven(page.Fields, in.Values); field != \"\" { return Manifest{}, AdminPageSpec{}, module.PersonsCredential(field, pluginPageScreen(man.Key, page.Key)) }",
 		// …a blank one is not given, and keeps the stored secret…
 		"if typed, isText := v.(string); !isText || strings.TrimSpace(typed) != \"\" { return f.Key }",
-		// …and the gate reads such a call as a credential: a person's act, which no build, automation or grant runs.
-		"if module.IsPersonsCredential(err) { return module.EffectCredential }",
+		// …so is a value that decides who may sign in (sign_in, Core #458), which stays visible…
+		"if field := man.signInGiven(page, in.Values); field != \"\" { return Manifest{}, AdminPageSpec{}, module.PersonsSignIn(field, pluginPageScreen(man.Key, page.Key)) }",
+		// …and the gate reads such a call as the person's act it is — credential or sign_in, whichever PersonsAct says:
+		// a person's act, which no build, automation or grant runs.
+		"if act := module.PersonsAct(err); act != \"\" { return act }",
 		`return "/admin/plugin/" + pluginKey + "/" + pageKey`,
 	} {
 		if !strings.Contains(flat, want) {
