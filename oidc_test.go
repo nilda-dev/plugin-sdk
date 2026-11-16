@@ -287,18 +287,44 @@ func TestTheClientIdentifiesItselfToTheEgressProxy(t *testing.T) {
 	}
 }
 
-// TestAnIssuerThatIsNotHTTPSIsRefused is the 2026-11-11 review's finding 16.
+// TestAnIssuerThatIsNotHTTPSIsRefused is the 2026-11-11 review's finding 16. Each refusal is asserted by its own words:
+// "oidc:" alone was also what a failed fetch of http://idp.intra said, so an oidcSecureURL that let any http host
+// through passed this test (the 2026-11-16 hunt, finding 3).
 func TestAnIssuerThatIsNotHTTPSIsRefused(t *testing.T) {
-	for _, issuer := range []string{"http://idp.intra", "ftp://idp.example", "idp.example"} {
+	for issuer, want := range map[string]string{
+		"http://idp.intra":                  `the issuer "http://idp.intra" is not https`,
+		"http://10.0.0.7":                   `the issuer "http://10.0.0.7" is not https`,
+		"http://localhost.attacker.example": `the issuer "http://localhost.attacker.example" is not https`,
+		"ftp://idp.example":                 `the issuer "ftp://idp.example" is not https`,
+		"idp.example":                       `the issuer "idp.example" is not an absolute URL`,
+	} {
 		c := NewOIDCClient(issuer, "id", "secret")
-		if err := c.Discover(context.Background()); err == nil || !strings.Contains(err.Error(), "oidc:") {
-			t.Fatalf("%s: %v", issuer, err)
+		if err := c.Discover(context.Background()); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%s: %v; want the refusal %q", issuer, err, want)
+		}
+	}
+	for _, raw := range []string{"http://idp.intra/x", "http://192.168.1.2", "http://[fe80::1]:9"} {
+		if err := oidcSecureURL("token endpoint", raw); err == nil || !strings.Contains(err.Error(), "is not https") {
+			t.Errorf("%s: %v; want refused as not https", raw, err)
 		}
 	}
 	for _, raw := range []string{"https://idp.example", "http://127.0.0.1:8080", "http://localhost/x", "http://[::1]:9"} {
 		if err := oidcSecureURL("issuer", raw); err != nil {
 			t.Fatalf("%s refused: %v", raw, err)
 		}
+	}
+
+	// An endpoint the document names is held to the same rule: a loopback issuer naming a plain-http token endpoint
+	// elsewhere is refused before the secret is sent.
+	var idp *httptest.Server
+	idp = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"issuer": idp.URL,
+			"authorization_endpoint": idp.URL + "/authorize", "token_endpoint": "http://idp.intra/token"})
+	}))
+	defer idp.Close()
+	err := NewOIDCClient(idp.URL, "id", "secret").Discover(context.Background())
+	if want := `the token endpoint "http://idp.intra/token" is not https`; err == nil || !strings.Contains(err.Error(), want) {
+		t.Errorf("a plain-http token endpoint: %v; want %q", err, want)
 	}
 }
 
