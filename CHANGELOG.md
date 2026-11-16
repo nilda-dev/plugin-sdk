@@ -74,6 +74,9 @@ Fixed (the 2026-11-16 hunt):
   handlers wrote `DatastoreDSN` — the plugin's Postgres role and its password — in clear, and `%+v` the owner's
   settings and the API token with it. `Core` now has `String`, `GoString`, `Format`, `LogValue` and `MarshalJSON`,
   which show its plain fields and the DSN with its password `[redacted]`; the field itself is unchanged.
+- `OIDCClient.Exchange` follows no redirect from the token endpoint. A 307 or 308 re-sent the POST — the client
+  secret, the authorization code and the PKCE verifier — to the address in its `Location`; it is now an error naming
+  the redirect. Discovery still follows one.
 
 
 ## v0.65.0 — 2026-11-13 (abilities: a size budget instead of a count, and their effects; nildatest: what the assistant cannot reach yet)

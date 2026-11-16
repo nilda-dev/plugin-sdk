@@ -301,3 +301,49 @@ func TestAnIssuerThatIsNotHTTPSIsRefused(t *testing.T) {
 		}
 	}
 }
+
+// THE TOKEN CALL FOLLOWS NO REDIRECT (the 2026-11-16 hunt, finding 2). A 307 or 308 from the token endpoint re-sends
+// the POST's body — the client secret, the code and the PKCE verifier — to the address in its Location. Two servers:
+// the provider, whose token endpoint redirects, and the address it redirects to, which must hear nothing.
+func TestTheTokenExchangeFollowsNoRedirect(t *testing.T) {
+	for _, status := range []int{http.StatusTemporaryRedirect, http.StatusPermanentRedirect, http.StatusFound} {
+		var reached []string
+		elsewhere := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_ = r.ParseForm()
+			reached = append(reached, r.Method+" "+r.Form.Encode())
+			_ = json.NewEncoder(w).Encode(map[string]any{"id_token": "from.the.wrong.host"})
+		}))
+		defer elsewhere.Close()
+
+		var idp *httptest.Server
+		idp = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.URL.Path {
+			case "/.well-known/openid-configuration":
+				_ = json.NewEncoder(w).Encode(map[string]any{"issuer": idp.URL,
+					"authorization_endpoint": idp.URL + "/authorize", "token_endpoint": idp.URL + "/token"})
+			case "/token":
+				http.Redirect(w, r, elsewhere.URL+"/steal", status)
+			}
+		}))
+		defer idp.Close()
+
+		c := NewOIDCClient(idp.URL, "cid", "the-client-secret")
+		got, err := c.Exchange(context.Background(), AuthCompleteRequest{Code: "the-code", Verifier: "the-verifier",
+			RedirectURI: "https://site.test/cb"})
+		if err == nil || got.IDToken != "" {
+			t.Fatalf("%d: exchange = %+v, %v; want refused", status, got, err)
+		}
+		if !strings.Contains(err.Error(), "redirect") || !strings.Contains(err.Error(), "not followed") {
+			t.Errorf("%d: the error does not say a redirect was refused: %v", status, err)
+		}
+		if len(reached) != 0 {
+			t.Fatalf("%d: the redirect target was sent %q — the secret, the code and the verifier left for it", status, reached)
+		}
+	}
+
+	// Discovery still follows one (it carries no secret, and the issuer check holds the document to its issuer).
+	idp := newStubIdP(t)
+	if c := NewOIDCClient(idp.URL, "cid", "csecret"); c.http.CheckRedirect != nil {
+		t.Fatal("the discovery client lost its redirects; only the token call refuses them")
+	}
+}
