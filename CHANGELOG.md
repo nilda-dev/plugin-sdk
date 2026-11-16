@@ -8,7 +8,31 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.66.0 — unreleased (plugin.json may be 8 MiB; translations may be 768 KiB a language, 3 MiB in all; nildatest: no assistant holes left after Core's C3; an ability's way back)
+## v0.67.0 — 2026-11-16 (security: secrets redacted when printed, no redirect from the OIDC token endpoint, dot segments refused, an ended licence takes no money)
+
+Additive: `String`, `GoString`, `Format`, `LogValue` (and `MarshalJSON` on `Core`) on `Core`, `API` and `OIDCClient`. Tagged at once under the release train's rule for security and money fixes.
+
+Fixed (the 2026-11-16 hunt):
+
+- `nilda.Core` no longer prints its datastore password. `core.Log().Info("x", "core", core)`, `%+v` and slog's own
+  handlers wrote `DatastoreDSN` — the plugin's Postgres role and its password — in clear, and `%+v` the owner's
+  settings and the API token with it. `Core` now has `String`, `GoString`, `Format`, `LogValue` and `MarshalJSON`,
+  which show its plain fields and the DSN with its password `[redacted]`; the field itself is unchanged.
+- `OIDCClient.Exchange` follows no redirect from the token endpoint. A 307 or 308 re-sent the POST — the client
+  secret, the authorization code and the PKCE verifier — to the address in its `Location`; it is now an error naming
+  the redirect. Discovery still follows one.
+- `nilda.API` and `nilda.OIDCClient` no longer print their secrets: `%+v` wrote the API token and the client secret
+  (unexported fields print too). Both have `String`, `GoString`, `Format` and `LogValue` that show the address, the id
+  and the scopes, the secret `[redacted]`.
+- Every call on `nilda.API` refuses a path with a `.` or `..` segment (plain, `%2e`-escaped, or beside an escaped
+  slash) before it is sent. `url.PathEscape` escapes neither dot, so `User(ctx, "..")` asked for `/users/..` — the
+  collection — and a write aimed at one row reached another route. A dot inside a name and a nested slug still go.
+- `Licence.TakesRealMoney()` reads the dates as well as the state: from `LiveUntil` on (or `PaidUntil` when there is no
+  `LiveUntil`) it answers false on the plugin's clock, whatever the state. A licence read at Init and kept went on
+  taking real money after it had run out. Both zero is still "no end"; grace (past `PaidUntil`) still takes money.
+
+
+## v0.66.0 — 2026-11-14 (plugin.json may be 8 MiB; translations may be 768 KiB a language, 3 MiB in all; nildatest: no assistant holes left after Core's C3; an ability's way back)
 
 Additive: a bound grows, and a test helper follows Core. Mirrors Core #439 (C4b, manifest size) and #437 (C3). And unit
 B4a of Core's agent-control plan, an ability's way back on the AI changes ledger, SDK-first: EXPERIMENTAL until Core
@@ -67,25 +91,6 @@ Changed:
   listed again.
 - `nilda.MaxManifestBytes` is 8 MiB (was 2 MiB), Core's `maxManifestBytes`: the most plugin.json itself may weigh in
   the package. Sized by Core from the shop, whose plugin.json had reached 1,805,576 bytes of the old 2 MiB.
-
-Fixed (the 2026-11-16 hunt):
-
-- `nilda.Core` no longer prints its datastore password. `core.Log().Info("x", "core", core)`, `%+v` and slog's own
-  handlers wrote `DatastoreDSN` — the plugin's Postgres role and its password — in clear, and `%+v` the owner's
-  settings and the API token with it. `Core` now has `String`, `GoString`, `Format`, `LogValue` and `MarshalJSON`,
-  which show its plain fields and the DSN with its password `[redacted]`; the field itself is unchanged.
-- `OIDCClient.Exchange` follows no redirect from the token endpoint. A 307 or 308 re-sent the POST — the client
-  secret, the authorization code and the PKCE verifier — to the address in its `Location`; it is now an error naming
-  the redirect. Discovery still follows one.
-- `nilda.API` and `nilda.OIDCClient` no longer print their secrets: `%+v` wrote the API token and the client secret
-  (unexported fields print too). Both have `String`, `GoString`, `Format` and `LogValue` that show the address, the id
-  and the scopes, the secret `[redacted]`.
-- Every call on `nilda.API` refuses a path with a `.` or `..` segment (plain, `%2e`-escaped, or beside an escaped
-  slash) before it is sent. `url.PathEscape` escapes neither dot, so `User(ctx, "..")` asked for `/users/..` — the
-  collection — and a write aimed at one row reached another route. A dot inside a name and a nested slug still go.
-- `Licence.TakesRealMoney()` reads the dates as well as the state: from `LiveUntil` on (or `PaidUntil` when there is no
-  `LiveUntil`) it answers false on the plugin's clock, whatever the state. A licence read at Init and kept went on
-  taking real money after it had run out. Both zero is still "no end"; grace (past `PaidUntil`) still takes money.
 
 
 ## v0.65.0 — 2026-11-13 (abilities: a size budget instead of a count, and their effects; nildatest: what the assistant cannot reach yet)
