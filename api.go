@@ -267,6 +267,9 @@ func (a *API) doWith(ctx context.Context, client *http.Client, method, path stri
 	if a == nil {
 		return nil, errNoAPI
 	}
+	if err := checkAPIPath(path); err != nil {
+		return nil, err
+	}
 	var r io.Reader
 	if payload != nil {
 		r = bytes.NewReader(payload)
@@ -289,6 +292,29 @@ func (a *API) doWith(ctx context.Context, client *http.Client, method, path stri
 		req.Header.Set(CallHeader, id)
 	}
 	return client.Do(req)
+}
+
+// checkAPIPath refuses a path that names a "." or ".." segment — written plainly, escaped (%2e%2e), or inside one
+// segment beside an escaped slash ("..%2Fadmin"). url.PathEscape escapes neither dot, so an id that is ".." turned
+// GET /media/{id} into GET /media/.., which a server or proxy resolves to the collection or the API root: User(ctx,
+// "..") read /users, a delete aimed at one row aimed at another route (the 2026-11-16 hunt, finding 5). Every request
+// to Core passes here, the typed calls and a plugin's own Get/Post/Do alike. An escaped slash in a segment is allowed
+// otherwise: a nested page's slug is one ("parent%2Fchild").
+func checkAPIPath(path string) error {
+	p, _, _ := strings.Cut(path, "?")
+	for _, seg := range strings.Split(p, "/") {
+		plain, err := url.PathUnescape(seg)
+		if err != nil {
+			plain = seg
+		}
+		for _, part := range strings.FieldsFunc(plain, func(r rune) bool { return r == '/' || r == '\\' }) {
+			if part == "." || part == ".." {
+				return fmt.Errorf("nilda: %q names a %q path segment — an id or slug that is one reaches a different "+
+					"route of Core's API, so the call is refused", path, part)
+			}
+		}
+	}
+	return nil
 }
 
 // JSON performs a request and decodes a successful response into out (which may be nil to discard it).
@@ -323,6 +349,9 @@ func (a *API) JSON(ctx context.Context, method, path string, body, out any) erro
 func (a *API) send(ctx context.Context, method, path string, payload []byte, contentType string, out any) error {
 	if a == nil {
 		return errNoAPI
+	}
+	if err := checkAPIPath(path); err != nil {
+		return err // never retried: the same path is refused every time
 	}
 	var lastErr error
 	for attempt := 0; ; attempt++ {

@@ -54,13 +54,26 @@ type Licence struct {
 }
 
 // TakesRealMoney reports whether the plugin may run its paid edition — for a shop, take real money: trial, active
-// or grace. None, lapsed and any state this release does not know do not.
-func (l Licence) TakesRealMoney() bool {
+// or grace, and before the licence's last live day. None, lapsed and any state this release does not know do not.
+//
+// The state is Core's judgement WHEN IT WAS READ, and a plugin is resident: a Licence read at Init and kept went on
+// answering "active" for a shop whose licence had run out weeks before (the 2026-11-16 hunt, finding 6). So the dates
+// are read too, on this process's clock: from LiveUntil on — or, when Core gave no LiveUntil, from PaidUntil on — it
+// takes no money, whatever the state says. Grace is past PaidUntil by definition, so LiveUntil is the end that
+// counts. Both zero is "no end" (a plan's licence). Read the licence again rather than keep one for long.
+func (l Licence) TakesRealMoney() bool { return l.takesRealMoneyAt(time.Now()) }
+
+func (l Licence) takesRealMoneyAt(now time.Time) bool {
 	switch l.State {
 	case LicenceTrial, LicenceActive, LicenceGrace:
-		return true
+	default:
+		return false
 	}
-	return false
+	end := l.LiveUntil
+	if end.IsZero() {
+		end = l.PaidUntil
+	}
+	return end.IsZero() || now.Before(end)
 }
 
 // licenceWire is a licence as Core writes it (license.PluginLicenceStanding): times in RFC 3339, left out when there

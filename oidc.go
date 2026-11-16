@@ -44,6 +44,11 @@ type OIDCClient struct {
 	scopes       []string
 
 	http *http.Client
+	// token is the client for the token endpoint: http's transport and timeout, and it follows NO redirect. A 307 or a
+	// 308 re-sends the request's body, so following one handed the client secret, the authorization code and the PKCE
+	// verifier to whatever host the token endpoint named in its Location — a host no check above had seen (the
+	// 2026-11-16 hunt, finding 2).
+	token *http.Client
 
 	mu   sync.Mutex
 	meta *oidcMetadata
@@ -74,7 +79,7 @@ func NewOIDCClient(issuer, clientID, clientSecret string, scopes ...string) *OID
 			all = append(all, s)
 		}
 	}
-	return &OIDCClient{
+	c := &OIDCClient{
 		issuer: strings.TrimRight(issuer, "/"), clientID: clientID, clientSecret: clientSecret,
 		scopes: all,
 		// HTTPClient: it carries the plugin's key as a header as well as a timeout. The egress proxy has to
@@ -94,6 +99,10 @@ func NewOIDCClient(issuer, clientID, clientSecret string, scopes ...string) *OID
 		// what kept a login short, which it never was, since Core's deadline always fires first.
 		http: HTTPClient(0),
 	}
+	token := *c.http
+	token.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	c.token = &token
+	return c
 }
 
 // Discover reads and caches the provider's metadata.
@@ -249,7 +258,7 @@ func (c *OIDCClient) Exchange(ctx context.Context, req AuthCompleteRequest) (Aut
 	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	httpReq.Header.Set("Accept", "application/json")
 
-	res, err := c.http.Do(httpReq)
+	res, err := c.token.Do(httpReq)
 	if err != nil {
 		return AuthAssertion{}, fmt.Errorf("oidc: exchanging the authorization code: %w", err)
 	}
@@ -257,6 +266,10 @@ func (c *OIDCClient) Exchange(ctx context.Context, req AuthCompleteRequest) (Aut
 	body, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 	if err != nil {
 		return AuthAssertion{}, err
+	}
+	if res.StatusCode >= 300 && res.StatusCode < 400 {
+		return AuthAssertion{}, fmt.Errorf("oidc: the token endpoint answered %d, a redirect — not followed: it would "+
+			"send the client secret and the code on to another address", res.StatusCode)
 	}
 	if res.StatusCode != http.StatusOK {
 		// The body is NOT included: a failed token exchange can echo the code, and an error string is the

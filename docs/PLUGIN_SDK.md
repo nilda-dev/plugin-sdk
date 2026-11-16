@@ -2780,7 +2780,10 @@ if err != nil || !lic.TakesRealMoney() {
 | `LicenceGrace` | from `PaidUntil` until `LiveUntil` — still live while the owner renews | yes |
 | `LicenceLapsed` | from `LiveUntil` on | no |
 
-`LicenceStates()` lists them; a state this release does not know takes no money. `Source` is `plan` (a Nilda Cloud
+`LicenceStates()` lists them; a state this release does not know takes no money. **The dates count too, on your
+process's clock:** a trial, active or grace licence takes no money from its `LiveUntil` on (from `PaidUntil` when Core
+gave no `LiveUntil`) — the state is Core's judgement when you read it, and a licence kept from `Init` outlives it, so
+read it again rather than keep one. `Source` is `plan` (a Nilda Cloud
 plan that includes the plugin), `purchase` or `trial`; `PaidUntil` and `LiveUntil` are the zero `time.Time` when there
 is no end; `Quantity` is how many were bought for an edition sold per location (0 otherwise). **A Core older than the
 route answers 404, read as `LicenceNone` with no error**, so a plugin built on this release runs unchanged there and
@@ -3095,6 +3098,15 @@ ends filtered, an owner turning the level up to debug your plugin would still se
 and the logger writes them the same way at any depth — `core.Log().Debug("start", "req", in)` with a whole
 `nilda.PaymentStartRequest` keeps the session's fields and drops the card's token and the client secret. Anything
 else you log is written as it is: a token of your own (a processor's API key, a refresh token) is yours to leave out.
+
+**Neither does your datastore password.** `core.DatastoreDSN` holds your Postgres role's password, and a `*nilda.Core`
+printed or logged whole — `core.Log().Info("init", "core", core)`, `fmt.Printf("%+v", core)` — writes it as
+`[redacted]`: `Core` has a `String`, a `GoString`, a `Format` that answers every verb with them, a `LogValue` (a group
+of its plain fields) and a `MarshalJSON` of the same fields. The role, the host and the database stay readable; your
+settings, your API token and the host connection are never written. The field itself is unchanged — `sql.Open` reads it
+as before.
+The same holds for `*nilda.API` (its token) and `*nilda.OIDCClient` (its client secret): each prints and logs as its
+address, id and scopes, the secret `[redacted]`.
 
 ### What Core says about the call you are handling (`CallOf`, `EventOf`)
 
@@ -3514,6 +3526,12 @@ plugin could fetch one page by slug and page through one content type. Porting:
 | `core.UserByID(ctx, id)` | `api.Get(ctx, "/users/"+id, nil, &out)` |
 | `core.MediaByID(ctx, id)` | `api.Get(ctx, "/media/"+id, nil, &out)` |
 | — | `api.Post` / `api.Patch` / `api.Delete`, `/batch`, media upload, GraphQL |
+
+**A path with a `.` or `..` segment is refused before it is sent**, by every call on `*nilda.API` — the typed ones
+and your own `Get`/`Post`/`Do` alike. `url.PathEscape` escapes neither dot, so an id that is `..` made
+`"/media/"+url.PathEscape(id)` the route `/media/..`, which a server resolves to another one. The check reads each
+segment decoded once, as Core's server will (`%2e%2e`, `..%2Fadmin` count); a dot inside a name (`a..b`) and an escaped
+slash in a nested page's slug still go.
 
 `KVGet/KVSet/KVDel/KVIncr` and `Emit` are unchanged.
 
