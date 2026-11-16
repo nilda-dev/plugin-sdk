@@ -23,7 +23,7 @@ func TestTheFakeLicenceAnswersAsCoreDoes(t *testing.T) {
 		t.Fatalf("a fresh fake reads %+v, %v; want none", lic, err)
 	}
 
-	paid := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	paid := time.Now().UTC().Truncate(time.Second).AddDate(0, 0, -1) // in grace now: past paid, before live
 	fake.Set(nilda.Licence{State: nilda.LicenceGrace, Source: "purchase", PaidUntil: paid, LiveUntil: paid.AddDate(0, 0, 14)})
 	if lic, err = core.API().Licence(ctx); err != nil || lic.State != nilda.LicenceGrace || !lic.PaidUntil.Equal(paid) ||
 		!lic.TakesRealMoney() {

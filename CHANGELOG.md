@@ -83,6 +83,9 @@ Fixed (the 2026-11-16 hunt):
 - Every call on `nilda.API` refuses a path with a `.` or `..` segment (plain, `%2e`-escaped, or beside an escaped
   slash) before it is sent. `url.PathEscape` escapes neither dot, so `User(ctx, "..")` asked for `/users/..` — the
   collection — and a write aimed at one row reached another route. A dot inside a name and a nested slug still go.
+- `Licence.TakesRealMoney()` reads the dates as well as the state: from `LiveUntil` on (or `PaidUntil` when there is no
+  `LiveUntil`) it answers false on the plugin's clock, whatever the state. A licence read at Init and kept went on
+  taking real money after it had run out. Both zero is still "no end"; grace (past `PaidUntil`) still takes money.
 
 
 ## v0.65.0 — 2026-11-13 (abilities: a size budget instead of a count, and their effects; nildatest: what the assistant cannot reach yet)

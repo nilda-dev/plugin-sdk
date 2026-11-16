@@ -2780,7 +2780,10 @@ if err != nil || !lic.TakesRealMoney() {
 | `LicenceGrace` | from `PaidUntil` until `LiveUntil` — still live while the owner renews | yes |
 | `LicenceLapsed` | from `LiveUntil` on | no |
 
-`LicenceStates()` lists them; a state this release does not know takes no money. `Source` is `plan` (a Nilda Cloud
+`LicenceStates()` lists them; a state this release does not know takes no money. **The dates count too, on your
+process's clock:** a trial, active or grace licence takes no money from its `LiveUntil` on (from `PaidUntil` when Core
+gave no `LiveUntil`) — the state is Core's judgement when you read it, and a licence kept from `Init` outlives it, so
+read it again rather than keep one. `Source` is `plan` (a Nilda Cloud
 plan that includes the plugin), `purchase` or `trial`; `PaidUntil` and `LiveUntil` are the zero `time.Time` when there
 is no end; `Quantity` is how many were bought for an edition sold per location (0 otherwise). **A Core older than the
 route answers 404, read as `LicenceNone` with no error**, so a plugin built on this release runs unchanged there and

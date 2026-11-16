@@ -3,6 +3,7 @@ package nilda
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -109,14 +110,18 @@ func TestALicenceErrorIsNeverLicensed(t *testing.T) {
 // is the zero time, "no end".
 func TestLicenceReadsGraceBetweenPaidAndLive(t *testing.T) {
 	ctx := context.Background()
-	api, _ := licenceCore(t, writeBody(http.StatusOK,
-		`{"data":{"state":"grace","source":"purchase","paid_until":"2026-11-01T00:00:00Z","live_until":"2026-11-15T00:00:00Z","quantity":3}}`), nil)
+	// Dates around now: a grace that has passed its live_until takes no money (TestALicencePastItsEndTakesNoMoney).
+	paid := time.Now().UTC().Truncate(time.Second).AddDate(0, 0, -1)
+	live := paid.AddDate(0, 0, 14)
+	api, _ := licenceCore(t, writeBody(http.StatusOK, fmt.Sprintf(
+		`{"data":{"state":"grace","source":"purchase","paid_until":%q,"live_until":%q,"quantity":3}}`,
+		paid.Format(time.RFC3339), live.Format(time.RFC3339))), nil)
 	lic, err := api.Licence(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := Licence{State: LicenceGrace, Source: "purchase", Quantity: 3,
-		PaidUntil: time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC), LiveUntil: time.Date(2026, 11, 15, 0, 0, 0, 0, time.UTC)}
+		PaidUntil: paid, LiveUntil: live}
 	if !lic.PaidUntil.Equal(want.PaidUntil) || !lic.LiveUntil.Equal(want.LiveUntil) || lic.State != want.State ||
 		lic.Source != want.Source || lic.Quantity != want.Quantity || lic.Trial {
 		t.Fatalf("read %+v; want %+v", lic, want)
@@ -157,8 +162,10 @@ func TestLicenceReadsGraceBetweenPaidAndLive(t *testing.T) {
 // Core's) reason, word for word. A bind that failed is an error, never bound and never a reason.
 func TestBindPassesCentralsReasons(t *testing.T) {
 	ctx := context.Background()
-	api, asked := licenceCore(t, nil, writeBody(http.StatusOK,
-		`{"data":{"bound":true,"licence":{"state":"trial","source":"trial","paid_until":"2026-12-06T00:00:00Z","live_until":"2026-12-06T00:00:00Z","trial":true}}}`))
+	end := time.Now().UTC().AddDate(0, 0, 20).Format(time.RFC3339)
+	api, asked := licenceCore(t, nil, writeBody(http.StatusOK, fmt.Sprintf(
+		`{"data":{"bound":true,"licence":{"state":"trial","source":"trial","paid_until":%q,"live_until":%q,"trial":true}}}`,
+		end, end)))
 	res, err := api.BindLicence(ctx)
 	if err != nil || !res.Bound || res.Reason != "" || res.Licence.State != LicenceTrial || !res.Licence.Trial ||
 		!res.Licence.TakesRealMoney() {
@@ -277,4 +284,35 @@ func sorted(s []string) []string {
 	out := append([]string(nil), s...)
 	sort.Strings(out)
 	return out
+}
+
+// A LICENCE PAST ITS END TAKES NO MONEY, whatever its state says (the 2026-11-16 hunt, finding 6). The state is Core's
+// judgement when the licence was read; a plugin that kept one from Init went on taking real money after LiveUntil.
+func TestALicencePastItsEndTakesNoMoney(t *testing.T) {
+	now := time.Date(2026, 11, 16, 12, 0, 0, 0, time.UTC)
+	before, after := now.Add(-time.Hour), now.Add(time.Hour)
+	for _, c := range []struct {
+		name  string
+		lic   Licence
+		takes bool
+	}{
+		{"active, no end (a plan)", Licence{State: LicenceActive}, true},
+		{"active before PaidUntil", Licence{State: LicenceActive, PaidUntil: after, LiveUntil: after.AddDate(0, 0, 14)}, true},
+		{"active kept past LiveUntil", Licence{State: LicenceActive, PaidUntil: before.AddDate(0, 0, -14), LiveUntil: before}, false},
+		{"active at LiveUntil", Licence{State: LicenceActive, PaidUntil: now.AddDate(0, 0, -14), LiveUntil: now}, false},
+		{"active past PaidUntil, no LiveUntil", Licence{State: LicenceActive, PaidUntil: before}, false},
+		{"grace before LiveUntil", Licence{State: LicenceGrace, PaidUntil: before, LiveUntil: after}, true},
+		{"grace kept past LiveUntil", Licence{State: LicenceGrace, PaidUntil: before.AddDate(0, 0, -14), LiveUntil: before}, false},
+		{"trial before its end", Licence{State: LicenceTrial, Trial: true, PaidUntil: after, LiveUntil: after}, true},
+		{"trial kept past its end", Licence{State: LicenceTrial, Trial: true, PaidUntil: before, LiveUntil: before}, false},
+		{"lapsed with a future date", Licence{State: LicenceLapsed, LiveUntil: after}, false},
+		{"none with a future date", Licence{State: LicenceNone, LiveUntil: after}, false},
+	} {
+		if got := c.lic.takesRealMoneyAt(now); got != c.takes {
+			t.Errorf("%s: takes real money = %v; want %v", c.name, got, c.takes)
+		}
+	}
+	if (Licence{State: LicenceActive, LiveUntil: time.Now().Add(-time.Minute)}).TakesRealMoney() {
+		t.Error("TakesRealMoney read no clock: an active licence a minute past its end still takes money")
+	}
 }
