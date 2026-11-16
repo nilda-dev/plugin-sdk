@@ -110,3 +110,66 @@ func (c *Core) LogValue() slog.Value {
 
 // MarshalJSON writes String's fields, so a Core inside a value a JSON log handler marshals keeps its password too.
 func (c Core) MarshalJSON() ([]byte, error) { return json.Marshal(c.shown()) }
+
+// String is the API client as %v shows it: Core's address and the token's scopes, the token itself [redacted].
+func (a API) String() string {
+	return fmt.Sprintf("{BaseURL:%s Scopes:%v Token:%s}", a.baseURL, a.scopes, redactedIfSet(a.token))
+}
+
+// GoString is %#v's form of String.
+func (a API) GoString() string {
+	return fmt.Sprintf("nilda.API{BaseURL:%q, Scopes:%#v, Token:%q}", a.baseURL, a.scopes, redactedIfSet(a.token))
+}
+
+// Format prints String for every verb (GoString for %#v), so no verb reaches the token.
+func (a API) Format(f fmt.State, verb rune) { formatRedacted(f, verb, a.String(), a.GoString()) }
+
+// LogValue logs the client as a group of String's fields. A nil client — a plugin with no API — logs as "<nil>".
+func (a *API) LogValue() slog.Value {
+	if a == nil {
+		return slog.StringValue("<nil>")
+	}
+	return slog.GroupValue(slog.String("BaseURL", a.baseURL), slog.Any("Scopes", a.scopes),
+		slog.String("Token", redactedIfSet(a.token)))
+}
+
+// String is the OIDC client as %v shows it: the issuer, the client id and the scopes, the client secret [redacted].
+func (c *OIDCClient) String() string {
+	if c == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("{Issuer:%s ClientID:%s ClientSecret:%s Scopes:%v}", c.issuer, c.clientID,
+		redactedIfSet(c.clientSecret), c.scopes)
+}
+
+// GoString is %#v's form of String.
+func (c *OIDCClient) GoString() string {
+	if c == nil {
+		return "(*nilda.OIDCClient)(nil)"
+	}
+	return fmt.Sprintf("&nilda.OIDCClient{Issuer:%q, ClientID:%q, ClientSecret:%q, Scopes:%#v}", c.issuer, c.clientID,
+		redactedIfSet(c.clientSecret), c.scopes)
+}
+
+// Format prints String for every verb (GoString for %#v), so no verb reaches the client secret.
+func (c *OIDCClient) Format(f fmt.State, verb rune) {
+	formatRedacted(f, verb, c.String(), c.GoString())
+}
+
+// LogValue logs the client as a group of String's fields.
+func (c *OIDCClient) LogValue() slog.Value {
+	if c == nil {
+		return slog.StringValue("<nil>")
+	}
+	return slog.GroupValue(slog.String("Issuer", c.issuer), slog.String("ClientID", c.clientID),
+		slog.String("ClientSecret", redactedIfSet(c.clientSecret)), slog.Any("Scopes", c.scopes))
+}
+
+// redactedIfSet is the mark for a secret that is set, and "" for one that is not — whether a secret is configured is
+// worth seeing; what it is never is.
+func redactedIfSet(secret string) string {
+	if secret == "" {
+		return ""
+	}
+	return redactedMark
+}

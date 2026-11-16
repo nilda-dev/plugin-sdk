@@ -92,3 +92,32 @@ func TestRedactDSNCoversBothPostgresForms(t *testing.T) {
 		}
 	}
 }
+
+// THE API TOKEN AND THE OIDC CLIENT SECRET NEVER REACH A LOG LINE (the 2026-11-16 hunt, finding 4): both are
+// unexported fields, and %+v prints unexported fields.
+func TestAPIAndOIDCClientPrintWithoutTheirSecrets(t *testing.T) {
+	api := newAPI("http://core.local", "nlda_apitoken", []string{"read:content"})
+	for _, v := range []any{api, *api} {
+		printed := printedEverywhere(t, v)
+		assertNoSecret(t, fmt.Sprintf("%T", v), printed, "nlda_apitoken")
+		if line := printed["fmt %+v"]; !strings.Contains(line, "core.local") || !strings.Contains(line, redactedMark) {
+			t.Errorf("%T printed %s; want the address and the mark", v, line)
+		}
+	}
+	oidc := NewOIDCClient("https://idp.example", "the-client-id", "the-client-secret")
+	printed := printedEverywhere(t, oidc)
+	assertNoSecret(t, "*OIDCClient", printed, "the-client-secret")
+	if line := printed["sdk logger"]; !strings.Contains(line, "idp.example") || !strings.Contains(line, "the-client-id") {
+		t.Errorf("*OIDCClient logged %s; want the issuer and the client id", line)
+	}
+
+	var noAPI *API // a plugin with no API access
+	var noOIDC *OIDCClient
+	for _, v := range []any{noAPI, noOIDC} {
+		var buf bytes.Buffer
+		newLogger(&buf, "").Info("x", "c", v)
+		if got := fmt.Sprintf("%+v", v); got != "<nil>" || !strings.Contains(buf.String(), `"c":"\u003cnil\u003e"`) {
+			t.Errorf("a nil %T printed %q and logged %s", v, got, buf.String())
+		}
+	}
+}

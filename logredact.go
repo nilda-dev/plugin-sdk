@@ -31,6 +31,10 @@ func (ClientAction) logRedacted()         {}
 // Core holds the datastore role's password (redactprint.go): a struct that carries one is written with Core's String.
 func (Core) logRedacted() {}
 
+// API holds the plugin's token and OIDCClient a client secret (redactprint.go).
+func (API) logRedacted()         {}
+func (*OIDCClient) logRedacted() {}
+
 var (
 	redactedType  = reflect.TypeFor[logRedacted]()
 	marshalerType = reflect.TypeFor[json.Marshaler]()

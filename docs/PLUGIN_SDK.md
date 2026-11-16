@@ -3102,6 +3102,8 @@ printed or logged whole — `core.Log().Info("init", "core", core)`, `fmt.Printf
 of its plain fields) and a `MarshalJSON` of the same fields. The role, the host and the database stay readable; your
 settings, your API token and the host connection are never written. The field itself is unchanged — `sql.Open` reads it
 as before.
+The same holds for `*nilda.API` (its token) and `*nilda.OIDCClient` (its client secret): each prints and logs as its
+address, id and scopes, the secret `[redacted]`.
 
 ### What Core says about the call you are handling (`CallOf`, `EventOf`)
 

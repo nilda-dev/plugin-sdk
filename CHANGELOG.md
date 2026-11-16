@@ -77,6 +77,9 @@ Fixed (the 2026-11-16 hunt):
 - `OIDCClient.Exchange` follows no redirect from the token endpoint. A 307 or 308 re-sent the POST — the client
   secret, the authorization code and the PKCE verifier — to the address in its `Location`; it is now an error naming
   the redirect. Discovery still follows one.
+- `nilda.API` and `nilda.OIDCClient` no longer print their secrets: `%+v` wrote the API token and the client secret
+  (unexported fields print too). Both have `String`, `GoString`, `Format` and `LogValue` that show the address, the id
+  and the scopes, the secret `[redacted]`.
 
 
 ## v0.65.0 — 2026-11-13 (abilities: a size budget instead of a count, and their effects; nildatest: what the assistant cannot reach yet)
