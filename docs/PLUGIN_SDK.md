@@ -3096,6 +3096,13 @@ and the logger writes them the same way at any depth — `core.Log().Debug("star
 `nilda.PaymentStartRequest` keeps the session's fields and drops the card's token and the client secret. Anything
 else you log is written as it is: a token of your own (a processor's API key, a refresh token) is yours to leave out.
 
+**Neither does your datastore password.** `core.DatastoreDSN` holds your Postgres role's password, and a `*nilda.Core`
+printed or logged whole — `core.Log().Info("init", "core", core)`, `fmt.Printf("%+v", core)` — writes it as
+`[redacted]`: `Core` has a `String`, a `GoString`, a `Format` that answers every verb with them, a `LogValue` (a group
+of its plain fields) and a `MarshalJSON` of the same fields. The role, the host and the database stay readable; your
+settings, your API token and the host connection are never written. The field itself is unchanged — `sql.Open` reads it
+as before.
+
 ### What Core says about the call you are handling (`CallOf`, `EventOf`)
 
 Beside a hook's name and payload, Core can say which request led to the call — and, for a call relayed by its

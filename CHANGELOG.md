@@ -68,6 +68,13 @@ Changed:
 - `nilda.MaxManifestBytes` is 8 MiB (was 2 MiB), Core's `maxManifestBytes`: the most plugin.json itself may weigh in
   the package. Sized by Core from the shop, whose plugin.json had reached 1,805,576 bytes of the old 2 MiB.
 
+Fixed (the 2026-11-16 hunt):
+
+- `nilda.Core` no longer prints its datastore password. `core.Log().Info("x", "core", core)`, `%+v` and slog's own
+  handlers wrote `DatastoreDSN` — the plugin's Postgres role and its password — in clear, and `%+v` the owner's
+  settings and the API token with it. `Core` now has `String`, `GoString`, `Format`, `LogValue` and `MarshalJSON`,
+  which show its plain fields and the DSN with its password `[redacted]`; the field itself is unchanged.
+
 
 ## v0.65.0 — 2026-11-13 (abilities: a size budget instead of a count, and their effects; nildatest: what the assistant cannot reach yet)
 

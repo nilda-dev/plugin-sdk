@@ -28,6 +28,9 @@ func (PaymentSavedToken) logRedacted()    {}
 func (PaymentForgetRequest) logRedacted() {}
 func (ClientAction) logRedacted()         {}
 
+// Core holds the datastore role's password (redactprint.go): a struct that carries one is written with Core's String.
+func (Core) logRedacted() {}
+
 var (
 	redactedType  = reflect.TypeFor[logRedacted]()
 	marshalerType = reflect.TypeFor[json.Marshaler]()
