@@ -80,6 +80,9 @@ Fixed (the 2026-11-16 hunt):
 - `nilda.API` and `nilda.OIDCClient` no longer print their secrets: `%+v` wrote the API token and the client secret
   (unexported fields print too). Both have `String`, `GoString`, `Format` and `LogValue` that show the address, the id
   and the scopes, the secret `[redacted]`.
+- Every call on `nilda.API` refuses a path with a `.` or `..` segment (plain, `%2e`-escaped, or beside an escaped
+  slash) before it is sent. `url.PathEscape` escapes neither dot, so `User(ctx, "..")` asked for `/users/..` — the
+  collection — and a write aimed at one row reached another route. A dot inside a name and a nested slug still go.
 
 
 ## v0.65.0 — 2026-11-13 (abilities: a size budget instead of a count, and their effects; nildatest: what the assistant cannot reach yet)

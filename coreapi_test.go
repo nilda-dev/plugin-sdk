@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"reflect"
 	"regexp"
 	"sort"
@@ -585,5 +586,81 @@ func TestTheTypedConstantsAreCores(t *testing.T) {
 		UserStatusBanned}, `', '`) + `'))`
 	if !strings.Contains(check, want) {
 		t.Errorf("Core's account statuses are not %s", want)
+	}
+}
+
+// AN ID THAT IS "." OR ".." NEVER LEAVES THE PLUGIN (the 2026-11-16 hunt, finding 5). url.PathEscape escapes neither
+// dot, so User(ctx, "..") asked for GET /users/.., which resolves to /users — another route than the one row the call
+// names — and a write aimed at one row aimed at its collection. The stub answers every route, so before the guard each
+// of these reached it.
+func TestADotSegmentIDNeverReachesCore(t *testing.T) {
+	ctx := context.Background()
+	for _, id := range []string{"..", ".", "../admin", `..\admin`, "x/../../admin"} {
+		api, calls := coreAPIStub(t, map[string]string{})
+		var errs []error
+		_, err := api.User(ctx, id)
+		errs = append(errs, err)
+		_, err = api.Media(ctx, id)
+		errs = append(errs, err)
+		_, err = api.MediaFile(ctx, id)
+		errs = append(errs, err)
+		_, err = api.SetMediaPrivate(ctx, id, true)
+		errs = append(errs, err)
+		_, err = api.Menu(ctx, id)
+		errs = append(errs, err)
+		_, err = api.Breadcrumbs(ctx, id)
+		errs = append(errs, err)
+		_, err = api.PublishContent(ctx, "post", id)
+		errs = append(errs, err)
+		_, err = api.PublishContent(ctx, id, "abc")
+		errs = append(errs, err)
+		_, err = api.CreateTerm(ctx, id, NewTerm{Name: "x"})
+		errs = append(errs, err)
+		_, err = api.PageBySlug(ctx, id, "")
+		errs = append(errs, err)
+		// A plugin's own call, built the way core.go's own example builds one, meets the same guard.
+		errs = append(errs, api.Get(ctx, "/pages/"+url.PathEscape(id), nil, nil))
+		errs = append(errs, api.Delete(ctx, "/content/post/"+url.PathEscape(id)))
+		_, err = api.Do(ctx, http.MethodGet, "/users/"+url.PathEscape(id), nil)
+		errs = append(errs, err)
+		for i, err := range errs {
+			if err == nil || !strings.Contains(err.Error(), "path segment") {
+				t.Errorf("id %q, call %d: %v; want the dot-segment refusal", id, i, err)
+			}
+		}
+		if len(*calls) != 0 {
+			t.Errorf("id %q reached Core: %+v", id, *calls)
+		}
+	}
+
+	// A path a plugin escaped itself is read as Core's server reads it: decoded once.
+	api, calls := coreAPIStub(t, map[string]string{})
+	for _, path := range []string{"/users/%2e%2e", "/users/%2E.", "/pages/..%2Fadmin", "/pages/a%2F..%2F..%2Fadmin",
+		"/users/../admin?x=1", "/./users"} {
+		if err := api.Get(ctx, path, nil, nil); err == nil || !strings.Contains(err.Error(), "path segment") {
+			t.Errorf("Get(%q): %v; want the dot-segment refusal", path, err)
+		}
+	}
+	if len(*calls) != 0 {
+		t.Errorf("an escaped dot segment reached Core: %+v", *calls)
+	}
+
+	// What is not a dot segment still goes: dots inside a name, three dots, a nested page's escaped slash.
+	api, calls = coreAPIStub(t, map[string]string{
+		"GET /users/a..b": `{"data":{"id":"a..b"}}`, "GET /users/...": `{"data":{"id":"..."}}`,
+		"GET /pages/parent%2Fchild": `{"data":{"id":"p"}}`, "GET /users/.hidden": `{"data":{"id":".hidden"}}`,
+		// A raw id that LOOKS escaped is escaped again (%252e%252e): one decode leaves "%2e%2e", not a dot segment.
+		"GET /users/%252e%252e": `{"data":{"id":"%2e%2e"}}`,
+	})
+	for _, id := range []string{"a..b", "...", ".hidden", "%2e%2e"} {
+		if u, err := api.User(ctx, id); err != nil || u.ID != id {
+			t.Errorf("User(%q) = %+v, %v", id, u, err)
+		}
+	}
+	if _, err := api.PageBySlug(ctx, "/parent/child/", ""); err != nil {
+		t.Errorf("a nested slug was refused: %v", err)
+	}
+	if len(*calls) != 5 {
+		t.Errorf("calls = %+v", *calls)
 	}
 }

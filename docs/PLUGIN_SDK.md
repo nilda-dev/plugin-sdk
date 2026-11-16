@@ -3524,6 +3524,12 @@ plugin could fetch one page by slug and page through one content type. Porting:
 | `core.MediaByID(ctx, id)` | `api.Get(ctx, "/media/"+id, nil, &out)` |
 | — | `api.Post` / `api.Patch` / `api.Delete`, `/batch`, media upload, GraphQL |
 
+**A path with a `.` or `..` segment is refused before it is sent**, by every call on `*nilda.API` — the typed ones
+and your own `Get`/`Post`/`Do` alike. `url.PathEscape` escapes neither dot, so an id that is `..` made
+`"/media/"+url.PathEscape(id)` the route `/media/..`, which a server resolves to another one. The check reads each
+segment decoded once, as Core's server will (`%2e%2e`, `..%2Fadmin` count); a dot inside a name (`a..b`) and an escaped
+slash in a nested page's slug still go.
+
 `KVGet/KVSet/KVDel/KVIncr` and `Emit` are unchanged.
 
 ---
