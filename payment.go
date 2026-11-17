@@ -289,6 +289,10 @@ type PaymentSession struct {
 	// OffSessionUnscheduled, from the mandate (OffSessionOf) — set by Core, never by a consumer; "" when the payer is
 	// present (v0.58.0, door D5). A gateway tells its processor (Stripe: off_session "recurring" or "one_off").
 	OffSession string `json:"off_session,omitempty"`
+	// Agreement and Cycle are the renewal a ChargedSaved session is for (PaymentChargeParams.Agreement, door D5,
+	// EXPERIMENTAL); "" and 0 for every other session.
+	Agreement string `json:"agreement,omitempty"`
+	Cycle     int    `json:"cycle,omitempty"`
 	// Instrument is what the payer paid with (the Instrument constants), as the gateway reported it with the
 	// resolution; "" until resolved or when the gateway did not say. ResolvedAt is when the session first resolved —
 	// set once, never moved by a repeated report. v0.39.0.

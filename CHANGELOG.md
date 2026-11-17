@@ -8,6 +8,25 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## Unreleased (doors D5 and D11: a renewal named by its cycle, a kept method granted to another plugin, live obligations at uninstall)
+
+Additive, and EXPERIMENTAL: commerce plan 2026-11-05 §1J doors D5 and D11, for the subscriptions (P02) and loyalty (P08)
+plugins. Core reads both from the release built on this version.
+
+Added:
+
+- `PaymentChargeParams.Agreement` and `Cycle`, echoed on `PaymentSession`: the renewal a charge of a kept method is for.
+  Core keeps at most one charge per kept method, agreement and cycle that is paid or still deciding (409 for another); a
+  refused or expired cycle may be charged again. `MaxPaymentAgreement`, `MaxPaymentCycle`.
+- `PaymentMandateGrant` and `Payments.GrantSavedMethod` / `RevokeSavedMethodGrant`: the consumer that kept a method lets
+  one other plugin charge it for one agreement; `SavedPaymentMethod.Grants` (the holder's read only); `MaxMandateGrants`.
+  `nildatest.Payments` answers both, and holds the cycle as Core does.
+- `ObligationsListHook`, `ObligationsWindDownHook`, `Obligation`, `ObligationsRequest`, `ObligationsAnswer`,
+  `WindDownRequest` (`WindDownUninstall`, `WindDownDisable`), `WindDownResult`, `ObligationsHolder` and
+  `DispatchObligations`: a plugin's live obligations, named before a switch-off or an uninstall and wound down before
+  the uninstall. `MaxObligations`, `MaxObligationKind`, `MaxObligationText`.
+
+
 ## v0.67.0 — 2026-11-16 (security: secrets redacted when printed, no redirect from the OIDC token endpoint, dot segments refused, an ended licence takes no money)
 
 Additive: `String`, `GoString`, `Format`, `LogValue` (and `MarshalJSON` on `Core`) on `Core`, `API` and `OIDCClient`. Tagged at once under the release train's rule for security and money fixes.

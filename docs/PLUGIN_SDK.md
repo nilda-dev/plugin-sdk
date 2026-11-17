@@ -2565,6 +2565,11 @@ with `nilda.PaymentChargeParams`) and forgets (`ForgetSavedMethod`). A gateway t
 as a `nilda.PaymentForgetRequest` (`payment.saved.forget`). A charge the payer's bank wants them present for is
 rejected with `authentication_required`.
 
+**Door D5 (EXPERIMENTAL) names the renewal and lets another plugin charge** (PAYMENTS.md §5, items 4 and 5): a charge
+carries `Agreement` and `Cycle`, and Core charges one cycle once; the consumer that kept the method grants one other
+plugin one agreement with a `nilda.PaymentMandateGrant` (`GrantSavedMethod`, `RevokeSavedMethodGrant`), and the
+grantee charges it with `ChargeSaved` — never holding the token.
+
 **v0.58.0 adds holding the money, then taking it** (PAYMENTS.md §4–§5): a consumer sends
 `PaymentSessionParams.Capture` `nilda.CaptureManual` on a method that lists `nilda.SupportManualCapture`; the gateway
 reports the hold, a `nilda.PaymentAuthorization`, with `Authorize`, and the session is `nilda.PaymentAuthorized`; the
@@ -2649,6 +2654,37 @@ got, _ := sec.Get("higgsfield", "refresh_token") // what Core would be holding
 ```
 
 This is plugin-sdk v0.11.0 and needs a Core built on it; an older Core refuses the `secrets` capability at install.
+
+### Live obligations, and winding them down (door D11, EXPERIMENTAL)
+
+A plugin can hold promises to people other than the owner — subscriptions that renew, points a buyer earned, listings
+live on a marketplace, slots somebody booked. Switching it off or uninstalling it would break them silently, so Core
+asks first. Implement `nilda.ObligationsHolder` on your Handler and `Serve` subscribes both hooks and answers them
+(no capability: Core sends nothing from the site); a `HandleHook` that routes by hand calls `nilda.DispatchObligations`:
+
+```go
+func (p *Plugin) Obligations(ctx context.Context, req nilda.ObligationsRequest) ([]nilda.Obligation, error)
+func (p *Plugin) WindDown(ctx context.Context, req nilda.WindDownRequest) (nilda.WindDownResult, error)
+```
+
+The request types are `nilda.ObligationsRequest` (the owner's `Locale`) and `nilda.WindDownRequest` (its `Reason`,
+`nilda.WindDownUninstall` or `nilda.WindDownDisable`); the list hook answers a `nilda.ObligationsAnswer`, the wind-down a
+`nilda.WindDownResult`.
+
+- **`obligations.list`** — answer every kind you hold at least one of (`nilda.Obligation`: a kind, a count, a sentence
+  of what they are, a sentence of what winding them down does, and the money they stand for if any), in the language
+  the request names. An empty list means you hold none; if you could not count, return an error — Core then says you
+  did not answer, never that nothing is owed. Core shows the answer before a switch-off and before an uninstall, and to
+  the site's assistant (`plugin_obligations`).
+- **`obligations.wind_down`** — settle them: stop what would happen next (no renewal charged, no points earned) and tell
+  the people concerned through Core's mail door, then answer what is still live (`Remaining`, each saying why). Called
+  again, change nothing more and mail nobody twice. Core calls it before an uninstall whenever you answered an
+  obligation — the uninstall is refused while it fails or leaves something live — and before a switch-off only when the
+  owner chose to wind down: a plain switch-off is the owner's kill switch, and may be undone a minute later.
+
+Both have 15 seconds: queue the mails, do not wait for them. Your error is your answer, never a failure that counts
+toward switching you off. Before an uninstall the owner is also offered the export of your stored data, so the records
+stay theirs.
 
 ### The site's recycle bin (`trash`)
 

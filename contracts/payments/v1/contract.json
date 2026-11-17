@@ -384,6 +384,12 @@
               "off_session": {
                 "type": "string"
               },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
+              },
               "instrument": {
                 "type": "string"
               },
@@ -858,6 +864,12 @@
               "off_session": {
                 "type": "string"
               },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
+              },
               "instrument": {
                 "type": "string"
               },
@@ -1232,6 +1244,12 @@
               },
               "off_session": {
                 "type": "string"
+              },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
               },
               "instrument": {
                 "type": "string"
@@ -1614,6 +1632,12 @@
               },
               "off_session": {
                 "type": "string"
+              },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
               },
               "instrument": {
                 "type": "string"
@@ -2000,6 +2024,12 @@
               "off_session": {
                 "type": "string"
               },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
+              },
               "instrument": {
                 "type": "string"
               },
@@ -2374,6 +2404,12 @@
               },
               "off_session": {
                 "type": "string"
+              },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
               },
               "instrument": {
                 "type": "string"
@@ -2774,6 +2810,12 @@
               "off_session": {
                 "type": "string"
               },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
+              },
               "instrument": {
                 "type": "string"
               },
@@ -3140,6 +3182,12 @@
               },
               "off_session": {
                 "type": "string"
+              },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
               },
               "instrument": {
                 "type": "string"
@@ -3552,6 +3600,12 @@
               },
               "off_session": {
                 "type": "string"
+              },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
               },
               "instrument": {
                 "type": "string"
@@ -3990,6 +4044,12 @@
               },
               "off_session": {
                 "type": "string"
+              },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
               },
               "instrument": {
                 "type": "string"

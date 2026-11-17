@@ -399,6 +399,7 @@ const MaxCommerceNote
 const MaxCommerceRating
 const MaxDisputesPerSession
 const MaxListFilters
+const MaxMandateGrants
 const MaxManifestAbilityDefinitionBytes
 const MaxManifestAbilityDescriptionLen
 const MaxManifestAccountHostLen
@@ -486,6 +487,11 @@ const MaxManifestVisitorToolPaths
 const MaxManifestVisitorTools
 const MaxManifestWebhookPathLen
 const MaxManifestWebhookPaths
+const MaxObligationKind
+const MaxObligationText
+const MaxObligations
+const MaxPaymentAgreement
+const MaxPaymentCycle
 const MaxPaymentLineName
 const MaxPaymentLineQuantity
 const MaxPaymentLineSKU
@@ -520,6 +526,8 @@ const MetricPercent
 const MetricText
 const MinAddressQuery
 const MinTrashRetention
+const ObligationsListHook
+const ObligationsWindDownHook
 const OffSessionRecurring
 const OffSessionUnscheduled
 const OrderGet
@@ -710,6 +718,8 @@ const WidgetProductGallery
 const WidgetProductLoop
 const WidgetProductReviews
 const WidgetProductTerms
+const WindDownDisable
+const WindDownUninstall
 field APIError.Body string
 field APIError.Code string
 field APIError.Method string
@@ -1462,6 +1472,14 @@ field NewTerm.Description string json:description
 field NewTerm.Name string json:name
 field NewTerm.ParentID string json:parent_id
 field NewTerm.Slug string json:slug
+field Obligation.AmountMinor int64 json:amount_minor
+field Obligation.Count int64 json:count
+field Obligation.Currency string json:currency
+field Obligation.Kind string json:kind
+field Obligation.Summary string json:summary
+field Obligation.WindDown string json:wind_down
+field ObligationsAnswer.Obligations []Obligation json:obligations
+field ObligationsRequest.Locale string json:locale
 field PageForm.AlwaysAsk bool json:always_ask
 field PageForm.Create bool json:create
 field PageForm.CreateLabel string json:create_label
@@ -1506,8 +1524,10 @@ field PaymentCaptureResult.FailureCode string json:failure_code
 field PaymentCaptureResult.FailureMessage string json:failure_message
 field PaymentCaptureResult.ProviderRef string json:provider_ref
 field PaymentCaptureResult.Status string json:status
+field PaymentChargeParams.Agreement string json:agreement
 field PaymentChargeParams.AmountMinor int64 json:amount_minor
 field PaymentChargeParams.Currency string json:currency
+field PaymentChargeParams.Cycle int json:cycle
 field PaymentChargeParams.Description string json:description
 field PaymentChargeParams.Fulfilment string json:fulfilment
 field PaymentChargeParams.Reference string json:reference
@@ -1584,6 +1604,10 @@ field PaymentMandate.MaxAmountMinor int64 json:max_amount_minor
 field PaymentMandate.Purpose string json:purpose
 field PaymentMandate.Replaces string json:replaces
 field PaymentMandate.Text string json:text
+field PaymentMandateGrant.Agreement string json:agreement
+field PaymentMandateGrant.CreatedAt time.Time json:created_at
+field PaymentMandateGrant.Plugin string json:plugin
+field PaymentMandateGrant.RevokedAt *time.Time json:revoked_at
 field PaymentMethod.CredentialTypes []string json:credential_types
 field PaymentMethod.Currencies []string json:currencies
 field PaymentMethod.Description string json:description
@@ -1656,6 +1680,7 @@ field PaymentSaved.ExpiresAt *time.Time json:expires_at
 field PaymentSaved.Label string json:label
 field PaymentSaved.Token string json:token
 field PaymentSavedToken.Token string json:token
+field PaymentSession.Agreement string json:agreement
 field PaymentSession.AmountMinor int64 json:amount_minor
 field PaymentSession.AuthorizationExpiresAt *time.Time json:authorization_expires_at
 field PaymentSession.AuthorizedMinor int64 json:authorized_minor
@@ -1669,6 +1694,7 @@ field PaymentSession.ClientAction ClientAction json:client_action
 field PaymentSession.Consumer string json:consumer
 field PaymentSession.CreatedAt time.Time json:created_at
 field PaymentSession.Currency string json:currency
+field PaymentSession.Cycle int json:cycle
 field PaymentSession.Description string json:description
 field PaymentSession.Email string json:email
 field PaymentSession.ExpiresAt *time.Time json:expires_at
@@ -1841,6 +1867,7 @@ field SavedPaymentMethod.Email string json:email
 field SavedPaymentMethod.ExpiresAt *time.Time json:expires_at
 field SavedPaymentMethod.ForgottenAt *time.Time json:forgotten_at
 field SavedPaymentMethod.Gateway string json:gateway
+field SavedPaymentMethod.Grants []PaymentMandateGrant json:grants
 field SavedPaymentMethod.ID string json:id
 field SavedPaymentMethod.Label string json:label
 field SavedPaymentMethod.Mandate PaymentMandate json:mandate
@@ -2212,6 +2239,9 @@ field WidgetRenderRequest.SiteURL string json:site_url
 field WidgetRenderRequest.Title string json:title
 field WidgetRenderRequest.Type string json:type
 field WidgetRenderRequest.URL string json:url
+field WindDownRequest.Reason string json:reason
+field WindDownResult.Remaining []Obligation json:remaining
+field WindDownResult.Told int64 json:told
 field WriteAnswer.Already bool json:already
 field WriteAnswer.RecordID string json:record_id
 func AbilityHook(string) (string)
@@ -2252,6 +2282,7 @@ func DispatchAuthHook(context.Context, *Core, AuthProvider, string, []byte) ([]b
 func DispatchCommerceHook(context.Context, *Core, Commerce, string, []byte) ([]byte, bool, error)
 func DispatchFieldHook(context.Context, *Core, FieldProvider, string, []byte) ([]byte, bool, error)
 func DispatchLinkTargets(context.Context, string, []byte, func(context.Context, LinkTargetsRequest) ([]LinkTarget, error)) ([]byte, bool, error)
+func DispatchObligations(context.Context, ObligationsHolder, string, []byte) ([]byte, bool, error)
 func DispatchPaymentConsumerHook(context.Context, *Core, PaymentConsumer, string, []byte) ([]byte, bool, error)
 func DispatchPaymentGatewayHook(context.Context, *Core, PaymentGateway, string, []byte) ([]byte, bool, error)
 func DispatchPrivacyHook(context.Context, PersonalDataHolder, string, []byte) ([]byte, bool, error)
@@ -2376,6 +2407,8 @@ imethod Handler.HandleEvent(context.Context, string, []byte) (error)
 imethod Handler.HandleHook(context.Context, string, []byte) ([]byte, error)
 imethod Handler.Init(context.Context, *Core) (InitResult, error)
 imethod LinkTargetProvider.LinkTargets(context.Context, LinkTargetsRequest) ([]LinkTarget, error)
+imethod ObligationsHolder.Obligations(context.Context, ObligationsRequest) ([]Obligation, error)
+imethod ObligationsHolder.WindDown(context.Context, WindDownRequest) (WindDownResult, error)
 imethod OrdersProvider.ShopOrder(context.Context, ShopOrderRequest) (ShopOrderResult, error)
 imethod PaymentCapturer.CapturePayment(context.Context, PaymentCaptureRequest) (PaymentCaptureResult, error)
 imethod PaymentCapturer.VoidPayment(context.Context, PaymentVoidRequest) (PaymentVoidResult, error)
@@ -2499,6 +2532,7 @@ method (*Payments) GetRefund(context.Context, string) (PaymentRefund, error)
 method (*Payments) GetSavedMethod(context.Context, string) (SavedPaymentMethod, error)
 method (*Payments) GetSecret(context.Context, string) (string, bool, error)
 method (*Payments) GetSession(context.Context, string) (PaymentSession, error)
+method (*Payments) GrantSavedMethod(context.Context, string, PaymentMandateGrant) (SavedPaymentMethod, error)
 method (*Payments) ListDisputes(context.Context, string) ([]PaymentDispute, error)
 method (*Payments) MarkPending(context.Context, string, string) (PaymentSession, error)
 method (*Payments) Methods(context.Context, string) ([]PaymentOption, error)
@@ -2511,6 +2545,7 @@ method (*Payments) Reprice(context.Context, string, string, PaymentReprice) (Pay
 method (*Payments) Resolve(context.Context, string, PaymentResolution) (PaymentSession, error)
 method (*Payments) ResolveRefund(context.Context, string, string) (PaymentRefund, error)
 method (*Payments) ReverseRefund(context.Context, string, PaymentRejection) (PaymentRefund, error)
+method (*Payments) RevokeSavedMethodGrant(context.Context, string, PaymentMandateGrant) (SavedPaymentMethod, error)
 method (*Payments) SetSecret(context.Context, string, string) (error)
 method (*Payments) Void(context.Context, string, string) (PaymentSession, error)
 method (*Reference) EUVATRates(context.Context, time.Time) (EUVATRateSet, error)
@@ -2608,6 +2643,8 @@ method (LabelResult) ValidateFor(LabelRequest) (error)
 method (Licence) MarshalJSON() ([]byte, error)
 method (Licence) TakesRealMoney() (bool)
 method (LinkTarget) Validate(string) (error)
+method (Obligation) Validate() (error)
+method (ObligationsAnswer) Validate() (error)
 method (Parcel) Validate() (error)
 method (PaymentAddress) Validate() (error)
 method (PaymentAuthorization) Validate() (error)
@@ -2621,6 +2658,7 @@ method (PaymentExternalRefund) Validate() (error)
 method (PaymentForgetRequest) GoString() (string)
 method (PaymentForgetRequest) String() (string)
 method (PaymentMandate) Validate() (error)
+method (PaymentMandateGrant) Validate() (error)
 method (PaymentRefund) Unmatched() (bool)
 method (PaymentRefundParams) Validate() (error)
 method (PaymentRejection) Validate() (error)
@@ -2674,6 +2712,7 @@ method (VisitorTool) Validate() (error)
 method (VoidRequest) Validate() (error)
 method (VoidResult) Validate() (error)
 method (WalletAddress) Validate() (error)
+method (WindDownResult) Validate() (error)
 type API
 type APIError
 type Ability
@@ -2850,6 +2889,10 @@ type MobileRow
 type NewMenuItem
 type NewTerm
 type OIDCClient
+type Obligation
+type ObligationsAnswer
+type ObligationsHolder
+type ObligationsRequest
 type OrdersProvider
 type PageForm
 type PageMobile
@@ -2881,6 +2924,7 @@ type PaymentGatewayPlugin
 type PaymentGatewayState
 type PaymentLine
 type PaymentMandate
+type PaymentMandateGrant
 type PaymentMethod
 type PaymentOption
 type PaymentReader
@@ -3022,6 +3066,8 @@ type WidgetDef
 type WidgetField
 type WidgetProvider
 type WidgetRenderRequest
+type WindDownRequest
+type WindDownResult
 type WriteAnswer
 var AccountVocabulary
 var ErrAddressSuggestLimited
