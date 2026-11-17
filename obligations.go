@@ -32,8 +32,9 @@ import (
 // only what you hold on its behalf, and wind down only that. The leaving plugin may be dead or already switched off;
 // what its providers hold is still named and still settled. For "" is the plugin itself.
 //
-// Both are admitted for every plugin, with no capability: Core sends nothing from the site, and you answer only about
-// your own records. Keep within the budget (15 seconds): queue the mails, do not wait for them. Before an uninstall
+// Both are admitted by `datastore` — a plugin that keeps records of its own, durably; one that stores nothing has
+// nothing it could owe — never by `hooks`. Core sends nothing from the site, and you answer only about your own
+// records. Keep within the budget (15 seconds): queue the mails, do not wait for them. Before an uninstall
 // Core also offers the owner the export of your stored data (your tables, as JSON), so the records stay theirs.
 //
 // Implement ObligationsHolder on your Handler: Serve subscribes both hooks and answers them, checking your answer before

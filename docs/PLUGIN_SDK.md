@@ -2658,7 +2658,8 @@ This is plugin-sdk v0.11.0 and needs a Core built on it; an older Core refuses t
 A plugin can hold promises to people other than the owner — subscriptions that renew, points a buyer earned, listings
 live on a marketplace, slots somebody booked. Switching it off or uninstalling it would break them silently, so Core
 asks first. Implement `nilda.ObligationsHolder` on your Handler and `Serve` subscribes both hooks and answers them
-(no capability: Core sends nothing from the site); a `HandleHook` that routes by hand calls `nilda.DispatchObligations`:
+(they are admitted by `datastore` — a plugin that keeps records of its own, durably — never by `hooks`; Core sends nothing
+from the site); a `HandleHook` that routes by hand calls `nilda.DispatchObligations`:
 
 ```go
 func (p *Plugin) Obligations(ctx context.Context, req nilda.ObligationsRequest) ([]nilda.Obligation, error)

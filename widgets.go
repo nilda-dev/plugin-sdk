@@ -492,7 +492,7 @@ var providerHooks = []struct {
 	// privacy.* needs `personal_data`: the owner agreed that this plugin is sent a requester's address.
 	{"PersonalDataHolder", func(h Handler) bool { _, is := h.(PersonalDataHolder); return is },
 		[]string{HookPrivacyExport, HookPrivacyErase}},
-	// obligations.* need no grant (door D11): Core sends nothing from the site, and the plugin answers about its own.
+	// obligations.* need `datastore` (door D11): a plugin that keeps records of its own; Core sends nothing.
 	{"ObligationsHolder", func(h Handler) bool { _, is := h.(ObligationsHolder); return is },
 		[]string{ObligationsListHook, ObligationsWindDownHook}},
 	{"PaymentGateway", func(h Handler) bool { _, is := h.(PaymentGateway); return is },
