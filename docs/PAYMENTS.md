@@ -954,8 +954,11 @@ strong customer authentication when the method is kept, later charges out of its
    refused or expired and then arrives after all is booked, never refused: the session resolves with **`DuplicateOf`**
    naming the charge holding the cycle, you hear it as any change, and you refund it — **once the charge it names has
    resolved**. If that charge ends without money instead, Core clears `DuplicateOf` in the same transaction and you are
-   told again: the late payment is now the cycle's own, and a further charge of the cycle is refused naming it. A
-   duplicate you already refunded is not promoted, and the cycle is open again. A late `pending` with no money is
+   told again: `""` then means the late payment is the period's own — do not refund it as a duplicate (a refund you
+   ask after that is an ordinary refund of the period, and the cycle stays paid) — and a further charge of the cycle
+   is refused naming it. A duplicate you refunded or are refunding, or one under a chargeback, is not promoted, and the
+   cycle is open again. A duplicate held for a person (a different amount) takes the cycle when the person accepts
+   it, if nothing holds it then. A late `pending` with no money is
    refused (`409`). A charge left with no recorded answer is never expired: after ten minutes Core moves it to
    `pending` and asks the gateway again under the same session. While Core's cycle index is not valid, a charge naming
    a cycle is refused `503 UNAVAILABLE` and nothing is charged.
