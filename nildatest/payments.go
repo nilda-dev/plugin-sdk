@@ -305,6 +305,22 @@ func (p *Payments) Expire(id string) error {
 	return nil
 }
 
+// ExpireByHand moves a session to expired whatever its status, as a row edited outside Core would be — a restore of
+// old data, a hand edit. Core's own paths never expire a charge of a kept method (its expiry moves one to pending, a
+// start answer is never expired, pending never moves to expired), so this is the only way a test reaches what door D5
+// books as a DUPLICATE: an expired renewal charge whose money arrives after another charge took its cycle.
+func (p *Payments) ExpireByHand(id string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	s, ok := p.sessions[id]
+	if !ok {
+		return fmt.Errorf("nildatest: no payment session %q", id)
+	}
+	s.Status, s.ClientAction, s.UpdatedAt = nilda.PaymentExpired, "", time.Now().UTC()
+	p.owe(owed{session: s.ID})
+	return nil
+}
+
 // reportedMoney is what a processor said it took, when that was not what the session asked.
 type reportedMoney struct {
 	amount   int64
@@ -881,12 +897,14 @@ func (p *Payments) move(s *nilda.PaymentSession, to string) bool {
 	if s.Status == to || !nilda.PaymentCanMove(s.Status, to) {
 		return false
 	}
+	from := s.Status
 	s.Status = to
 	if to != nilda.PaymentRedirected {
 		s.ClientAction = "" // the payer's page needs it only while the session waits there
 	}
 	s.UpdatedAt = time.Now().UTC()
 	p.owe(owed{session: s.ID})
+	p.cycleMovedLocked(s, from) // a renewal's cycle: promotion, the retell, a duplicate settling (paymentsaved.go)
 	return true
 }
 
@@ -1044,12 +1062,30 @@ func (p *Payments) report(ctx context.Context, caller, id, verb string, body []b
 				if r.ProviderRef != "" {
 					s.ProviderRef = r.ProviderRef
 				}
+				// Money, held for a person, for a cycle another charge holds: a duplicate of it, as Core (paysMoney).
+				if holder := p.lateForHeldCycleLocked(s); holder != "" {
+					s.DuplicateOf = holder
+				}
 				s.FailureCode, s.FailureMessage = nilda.PaymentFailAmountMismatch, ""
 				if !p.move(s, nilda.PaymentPending) {
 					// Already pending: the status is the same, the reason is not — the consumer hears it.
 					s.UpdatedAt = time.Now().UTC()
 					p.owe(owed{session: s.ID})
 				}
+				return *s, nil
+			}
+			// A LATE ANSWER FOR A CYCLE TAKEN MEANWHILE (door D5): money for a renewal's charge that had EXPIRED, arriving
+			// while another charge holds its cycle (paid or still deciding), is booked — resolved, naming that charge —
+			// never refused: the payer paid twice, and the consumer refunds it once that charge has resolved, as Core does.
+			// A REJECTED charge's money is refused below (409), as any rejected payment's is.
+			if paid := p.lateForHeldCycleLocked(s); paid != "" {
+				if r.ProviderRef != "" {
+					s.ProviderRef = r.ProviderRef
+				}
+				now := time.Now().UTC()
+				s.DuplicateOf, s.FailureCode, s.FailureMessage, s.Instrument, s.ResolvedAt = paid, "", "", r.Instrument, &now
+				s.Status, s.UpdatedAt = nilda.PaymentResolved, now
+				p.owe(owed{session: s.ID})
 				return *s, nil
 			}
 			if s.Status != nilda.PaymentResolved && !nilda.PaymentCanMove(s.Status, nilda.PaymentResolved) {
@@ -1121,6 +1157,12 @@ func (p *Payments) report(ctx context.Context, caller, id, verb string, body []b
 			}
 			if s.Status == nilda.PaymentPending {
 				return *s, nil // already pending: nothing changes, the reference included (Core's MarkPending)
+			}
+			// No money, for a cycle another charge holds: refused, the charge stays expired — never "paid twice" (Core).
+			if holder := p.lateForHeldCycleLocked(s); holder != "" {
+				return nil, &apiError{http.StatusConflict, "CONFLICT", fmt.Sprintf("cycle %d of agreement %q is held by "+
+					"charge %s; this charge stays expired — money reported on it later is booked as that charge's duplicate",
+					s.Cycle, s.Agreement, holder)}
 			}
 			if !nilda.PaymentCanMove(s.Status, nilda.PaymentPending) {
 				return nil, conflict(s)
@@ -1435,6 +1477,7 @@ func (p *Payments) moveRefund(rf *nilda.PaymentRefund, to string) bool {
 		p.recountRefunded(rf.Session)
 	}
 	p.owe(owed{session: rf.Session, refund: rf.ID})
+	p.resettleLocked(rf.Session) // a duplicate this refund held back is settled again (paymentsaved.go)
 	return true
 }
 
@@ -1515,6 +1558,7 @@ func (p *Payments) reportRefund(caller, id, verb string, body []byte) (any, erro
 		rf.FailureCode, rf.FailureMessage = r.FailureCode, r.FailureMessage
 		p.recountRefunded(rf.Session)
 		p.owe(owed{session: rf.Session, refund: rf.ID})
+		p.resettleLocked(rf.Session) // undone: a duplicate's money is staying again (paymentsaved.go)
 		return *rf, nil
 	case "reject":
 		var r nilda.PaymentRejection

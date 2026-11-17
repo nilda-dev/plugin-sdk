@@ -120,6 +120,7 @@ func (p *Payments) reportDispute(caller, sessionID string, body []byte) (nilda.P
 		applyDispute(d, r, now)
 		p.disputes[d.ID] = d
 		p.owe(owed{session: sessionID, dispute: d.ID})
+		p.resettleLocked(sessionID) // a duplicate a dispute held back is settled again (paymentsaved.go)
 		return *d, nil
 	}
 	if cur.Session != sessionID {
@@ -140,6 +141,7 @@ func (p *Payments) reportDispute(caller, sessionID string, body []byte) (nilda.P
 	}
 	*cur = next
 	p.owe(owed{session: sessionID, dispute: cur.ID})
+	p.resettleLocked(sessionID) // a chargeback won or closed: a duplicate's money is staying (paymentsaved.go)
 	return *cur, nil
 }
 

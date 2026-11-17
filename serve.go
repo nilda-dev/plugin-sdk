@@ -47,7 +47,8 @@ type InitResult struct {
 	// payment.describe/payment.start/payment.refund/payment.sync/payment.saved.forget/payment.capture/payment.void/payment.reprice
 	// by `payment_gateway` (payment.reprice from the Core of plan 10.2's X2b), and
 	// payment.session.confirm/payment.session.updated/payment.refund.updated/payment.dispute.updated by
-	// `payment_session`, privacy.export/privacy.erase by `personal_data`, trash.restore/trash.purge by `trash` — and
+	// `payment_session`, privacy.export/privacy.erase by `personal_data`, trash.restore/trash.purge by `trash`,
+	// obligations.list/obligations.wind_down by `datastore` — and
 	// `hooks` does not admit them. account.*
 	// are by the manifest's `account` block alone:
 	// Core subscribes a plugin that declares it, and keeps none listed here.

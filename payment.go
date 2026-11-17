@@ -289,6 +289,19 @@ type PaymentSession struct {
 	// OffSessionUnscheduled, from the mandate (OffSessionOf) — set by Core, never by a consumer; "" when the payer is
 	// present (v0.58.0, door D5). A gateway tells its processor (Stripe: off_session "recurring" or "one_off").
 	OffSession string `json:"off_session,omitempty"`
+	// Agreement and Cycle are the renewal a ChargedSaved session is for (PaymentChargeParams.Agreement, door D5,
+	// EXPERIMENTAL); "" and 0 for every other session.
+	Agreement string `json:"agreement,omitempty"`
+	Cycle     int    `json:"cycle,omitempty"`
+	// DuplicateOf is set when this charge's money arrived after ANOTHER charge had taken its cycle — a late answer after a
+	// retry (door D5, EXPERIMENTAL): the session holding the cycle. The payer paid twice; this session holds the second
+	// payment, resolved because the processor has the money, and you refund it — once the charge it names has resolved.
+	// If that charge ends without money instead, Core clears DuplicateOf and you are told again: "" then means this is
+	// the period's own payment — do not refund it as a duplicate; a refund you ask after that is an ordinary refund of the
+	// period, and the cycle stays paid. A duplicate you refunded, or whose money a chargeback took back, is never made the
+	// period's payment. You are told again whenever the charge it names resolves or ends; while that charge has ended
+	// and nothing is settled yet, wait — Core settles it and tells you. "" for every other session.
+	DuplicateOf string `json:"duplicate_of,omitempty"`
 	// Instrument is what the payer paid with (the Instrument constants), as the gateway reported it with the
 	// resolution; "" until resolved or when the gateway did not say. ResolvedAt is when the session first resolved —
 	// set once, never moved by a repeated report. v0.39.0.

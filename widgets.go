@@ -383,6 +383,15 @@ func dispatchProvided(ctx context.Context, h Handler, hook string, payload []byt
 			return nil, false, nil
 		}
 		return DispatchPrivacyHook(ctx, ph, hook, payload)
+
+	// The obligations hooks (door D11): a holder subscribed and then answering nothing is an uninstall that cannot
+	// name what it breaks.
+	case ObligationsListHook, ObligationsWindDownHook:
+		oh, is := h.(ObligationsHolder)
+		if !is {
+			return nil, false, nil
+		}
+		return DispatchObligations(ctx, oh, hook, payload)
 	}
 	return nil, false, nil
 }
@@ -483,6 +492,9 @@ var providerHooks = []struct {
 	// privacy.* needs `personal_data`: the owner agreed that this plugin is sent a requester's address.
 	{"PersonalDataHolder", func(h Handler) bool { _, is := h.(PersonalDataHolder); return is },
 		[]string{HookPrivacyExport, HookPrivacyErase}},
+	// obligations.* need `datastore` (door D11): a plugin that keeps records of its own; Core sends nothing.
+	{"ObligationsHolder", func(h Handler) bool { _, is := h.(ObligationsHolder); return is },
+		[]string{ObligationsListHook, ObligationsWindDownHook}},
 	{"PaymentGateway", func(h Handler) bool { _, is := h.(PaymentGateway); return is },
 		[]string{HookPaymentDescribe, HookPaymentStart, HookPaymentRefund}},
 	{"PaymentConsumer", func(h Handler) bool { _, is := h.(PaymentConsumer); return is },

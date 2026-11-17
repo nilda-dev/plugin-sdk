@@ -1,0 +1,330 @@
+{
+  "name": "shop.rewards/v1",
+  "description": "What a rewards plugin gives a buyer, honoured by the shop (SHOP_REWARDS.md): store credit on their account and single-use discount codes only they can use — write commands, keyed, kept with the plugin that issued them, announced once committed, and taken back while nothing depends on them. The plugin never prices a basket or keeps money.",
+  "methods": [
+    {
+      "name": "credit.issue",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. Put store credit on one buyer's account (Core's account id), in the shop's currency, with the reason the owner and the buyer read; the same idempotency key answers the first credit with already: true. A refusal is the answer's refused code.",
+      "retry_class": "answer",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reads and takes back store credit and discount codes through the shop's own abilities (customer_store_credit, list_discounts, delete_discount), each saying which plugin issued it; this is how the plugin that owns the points spends them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "customer_user_id": {
+            "type": "string"
+          },
+          "amount_minor": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "customer_user_id",
+          "amount_minor",
+          "currency",
+          "reason"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          },
+          "already": {
+            "type": "boolean"
+          },
+          "refused": {
+            "type": "string"
+          },
+          "balance_minor": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "already"
+        ]
+      },
+      "write": {
+        "record": "store_credit",
+        "undo": "credit.undo",
+        "emits": "ecommerce.store_credit.issued"
+      }
+    },
+    {
+      "name": "credit.undo",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. Take back a credit this plugin issued. Refused spent when the buyer's balance no longer holds it.",
+      "retry_class": "answer",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reads and takes back store credit and discount codes through the shop's own abilities (customer_store_credit, list_discounts, delete_discount), each saying which plugin issued it; this is how the plugin that owns the points spends them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          },
+          "already": {
+            "type": "boolean"
+          },
+          "refused": {
+            "type": "string"
+          },
+          "balance_minor": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "already"
+        ]
+      },
+      "write": {
+        "record": "store_credit",
+        "emits": "ecommerce.store_credit.undone"
+      }
+    },
+    {
+      "name": "discount.issue",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. Make one single-use discount code through the shop's discount engine, usable once and only by the named signed-in buyer: a fixed amount or a percentage of the goods, with its title, an optional expiry and minimum. The answer carries the code.",
+      "retry_class": "answer",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reads and takes back store credit and discount codes through the shop's own abilities (customer_store_credit, list_discounts, delete_discount), each saying which plugin issued it; this is how the plugin that owns the points spends them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "customer_user_id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "value": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "minimum_subtotal_minor": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "customer_user_id",
+          "kind",
+          "value",
+          "title"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          },
+          "already": {
+            "type": "boolean"
+          },
+          "refused": {
+            "type": "string"
+          },
+          "balance_minor": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "already"
+        ]
+      },
+      "write": {
+        "record": "reward_discount",
+        "undo": "discount.undo",
+        "emits": "ecommerce.reward_discount.issued"
+      }
+    },
+    {
+      "name": "discount.undo",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. Take back a code this plugin issued: it goes to the site's recycle bin. Refused used once an order used it.",
+      "retry_class": "answer",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reads and takes back store credit and discount codes through the shop's own abilities (customer_store_credit, list_discounts, delete_discount), each saying which plugin issued it; this is how the plugin that owns the points spends them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          },
+          "already": {
+            "type": "boolean"
+          },
+          "refused": {
+            "type": "string"
+          },
+          "balance_minor": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "already"
+        ]
+      },
+      "write": {
+        "record": "reward_discount",
+        "emits": "ecommerce.reward_discount.undone"
+      }
+    },
+    {
+      "name": "issued.get",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. What one record this plugin issued is now: open, used (and by which order), expired, binned (in the site's recycle bin until purges_at: still the buyer's) or undone.",
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reads and takes back store credit and discount codes through the shop's own abilities (customer_store_credit, list_discounts, delete_discount), each saying which plugin issued it; this is how the plugin that owns the points spends them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "found": {
+            "type": "boolean"
+          },
+          "issued": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "record_id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "customer_user_id": {
+                "type": "string"
+              },
+              "amount_minor": {
+                "type": "integer"
+              },
+              "percent": {
+                "type": "integer"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              },
+              "order_id": {
+                "type": "string"
+              },
+              "expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "issued_at": {
+                "type": "string"
+              },
+              "purges_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              }
+            },
+            "required": [
+              "record_id",
+              "kind",
+              "status",
+              "customer_user_id",
+              "issued_at"
+            ]
+          }
+        },
+        "required": [
+          "found"
+        ]
+      }
+    }
+  ],
+  "status": "experimental"
+}

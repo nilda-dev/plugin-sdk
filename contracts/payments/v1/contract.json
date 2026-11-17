@@ -384,6 +384,15 @@
               "off_session": {
                 "type": "string"
               },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
+              },
+              "duplicate_of": {
+                "type": "string"
+              },
               "instrument": {
                 "type": "string"
               },
@@ -858,6 +867,15 @@
               "off_session": {
                 "type": "string"
               },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
+              },
+              "duplicate_of": {
+                "type": "string"
+              },
               "instrument": {
                 "type": "string"
               },
@@ -1231,6 +1249,15 @@
                 "type": "string"
               },
               "off_session": {
+                "type": "string"
+              },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
+              },
+              "duplicate_of": {
                 "type": "string"
               },
               "instrument": {
@@ -1613,6 +1640,15 @@
                 "type": "string"
               },
               "off_session": {
+                "type": "string"
+              },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
+              },
+              "duplicate_of": {
                 "type": "string"
               },
               "instrument": {
@@ -2000,6 +2036,15 @@
               "off_session": {
                 "type": "string"
               },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
+              },
+              "duplicate_of": {
+                "type": "string"
+              },
               "instrument": {
                 "type": "string"
               },
@@ -2373,6 +2418,15 @@
                 "type": "string"
               },
               "off_session": {
+                "type": "string"
+              },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
+              },
+              "duplicate_of": {
                 "type": "string"
               },
               "instrument": {
@@ -2774,6 +2828,15 @@
               "off_session": {
                 "type": "string"
               },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
+              },
+              "duplicate_of": {
+                "type": "string"
+              },
               "instrument": {
                 "type": "string"
               },
@@ -3139,6 +3202,15 @@
                 "type": "string"
               },
               "off_session": {
+                "type": "string"
+              },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
+              },
+              "duplicate_of": {
                 "type": "string"
               },
               "instrument": {
@@ -3551,6 +3623,15 @@
                 "type": "string"
               },
               "off_session": {
+                "type": "string"
+              },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
+              },
+              "duplicate_of": {
                 "type": "string"
               },
               "instrument": {
@@ -3989,6 +4070,15 @@
                 "type": "string"
               },
               "off_session": {
+                "type": "string"
+              },
+              "agreement": {
+                "type": "string"
+              },
+              "cycle": {
+                "type": "integer"
+              },
+              "duplicate_of": {
                 "type": "string"
               },
               "instrument": {

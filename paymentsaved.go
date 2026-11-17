@@ -3,6 +3,7 @@ package nilda
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -228,6 +229,23 @@ type SavedPaymentMethod struct {
 	ForgottenAt *time.Time `json:"forgotten_at,omitempty"`
 }
 
+// MaxPaymentAgreement is the longest agreement name a charge carries (PaymentChargeParams.Agreement, door D5,
+// EXPERIMENTAL); MaxPaymentCycle the highest cycle.
+const (
+	MaxPaymentAgreement = 128
+	MaxPaymentCycle     = 1_000_000
+)
+
+func validAgreement(a string) error {
+	if a == "" || len(a) > MaxPaymentAgreement || !agreementRe.MatchString(a) {
+		return fmt.Errorf("nilda: an agreement is 1-%d letters, digits and . _ : -, starting with a letter or digit; got %q",
+			MaxPaymentAgreement, a)
+	}
+	return nil
+}
+
+var agreementRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]*$`)
+
 // PaymentChargeParams is what a CONSUMER sends to charge a kept method (Payments.ChargeSaved): the payer is not
 // there, so there are no return addresses and no page.
 type PaymentChargeParams struct {
@@ -241,6 +259,17 @@ type PaymentChargeParams struct {
 	// Fulfilment and ShippingAddress, if you know them, for the processor's fraud checks.
 	Fulfilment      string          `json:"fulfilment,omitempty"`
 	ShippingAddress *PaymentAddress `json:"shipping_address,omitempty"`
+	// Agreement and Cycle name the renewal this charge is for (door D5, EXPERIMENTAL): your id for the subscription
+	// and its billing cycle, 1 for the first charge after sign-up. Core keeps at most ONE charge per consumer (you),
+	// agreement and cycle that is paid or still deciding — whichever kept method it is on, so a replaced card still pays a
+	// cycle once: another is refused (409 CONFLICT, naming the session) while that one stands, and a cycle whose charge
+	// was refused or expired may be charged again — your retry after a decline, with a new idempotency key. If the
+	// refused or expired charge's money arrives after all, Core books it — resolved, with PaymentSession.DuplicateOf
+	// naming the charge holding the cycle — and you refund it once that charge has resolved; if it ends without money,
+	// Core clears DuplicateOf and tells you, and the late one is the cycle's payment. A late "pending" with no money is
+	// refused. A kept charge left unanswered ten minutes is asked again, never expired. Both empty: no cycle is held.
+	Agreement string `json:"agreement,omitempty"`
+	Cycle     int    `json:"cycle,omitempty"`
 }
 
 // Validate refuses a charge Core would refuse without looking anything up.
@@ -268,6 +297,14 @@ func (p PaymentChargeParams) Validate() error {
 	}
 	if !noNUL(p.Reference, p.Description) {
 		return errNUL()
+	}
+	switch {
+	case p.Agreement == "" && p.Cycle != 0:
+		return fmt.Errorf("nilda: a charge's cycle belongs to an agreement; name the agreement")
+	case p.Agreement != "" && (p.Cycle < 1 || p.Cycle > MaxPaymentCycle):
+		return fmt.Errorf("nilda: a charge for an agreement names its cycle, 1-%d", MaxPaymentCycle)
+	case p.Agreement != "":
+		return validAgreement(p.Agreement)
 	}
 	return nil
 }

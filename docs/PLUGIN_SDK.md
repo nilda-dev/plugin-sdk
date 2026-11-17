@@ -2565,6 +2565,9 @@ with `nilda.PaymentChargeParams`) and forgets (`ForgetSavedMethod`). A gateway t
 as a `nilda.PaymentForgetRequest` (`payment.saved.forget`). A charge the payer's bank wants them present for is
 rejected with `authentication_required`.
 
+**Door D5 (EXPERIMENTAL) names the renewal** (PAYMENTS.md §5, item 4): a charge carries `Agreement` and `Cycle`, and
+Core charges one cycle once — a second is 409 while the first is paid or deciding; a refused cycle may be asked again.
+
 **v0.58.0 adds holding the money, then taking it** (PAYMENTS.md §4–§5): a consumer sends
 `PaymentSessionParams.Capture` `nilda.CaptureManual` on a method that lists `nilda.SupportManualCapture`; the gateway
 reports the hold, a `nilda.PaymentAuthorization`, with `Authorize`, and the session is `nilda.PaymentAuthorized`; the
@@ -2649,6 +2652,44 @@ got, _ := sec.Get("higgsfield", "refresh_token") // what Core would be holding
 ```
 
 This is plugin-sdk v0.11.0 and needs a Core built on it; an older Core refuses the `secrets` capability at install.
+
+### Live obligations, and winding them down (door D11, EXPERIMENTAL)
+
+A plugin can hold promises to people other than the owner — subscriptions that renew, points a buyer earned, listings
+live on a marketplace, slots somebody booked. Switching it off or uninstalling it would break them silently, so Core
+asks first. Implement `nilda.ObligationsHolder` on your Handler and `Serve` subscribes both hooks and answers them
+(they are admitted by `datastore` — a plugin that keeps records of its own, durably — never by `hooks`; Core sends nothing
+from the site); a `HandleHook` that routes by hand calls `nilda.DispatchObligations`:
+
+```go
+func (p *Plugin) Obligations(ctx context.Context, req nilda.ObligationsRequest) ([]nilda.Obligation, error)
+func (p *Plugin) WindDown(ctx context.Context, req nilda.WindDownRequest) (nilda.WindDownResult, error)
+```
+
+The request types are `nilda.ObligationsRequest` (the owner's `Locale`) and `nilda.WindDownRequest` (its `Reason`,
+`nilda.WindDownUninstall` or `nilda.WindDownDisable`); the list hook answers a `nilda.ObligationsAnswer`, the wind-down a
+`nilda.WindDownResult`.
+
+- **`obligations.list`** — answer every kind you hold at least one of (`nilda.Obligation`: a kind, a count, a sentence
+  of what they are, a sentence of what winding them down does, and the money they stand for if any), in the language
+  the request names. An empty list means you hold none; if you could not count, return an error — Core then says you
+  did not answer, never that nothing is owed. Core shows the answer before a switch-off and before an uninstall, and to
+  the site's assistant (`plugin_obligations`).
+- **`obligations.wind_down`** — settle them: stop what would happen next (no renewal charged, no points earned) and tell
+  the people concerned through Core's mail door, then answer what is still live (`Remaining`, each saying why). Called
+  again, change nothing more and mail nobody twice. Core calls it before an uninstall whenever you answered an
+  obligation — the uninstall is refused while it fails or leaves something live — and before a switch-off only when the
+  owner chose to wind down: a plain switch-off is the owner's kill switch, and may be undone a minute later.
+
+**On another plugin's behalf.** If you provide a service contract, you may hold obligations for the plugins that use
+it — the renewal orders a subscriptions plugin asked the shop for, the credit a loyalty plugin issued through it. When
+such a plugin is switched off or uninstalled, Core asks you too, with `For` naming it: answer only what you hold for it,
+and wind down only that. The leaving plugin may be dead; what you hold for it is still named and settled. `For` is ""
+when the question is about you.
+
+Both have 15 seconds: queue the mails, do not wait for them. Your error is your answer, never a failure that counts
+toward switching you off. Before an uninstall the owner is also offered the export of your stored data, so the records
+stay theirs.
 
 ### The site's recycle bin (`trash`)
 
@@ -3403,6 +3444,28 @@ currency, its `ShopEventLine`s and the visitor's `ConsentSnapshot` copied when t
   finds it by itself.
 - Test against `nildatest.ShopEvents` (`NewShopEvents`): it records events as the shop would, delivers them to your
   `HandleEvent`, and answers the read.
+
+### What a rewards plugin gives a buyer (`shop.rewards/v1`, experimental)
+
+`docs/SHOP_REWARDS.md` is the whole of it (`shoprewards.go`). The shop implements `RewardsProvider`; `RewardsMethods`
+answers `credit.issue` (`RewardCreditRequest`), `credit.undo` and `discount.undo` (`UndoInput`), `discount.issue`
+(`RewardDiscountRequest`) — each answering a `RewardWriteAnswer`, the record or `refused` with one of `RewardRefusals()` —
+and `issued.get` (`RewardIssuedRequest` → `RewardIssuedAnswer` with a `RewardIssued`). A loyalty plugin asks with
+`Services.IssueStoreCredit`, `Services.IssueRewardDiscount` and `Services.UndoReward`, always with a key derived from what
+the reward is for. `ShopOrder.CustomerUserID` names the buyer's account.
+
+### Subscriptions sold and renewed by the shop (`shop.subscriptions/v1`, experimental)
+
+`docs/SHOP_SUBSCRIPTIONS.md` is the whole of it (`shopsubscriptions.go`), doors D3 and D9. The shop implements
+`SubscriptionsProvider`; `SubscriptionsMethods` answers `plan.set` (`SubscriptionPlanRequest` with a
+`SubscriptionPricing` and its `SubscriptionCycles`), `plan.undo`, `renewal.undo` and `agreement.resume` (`UndoInput`), `agreement.stop`
+(`SubscriptionStopRequest`) — each a `SubscriptionWriteAnswer` — `agreements.get` (`SubscriptionAgreementRequest` →
+`SubscriptionAgreementAnswer`), `agreements.list` (`SubscriptionAgreementsRequest` → `SubscriptionAgreementsAnswer`), and
+`renewal.place` (`SubscriptionRenewalRequest` with optional `SubscriptionRenewalLine`s → `SubscriptionRenewalAnswer`); and
+`renewal.quote` (`SubscriptionQuoteRequest` → `SubscriptionQuoteAnswer`). An
+agreement is a `SubscriptionAgreement` of `SubscriptionLine`s at the price locked at sign-up, its `SubscriptionMethod`'s
+label (never its id) and its `SubscriptionCycle`s. Refusals are `SubscriptionRefusals()`; events `SubscriptionEvents()`.
+A subscriptions plugin places a cycle with `Services.PlaceRenewal`.
 
 ### The shop's catalogue (`shop.catalog/v1`)
 

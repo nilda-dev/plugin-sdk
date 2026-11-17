@@ -8,7 +8,52 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## Unreleased (TermContents: many terms' items in one call)
+## v0.68.0 — 2026-11-17 (doors D5 and D11, shop.rewards/v1 and shop.subscriptions/v1, TermContents)
+
+
+Additive, and EXPERIMENTAL: commerce plan 2026-11-05 §1J doors D5 and D11, for the subscriptions (P02) and loyalty (P08)
+plugins. Core reads both from the release built on this version.
+
+Added:
+
+- `PaymentChargeParams.Agreement` and `Cycle`, echoed on `PaymentSession`: the renewal a charge of a kept method is for.
+  Core keeps at most one charge per consumer, agreement and cycle that is paid or still deciding (409 for another); a
+  refused or expired cycle may be charged again, and a late answer for a cycle paid meanwhile is booked with
+  `PaymentSession.DuplicateOf` naming the charge holding the cycle — refunded once that charge resolves, and cleared
+  (you are told again) when it ends without money instead. `MaxPaymentAgreement`, `MaxPaymentCycle`.
+  `nildatest.Payments` holds the cycle as Core does: a late answer WITH MONEY for an expired charge, while another charge
+  holds its cycle (paid or still deciding), is booked as that charge's duplicate; money on a rejected charge is refused
+  409, and a late pending with no money too. When the holder ends without money its oldest duplicate whose money is
+  staying is promoted; when it resolves, its duplicates' consumers are told again; a duplicate a refund or chargeback held
+  back is settled again when that ends, and a held one a person accepts takes the free cycle. `Payments.ExpireByHand`
+  expires a charge as only a row edited outside Core can be — the one way a test reaches a duplicate.
+- `ObligationsListHook`, `ObligationsWindDownHook`, `Obligation`, `ObligationsRequest`, `ObligationsAnswer`,
+  `WindDownRequest` (`WindDownUninstall`, `WindDownDisable`), `WindDownResult`, `ObligationsHolder` and
+  `DispatchObligations`: a plugin's live obligations, named before a switch-off or an uninstall and wound down before
+  the uninstall; `ObligationsRequest.For` names the plugin a provider of a contract it uses is asked on behalf of.
+  `MaxObligations`, `MaxObligationKind`, `MaxObligationText`.
+
+Also added, for the same two plugins — two contracts the shop provides, both `"status": "experimental"` (outside the v1 promise until their first
+plugin ships green on them), each built on the write-command pattern (`WRITE_COMMANDS.md`):
+
+- `shop.rewards/v1` (`shoprewards.go`, `docs/SHOP_REWARDS.md`): `credit.issue` / `credit.undo`, `discount.issue` /
+  `discount.undo`, `issued.get` — store credit and single-use codes a loyalty plugin gives a buyer, honoured by the shop.
+  `RewardsProvider`, `RewardsMethods`, `Services.IssueStoreCredit`, `Services.IssueRewardDiscount`, `Services.UndoReward`.
+- `shop.subscriptions/v1` (`shopsubscriptions.go`, `docs/SHOP_SUBSCRIPTIONS.md`, doors D3 and D9): `plan.set` /
+  `plan.undo`, `agreements.get`, `agreements.list`, `renewal.place` / `renewal.undo`, `agreement.stop` /
+  `agreement.resume`, `renewal.quote`. `SubscriptionsProvider`, `SubscriptionsMethods`, `Services.PlaceRenewal`.
+- `SubscriptionCycles` on `SubscriptionPlanRequest` and `SubscriptionAgreement` (`discount_cycles`, `min_cycles`,
+  `max_cycles`, `MaxSubscriptionCycles`) and the refusal `past_max_cycles` (`SubscriptionPastMaxCycles`).
+- Refusals from the money review: `limit` (`RewardLimit`), `charging` (`SubscriptionCharging`), `over_agreement`
+  (`SubscriptionOverAgreement`), `delivery_unavailable` (`SubscriptionDeliveryUnavailable`), `account_refused` (`SubscriptionAccountRefused`).
+- `RewardBinned` (`binned`) and `RewardIssued.PurgesAt`: issued.get's state for a code the owner deleted that is in the
+  site's recycle bin until `purges_at` — still the buyer's, nothing to give back for it yet; `undone` now also means
+  deleted for good.
+- `ShopOrder.CustomerUserID` (shop.orders/v1, additive): Core's account id of the signed-in buyer.
+- `Serve` finds a `RewardsProvider` and a `SubscriptionsProvider` by itself, as it finds the shop's other doors.
+
+TermContents (many terms' items in one call):
+
 
 Additive. Mirrors Core's `GET /api/rest/v1/terms/content` (core, 2026-11-17): a page that lists many terms — a
 storefront's category facet — read each term with its own `TermContent`, one round trip and three Core queries per
