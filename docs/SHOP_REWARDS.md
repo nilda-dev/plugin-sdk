@@ -25,6 +25,11 @@ any 24 hours at most a daily total (pre-filled 2,000.00), all settable by the ow
 account Core knows (`no_customer`). `credit.undo` takes back only what the plugin gave that the buyer has provably not
 spent — never credit the shop gave them (a refund to store credit), refused `spent` otherwise.
 
+**A used code stays `used`.** issued.get answers `used`, with the `order_id`, for any reward code an order used — whatever
+happened to the code or its discount afterwards: deleted by the owner, in the recycle bin, purged, undone. `undone`,
+`expired` and `binned` are answered only for a code no order used, so a consumer may give back what it took for one
+of those (points) and never for a used one.
+
 **`limit` is retryable under the SAME key.** A refusal writes nothing and keeps nothing under its key
 (`WRITE_COMMANDS.md` §7), so once the owner raises the limit — or the day's window moves on — the same request under the
 same key is asked again and issues the reward once. A consumer must never mint a NEW key for the same reward (the same
