@@ -85,3 +85,32 @@ func TestAReplacedCardPaysACycleOnce(t *testing.T) {
 		t.Fatalf("the same cycle on the replacement card: %v", err)
 	}
 }
+
+// A late answer for a cycle paid meanwhile is booked as a duplicate of the charge that paid it, and the consumer hears it.
+func TestALateAnswerForAPaidCycleIsBookedAsADuplicate(t *testing.T) {
+	w := newWorld(t)
+	ctx := context.Background()
+	method := keptForRenewals(t, w)
+	charge := nilda.PaymentChargeParams{SavedMethod: method, Reference: "renewal-1", AmountMinor: 1234, Currency: "EUR",
+		Agreement: "sub_9", Cycle: 1}
+	w.gw.SavedStart = nilda.PaymentStartResult{Status: nilda.PaymentPending, ProviderRef: "pi_slow"}
+	slow, err := w.shopAPI.ChargeSaved(ctx, "sub_9-1-a", charge)
+	if err != nil || slow.Status != nilda.PaymentPending {
+		t.Fatalf("the slow charge: %+v, %v", slow, err)
+	}
+	if _, err := w.gwAPI.Reject(ctx, slow.ID, nilda.PaymentRejection{FailureCode: nilda.PaymentFailDeclined}); err != nil {
+		t.Fatal(err)
+	}
+	w.gw.SavedStart = nilda.PaymentStartResult{}
+	paid, err := w.shopAPI.ChargeSaved(ctx, "sub_9-1-b", charge)
+	if err != nil || paid.Status != nilda.PaymentResolved {
+		t.Fatalf("the retry: %+v, %v", paid, err)
+	}
+	late, err := w.gwAPI.Resolve(ctx, slow.ID, nilda.PaymentResolution{AmountMinor: 1234, Currency: "EUR"})
+	if err != nil || late.Status != nilda.PaymentResolved || late.DuplicateOf != paid.ID {
+		t.Fatalf("the late money: %+v, %v — want resolved as a duplicate of %s", late, err, paid.ID)
+	}
+	if s, _ := w.pay.GetSession(paid.ID); s.DuplicateOf != "" {
+		t.Fatalf("the charge that paid the cycle became a duplicate: %+v", s)
+	}
+}

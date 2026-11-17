@@ -45,8 +45,11 @@ A renewal's lines never ask more of an item than the agreement has (`over_agreem
 agreement, made with the buyer present. A delivery no longer offered is `delivery_unavailable`.
 
 **Cycles and Core.** The shop numbers an agreement's cycles from 1, the order that started it, paid on the buyer's own
-checkout session; each renewal's off-session charge carries `PaymentChargeParams.Agreement` = the agreement's id and
-`Cycle` = its cycle (2 and on), so Core's one paid-or-deciding charge per (kept method, agreement, cycle) is the
-shop's one order per cycle.
+checkout session — the cycles of this contract. Core's (door D5) number the charges after sign-up from 1: each
+renewal's off-session charge carries `PaymentChargeParams.Agreement` = the agreement's id and `Cycle` = the
+contract's cycle less one (cycle 2, the first renewal, is Core's 1), so Core's one paid-or-deciding charge per
+(consumer, agreement, cycle) is the shop's one order per cycle. A charge's money that arrives after its cycle was paid
+by a retry (`PaymentSession.DuplicateOf`) is refunded by the shop in full, once, and the owner told; it never pays the
+cycle again.
 
 Every write follows `WRITE_COMMANDS.md`; refusals are `SubscriptionRefusals()`; every event `SubscriptionEvents()`.

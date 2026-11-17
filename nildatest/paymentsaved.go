@@ -213,6 +213,23 @@ func (p *Payments) cycleFreeLocked(consumer, agreement string, cycle int) error 
 	return nil
 }
 
+// cyclePaidByLocked is, for a refused or expired charge of an agreement's cycle, the session that paid that cycle since —
+// another of the consumer's charges for it, resolved and no duplicate itself; "" for any other session. Callers hold p.mu.
+func (p *Payments) cyclePaidByLocked(s *nilda.PaymentSession) string {
+	if s.ChargedSaved == "" || s.Agreement == "" || s.DuplicateOf != "" ||
+		(s.Status != nilda.PaymentRejected && s.Status != nilda.PaymentExpired) {
+		return ""
+	}
+	for _, id := range p.order {
+		o := p.sessions[id]
+		if o.ID != s.ID && o.Consumer == s.Consumer && o.ChargedSaved != "" && o.DuplicateOf == "" &&
+			o.Agreement == s.Agreement && o.Cycle == s.Cycle && o.Status == nilda.PaymentResolved {
+			return o.ID
+		}
+	}
+	return ""
+}
+
 // forgetSaved asks the gateway to let go of the method at its processor, then drops the token. A gateway that cannot
 // be reached leaves the method forgotten here — it charges nothing again — and its token kept until the gateway lets
 // go, as Core retries the release.

@@ -1052,6 +1052,19 @@ func (p *Payments) report(ctx context.Context, caller, id, verb string, body []b
 				}
 				return *s, nil
 			}
+			// A LATE ANSWER FOR A CYCLE PAID MEANWHILE (door D5): money for a renewal's charge that was refused or expired,
+			// arriving after another charge paid its cycle, is booked — resolved, naming the charge that paid it — never
+			// refused: the payer paid twice, and the consumer refunds it, as Core does.
+			if paid := p.cyclePaidByLocked(s); paid != "" {
+				if r.ProviderRef != "" {
+					s.ProviderRef = r.ProviderRef
+				}
+				now := time.Now().UTC()
+				s.DuplicateOf, s.FailureCode, s.FailureMessage, s.Instrument, s.ResolvedAt = paid, "", "", r.Instrument, &now
+				s.Status, s.UpdatedAt = nilda.PaymentResolved, now
+				p.owe(owed{session: s.ID})
+				return *s, nil
+			}
 			if s.Status != nilda.PaymentResolved && !nilda.PaymentCanMove(s.Status, nilda.PaymentResolved) {
 				return nil, conflict(s)
 			}
