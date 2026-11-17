@@ -23,7 +23,9 @@ session token names the customer.
 | `path` | the plugin's own route that draws the section, **under its `route_prefix`**, no query (`ValidAccountSectionPath`) |
 | `order` | a position hint until the owner chooses: the shop's own views stand at 10, 20 … 90; 0 or above 90 is after them |
 
-`account_page` is the path of the site's published account page, or empty while there is none. Keep the last one you were
+`account_page` is the path of the site's published account page, or empty while there is none. Only the site's shop —
+the plugin holding `commerce` — may call this contract (Core refuses any other at install), so the page you are told is
+the shop's. Keep the last one you were
 told: a link you mail ("your points", "manage your subscription") is `AccountSectionPageURL(accountPage, key, …)` on the
 site's address, and your old bare page answers it with a 302 into the account page while you know one — the way the shop
 answers its own order pages' old addresses.
