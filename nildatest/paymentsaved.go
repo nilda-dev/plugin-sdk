@@ -213,21 +213,144 @@ func (p *Payments) cycleFreeLocked(consumer, agreement string, cycle int) error 
 	return nil
 }
 
-// cyclePaidByLocked is, for a refused or expired charge of an agreement's cycle, the session that paid that cycle since —
-// another of the consumer's charges for it, resolved and no duplicate itself; "" for any other session. Callers hold p.mu.
-func (p *Payments) cyclePaidByLocked(s *nilda.PaymentSession) string {
-	if s.ChargedSaved == "" || s.Agreement == "" || s.DuplicateOf != "" ||
-		(s.Status != nilda.PaymentRejected && s.Status != nilda.PaymentExpired) {
+// liveCycle reports whether a session in status holds its renewal's cycle (Core's payment_sessions_agreement_cycle_idx).
+func liveCycle(status string) bool {
+	return status != nilda.PaymentRejected && status != nilda.PaymentExpired
+}
+
+// cycleHolderLocked is the charge holding s's renewal cycle other than s itself — the consumer's charge of the same
+// agreement and cycle that is live (created, pending, authorized or resolved) and no duplicate; "" when none. Callers
+// hold p.mu.
+func (p *Payments) cycleHolderLocked(s *nilda.PaymentSession) string {
+	if s.ChargedSaved == "" || s.Agreement == "" {
 		return ""
 	}
 	for _, id := range p.order {
 		o := p.sessions[id]
 		if o.ID != s.ID && o.Consumer == s.Consumer && o.ChargedSaved != "" && o.DuplicateOf == "" &&
-			o.Agreement == s.Agreement && o.Cycle == s.Cycle && o.Status == nilda.PaymentResolved {
+			o.Agreement == s.Agreement && o.Cycle == s.Cycle && liveCycle(o.Status) {
 			return o.ID
 		}
 	}
 	return ""
+}
+
+// lateForHeldCycleLocked is, for an EXPIRED renewal charge that is no duplicate yet, the charge holding its cycle — what
+// a late answer for it meets (Core's duplicateCycle); "" otherwise. Only expired: a rejected charge is final, and its
+// money is refused (409) as any rejected payment's is. Callers hold p.mu.
+func (p *Payments) lateForHeldCycleLocked(s *nilda.PaymentSession) string {
+	if s.Status != nilda.PaymentExpired || s.DuplicateOf != "" {
+		return ""
+	}
+	return p.cycleHolderLocked(s)
+}
+
+// settledLocked reports whether a duplicate's money is going back or may — a refund not refused and not undone, or a
+// chargeback open or lost (an inquiry takes nothing) — as Core's PaymentDuplicateSettled. Callers hold p.mu.
+func (p *Payments) settledLocked(id string) bool {
+	for _, rf := range p.refunds {
+		if rf.Session == id && rf.Status != nilda.RefundRejected && rf.ReversedAt == nil {
+			return true
+		}
+	}
+	for _, d := range p.disputes {
+		if d.Session == id && d.Stage == nilda.DisputeChargeback && (d.Status == nilda.DisputeNeedsResponse ||
+			d.Status == nilda.DisputeUnderReview || d.Status == nilda.DisputeLost) {
+			return true
+		}
+	}
+	return false
+}
+
+// cycleMovedLocked is what Core does in the transaction of a renewal charge's status move (cycle.go). Callers hold p.mu.
+//
+//   - a DUPLICATE reaching resolved (a person accepting one held for a different amount) settles: it names the charge
+//     holding the cycle now, or takes the free cycle (settleDuplicate);
+//   - a HOLDER reaching resolved owes each duplicate naming it the news again, so its consumer refunds it;
+//   - a HOLDER ending without money (rejected or expired) promotes its oldest duplicate whose money is staying —
+//     resolved, nothing refunded, no refund or chargeback open or lost — to the cycle's own payment, its consumer told,
+//     and the others name it (promoteDuplicate).
+func (p *Payments) cycleMovedLocked(s *nilda.PaymentSession, from string) {
+	if s.ChargedSaved == "" || s.Agreement == "" {
+		return
+	}
+	if s.DuplicateOf != "" {
+		if from != nilda.PaymentResolved && s.Status == nilda.PaymentResolved {
+			if holder := p.cycleHolderLocked(s); holder != s.DuplicateOf {
+				s.DuplicateOf = holder
+			}
+		}
+		return
+	}
+	var dups []*nilda.PaymentSession
+	for _, id := range p.order {
+		if d := p.sessions[id]; d.DuplicateOf == s.ID {
+			dups = append(dups, d)
+		}
+	}
+	if from != nilda.PaymentResolved && s.Status == nilda.PaymentResolved {
+		for _, d := range dups {
+			p.owe(owed{session: d.ID})
+		}
+		return
+	}
+	if !liveCycle(from) || liveCycle(s.Status) {
+		return
+	}
+	slices.SortStableFunc(dups, func(a, b *nilda.PaymentSession) int {
+		switch {
+		case a.ResolvedAt == nil && b.ResolvedAt == nil:
+			return a.CreatedAt.Compare(b.CreatedAt)
+		case a.ResolvedAt == nil:
+			return 1
+		case b.ResolvedAt == nil:
+			return -1
+		}
+		return a.ResolvedAt.Compare(*b.ResolvedAt)
+	})
+	var promoted *nilda.PaymentSession
+	for _, d := range dups {
+		if d.Status == nilda.PaymentResolved && d.RefundedMinor == 0 && !p.settledLocked(d.ID) {
+			promoted = d
+			break
+		}
+	}
+	if promoted == nil {
+		return // nothing paid the cycle that stays: it is open, and dunning charges it
+	}
+	now := time.Now().UTC()
+	for _, d := range dups {
+		if d == promoted {
+			d.DuplicateOf = ""
+		} else {
+			d.DuplicateOf = promoted.ID
+		}
+		d.UpdatedAt = now
+		p.owe(owed{session: d.ID})
+	}
+}
+
+// resettleLocked settles a duplicate again when a refund or dispute on it changed (Core's resettleDuplicate): it names
+// the charge holding the cycle now, or — nothing holding it and its money staying — takes the free cycle; its consumer
+// is told when it changed. Callers hold p.mu.
+func (p *Payments) resettleLocked(id string) {
+	s, ok := p.sessions[id]
+	if !ok || s.ChargedSaved == "" || s.Agreement == "" || s.DuplicateOf == "" || s.Status != nilda.PaymentResolved {
+		return
+	}
+	holder := p.cycleHolderLocked(s)
+	switch {
+	case holder == s.DuplicateOf:
+		return
+	case holder != "":
+		s.DuplicateOf = holder
+	case s.RefundedMinor != 0 || p.settledLocked(s.ID):
+		return
+	default:
+		s.DuplicateOf = ""
+	}
+	s.UpdatedAt = time.Now().UTC()
+	p.owe(owed{session: s.ID})
 }
 
 // forgetSaved asks the gateway to let go of the method at its processor, then drops the token. A gateway that cannot

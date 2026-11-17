@@ -86,7 +86,9 @@ func TestAReplacedCardPaysACycleOnce(t *testing.T) {
 	}
 }
 
-// A late answer for a cycle paid meanwhile is booked as a duplicate of the charge that paid it, and the consumer hears it.
+// A late answer for a cycle paid meanwhile is booked as a duplicate of the charge that paid it, and the consumer hears
+// it. The first charge had EXPIRED — by hand, as only a row edited outside Core can be (ExpireByHand); a REJECTED
+// charge's money is refused instead (TestALateAnswerOnARejectedRenewalIsRefused), as Core does.
 func TestALateAnswerForAPaidCycleIsBookedAsADuplicate(t *testing.T) {
 	w := newWorld(t)
 	ctx := context.Background()
@@ -98,7 +100,7 @@ func TestALateAnswerForAPaidCycleIsBookedAsADuplicate(t *testing.T) {
 	if err != nil || slow.Status != nilda.PaymentPending {
 		t.Fatalf("the slow charge: %+v, %v", slow, err)
 	}
-	if _, err := w.gwAPI.Reject(ctx, slow.ID, nilda.PaymentRejection{FailureCode: nilda.PaymentFailDeclined}); err != nil {
+	if err := w.pay.ExpireByHand(slow.ID); err != nil {
 		t.Fatal(err)
 	}
 	w.gw.SavedStart = nilda.PaymentStartResult{}
@@ -112,5 +114,188 @@ func TestALateAnswerForAPaidCycleIsBookedAsADuplicate(t *testing.T) {
 	}
 	if s, _ := w.pay.GetSession(paid.ID); s.DuplicateOf != "" {
 		t.Fatalf("the charge that paid the cycle became a duplicate: %+v", s)
+	}
+}
+
+// cycleCase is the double's version of Core's setting for the duplicate rules: charge A of cycle 1 expired (by hand),
+// dunning's B holds the cycle, still deciding, and A's money arrived — A is a duplicate of B.
+type cycleCase struct {
+	w      world
+	charge nilda.PaymentChargeParams
+	a, b   nilda.PaymentSession
+}
+
+func newCycleCase(t *testing.T, aMoney nilda.PaymentResolution) cycleCase {
+	t.Helper()
+	w := newWorld(t)
+	ctx := context.Background()
+	method := keptForRenewals(t, w)
+	c := cycleCase{w: w, charge: nilda.PaymentChargeParams{SavedMethod: method, Reference: "renewal-1", AmountMinor: 1234,
+		Currency: "EUR", Agreement: "sub_9", Cycle: 1}}
+	w.gw.SavedStart = nilda.PaymentStartResult{Status: nilda.PaymentPending, ProviderRef: "pi_a"}
+	var err error
+	if c.a, err = w.shopAPI.ChargeSaved(ctx, "sub_9-1-a", c.charge); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.pay.ExpireByHand(c.a.ID); err != nil {
+		t.Fatal(err)
+	}
+	w.gw.SavedStart = nilda.PaymentStartResult{Status: nilda.PaymentPending, ProviderRef: "pi_b"}
+	if c.b, err = w.shopAPI.ChargeSaved(ctx, "sub_9-1-b", c.charge); err != nil || c.b.Status != nilda.PaymentPending {
+		t.Fatalf("dunning's B: %+v, %v", c.b, err)
+	}
+	late, err := w.gwAPI.Resolve(ctx, c.a.ID, aMoney)
+	if err != nil || late.DuplicateOf != c.b.ID {
+		t.Fatalf("A's late money while B is still deciding: %+v, %v — want a duplicate of the deciding B, as Core", late, err)
+	}
+	w.pay.Deliver(ctx)
+	return c
+}
+
+func (c cycleCase) get(t *testing.T, id string) nilda.PaymentSession {
+	t.Helper()
+	s, ok := c.w.pay.GetSession(id)
+	if !ok {
+		t.Fatalf("no session %s", id)
+	}
+	return s
+}
+
+var aMoney = nilda.PaymentResolution{AmountMinor: 1234, Currency: "EUR", ProviderRef: "pi_a"}
+
+// (a) As Core: money reported on a REJECTED charge is refused 409 — rejected is final — and never booked as a
+// duplicate; the charge stays rejected. (Core records the amount for the owner to refund at the processor.)
+func TestALateAnswerOnARejectedRenewalIsRefused(t *testing.T) {
+	w := newWorld(t)
+	ctx := context.Background()
+	method := keptForRenewals(t, w)
+	charge := nilda.PaymentChargeParams{SavedMethod: method, Reference: "renewal-1", AmountMinor: 1234, Currency: "EUR",
+		Agreement: "sub_9", Cycle: 1}
+	w.gw.SavedStart = nilda.PaymentStartResult{Status: nilda.PaymentPending, ProviderRef: "pi_slow"}
+	slow, err := w.shopAPI.ChargeSaved(ctx, "sub_9-1-a", charge)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.gwAPI.Reject(ctx, slow.ID, nilda.PaymentRejection{FailureCode: nilda.PaymentFailDeclined}); err != nil {
+		t.Fatal(err)
+	}
+	w.gw.SavedStart = nilda.PaymentStartResult{}
+	if _, err := w.shopAPI.ChargeSaved(ctx, "sub_9-1-b", charge); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.gwAPI.Resolve(ctx, slow.ID, aMoney); httpStatus(t, err) != 409 {
+		t.Fatalf("money on a rejected renewal charge: %v; want 409, as Core", err)
+	}
+	if s, _ := w.pay.GetSession(slow.ID); s.Status != nilda.PaymentRejected || s.DuplicateOf != "" {
+		t.Fatalf("the rejected charge after late money: %+v; want rejected, no duplicate", s)
+	}
+}
+
+// (b) As Core: a pending (no money) report on the expired A while B holds the cycle is refused and A stays expired.
+func TestALatePendingForAHeldCycleIsRefused(t *testing.T) {
+	w := newWorld(t)
+	ctx := context.Background()
+	method := keptForRenewals(t, w)
+	charge := nilda.PaymentChargeParams{SavedMethod: method, Reference: "renewal-1", AmountMinor: 1234, Currency: "EUR",
+		Agreement: "sub_9", Cycle: 1}
+	w.gw.SavedStart = nilda.PaymentStartResult{Status: nilda.PaymentPending, ProviderRef: "pi_a"}
+	a, err := w.shopAPI.ChargeSaved(ctx, "sub_9-1-a", charge)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := w.pay.ExpireByHand(a.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.shopAPI.ChargeSaved(ctx, "sub_9-1-b", charge); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.gwAPI.MarkPending(ctx, a.ID, "pi_a"); httpStatus(t, err) != 409 {
+		t.Fatalf("a pending report on the expired A while B holds the cycle: %v; want 409", err)
+	}
+	if s, _ := w.pay.GetSession(a.ID); s.Status != nilda.PaymentExpired || s.DuplicateOf != "" {
+		t.Fatalf("A after it: %+v; want expired, no duplicate", s)
+	}
+}
+
+// (c) Promotion, as Core: B ends without money, so A — paid, nothing refunded — becomes the cycle's own payment, its
+// consumer told, and dunning's C is refused.
+func TestADuplicateIsPromotedWhenItsHolderEnds(t *testing.T) {
+	c := newCycleCase(t, aMoney)
+	ctx := context.Background()
+	heard := len(c.w.shop.heard)
+	if _, err := c.w.gwAPI.Reject(ctx, c.b.ID, nilda.PaymentRejection{FailureCode: nilda.PaymentFailDeclined}); err != nil {
+		t.Fatal(err)
+	}
+	if a := c.get(t, c.a.ID); a.DuplicateOf != "" {
+		t.Fatalf("A after B was rejected: duplicate_of %q; want the cycle's own payment", a.DuplicateOf)
+	}
+	c.w.pay.Deliver(ctx)
+	if got := c.w.shop.heard[heard:]; len(got) != 2 {
+		t.Fatalf("the consumer heard %v after B's rejection; want B rejected and A again", got)
+	}
+	c.w.gw.SavedStart = nilda.PaymentStartResult{}
+	if _, err := c.w.shopAPI.ChargeSaved(ctx, "sub_9-1-c", c.charge); httpStatus(t, err) != 409 {
+		t.Fatalf("dunning's C for a cycle A pays: %v; want 409", err)
+	}
+}
+
+// (c) The retell, as Core: B resolves, so A's consumer is told again — A is a duplicate of a charge that has paid.
+func TestADuplicatesConsumerIsToldAgainWhenItsHolderResolves(t *testing.T) {
+	c := newCycleCase(t, aMoney)
+	ctx := context.Background()
+	heard := len(c.w.shop.heard)
+	if _, err := c.w.gwAPI.Resolve(ctx, c.b.ID, nilda.PaymentResolution{AmountMinor: 1234, Currency: "EUR"}); err != nil {
+		t.Fatal(err)
+	}
+	c.w.pay.Deliver(ctx)
+	if got := c.w.shop.heard[heard:]; len(got) != 2 {
+		t.Fatalf("the consumer heard %v after B resolved; want B resolved and A again", got)
+	}
+	if a := c.get(t, c.a.ID); a.DuplicateOf != c.b.ID {
+		t.Fatalf("A after B resolved: duplicate_of %q; want B", a.DuplicateOf)
+	}
+}
+
+// As Core: a duplicate held back by an open chargeback is not promoted; when the chargeback is won, it is settled
+// again and takes the free cycle.
+func TestADuplicateUnderAChargebackIsSettledWhenItIsWon(t *testing.T) {
+	c := newCycleCase(t, aMoney)
+	ctx := context.Background()
+	open := nilda.PaymentDisputeReport{ProviderRef: "dp_a", Stage: nilda.DisputeChargeback, Status: nilda.DisputeNeedsResponse,
+		AmountMinor: 1234, Currency: "EUR"}
+	if _, err := c.w.gwAPI.ReportDispute(ctx, c.a.ID, open); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.w.gwAPI.Reject(ctx, c.b.ID, nilda.PaymentRejection{FailureCode: nilda.PaymentFailDeclined}); err != nil {
+		t.Fatal(err)
+	}
+	if a := c.get(t, c.a.ID); a.DuplicateOf != c.b.ID {
+		t.Fatalf("A under an open chargeback: duplicate_of %q; want still B", a.DuplicateOf)
+	}
+	won := open
+	won.Status = nilda.DisputeWon
+	if _, err := c.w.gwAPI.ReportDispute(ctx, c.a.ID, won); err != nil {
+		t.Fatal(err)
+	}
+	if a := c.get(t, c.a.ID); a.DuplicateOf != "" {
+		t.Fatalf("A after its chargeback was won, B ended: duplicate_of %q; want the cycle's own payment", a.DuplicateOf)
+	}
+}
+
+// As Core: a duplicate held for a person (a different amount) takes the free cycle when the person accepts it.
+func TestAHeldDuplicateAcceptedAfterItsHolderEndedTakesTheCycle(t *testing.T) {
+	c := newCycleCase(t, nilda.PaymentResolution{AmountMinor: 1200, Currency: "EUR", ProviderRef: "pi_a"})
+	ctx := context.Background()
+	if a := c.get(t, c.a.ID); a.Status != nilda.PaymentPending || a.FailureCode != nilda.PaymentFailAmountMismatch {
+		t.Fatalf("A with a different amount: %+v; want held for a person", a)
+	}
+	if _, err := c.w.gwAPI.Reject(ctx, c.b.ID, nilda.PaymentRejection{FailureCode: nilda.PaymentFailDeclined}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.w.pay.Decide(c.a.ID, "resolve", "the payer agreed the amount"); err != nil {
+		t.Fatal(err)
+	}
+	if a := c.get(t, c.a.ID); a.Status != nilda.PaymentResolved || a.DuplicateOf != "" {
+		t.Fatalf("A accepted after B ended: %+v; want resolved, the cycle's own payment", a)
 	}
 }

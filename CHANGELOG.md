@@ -20,7 +20,12 @@ Added:
   refused or expired cycle may be charged again, and a late answer for a cycle paid meanwhile is booked with
   `PaymentSession.DuplicateOf` naming the charge holding the cycle — refunded once that charge resolves, and cleared
   (you are told again) when it ends without money instead. `MaxPaymentAgreement`, `MaxPaymentCycle`.
-  `nildatest.Payments` holds the cycle as Core does, and books a late answer for a paid cycle as its duplicate.
+  `nildatest.Payments` holds the cycle as Core does: a late answer WITH MONEY for an expired charge, while another charge
+  holds its cycle (paid or still deciding), is booked as that charge's duplicate; money on a rejected charge is refused
+  409, and a late pending with no money too. When the holder ends without money its oldest duplicate whose money is
+  staying is promoted; when it resolves, its duplicates' consumers are told again; a duplicate a refund or chargeback held
+  back is settled again when that ends, and a held one a person accepts takes the free cycle. `Payments.ExpireByHand`
+  expires a charge as only a row edited outside Core can be — the one way a test reaches a duplicate.
 - `ObligationsListHook`, `ObligationsWindDownHook`, `Obligation`, `ObligationsRequest`, `ObligationsAnswer`,
   `WindDownRequest` (`WindDownUninstall`, `WindDownDisable`), `WindDownResult`, `ObligationsHolder` and
   `DispatchObligations`: a plugin's live obligations, named before a switch-off or an uninstall and wound down before
