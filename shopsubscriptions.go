@@ -600,7 +600,8 @@ func (r SubscriptionMethodLinkRequest) Validate() error {
 	return attributeText("agreement_id", r.AgreementID, maxSubscriptionID, true)
 }
 
-// SubscriptionLinkAnswer is a link for the buyer — signed, expiring at ExpiresAt, opening only for the buyer it is for —
+// SubscriptionLinkAnswer is a link for the buyer — signed, expiring at ExpiresAt, opening only for the buyer it is for (the
+// signed-in buyer; a guest's pay link is the order's own signed link, as its mails carry) —
 // or why there is none: renewal.pay_link refuses unknown_agreement, not_yours, no_renewal, cycle_paid (paid already),
 // renewal_closed and charging (a payment of it is with the processor); method.update_link unknown_agreement,
 // not_yours, agreement_stopped and no_account.

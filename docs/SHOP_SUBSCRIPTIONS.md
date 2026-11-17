@@ -56,8 +56,10 @@ cycle again.
 
 ## The buyer's way back from a failed renewal (v0.69.0, EXPERIMENTAL)
 
-A shop that implements `SubscriptionLinksProvider` answers two reads, each a signed link that expires (`ExpiresAt`) and
-opens only for the buyer it is for — or a refusal. Asking writes nothing and charges nothing.
+A shop that implements `SubscriptionLinksProvider` answers two reads, each a signed link that expires (`ExpiresAt`, a week
+at most) and opens only for the buyer it is for — the signed-in buyer of the agreement; for a guest's agreement (no
+account) the pay link is the order's own signed link, as every order mail carries, opening that order for whoever holds
+it — or a refusal. Asking writes nothing and charges nothing.
 
 - `renewal.pay_link {agreement_id, cycle}` — the cycle's order on the shop's own pay page (the order's page, the same
   door "Pay the difference" uses after an order edit — never a second checkout). The buyer pays it present, through the
