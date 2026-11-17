@@ -1781,6 +1781,7 @@ field PaymentSession.CreatedAt time.Time json:created_at
 field PaymentSession.Currency string json:currency
 field PaymentSession.Cycle int json:cycle
 field PaymentSession.Description string json:description
+field PaymentSession.DuplicateOf string json:duplicate_of
 field PaymentSession.Email string json:email
 field PaymentSession.ExpiresAt *time.Time json:expires_at
 field PaymentSession.FailureCode string json:failure_code

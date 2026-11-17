@@ -91,7 +91,7 @@ func (p *Payments) chargeSaved(ctx context.Context, consumer string, params nild
 		return nilda.PaymentSession{}, invalid("the payer agreed to charges in %s, not %s", kept.Mandate.Currency, currency)
 	}
 	// The cycle first: a second charge of a paid cycle is told which session paid it, not that it is "too soon".
-	if err := p.cycleFree(kept.ID, params.Agreement, params.Cycle); err != nil {
+	if err := p.cycleFree(consumer, params.Agreement, params.Cycle); err != nil {
 		return nilda.PaymentSession{}, err
 	}
 	if err := p.insideMandate(kept, params.AmountMinor); err != nil {
@@ -124,7 +124,7 @@ func (p *Payments) chargeSaved(ctx context.Context, consumer string, params nild
 	}
 	p.mu.Lock()
 	// Checked again under the lock, as Core's unique index holds it for two charges racing for one cycle.
-	if err := p.cycleFreeLocked(kept.ID, params.Agreement, params.Cycle); err != nil {
+	if err := p.cycleFreeLocked(consumer, params.Agreement, params.Cycle); err != nil {
 		p.mu.Unlock()
 		return nilda.PaymentSession{}, err
 	}
@@ -189,21 +189,22 @@ func (p *Payments) readSaved(caller, id string) (nilda.SavedPaymentMethod, error
 	return m.SavedPaymentMethod, nil
 }
 
-// cycleFree refuses a second charge for one agreement's cycle while one is paid or still deciding, as Core's unique
-// index does; a cycle whose charge was refused or expired may be charged again.
-func (p *Payments) cycleFree(method, agreement string, cycle int) error {
+// cycleFree refuses a second charge for one of the consumer's agreements' cycle while one is paid or still deciding, as
+// Core's unique index does — whichever kept method paid it; a cycle whose charge was refused or expired may be charged
+// again, and a charge recorded as a duplicate of the cycle holds nothing.
+func (p *Payments) cycleFree(consumer, agreement string, cycle int) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	return p.cycleFreeLocked(method, agreement, cycle)
+	return p.cycleFreeLocked(consumer, agreement, cycle)
 }
 
-func (p *Payments) cycleFreeLocked(method, agreement string, cycle int) error {
+func (p *Payments) cycleFreeLocked(consumer, agreement string, cycle int) error {
 	if agreement == "" {
 		return nil
 	}
 	for _, id := range p.order {
 		s := p.sessions[id]
-		if s.ChargedSaved == method && s.Agreement == agreement && s.Cycle == cycle &&
+		if s.Consumer == consumer && s.ChargedSaved != "" && s.DuplicateOf == "" && s.Agreement == agreement && s.Cycle == cycle &&
 			s.Status != nilda.PaymentRejected && s.Status != nilda.PaymentExpired {
 			return &apiError{http.StatusConflict, "CONFLICT", fmt.Sprintf(
 				"cycle %d of agreement %q already has a charge that is paid or still deciding (session %s)", cycle, agreement, s.ID)}

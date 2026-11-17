@@ -947,10 +947,12 @@ strong customer authentication when the method is kept, later charges out of its
    again. Forgetting twice is no error.
 
 4. **Name the renewal (door D5, EXPERIMENTAL).** A charge may carry **`Agreement`** (your id for the subscription) and
-   **`Cycle`** (1 for the first charge after sign-up). Core keeps at most ONE charge per kept method, agreement and cycle
-   that is paid or still deciding — a unique index, so two retries racing for one cycle cannot both charge, whatever
+   **`Cycle`** (1 for the first charge after sign-up). Core keeps at most ONE charge per consumer, agreement and cycle
+   that is paid or still deciding — whichever kept method it is on, so a replaced card still pays a cycle once — a unique index, so two retries racing for one cycle cannot both charge, whatever
    keys they send: another is `409 CONFLICT`, naming the session that holds the cycle. A cycle whose charge was refused
-   or expired may be charged again — your retry after a decline, under a new idempotency key.
+   or expired may be charged again — your retry after a decline, under a new idempotency key. Money for a charge that was
+   refused or expired and then arrives after all is booked, never refused: the session resolves with **`DuplicateOf`**
+   naming the charge that paid the cycle, you hear it as any change, and you refund it.
    A subscriptions plugin never charges by itself: it asks the shop for the renewal (the shop's door D9), and the shop
    — which kept the method at its checkout — charges as here, naming the agreement and cycle.
 
@@ -978,7 +980,7 @@ Hooks arrive over the plugin protocol (docs/ANY_LANGUAGE.md) with these JSON pay
 
 A session is `{"id","consumer","gateway","method","reference","amount_minor","currency","status","test",
 "description","return_url","cancel_url","redirect_url","client_action","provider_ref","failure_code","failure_message",
-"email","locale","supports","fulfilment","billing_address","shipping_address","reader","expires_at","save","saved_method","charged_saved","off_session","agreement","cycle","instrument","resolved_at","risk",
+"email","locale","supports","fulfilment","billing_address","shipping_address","reader","expires_at","save","saved_method","charged_saved","off_session","agreement","cycle","duplicate_of","instrument","resolved_at","risk",
 "lines","breakdown",
 "capture","authorized_minor","authorization_expires_at","capture_requested_minor","void_requested","refunded_minor",
 "created_at","updated_at"}`; a refund is `{"id","session","amount_minor","currency","status","reason",
@@ -1123,8 +1125,10 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
 - **A renewal names its cycle, and the cycle is held in Core** (recorded 2026-11-17). An idempotency key protects one
   request; it does not stop a scheduler that restarted, or two workers, from asking for the same month twice under two
   keys. The market's billing engines key an attempt by its subscription and period (Stripe's invoice per billing period,
-  Shopify's billing attempts per contract and cycle), so Core holds (kept method, agreement, cycle) unique among the
-  charges paid or deciding — and leaves a refused cycle open, because dunning is the same cycle asked again.
+  Shopify's billing attempts per contract and cycle), so Core holds (consumer, agreement, cycle) unique among the
+  charges paid or deciding — not per kept method, or a replaced card would pay a cycle twice — and leaves a refused
+  cycle open, because dunning is the same cycle asked again. A late answer for a cycle paid meanwhile is the payer's
+  money at the processor, so it is booked as a duplicate and refunded, never refused (money review 2026-11-17).
 - **No second charger** (recorded 2026-11-17). A grant letting another plugin charge a kept method was drafted and
   dropped: the commerce plan sends every renewal through the shop's checkout (its door D9), so the consumer that kept
   the method is the one that charges it, and there is one path to the money, not two.

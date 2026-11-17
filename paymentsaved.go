@@ -260,10 +260,12 @@ type PaymentChargeParams struct {
 	Fulfilment      string          `json:"fulfilment,omitempty"`
 	ShippingAddress *PaymentAddress `json:"shipping_address,omitempty"`
 	// Agreement and Cycle name the renewal this charge is for (door D5, EXPERIMENTAL): your id for the subscription
-	// and its billing cycle, 1 for the first charge after sign-up. Core keeps at most ONE charge per kept method,
-	// agreement and cycle that is paid or still deciding: another is refused (409 CONFLICT, naming the session) while
-	// that one stands, and a cycle whose charge was refused or expired may be charged again — your retry after a
-	// decline, with a new idempotency key. Both empty: no cycle is held.
+	// and its billing cycle, 1 for the first charge after sign-up. Core keeps at most ONE charge per consumer (you),
+	// agreement and cycle that is paid or still deciding — whichever kept method it is on, so a replaced card still pays a
+	// cycle once: another is refused (409 CONFLICT, naming the session) while that one stands, and a cycle whose charge
+	// was refused or expired may be charged again — your retry after a decline, with a new idempotency key. If the
+	// refused or expired charge's money arrives after all, Core books it — resolved, with PaymentSession.DuplicateOf
+	// naming the charge that paid the cycle — and you refund it. Both empty: no cycle is held.
 	Agreement string `json:"agreement,omitempty"`
 	Cycle     int    `json:"cycle,omitempty"`
 }

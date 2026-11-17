@@ -55,3 +55,33 @@ func TestOneCycleOfAnAgreementIsChargedOnce(t *testing.T) {
 		t.Fatalf("a paid cycle was charged a second time under a new key: %v", err)
 	}
 }
+
+// The cycle is the consumer's agreement's, not one kept method's: a subscription whose card was replaced still pays a
+// cycle once, as Core's index holds it.
+func TestAReplacedCardPaysACycleOnce(t *testing.T) {
+	w := newWorld(t)
+	ctx := context.Background()
+	first := keptForRenewals(t, w)
+	w.gw.SavedStart = nilda.PaymentStartResult{}
+	p := params()
+	p.Save = mandate()
+	s, err := w.shopAPI.CreateSession(ctx, "k-save-2", p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := w.gwAPI.Resolve(ctx, s.ID, nilda.PaymentResolution{AmountMinor: 1234, Currency: "EUR",
+		Saved: &nilda.PaymentSaved{Token: "cus_1/pm_2", Label: "Visa •••• 1881"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	charge := nilda.PaymentChargeParams{SavedMethod: first, Reference: "renewal-1", AmountMinor: 1234, Currency: "EUR",
+		Agreement: "sub_1", Cycle: 1}
+	paid, err := w.shopAPI.ChargeSaved(ctx, "sub_1-1-old", charge)
+	if err != nil || paid.Status != nilda.PaymentResolved {
+		t.Fatalf("the cycle on the first card: %+v, %v", paid, err)
+	}
+	charge.SavedMethod = second.SavedMethod
+	if _, err := w.shopAPI.ChargeSaved(ctx, "sub_1-1-new", charge); err == nil || httpStatus(t, err) != 409 {
+		t.Fatalf("the same cycle on the replacement card: %v", err)
+	}
+}

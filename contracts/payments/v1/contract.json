@@ -390,6 +390,9 @@
               "cycle": {
                 "type": "integer"
               },
+              "duplicate_of": {
+                "type": "string"
+              },
               "instrument": {
                 "type": "string"
               },
@@ -870,6 +873,9 @@
               "cycle": {
                 "type": "integer"
               },
+              "duplicate_of": {
+                "type": "string"
+              },
               "instrument": {
                 "type": "string"
               },
@@ -1250,6 +1256,9 @@
               },
               "cycle": {
                 "type": "integer"
+              },
+              "duplicate_of": {
+                "type": "string"
               },
               "instrument": {
                 "type": "string"
@@ -1638,6 +1647,9 @@
               },
               "cycle": {
                 "type": "integer"
+              },
+              "duplicate_of": {
+                "type": "string"
               },
               "instrument": {
                 "type": "string"
@@ -2030,6 +2042,9 @@
               "cycle": {
                 "type": "integer"
               },
+              "duplicate_of": {
+                "type": "string"
+              },
               "instrument": {
                 "type": "string"
               },
@@ -2410,6 +2425,9 @@
               },
               "cycle": {
                 "type": "integer"
+              },
+              "duplicate_of": {
+                "type": "string"
               },
               "instrument": {
                 "type": "string"
@@ -2816,6 +2834,9 @@
               "cycle": {
                 "type": "integer"
               },
+              "duplicate_of": {
+                "type": "string"
+              },
               "instrument": {
                 "type": "string"
               },
@@ -3188,6 +3209,9 @@
               },
               "cycle": {
                 "type": "integer"
+              },
+              "duplicate_of": {
+                "type": "string"
               },
               "instrument": {
                 "type": "string"
@@ -3606,6 +3630,9 @@
               },
               "cycle": {
                 "type": "integer"
+              },
+              "duplicate_of": {
+                "type": "string"
               },
               "instrument": {
                 "type": "string"
@@ -4050,6 +4077,9 @@
               },
               "cycle": {
                 "type": "integer"
+              },
+              "duplicate_of": {
+                "type": "string"
               },
               "instrument": {
                 "type": "string"
