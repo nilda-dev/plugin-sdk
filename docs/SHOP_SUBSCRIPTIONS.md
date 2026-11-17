@@ -12,7 +12,9 @@ terms it was sold on. A plan's terms in deliveries (`SubscriptionCycles`): `disc
 the first N deliveries, later renewals are charged at the price agreed; `min_cycles` — the minimum term, shown above the
 order button and in the mandate (a stop before it is the plugin's call, the shop records it); `max_cycles` — the
 subscription ends by itself after N deliveries, a renewal past it refused `past_max_cycles`. The shop sells it: the basket line on the plan, the plan's discount priced as a line deal beside a
-member's price and an offer (tax is worked on what is left), the stock, the checkout.
+member's price and an offer (tax is worked on what is left), the stock, the checkout. The product page's choice is Core's add-to-cart, drawn
+from the plans the shop answers on the product (`CommerceProduct.Plans`, v0.69.0 — COMMERCE.md §8, "Purchase options"),
+priced by the shop and posted back as `selling_plan`.
 
 ## The agreement
 

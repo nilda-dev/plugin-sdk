@@ -2444,6 +2444,13 @@ machine values Core writes into the page's structured data and never draws: a de
 with a correct check digit, an MPN and a brand. A product answering `Variations` on a grid is a product that needs a
 choice: its tile links to its page instead of adding. `CommerceQuery.Sort` gains `best-selling` and `rating`.
 
+**And its purchase options (v0.69.0, EXPERIMENTAL; [COMMERCE.md](COMMERCE.md) §8).** A product sold on subscription
+plans answers them on its page as `Plans`, each a `nilda.CommercePlan` (its id, name, rhythm, terms in deliveries, how to
+cancel, and your own prices for this viewer, a `LaterPrice` when the discount ends); a choice names the plans it is offered
+on at its prices as `nilda.CommerceChoicePlan`s in `CommerceChoice.Plans`. Core's add-to-cart offers them beside the
+one-time purchase and posts the chosen id back as `selling_plan`; refuse one you no longer offer with 409
+`{"code":"plan_unavailable"}`. At most `nilda.MaxCommercePlans`, none on a pre-order.
+
 **Filters and facets (v0.58.0, EXPERIMENTAL).** `CommerceQuery.Filters` is a `nilda.CommerceFilters` — price bounds,
 option values per axis, brands, a minimum rating, in stock, category slugs — checked by `CommerceFilters.Validate`;
 honour it in `Products` and `CountProducts` alike. Implement `Facets(ctx, q, want)` (the `nilda.CommerceFacets` interface;

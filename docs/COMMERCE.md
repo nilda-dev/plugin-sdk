@@ -201,6 +201,38 @@ SKU of at most 127 bytes, and one currency across the product's and its choices'
 Core then draws a combination they do not name as not offered ("Unavailable", add button off, no back-in-stock form)
 and keeps "Sold out" for a named one whose `InStock` is false. It needs `Choices`; an older Core ignores it.
 
+### Purchase options: `Plans` (v0.69.0, EXPERIMENTAL)
+
+A product sold on selling plans besides a one-time purchase — a subscription made with `shop.subscriptions/v1`'s
+`plan.set` — answers them on `Product` and `ProductForContent` as `Plans`, each a `CommercePlan`: its `ID`, its `Name`
+("Every month, 10% off"), its rhythm (`Interval`, `IntervalCount`), its terms in deliveries (`discount_cycles`,
+`min_cycles`, `max_cycles`, inline, as plan.set wrote them), how a buyer cancels (`Cancel`, your sentence; empty, Core
+says "in your account"), and its prices: `Price` (one unit on the plan now), `OldPrice` (struck through beside it),
+`UnitPrice`, and `LaterPrice` — one unit once the discount's deliveries are over, set exactly when `discount_cycles` is
+above 0.
+
+**The prices are your quote, for this call's viewer** (`CommerceQuery.Viewer` and `ShowPricesIncludingTax`): what your
+checkout would charge for one unit on the plan — a wholesale buyer's group price less the plan's discount. Core prints
+them as they come and never works out a discount; its page cache is keyed by the price group, so a group's page is never
+another group's. On a product with `Choices`, each choice names the plans offered on it, at its prices
+(`CommerceChoice.Plans`, `CommerceChoicePlan`); a choice that names none is sold once only, and the page says so when it
+is picked.
+
+Core's add-to-cart offers them as radio buttons beside "One-time purchase" — selected on the first load unless the page's
+author chose a plan (Shopify's subscription guidelines; a recurring obligation the buyer did not pick is not one they
+agreed to) — each with its price and, under it, the rhythm, the discount's end and the price after it, the minimum term,
+the end or "until you cancel", and how to cancel: Directive 2011/83/EU Art. 6(1)(e), (o) and (p) and California's
+automatic renewal law ask for those beside the choice. The chosen plan's `ID` comes back on your add-to-cart as
+`selling_plan`, beside `product` and `variations`. Check it there — still offered, offered on the SKU those variations
+name, for this buyer — and refuse one you no longer offer with **409 `{"code":"plan_unavailable"}`**: Core tells the
+shopper to choose again. Never add the item without the plan, and never on another plan: the shopper was shown that
+plan's price. Emit `commerce.catalog.changed` when a plan is set or undone, so pages already drawn with it are dropped.
+
+Rules (`CommerceProduct.Validate`): at most `MaxCommercePlans` (10); none on a pre-order (it is sold on its own plan); a
+distinct `ID` of at most `MaxCommercePlanID` bytes; a name, a price and every price one plain line of at most
+`MaxCommerceNote` characters; a rhythm `plan.set` takes; terms `SubscriptionCycles.Validate` takes; a choice naming only
+the product's plans, each once, with a price. An older Core ignores `Plans` and draws the one-time purchase alone.
+
 ### Machine facts (`Facts`)
 
 `Price` is for a person and Core never parses it. `Facts` (`CommerceFacts`) is the same product for a machine, written into

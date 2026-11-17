@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.69.0 — unreleased (shop.account.sections/v1: other plugins' sections on the buyer's account page)
+## v0.69.0 — unreleased (account-page sections, purchase options on the product page, renewal recovery, 128 events)
 
 Additive, and EXPERIMENTAL: the subscriptions plugin's "a view in the buyer's My Account" and the loyalty plugin's points
 tab (`docs/SHOP_ACCOUNT_SECTIONS.md`). Core relays it from the release built on this version, and stamps each answer's
@@ -32,6 +32,21 @@ Changed:
 
 - `MaxManifestEmits` is 128 (was 32), as Core's `maxEmitDecls` now is: the bound only stops a runaway list; the
   shop reached 32 with an event still to declare.
+
+Additive, and EXPERIMENTAL: the storefront half of door D3 (P02 subscriptions). Core's add-to-cart offers a product's
+subscription plans beside the one-time purchase; Core reads them from the release built on this version, and an older
+Core ignores them.
+
+Added (purchase options):
+
+- `CommerceProduct.Plans` (`[]CommercePlan`): a plan's `ID`, `Name`, `Interval`/`IntervalCount`, `SubscriptionCycles`
+  (inline), `Cancel`, and the shop's own prices for the call's viewer — `Price`, `OldPrice`, `UnitPrice`, `LaterPrice`
+  (exactly when `discount_cycles` is above 0). `CommerceChoice.Plans` (`[]CommerceChoicePlan`): the plans offered on one
+  combination, at its prices. `MaxCommercePlans` (10), `MaxCommercePlanID`.
+- `CommerceProduct.Validate` holds them: at most ten, none on a pre-order, distinct ids, a name, a rhythm and terms
+  `plan.set` takes, a price, a later price exactly when the discount ends, a choice naming only the product's plans.
+- The add-to-cart contract (docs/COMMERCE.md §8, "Purchase options"): the chosen plan arrives as `selling_plan`; a plan no
+  longer offered on that SKU is refused 409 `{"code":"plan_unavailable"}`, never added without it.
 
 
 ## v0.68.0 — 2026-11-17 (doors D5 and D11, shop.rewards/v1 and shop.subscriptions/v1, TermContents)

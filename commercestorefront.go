@@ -116,12 +116,151 @@ type CommerceChoice struct {
 	MediaID string `json:"media_id,omitempty"`
 	// Facts are this combination's machine values (its Offer); nil, none. Its Currency, when set, is the product's.
 	Facts *CommerceFacts `json:"facts,omitempty"`
+	// Plans are the product's Plans offered on this combination, at its prices (v0.69.0). On a product with Plans and
+	// Choices a choice that names none offers none: the page then offers the one-time purchase alone for it.
+	Plans []CommerceChoicePlan `json:"plans,omitempty"`
+}
+
+// THE PURCHASE OPTIONS (EXPERIMENTAL, v0.69.0): a product sold on selling plans besides a one-time purchase — a
+// subscription, "Every month, 10% off" (shop.subscriptions/v1's plans, SHOP_SUBSCRIPTIONS.md) — offers them on its page.
+// Core's add-to-cart draws them as a choice beside "One-time purchase", with each plan's price and terms, and sends the
+// chosen plan's ID back on add-to-cart as `selling_plan`.
+//
+// THE PRICE IS YOUR QUOTE. Price, OldPrice, UnitPrice and LaterPrice are what you would charge for one unit on the plan,
+// for THIS call's viewer (CommerceQuery.Viewer: a wholesale buyer's group price less the plan's discount, as your
+// checkout would work it) and as ShowPricesIncludingTax asks — formatted by you, as Price is. Core prints them as they
+// come and never works out a discount: a figure Core computed would be a figure your checkout disagrees with.
+//
+// Read 2026-11-17: Shopify's subscription UX guidelines (radios beside the one-time purchase, which is selected on the
+// first load; the plan's price and how it changes later stated, "never hide the option names" —
+// shopify.dev/docs/storefronts/themes/pricing-payments/subscriptions/subscription-ux-guidelines); Directive 2011/83/EU
+// Art. 6(1)(e), (o) and (p) (the price per period, the duration, how to terminate, the minimum duration) and California's
+// automatic renewal law (Bus. & Prof. Code §17602(a)(1): the terms "in visual proximity" to the request for consent).
+
+// MaxCommercePlans bounds CommerceProduct.Plans: the purchase options one product page offers beside a one-time purchase.
+const MaxCommercePlans = 10
+
+// MaxCommercePlanID bounds a plan's ID in bytes: shop.subscriptions/v1's record ids.
+const MaxCommercePlanID = maxSubscriptionID
+
+// CommercePlan is one purchase option of a product besides a one-time purchase, as its page offers it.
+type CommercePlan struct {
+	// ID is your selling plan's id; it comes back on add-to-cart as `selling_plan` (with the product and its variation
+	// answers) and you check it there: offered on the SKU those answers name, still offered, for this buyer.
+	ID string `json:"id"`
+	// Name is the plan's name as the product page and the basket show it ("Every month, 10% off").
+	Name string `json:"name"`
+	// Interval and IntervalCount are the rhythm — every IntervalCount Intervals (IntervalDay … IntervalYear); Core says
+	// it in the page's language.
+	Interval      string `json:"interval"`
+	IntervalCount int    `json:"interval_count"`
+	// Price is one unit on the plan, now; OldPrice what is struck through beside it (empty, nothing) — the same rules a
+	// product's OldPrice follows where you sell; UnitPrice the price per unit of measure on the plan.
+	Price     string `json:"price"`
+	OldPrice  string `json:"old_price,omitempty"`
+	UnitPrice string `json:"unit_price,omitempty"`
+	// LaterPrice is one unit once the discount's deliveries are over (DiscountCycles above 0), and set only then: a
+	// buyer is told the price that follows the offer before agreeing to it.
+	LaterPrice string `json:"later_price,omitempty"`
+	// The plan's terms in deliveries, as plan.set wrote them: Core says each beside the plan.
+	SubscriptionCycles
+	// Cancel is how a buyer stops it, in your words ("Cancel online in your account, or by email."); empty, Core says the
+	// buyer cancels in their account.
+	Cancel string `json:"cancel,omitempty"`
+}
+
+// CommerceChoicePlan is a plan's price on one choice of the product: the 1 kg bag costs more on the monthly plan than
+// the 250 g one. Only the prices; the plan itself is the product's (CommercePlan, by ID).
+type CommerceChoicePlan struct {
+	ID         string `json:"id"`
+	Price      string `json:"price"`
+	OldPrice   string `json:"old_price,omitempty"`
+	UnitPrice  string `json:"unit_price,omitempty"`
+	LaterPrice string `json:"later_price,omitempty"`
+}
+
+// validPlans holds Plans, and the plans each choice names, to what Core can draw truthfully.
+func (p CommerceProduct) validPlans(fail func(string, ...any) error) error {
+	if len(p.Plans) == 0 {
+		for i, c := range p.Choices {
+			if len(c.Plans) > 0 {
+				return fail("choice %d names plans, and the product offers none", i)
+			}
+		}
+		return nil
+	}
+	if len(p.Plans) > MaxCommercePlans {
+		return fail("%d plans, past the %d a product page offers", len(p.Plans), MaxCommercePlans)
+	}
+	if p.PreOrder != nil {
+		return fail("a pre-order is sold on its own plan; it offers no other")
+	}
+	byID := make(map[string]CommercePlan, len(p.Plans))
+	for i, pl := range p.Plans {
+		if strings.TrimSpace(pl.ID) == "" || len(pl.ID) > MaxCommercePlanID || !commerceLine(pl.ID, MaxCommercePlanID) {
+			return fail("plan %d's id is not one plain line of 1 to %d bytes", i, MaxCommercePlanID)
+		}
+		if _, dup := byID[pl.ID]; dup {
+			return fail("plan %d's id %q is an earlier plan's", i, pl.ID)
+		}
+		byID[pl.ID] = pl
+		if strings.TrimSpace(pl.Name) == "" || !commerceLine(pl.Name, MaxCommerceNote) {
+			return fail("plan %q's name is not one plain line of 1 to %d characters", pl.ID, MaxCommerceNote)
+		}
+		if err := validRhythm(pl.Interval, pl.IntervalCount); err != nil {
+			return fail("plan %q: %v", pl.ID, err)
+		}
+		if err := pl.SubscriptionCycles.Validate(); err != nil {
+			return fail("plan %q: %v", pl.ID, err)
+		}
+		if err := planPrices(pl, pl.Price, pl.OldPrice, pl.UnitPrice, pl.LaterPrice); err != nil {
+			return fail("plan %q: %v", pl.ID, err)
+		}
+		if !commerceLine(pl.Cancel, MaxCommerceNote) {
+			return fail("plan %q's cancel is not one plain line of at most %d characters", pl.ID, MaxCommerceNote)
+		}
+	}
+	for i, c := range p.Choices {
+		seen := map[string]bool{}
+		for _, cp := range c.Plans {
+			pl, ok := byID[cp.ID]
+			if !ok {
+				return fail("choice %d names plan %q, which is none of the product's plans", i, cp.ID)
+			}
+			if seen[cp.ID] {
+				return fail("choice %d names plan %q twice", i, cp.ID)
+			}
+			seen[cp.ID] = true
+			if err := planPrices(pl, cp.Price, cp.OldPrice, cp.UnitPrice, cp.LaterPrice); err != nil {
+				return fail("choice %d, plan %q: %v", i, cp.ID, err)
+			}
+		}
+	}
+	return nil
+}
+
+// planPrices checks one plan's prices: a price, every line plain, and a later price exactly when the discount ends.
+func planPrices(pl CommercePlan, price, old, unit, later string) error {
+	if strings.TrimSpace(price) == "" {
+		return fmt.Errorf("a plan has a price")
+	}
+	for _, line := range []string{price, old, unit, later} {
+		if !commerceLine(line, MaxCommerceNote) {
+			return fmt.Errorf("price, old_price, unit_price and later_price are one plain line of at most %d characters each", MaxCommerceNote)
+		}
+	}
+	if (pl.DiscountCycles > 0) != (strings.TrimSpace(later) != "") {
+		return fmt.Errorf("later_price is the price after the discount's deliveries: set it exactly when discount_cycles is above 0")
+	}
+	return nil
 }
 
 // Validate holds a product's storefront fields to what Core can draw and a search engine will read: PriceFrom only
 // beside a Price; UnitPrice and StockNote one plain line of at most MaxCommerceNote characters; Facts by
 // CommerceFacts.Validate; and at most MaxCommerceChoices Choices, only on a product with Variations, each a complete
-// and distinct Selection of them, each SKU distinct, in the product's one currency. The fields before v0.58.0 are not
+// and distinct Selection of them, each SKU distinct, in the product's one currency; at most MaxCommercePlans Plans, none
+// on a pre-order, each with a distinct id, a name, a rhythm, terms SubscriptionCycles.Validate takes and a price (a later
+// price exactly when its discount ends), and a choice naming only the product's plans. The fields before v0.58.0 are not
 // checked here. DispatchCommerceHook runs it on every product it answers, so a product that breaks a rule fails the
 // call and names itself, in your own tests first.
 func (p CommerceProduct) Validate() error {
@@ -143,6 +282,9 @@ func (p CommerceProduct) Validate() error {
 	}
 	if p.ChoicesComplete && len(p.Choices) == 0 {
 		return fail("choices_complete says every combination is named, and it names none")
+	}
+	if err := p.validPlans(fail); err != nil {
+		return err
 	}
 	if len(p.Choices) == 0 {
 		return nil

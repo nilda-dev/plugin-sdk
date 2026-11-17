@@ -425,6 +425,8 @@ const MaxCommerceFilterAxes
 const MaxCommerceFilterValueBytes
 const MaxCommerceFilterValues
 const MaxCommerceNote
+const MaxCommercePlanID
+const MaxCommercePlans
 const MaxCommerceRating
 const MaxDisputesPerSession
 const MaxListFilters
@@ -1129,11 +1131,17 @@ field CommerceChoice.Facts *CommerceFacts json:facts
 field CommerceChoice.InStock bool json:in_stock
 field CommerceChoice.MediaID string json:media_id
 field CommerceChoice.OldPrice string json:old_price
+field CommerceChoice.Plans []CommerceChoicePlan json:plans
 field CommerceChoice.Price string json:price
 field CommerceChoice.SKU string json:sku
 field CommerceChoice.Selection map[string]string json:selection
 field CommerceChoice.StockNote string json:stock_note
 field CommerceChoice.UnitPrice string json:unit_price
+field CommerceChoicePlan.ID string json:id
+field CommerceChoicePlan.LaterPrice string json:later_price
+field CommerceChoicePlan.OldPrice string json:old_price
+field CommerceChoicePlan.Price string json:price
+field CommerceChoicePlan.UnitPrice string json:unit_price
 field CommerceEndpoints.Account string json:account
 field CommerceEndpoints.AddToCart string json:add_to_cart
 field CommerceEndpoints.Cart string json:cart
@@ -1170,6 +1178,15 @@ field CommerceImage.Alt string json:alt
 field CommerceImage.MediaID string json:media_id
 field CommerceImage.Selection map[string]string json:selection
 field CommerceImage.URL string json:url
+field CommercePlan.Cancel string json:cancel
+field CommercePlan.ID string json:id
+field CommercePlan.Interval string json:interval
+field CommercePlan.IntervalCount int json:interval_count
+field CommercePlan.LaterPrice string json:later_price
+field CommercePlan.Name string json:name
+field CommercePlan.OldPrice string json:old_price
+field CommercePlan.Price string json:price
+field CommercePlan.UnitPrice string json:unit_price
 field CommercePreOrder.Note string json:note
 field CommercePreOrder.ShipsBy string json:ships_by
 field CommerceProduct.Badge string json:badge
@@ -1183,6 +1200,7 @@ field CommerceProduct.Image string json:image
 field CommerceProduct.Images []CommerceImage json:images
 field CommerceProduct.InStock bool json:in_stock
 field CommerceProduct.OldPrice string json:old_price
+field CommerceProduct.Plans []CommercePlan json:plans
 field CommerceProduct.PreOrder *CommercePreOrder json:pre_order
 field CommerceProduct.Price string json:price
 field CommerceProduct.PriceFrom bool json:price_from
@@ -3083,6 +3101,7 @@ type Class
 type ClientAction
 type Commerce
 type CommerceChoice
+type CommerceChoicePlan
 type CommerceCounter
 type CommerceEndpoints
 type CommerceFacet
@@ -3091,6 +3110,7 @@ type CommerceFacets
 type CommerceFacts
 type CommerceFilters
 type CommerceImage
+type CommercePlan
 type CommercePreOrder
 type CommercePriceGroups
 type CommerceProduct

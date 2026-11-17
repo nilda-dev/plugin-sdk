@@ -299,6 +299,13 @@ type CommerceProduct struct {
 	// Facts are the product's machine values — a decimal amount, its ISO currency, a schema.org availability and
 	// condition, GTIN, MPN, brand — which Core writes into the page's structured data and never draws (v0.58.0).
 	Facts *CommerceFacts `json:"facts,omitempty"`
+	// Plans are the purchase options the product is sold on besides a one-time purchase — its subscription plans —
+	// for the PRODUCT PAGE (Product and ProductForContent; leave it empty on a grid's Products), priced by you for this
+	// call's viewer. Core's add-to-cart offers them beside "One-time purchase" and sends the chosen one's ID back as
+	// `selling_plan`; a shop that answers Plans reads it there, and refuses a plan it no longer offers on that SKU with
+	// 409 {"code":"plan_unavailable"} rather than adding the item without it. At most MaxCommercePlans; none on a
+	// pre-order (v0.69.0, EXPERIMENTAL; see CommercePlan).
+	Plans []CommercePlan `json:"plans,omitempty"`
 }
 
 // CommercePreOrder is what a pre-order's buyer reads beside its button, both FORMATTED BY YOU in the shop's
