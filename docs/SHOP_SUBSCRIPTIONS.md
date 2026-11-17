@@ -54,4 +54,28 @@ contract's cycle less one (cycle 2, the first renewal, is Core's 1), so Core's o
 by a retry (`PaymentSession.DuplicateOf`) is refunded by the shop in full, once, and the owner told; it never pays the
 cycle again.
 
+## The buyer's way back from a failed renewal (v0.69.0, EXPERIMENTAL)
+
+A shop that implements `SubscriptionLinksProvider` answers two reads, each a signed link that expires (`ExpiresAt`) and
+opens only for the buyer it is for — or a refusal. Asking writes nothing and charges nothing.
+
+- `renewal.pay_link {agreement_id, cycle}` — the cycle's order on the shop's own pay page (the order's page, the same
+  door "Pay the difference" uses after an order edit — never a second checkout). The buyer pays it present, through the
+  agreement's method, in a session that names the agreement and Core's cycle (`PaymentSessionParams.Agreement`), so
+  Core's one payment per cycle holds between the buyer and a dunning retry: whichever is second is refused. Refused
+  `no_renewal` (no order for the cycle), `cycle_paid`, `renewal_closed` (cancelled or refunded) and `charging` (a
+  payment of it is with the processor). Paid, it is `ecommerce.renewal.paid` as any; a buyer's payment that ends
+  without money is `ecommerce.renewal.failed` with the cycle's earlier `fail_code` and `by_buyer: true` — the dunning
+  goes on, and is not told the buyer was turned away as a new failure.
+- `method.update_link {agreement_id}` — a page where the SIGNED-IN buyer of the agreement gives another method: a
+  session that only keeps one (`Save` of purpose `update`, `Replaces` the agreement's method, the agreement's own
+  words and limit), on the processor's own page — nothing card-like touches Nilda. Resolved, the agreement renews on the
+  new method (`ecommerce.subscription.method_updated`, `source: "buyer"`), the link stops working, and the old method
+  is forgotten once nothing is charging it. Refused `agreement_stopped` and `no_account` (a guest's agreement has
+  nobody to sign in as).
+
+The card network updating the kept card by itself (Core's card updater, `PAYMENTS.md`) is
+`ecommerce.subscription.method_updated` with `source: "network"`; the agreement's `method` carries the new label and
+expiry.
+
 Every write follows `WRITE_COMMANDS.md`; refusals are `SubscriptionRefusals()`; every event `SubscriptionEvents()`.

@@ -48,6 +48,23 @@ Added (purchase options):
 - The add-to-cart contract (docs/COMMERCE.md §8, "Purchase options"): the chosen plan arrives as `selling_plan`; a plan no
   longer offered on that SKU is refused 409 `{"code":"plan_unavailable"}`, never added without it.
 
+Renewal recovery:
+
+Additive, and EXPERIMENTAL: the subscriptions plugin's open items 2 and 4 (plugin-subscriptions docs/DOORS_NEEDED.md).
+
+Added:
+
+- The card updater: `Payments.ReportMethodUpdated` (a gateway reports a kept method its processor changed, by the token
+  it was kept under: `PaymentMethodUpdate`, `PaymentMethodUpdateResult`, `MethodUpdatedByNetwork`), and
+  `HookPaymentSavedUpdated` (`payment.saved.updated`) to a consumer implementing `SavedMethodWatcher`
+  (`PaymentSavedUpdate`); `SavedPaymentMethod.UpdatedAt`. `nildatest.Payments` keeps it as Core does: once per
+  processor event, never on a forgotten method, a token nobody kept `Matched: 0`; `Delivery.Saved`.
+- `PaymentSessionParams.Agreement` and `Cycle`: the payer pays a renewal's cycle on-session, holding the cycle as a
+  kept method's charge does (409 for the second). `nildatest.Payments` holds it so.
+- `shop.subscriptions/v1`: `renewal.pay_link` and `method.update_link` (`SubscriptionLinksProvider`,
+  `SubscriptionPayLinkRequest`, `SubscriptionMethodLinkRequest`, `SubscriptionLinkAnswer`, `Services.RenewalPayLink`,
+  `Services.MethodUpdateLink`); refusals `no_renewal`, `renewal_closed`, `no_account`; `method_updated`'s `source`
+  (`SubscriptionMethodByNetwork`, `SubscriptionMethodByBuyer`) and `renewal.failed`'s `by_buyer`.
 
 ## v0.68.0 — 2026-11-17 (doors D5 and D11, shop.rewards/v1 and shop.subscriptions/v1, TermContents)
 

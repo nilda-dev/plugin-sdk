@@ -33,6 +33,7 @@ field Delivery.Dispute nilda.PaymentDispute
 field Delivery.Err error
 field Delivery.Hook string
 field Delivery.Refund nilda.PaymentRefund
+field Delivery.Saved nilda.PaymentSavedUpdate
 field Delivery.Session nilda.PaymentSession
 field Email.Body string
 field Email.Data map[string]any

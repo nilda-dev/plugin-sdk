@@ -368,7 +368,7 @@ func dispatchProvided(ctx context.Context, h Handler, hook string, payload []byt
 		}
 		return DispatchPaymentGatewayHook(ctx, nil, g, hook, payload)
 
-	case HookPaymentConfirm, HookPaymentSessionUpdated, HookPaymentRefundUpdated, HookPaymentDisputeUpdated:
+	case HookPaymentConfirm, HookPaymentSessionUpdated, HookPaymentRefundUpdated, HookPaymentDisputeUpdated, HookPaymentSavedUpdated:
 		c, is := h.(PaymentConsumer)
 		if !is {
 			return nil, false, nil
@@ -530,4 +530,10 @@ var providerHooks = []struct {
 		_, is := h.(PaymentDisputeConsumer)
 		return c && is
 	}, []string{HookPaymentDisputeUpdated}},
+	// payment.saved.updated only for a consumer that watches its kept methods (SavedMethodWatcher, v0.69.0).
+	{"SavedMethodWatcher", func(h Handler) bool {
+		_, c := h.(PaymentConsumer)
+		_, is := h.(SavedMethodWatcher)
+		return c && is
+	}, []string{HookPaymentSavedUpdated}},
 }

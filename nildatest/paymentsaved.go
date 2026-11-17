@@ -3,6 +3,7 @@ package nildatest
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -204,7 +205,8 @@ func (p *Payments) cycleFreeLocked(consumer, agreement string, cycle int) error 
 	}
 	for _, id := range p.order {
 		s := p.sessions[id]
-		if s.Consumer == consumer && s.ChargedSaved != "" && s.DuplicateOf == "" && s.Agreement == agreement && s.Cycle == cycle &&
+		// Every session of the cycle — a kept method's charge, or the payer's own on-session payment (v0.69.0).
+		if s.Consumer == consumer && s.DuplicateOf == "" && s.Agreement == agreement && s.Cycle == cycle &&
 			s.Status != nilda.PaymentRejected && s.Status != nilda.PaymentExpired {
 			return &apiError{http.StatusConflict, "CONFLICT", fmt.Sprintf(
 				"cycle %d of agreement %q already has a charge that is paid or still deciding (session %s)", cycle, agreement, s.ID)}
@@ -406,6 +408,14 @@ func (p *Payments) savedRoutes(w http.ResponseWriter, r *http.Request, caller st
 	case r.Method == http.MethodGet && len(parts) == 3 && parts[1] == "saved-methods":
 		m, err := p.readSaved(caller, parts[2])
 		answer(w, http.StatusOK, m, err)
+	case r.Method == http.MethodPost && len(parts) == 3 && parts[1] == "saved-methods" && parts[2] == "updates":
+		var u nilda.PaymentMethodUpdate
+		if err := json.Unmarshal(body, &u); err != nil {
+			answer(w, 0, nil, invalid("the body is not a method update: %v", err))
+			return true
+		}
+		res, err := p.methodUpdated(caller, u)
+		answer(w, http.StatusOK, res, err)
 	case r.Method == http.MethodPost && len(parts) == 4 && parts[1] == "saved-methods" && parts[3] == "forget":
 		m, err := p.forgetSaved(ctx, caller, parts[2])
 		answer(w, http.StatusOK, m, err)
@@ -517,4 +527,80 @@ func (p *Payments) restartCharge(ctx context.Context, sessionID string) error {
 		p.move(s, nilda.PaymentRejected)
 	}
 	return nil
+}
+
+// methodUpdated is a gateway's report that its processor changed a kept method (v0.69.0), as Core keeps it: every
+// method this gateway keeps under the token and not forgotten takes the new label and expiry, once per processor
+// event, and its consumer is owed the news. A token nobody kept is Matched 0, no error.
+func (p *Payments) methodUpdated(caller string, u nilda.PaymentMethodUpdate) (nilda.PaymentMethodUpdateResult, error) {
+	if err := p.may(caller, "payment_gateway"); err != nil {
+		return nilda.PaymentMethodUpdateResult{}, err
+	}
+	if err := u.Validate(); err != nil {
+		return nilda.PaymentMethodUpdateResult{}, invalid("%v", err)
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.methodEvents == nil {
+		p.methodEvents = map[string]bool{}
+	}
+	var out nilda.PaymentMethodUpdateResult
+	for _, m := range p.saved {
+		if m.Gateway != caller || m.token != u.Token || m.ForgottenAt != nil {
+			continue
+		}
+		out.Matched++
+		seen := caller + "\x00" + u.EventID + "\x00" + m.ID
+		if p.methodEvents[seen] {
+			continue
+		}
+		p.methodEvents[seen] = true
+		if m.Label == u.Label && sameTime(m.ExpiresAt, u.ExpiresAt) {
+			continue
+		}
+		prev := nilda.PaymentSavedUpdate{PreviousLabel: m.Label, PreviousExpiresAt: m.ExpiresAt, Source: u.Source}
+		now := time.Now().UTC()
+		m.Label, m.ExpiresAt, m.UpdatedAt = u.Label, u.ExpiresAt, &now
+		p.savedNews[m.ID] = prev
+		p.owe(owed{saved: m.ID})
+		out.Changed++
+	}
+	return out, nil
+}
+
+func sameTime(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.Equal(*b)
+}
+
+// deliverSaved tells a kept method's consumer its processor changed it, as Core does: to a consumer that watches its
+// methods (nilda.SavedMethodWatcher); one that does not was never subscribed, and is not owed it again.
+func (p *Payments) deliverSaved(ctx context.Context, o owed) {
+	p.mu.Lock()
+	m := p.saved[o.saved]
+	u := p.savedNews[o.saved]
+	u.Method = m.SavedPaymentMethod
+	p.mu.Unlock()
+	payload, _ := json.Marshal(u)
+	c, ok := p.installedConsumer(u.Method.Consumer)
+	var err error
+	handled := true
+	if !ok {
+		err = fmt.Errorf("consumer %q is not installed", u.Method.Consumer)
+	} else {
+		cctx, cancel := context.WithTimeout(ctx, consumerHookBudget)
+		_, handled, err = nilda.DispatchPaymentConsumerHook(cctx, nil, c, nilda.HookPaymentSavedUpdated, payload)
+		cancel()
+	}
+	if ok && !handled {
+		err = ErrNotSubscribed
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.log = append(p.log, Delivery{Consumer: u.Method.Consumer, Hook: nilda.HookPaymentSavedUpdated, Saved: u, Err: err})
+	if err != nil && !errors.Is(err, ErrNotSubscribed) {
+		p.owe(o)
+	}
 }

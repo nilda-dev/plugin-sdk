@@ -355,6 +355,7 @@ const HookPaymentForget
 const HookPaymentRefund
 const HookPaymentRefundUpdated
 const HookPaymentReprice
+const HookPaymentSavedUpdated
 const HookPaymentSessionUpdated
 const HookPaymentStart
 const HookPaymentSync
@@ -556,6 +557,7 @@ const MenuLocationFooter
 const MenuLocationMobile
 const MenuLocationPrimary
 const MenuLocationSocial
+const MethodUpdatedByNetwork
 const MetricMoney
 const MetricNumber
 const MetricPercent
@@ -746,7 +748,12 @@ const SubscriptionCyclePaid
 const SubscriptionDeliveryUnavailable
 const SubscriptionInvalidPlan
 const SubscriptionItemUnavailable
+const SubscriptionMethodByBuyer
+const SubscriptionMethodByNetwork
 const SubscriptionMethodForgotten
+const SubscriptionMethodLink
+const SubscriptionNoAccount
+const SubscriptionNoRenewal
 const SubscriptionNotStopped
 const SubscriptionNotYours
 const SubscriptionOutOfStock
@@ -758,7 +765,9 @@ const SubscriptionPlanRecord
 const SubscriptionPlanSet
 const SubscriptionPlanUndo
 const SubscriptionPriceOf
+const SubscriptionRenewalClosed
 const SubscriptionRenewalIsPaid
+const SubscriptionRenewalPayLink
 const SubscriptionRenewalPlace
 const SubscriptionRenewalQuote
 const SubscriptionRenewalRecord
@@ -1748,6 +1757,13 @@ field PaymentMethod.Refunds bool json:refunds
 field PaymentMethod.Supports []string json:supports
 field PaymentMethod.Test bool json:test
 field PaymentMethod.TestHint map[string]string json:test_hint
+field PaymentMethodUpdate.EventID string json:event_id
+field PaymentMethodUpdate.ExpiresAt *time.Time json:expires_at
+field PaymentMethodUpdate.Label string json:label
+field PaymentMethodUpdate.Source string json:source
+field PaymentMethodUpdate.Token string json:token
+field PaymentMethodUpdateResult.Changed int json:changed
+field PaymentMethodUpdateResult.Matched int json:matched
 field PaymentOption.CredentialTypes []string json:credential_types
 field PaymentOption.Description string json:description
 field PaymentOption.Express *PaymentExpress json:express
@@ -1808,6 +1824,10 @@ field PaymentSaved.ExpiresAt *time.Time json:expires_at
 field PaymentSaved.Label string json:label
 field PaymentSaved.Token string json:token
 field PaymentSavedToken.Token string json:token
+field PaymentSavedUpdate.Method SavedPaymentMethod json:method
+field PaymentSavedUpdate.PreviousExpiresAt *time.Time json:previous_expires_at
+field PaymentSavedUpdate.PreviousLabel string json:previous_label
+field PaymentSavedUpdate.Source string json:source
 field PaymentSession.Agreement string json:agreement
 field PaymentSession.AmountMinor int64 json:amount_minor
 field PaymentSession.AuthorizationExpiresAt *time.Time json:authorization_expires_at
@@ -1853,6 +1873,7 @@ field PaymentSession.Supports []string json:supports
 field PaymentSession.Test bool json:test
 field PaymentSession.UpdatedAt time.Time json:updated_at
 field PaymentSession.VoidRequested bool json:void_requested
+field PaymentSessionParams.Agreement string json:agreement
 field PaymentSessionParams.AmountMinor int64 json:amount_minor
 field PaymentSessionParams.BillingAddress *PaymentAddress json:billing_address
 field PaymentSessionParams.Breakdown *PaymentBreakdown json:breakdown
@@ -1860,6 +1881,7 @@ field PaymentSessionParams.CancelURL string json:cancel_url
 field PaymentSessionParams.Capture string json:capture
 field PaymentSessionParams.Credential *PaymentCredential json:credential
 field PaymentSessionParams.Currency string json:currency
+field PaymentSessionParams.Cycle int json:cycle
 field PaymentSessionParams.Description string json:description
 field PaymentSessionParams.Email string json:email
 field PaymentSessionParams.Fulfilment string json:fulfilment
@@ -2032,6 +2054,7 @@ field SavedPaymentMethod.Mandate PaymentMandate json:mandate
 field SavedPaymentMethod.Method string json:method
 field SavedPaymentMethod.Session string json:session
 field SavedPaymentMethod.Test bool json:test
+field SavedPaymentMethod.UpdatedAt *time.Time json:updated_at
 field Schedule.Cron string
 field Schedule.Name string
 field SchemaExport.ExportedAt time.Time json:exported_at
@@ -2310,8 +2333,14 @@ field SubscriptionLine.Quantity int64 json:quantity
 field SubscriptionLine.SKU string json:sku
 field SubscriptionLine.Title string json:title
 field SubscriptionLine.UnitPriceMinor int64 json:unit_price_minor
+field SubscriptionLinkAnswer.ExpiresAt *time.Time json:expires_at
+field SubscriptionLinkAnswer.Refused string json:refused
+field SubscriptionLinkAnswer.URL string json:url
 field SubscriptionMethod.ExpiresAt *time.Time json:expires_at
 field SubscriptionMethod.Label string json:label
+field SubscriptionMethodLinkRequest.AgreementID string json:agreement_id
+field SubscriptionPayLinkRequest.AgreementID string json:agreement_id
+field SubscriptionPayLinkRequest.Cycle int json:cycle
 field SubscriptionPlanRequest.Interval string json:interval
 field SubscriptionPlanRequest.IntervalCount int json:interval_count
 field SubscriptionPlanRequest.Name string json:name
@@ -2695,6 +2724,7 @@ imethod RewardsProvider.UndoCredit(context.Context, UndoInput) (RewardWriteAnswe
 imethod RewardsProvider.UndoDiscount(context.Context, UndoInput) (RewardWriteAnswer, error)
 imethod SavedMethodPayer.ForgetSaved(context.Context, string) (error)
 imethod SavedMethodPayer.StartPaymentWithSaved(context.Context, PaymentSession, string) (PaymentStartResult, error)
+imethod SavedMethodWatcher.SavedMethodUpdated(context.Context, PaymentSavedUpdate) (error)
 imethod SearchProvider.Configure(context.Context) (error)
 imethod SearchProvider.Healthy(context.Context) (bool)
 imethod SearchProvider.Index(context.Context, []SearchDoc) (error)
@@ -2703,6 +2733,8 @@ imethod SearchProvider.Remove(context.Context, []string) (error)
 imethod SearchProvider.Truncate(context.Context) (error)
 imethod ServiceProvider.ServiceMethods() ([]ServiceMethod)
 imethod ShopEventsProvider.ShopEvents(context.Context, ShopEventsRequest) (ShopEventsAnswer, error)
+imethod SubscriptionLinksProvider.MethodUpdateLink(context.Context, SubscriptionMethodLinkRequest) (SubscriptionLinkAnswer, error)
+imethod SubscriptionLinksProvider.RenewalPayLink(context.Context, SubscriptionPayLinkRequest) (SubscriptionLinkAnswer, error)
 imethod SubscriptionsProvider.PlaceRenewal(context.Context, SubscriptionRenewalRequest) (SubscriptionRenewalAnswer, error)
 imethod SubscriptionsProvider.QuoteRenewal(context.Context, SubscriptionQuoteRequest) (SubscriptionQuoteAnswer, error)
 imethod SubscriptionsProvider.ResumeAgreement(context.Context, UndoInput) (SubscriptionWriteAnswer, error)
@@ -2820,6 +2852,7 @@ method (*Payments) Reject(context.Context, string, PaymentRejection) (PaymentSes
 method (*Payments) RejectRefund(context.Context, string, PaymentRejection) (PaymentRefund, error)
 method (*Payments) ReportDispute(context.Context, string, PaymentDisputeReport) (PaymentDispute, error)
 method (*Payments) ReportExternalRefund(context.Context, string, PaymentExternalRefund) (PaymentRefund, error)
+method (*Payments) ReportMethodUpdated(context.Context, PaymentMethodUpdate) (PaymentMethodUpdateResult, error)
 method (*Payments) Reprice(context.Context, string, string, PaymentReprice) (PaymentSession, error)
 method (*Payments) Resolve(context.Context, string, PaymentResolution) (PaymentSession, error)
 method (*Payments) ResolveRefund(context.Context, string, string) (PaymentRefund, error)
@@ -2845,8 +2878,10 @@ method (*Services) CreateShippingLabel(context.Context, string, LabelRequest) (L
 method (*Services) DeliveredSKUs(context.Context) (map[string]bool, error)
 method (*Services) IssueRewardDiscount(context.Context, string, RewardDiscountRequest) (RewardWriteAnswer, error)
 method (*Services) IssueStoreCredit(context.Context, string, RewardCreditRequest) (RewardWriteAnswer, error)
+method (*Services) MethodUpdateLink(context.Context, SubscriptionMethodLinkRequest) (SubscriptionLinkAnswer, error)
 method (*Services) OrderDeliverables(context.Context, DeliverablesRequest) ([]DeliveredItem, int, error)
 method (*Services) PlaceRenewal(context.Context, string, SubscriptionRenewalRequest) (SubscriptionRenewalAnswer, error)
+method (*Services) RenewalPayLink(context.Context, SubscriptionPayLinkRequest) (SubscriptionLinkAnswer, error)
 method (*Services) ResolveAddress(context.Context, string, AddressResolveRequest) (AddressResolveAnswer, error)
 method (*Services) SetAttribute(context.Context, string, AttributeSetRequest) (AttributeWriteAnswer, error)
 method (*Services) ShippingDocuments(context.Context, string, DocumentsRequest) (DocumentsResult, error)
@@ -2944,6 +2979,9 @@ method (PaymentExternalRefund) Validate() (error)
 method (PaymentForgetRequest) GoString() (string)
 method (PaymentForgetRequest) String() (string)
 method (PaymentMandate) Validate() (error)
+method (PaymentMethodUpdate) GoString() (string)
+method (PaymentMethodUpdate) String() (string)
+method (PaymentMethodUpdate) Validate() (error)
 method (PaymentRefund) Unmatched() (bool)
 method (PaymentRefundParams) Validate() (error)
 method (PaymentRejection) Validate() (error)
@@ -2991,6 +3029,9 @@ method (StockAlertResult) Validate() (error)
 method (SubscriptionAgreement) Validate() (error)
 method (SubscriptionAgreementAnswer) Validate() (error)
 method (SubscriptionCycles) Validate() (error)
+method (SubscriptionLinkAnswer) Validate() (error)
+method (SubscriptionMethodLinkRequest) Validate() (error)
+method (SubscriptionPayLinkRequest) Validate() (error)
 method (SubscriptionPlanRequest) Validate() (error)
 method (SubscriptionPricing) Validate() (error)
 method (SubscriptionQuoteAnswer) Validate() (error)
@@ -3233,6 +3274,8 @@ type PaymentGatewayState
 type PaymentLine
 type PaymentMandate
 type PaymentMethod
+type PaymentMethodUpdate
+type PaymentMethodUpdateResult
 type PaymentOption
 type PaymentReader
 type PaymentRefund
@@ -3249,6 +3292,7 @@ type PaymentResolution
 type PaymentRisk
 type PaymentSaved
 type PaymentSavedToken
+type PaymentSavedUpdate
 type PaymentSession
 type PaymentSessionParams
 type PaymentSessionUpdate
@@ -3294,6 +3338,7 @@ type RewardsProvider
 type RowAction
 type RowCondition
 type SavedMethodPayer
+type SavedMethodWatcher
 type SavedPaymentMethod
 type Schedule
 type SchemaExport
@@ -3355,7 +3400,11 @@ type SubscriptionAgreementsRequest
 type SubscriptionCycle
 type SubscriptionCycles
 type SubscriptionLine
+type SubscriptionLinkAnswer
+type SubscriptionLinksProvider
 type SubscriptionMethod
+type SubscriptionMethodLinkRequest
+type SubscriptionPayLinkRequest
 type SubscriptionPlanRequest
 type SubscriptionPricing
 type SubscriptionQuoteAnswer

@@ -227,6 +227,9 @@ type SavedPaymentMethod struct {
 	CreatedAt time.Time  `json:"created_at"`
 	// ForgottenAt is set once the method was forgotten: it charges nothing again.
 	ForgottenAt *time.Time `json:"forgotten_at,omitempty"`
+	// UpdatedAt is when its processor last changed the method's details by itself — a card network's account updater
+	// gave the card a new expiry or number (v0.69.0, PaymentMethodUpdate); nil when it never did.
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
 }
 
 // MaxPaymentAgreement is the longest agreement name a charge carries (PaymentChargeParams.Agreement, door D5,
@@ -245,6 +248,23 @@ func validAgreement(a string) error {
 }
 
 var agreementRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]*$`)
+
+// validSessionCycle refuses an on-session payment of a renewal's cycle (PaymentSessionParams.Agreement, v0.69.0) that
+// Core would: the agreement and its cycle together, and never on a session that keeps a method, charges an agent's
+// credential or waits at a card reader — the cycle is paid by the payer, present, through a page.
+func validSessionCycle(p PaymentSessionParams) error {
+	switch {
+	case p.Agreement == "" && p.Cycle == 0:
+		return nil
+	case p.Agreement == "":
+		return fmt.Errorf("nilda: a payment's cycle belongs to an agreement; name the agreement")
+	case p.Cycle < 1 || p.Cycle > MaxPaymentCycle:
+		return fmt.Errorf("nilda: a payment for an agreement names its cycle, 1-%d", MaxPaymentCycle)
+	case p.Save != nil || p.Credential != nil || p.Reader != "":
+		return fmt.Errorf("nilda: a renewal's cycle is paid by the payer on a page; it keeps no method, charges no credential and waits at no reader")
+	}
+	return validAgreement(p.Agreement)
+}
 
 // PaymentChargeParams is what a CONSUMER sends to charge a kept method (Payments.ChargeSaved): the payer is not
 // there, so there are no return addresses and no page.
@@ -404,4 +424,99 @@ func (p *Payments) ForgetSavedMethod(ctx context.Context, id string) (SavedPayme
 	}
 	err = p.api.Post(ctx, path, struct{}{}, &out)
 	return out.Data, err
+}
+
+// ---- a kept method its processor updated (v0.69.0, EXPERIMENTAL) -------------------------------------------------
+
+// THE CARD UPDATER. A card network replaces a kept card's details on its own — a new expiry, a new number for a card
+// reissued — and tells the processor (Visa Account Updater, Mastercard Automatic Billing Updater; network tokens), which
+// tells its merchant: Stripe's payment_method.automatically_updated, "Occurs whenever a payment method's details are
+// automatically updated by the network" (docs.stripe.com/api/events/types, read 2026-11-17). The kept method's token
+// stays the same; only what a person recognises it by changes. Three parties again, and the token still never reaches
+// the consumer:
+//
+//	GATEWAY   hears it from its processor and reports it (Payments.ReportMethodUpdated): the token it kept the
+//	          method under, the new label and expiry.
+//	CORE      finds the kept methods this gateway keeps under that token, records the new label and expiry, keeps a
+//	          record of the change for the owner, and tells each method's consumer (HookPaymentSavedUpdated) — durably,
+//	          as it tells a session's news, until the consumer answers.
+//	CONSUMER  hears it (SavedMethodWatcher) and shows it: a subscription's method says the new card.
+
+// HookPaymentSavedUpdated tells a CONSUMER that implements SavedMethodWatcher that one of its kept methods changed at
+// its processor: PaymentSavedUpdate in, {} out. Repeated until you return nil.
+const HookPaymentSavedUpdated = "payment.saved.updated"
+
+// Why a kept method's details changed (PaymentMethodUpdate.Source).
+const (
+	// MethodUpdatedByNetwork — the card network's account updater replaced the card's expiry or number.
+	MethodUpdatedByNetwork = "network"
+)
+
+// PaymentMethodUpdate is what a GATEWAY reports when its processor changed a method it keeps (Payments.ReportMethodUpdated).
+type PaymentMethodUpdate struct {
+	// Token is the token the method was kept under (PaymentSaved.Token), exactly — Core finds the method by it and
+	// never stores it a second time.
+	Token string `json:"token"`
+	// Label and ExpiresAt are the method's new ones, as PaymentSaved's.
+	Label     string     `json:"label"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	// Source is why: MethodUpdatedByNetwork.
+	Source string `json:"source"`
+	// EventID is the processor's own id for the news ("evt_…"), so a redelivered event is recorded once.
+	EventID string `json:"event_id"`
+}
+
+// Validate refuses an update with no token, no label, an unknown source or no event id.
+func (u PaymentMethodUpdate) Validate() error {
+	if err := (PaymentSaved{Token: u.Token, Label: u.Label}).Validate(); err != nil {
+		return err
+	}
+	if u.Source != MethodUpdatedByNetwork {
+		return fmt.Errorf("nilda: a kept method's update says why: %s", MethodUpdatedByNetwork)
+	}
+	if strings.TrimSpace(u.EventID) == "" || len(u.EventID) > maxProviderRef || !noNUL(u.EventID, u.Label) {
+		return fmt.Errorf("nilda: a kept method's update names the processor's event, 1 to %d bytes with no NUL", maxProviderRef)
+	}
+	return nil
+}
+
+// String never shows the token.
+func (u PaymentMethodUpdate) String() string { return u.Label + " [token redacted]" }
+
+// GoString likewise, for %#v.
+func (u PaymentMethodUpdate) GoString() string { return u.String() }
+
+// PaymentMethodUpdateResult is Core's answer: how many kept methods carry the token (Matched) — 0 for a method kept
+// outside Nilda, which is no error — and how many of them changed (Changed; 0 when the event was heard before).
+type PaymentMethodUpdateResult struct {
+	Matched int `json:"matched"`
+	Changed int `json:"changed"`
+}
+
+// ReportMethodUpdated tells Core the processor changed a method this GATEWAY keeps. A token Core does not know is
+// answered Matched 0: the processor's merchant account may keep methods other software made.
+func (p *Payments) ReportMethodUpdated(ctx context.Context, u PaymentMethodUpdate) (PaymentMethodUpdateResult, error) {
+	if err := u.Validate(); err != nil {
+		return PaymentMethodUpdateResult{}, err
+	}
+	var out struct {
+		Data PaymentMethodUpdateResult `json:"data"`
+	}
+	err := p.api.Post(ctx, "/payments/saved-methods/updates", u, &out)
+	return out.Data, err
+}
+
+// PaymentSavedUpdate is what HookPaymentSavedUpdated carries to a consumer: the method as it is now, and what it was.
+type PaymentSavedUpdate struct {
+	Method            SavedPaymentMethod `json:"method"`
+	PreviousLabel     string             `json:"previous_label"`
+	PreviousExpiresAt *time.Time         `json:"previous_expires_at,omitempty"`
+	Source            string             `json:"source"`
+}
+
+// SavedMethodWatcher is what a CONSUMER implements to hear that its processor changed one of its kept methods.
+// OPTIONAL: a consumer that does not implement it is never sent the hook, and still reads the new label with
+// GetSavedMethod. Repeated until you return nil: key what you do by (Method.ID, Method.UpdatedAt), never by arrival.
+type SavedMethodWatcher interface {
+	SavedMethodUpdated(ctx context.Context, u PaymentSavedUpdate) error
 }

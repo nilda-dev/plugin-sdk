@@ -4237,6 +4237,138 @@
       "output": {
         "type": "object"
       }
+    },
+    {
+      "name": "saved.updated",
+      "hook": "payment.saved.updated",
+      "answered_by": "consumer",
+      "description": "EXPERIMENTAL (v0.69.0). Tell the plugin that kept a payment method that its processor changed the method's details by itself — a card network's account updater gave the card a new expiry or number; repeated until it returns nil. Only a consumer implementing SavedMethodWatcher is sent it.",
+      "retry_class": "answer",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reaches payments through Core's own payment tools (payments_list, payment_detail, payment_decide, payment_methods, payment_method_set); this hook is Core-to-plugin plumbing beneath them",
+      "input": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "consumer": {
+                "type": "string"
+              },
+              "gateway": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "mandate": {
+                "type": "object",
+                "properties": {
+                  "purpose": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "amount_minor": {
+                    "type": "integer"
+                  },
+                  "amount_rule": {
+                    "type": "string"
+                  },
+                  "max_amount_minor": {
+                    "type": "integer"
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "interval": {
+                    "type": "string"
+                  },
+                  "interval_count": {
+                    "type": "integer"
+                  },
+                  "replaces": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "purpose",
+                  "text",
+                  "currency"
+                ]
+              },
+              "session": {
+                "type": "string"
+              },
+              "test": {
+                "type": "boolean"
+              },
+              "expires_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "forgotten_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "updated_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "consumer",
+              "gateway",
+              "method",
+              "label",
+              "mandate",
+              "session",
+              "created_at"
+            ]
+          },
+          "previous_label": {
+            "type": "string"
+          },
+          "previous_expires_at": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "source": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "method",
+          "previous_label",
+          "source"
+        ]
+      },
+      "output": {
+        "type": "object"
+      }
     }
   ]
 }

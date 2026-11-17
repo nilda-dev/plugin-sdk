@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -42,6 +43,10 @@ const (
 	SubscriptionRenewalUndo     = "renewal.undo"
 	SubscriptionAgreementStop   = "agreement.stop"
 	SubscriptionAgreementResume = "agreement.resume"
+	// The buyer's own two ways out of a failed renewal (v0.69.0, EXPERIMENTAL; SubscriptionLinksProvider): a link to pay
+	// the cycle's order on the shop's own pay page, and a link where the signed-in buyer gives another method.
+	SubscriptionRenewalPayLink = "renewal.pay_link"
+	SubscriptionMethodLink     = "method.update_link"
 )
 
 // The records the write commands make, and the events the shop emits (ecommerce.*, the shop's namespace).
@@ -58,10 +63,18 @@ const (
 	EventSubscriptionResumed = "ecommerce.subscription.resumed"
 	// Events no write makes: an agreement started (its first order paid and the method kept), a renewal's charge
 	// decided, the buyer's method replaced. Each carries agreement_id (and cycle, order_id, fail_code where it says).
+	// method_updated (v0.69.0) carries source — SubscriptionMethodByNetwork or SubscriptionMethodByBuyer; renewal.failed
+	// carries by_buyer true when the payment that ended without money was the buyer's own, on the pay page.
 	EventSubscriptionStarted       = "ecommerce.subscription.started"
 	EventRenewalPaid               = "ecommerce.renewal.paid"
 	EventRenewalFailed             = "ecommerce.renewal.failed"
 	EventSubscriptionMethodUpdated = "ecommerce.subscription.method_updated"
+)
+
+// Why an agreement's method changed (the method_updated event's source, v0.69.0).
+const (
+	SubscriptionMethodByNetwork = MethodUpdatedByNetwork // the card network updated the kept card (Core's card updater)
+	SubscriptionMethodByBuyer   = "buyer"                // the buyer gave another method (method.update_link)
 )
 
 // SubscriptionEvents returns every event the door emits, sorted.
@@ -135,9 +148,16 @@ const (
 	SubscriptionDeliveryUnavailable = "delivery_unavailable"
 	// SubscriptionAccountRefused: the buyer's account is suspended or banned on the site; nothing is sold to it.
 	SubscriptionAccountRefused = "account_refused"
+	// SubscriptionNoRenewal: renewal.pay_link for a cycle no order was placed for.
+	SubscriptionNoRenewal = "no_renewal"
+	// SubscriptionRenewalClosed: renewal.pay_link for a cycle whose order was cancelled or refunded — nothing to pay.
+	SubscriptionRenewalClosed = "renewal_closed"
+	// SubscriptionNoAccount: method.update_link for an agreement made without a buyer account — the link is for the
+	// signed-in buyer, and a guest has nobody to sign in as.
+	SubscriptionNoAccount = "no_account"
 )
 
-var subscriptionRefusals = []string{SubscriptionAccountRefused, SubscriptionCharging, SubscriptionOverAgreement, SubscriptionDeliveryUnavailable, SubscriptionUnknownSKU, SubscriptionInvalidPlan, SubscriptionUnknownAgreement,
+var subscriptionRefusals = []string{SubscriptionNoRenewal, SubscriptionRenewalClosed, SubscriptionNoAccount, SubscriptionAccountRefused, SubscriptionCharging, SubscriptionOverAgreement, SubscriptionDeliveryUnavailable, SubscriptionUnknownSKU, SubscriptionInvalidPlan, SubscriptionUnknownAgreement,
 	SubscriptionNotYours, SubscriptionAgreementStopped, SubscriptionAgreementPending, SubscriptionCyclePaid,
 	SubscriptionCycleOutOfOrder, SubscriptionTooEarly, SubscriptionItemUnavailable, SubscriptionOutOfStock,
 	SubscriptionOverMandate, SubscriptionMethodForgotten, SubscriptionRenewalIsPaid, SubscriptionNotStopped, SubscriptionPastMaxCycles,
@@ -551,6 +571,98 @@ type SubscriptionsProvider interface {
 	ResumeAgreement(ctx context.Context, req UndoInput) (SubscriptionWriteAnswer, error)
 }
 
+// SubscriptionPayLinkRequest is renewal.pay_link: a link for the buyer to pay one cycle's order themselves — a renewal
+// whose charge was refused — on the shop's own pay page. Nothing is charged by asking.
+type SubscriptionPayLinkRequest struct {
+	AgreementID string `json:"agreement_id"`
+	Cycle       int    `json:"cycle"`
+}
+
+// Validate refuses a request no shop could answer.
+func (r SubscriptionPayLinkRequest) Validate() error {
+	if err := attributeText("agreement_id", r.AgreementID, maxSubscriptionID, true); err != nil {
+		return err
+	}
+	if r.Cycle < 2 {
+		return errors.New("nilda: a renewal is cycle 2 or later — the order that started the agreement is cycle 1")
+	}
+	return nil
+}
+
+// SubscriptionMethodLinkRequest is method.update_link: a link where the signed-in buyer gives another payment method for
+// the agreement — through Core's payments, on the processor's own page; the agreement then renews on it.
+type SubscriptionMethodLinkRequest struct {
+	AgreementID string `json:"agreement_id"`
+}
+
+// Validate refuses a request no shop could answer.
+func (r SubscriptionMethodLinkRequest) Validate() error {
+	return attributeText("agreement_id", r.AgreementID, maxSubscriptionID, true)
+}
+
+// SubscriptionLinkAnswer is a link for the buyer — signed, expiring at ExpiresAt, opening only for the buyer it is for —
+// or why there is none: renewal.pay_link refuses unknown_agreement, not_yours, no_renewal, cycle_paid (paid already),
+// renewal_closed and charging (a payment of it is with the processor); method.update_link unknown_agreement,
+// not_yours, agreement_stopped and no_account.
+type SubscriptionLinkAnswer struct {
+	Refused   string     `json:"refused,omitempty"`
+	URL       string     `json:"url,omitempty"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+}
+
+// Validate refuses an answer that is neither an https link that expires nor a known refusal, or both.
+func (a SubscriptionLinkAnswer) Validate() error {
+	switch {
+	case a.Refused != "" && (a.URL != "" || a.ExpiresAt != nil):
+		return errors.New("nilda: a refused link carries no URL")
+	case a.Refused != "" && !slices.Contains(subscriptionRefusals, a.Refused):
+		return fmt.Errorf("nilda: refused %q is not a code shop.subscriptions/v1 knows", a.Refused)
+	case a.Refused != "":
+		return nil
+	case a.ExpiresAt == nil:
+		return errors.New("nilda: a buyer's link says when it stops working")
+	}
+	u, err := url.Parse(a.URL)
+	if err != nil || u.Scheme != "https" || u.Host == "" || len(a.URL) > maxPayerURL {
+		return fmt.Errorf("nilda: a buyer's link is an absolute https URL of at most %d bytes", maxPayerURL)
+	}
+	return nil
+}
+
+// SubscriptionLinksProvider is a shop that answers the buyer's two links (v0.69.0, EXPERIMENTAL). OPTIONAL: a shop that
+// does not implement it is not asked, and a subscriptions plugin's mail says the shop will try again.
+type SubscriptionLinksProvider interface {
+	RenewalPayLink(ctx context.Context, req SubscriptionPayLinkRequest) (SubscriptionLinkAnswer, error)
+	MethodUpdateLink(ctx context.Context, req SubscriptionMethodLinkRequest) (SubscriptionLinkAnswer, error)
+}
+
+func subscriptionLinkMethods(p SubscriptionsProvider) []ServiceMethod {
+	lp, is := p.(SubscriptionLinksProvider)
+	if !is {
+		return nil
+	}
+	checked := func(a SubscriptionLinkAnswer, err error) (SubscriptionLinkAnswer, error) {
+		if err != nil {
+			return a, err
+		}
+		return a, a.Validate()
+	}
+	return []ServiceMethod{
+		Serves(ContractShopSubscriptions, SubscriptionRenewalPayLink, func(ctx context.Context, req SubscriptionPayLinkRequest) (SubscriptionLinkAnswer, error) {
+			if err := req.Validate(); err != nil {
+				return SubscriptionLinkAnswer{}, err
+			}
+			return checked(lp.RenewalPayLink(ctx, req))
+		}),
+		Serves(ContractShopSubscriptions, SubscriptionMethodLink, func(ctx context.Context, req SubscriptionMethodLinkRequest) (SubscriptionLinkAnswer, error) {
+			if err := req.Validate(); err != nil {
+				return SubscriptionLinkAnswer{}, err
+			}
+			return checked(lp.MethodUpdateLink(ctx, req))
+		}),
+	}
+}
+
 // SubscriptionsMethods are the shop's subscription methods, each checking the request first and the answer after.
 func SubscriptionsMethods(p SubscriptionsProvider) []ServiceMethod {
 	undo := func(fn func(context.Context, UndoInput) (SubscriptionWriteAnswer, error)) func(context.Context, UndoInput) (SubscriptionWriteAnswer, error) {
@@ -561,7 +673,7 @@ func SubscriptionsMethods(p SubscriptionsProvider) []ServiceMethod {
 			return checkedSubscription(fn(ctx, req))
 		}
 	}
-	return []ServiceMethod{
+	return append([]ServiceMethod{
 		Serves(ContractShopSubscriptions, SubscriptionPlanSet, func(ctx context.Context, req SubscriptionPlanRequest) (SubscriptionWriteAnswer, error) {
 			if err := req.Validate(); err != nil {
 				return SubscriptionWriteAnswer{}, err
@@ -630,7 +742,7 @@ func SubscriptionsMethods(p SubscriptionsProvider) []ServiceMethod {
 			return checkedSubscription(p.StopAgreement(ctx, req))
 		}),
 		Serves(ContractShopSubscriptions, SubscriptionAgreementResume, undo(p.ResumeAgreement)),
-	}
+	}, subscriptionLinkMethods(p)...)
 }
 
 func checkedSubscription(a SubscriptionWriteAnswer, err error) (SubscriptionWriteAnswer, error) {
@@ -662,6 +774,38 @@ func (s *Services) PlaceRenewal(ctx context.Context, key string, req Subscriptio
 	var a SubscriptionRenewalAnswer
 	if err := res.Answers[0].Decode(&a); err != nil {
 		return SubscriptionRenewalAnswer{}, err
+	}
+	return a, a.Validate()
+}
+
+// RenewalPayLink asks the shop for a link the buyer pays a refused renewal with (renewal.pay_link). Signing a link
+// writes nothing, so it carries no idempotency key; ask again for a fresh one.
+func (s *Services) RenewalPayLink(ctx context.Context, req SubscriptionPayLinkRequest) (SubscriptionLinkAnswer, error) {
+	if err := req.Validate(); err != nil {
+		return SubscriptionLinkAnswer{}, err
+	}
+	return s.subscriptionLink(ctx, SubscriptionRenewalPayLink, req)
+}
+
+// MethodUpdateLink asks the shop for a link where the signed-in buyer gives another method (method.update_link).
+func (s *Services) MethodUpdateLink(ctx context.Context, req SubscriptionMethodLinkRequest) (SubscriptionLinkAnswer, error) {
+	if err := req.Validate(); err != nil {
+		return SubscriptionLinkAnswer{}, err
+	}
+	return s.subscriptionLink(ctx, SubscriptionMethodLink, req)
+}
+
+func (s *Services) subscriptionLink(ctx context.Context, method string, req any) (SubscriptionLinkAnswer, error) {
+	res, err := s.Call(ctx, ContractShopSubscriptions, method, req, ServiceCallOptions{})
+	if err != nil {
+		return SubscriptionLinkAnswer{}, err
+	}
+	if len(res.Answers) == 0 {
+		return SubscriptionLinkAnswer{}, fmt.Errorf("nilda: no shop answered %s %s", ContractShopSubscriptions, method)
+	}
+	var a SubscriptionLinkAnswer
+	if err := res.Answers[0].Decode(&a); err != nil {
+		return SubscriptionLinkAnswer{}, err
 	}
 	return a, a.Validate()
 }

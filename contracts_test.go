@@ -94,6 +94,10 @@ var paymentsV1 = contractDef{
 			RetryClass: "answer", Idempotent: true,
 			Description: "Tell the plugin that took the payment about a dispute or chargeback on it; repeated until it returns nil."},
 			PaymentDisputeUpdate{}, ordinary{}},
+		{ContractMethod{Name: "saved.updated", Hook: HookPaymentSavedUpdated, AnsweredBy: "consumer",
+			RetryClass: "answer", Idempotent: true,
+			Description: "EXPERIMENTAL (v0.69.0). Tell the plugin that kept a payment method that its processor changed the method's details by itself — a card network's account updater gave the card a new expiry or number; repeated until it returns nil. Only a consumer implementing SavedMethodWatcher is sent it."},
+			PaymentSavedUpdate{}, ordinary{}},
 	},
 }
 
@@ -338,6 +342,14 @@ var shopSubscriptionsV1 = contractDef{
 			Write:       &ContractWrite{Record: SubscriptionAgreementRecord, Emits: EventSubscriptionResumed},
 			Description: "EXPERIMENTAL. Take back this plugin's stop of an agreement while its method is still kept; refused method_forgotten after — a new agreement needs the buyer present."},
 			UndoInput{}, SubscriptionWriteAnswer{}},
+		{ContractMethod{Name: SubscriptionRenewalPayLink, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: subscriptionsAgentReason,
+			Description: "EXPERIMENTAL (v0.69.0, a shop implementing SubscriptionLinksProvider). A signed, expiring link for the buyer to pay one cycle's refused renewal themselves on the shop's own pay page — the order's own page, through the agreement's method, holding the same one payment per cycle as the off-session charge. Refused no_renewal, cycle_paid, renewal_closed or charging. Nothing is charged by asking."},
+			SubscriptionPayLinkRequest{}, SubscriptionLinkAnswer{}},
+		{ContractMethod{Name: SubscriptionMethodLink, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: subscriptionsAgentReason,
+			Description: "EXPERIMENTAL (v0.69.0, a shop implementing SubscriptionLinksProvider). A signed, expiring link where the signed-in buyer of an agreement gives another payment method — kept by Core on the processor's own page under an update mandate — and the agreement renews on it (ecommerce.subscription.method_updated, source buyer). Refused agreement_stopped or no_account (a guest's agreement has nobody to sign in as)."},
+			SubscriptionMethodLinkRequest{}, SubscriptionLinkAnswer{}},
 	},
 }
 
@@ -556,6 +568,7 @@ func TestThePaymentsContractTimesEachHookAsCoreDoes(t *testing.T) {
 		"HookPaymentSessionUpdated": "answersAgain",
 		"HookPaymentRefundUpdated":  "answersAgain",
 		"HookPaymentDisputeUpdated": "answersAgain",
+		"HookPaymentSavedUpdated":   "answersAgain",
 		"HookPaymentReprice":        "gatewayCall",
 	}
 	for name, row := range rows {

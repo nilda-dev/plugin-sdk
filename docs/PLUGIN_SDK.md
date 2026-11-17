@@ -2574,6 +2574,10 @@ rejected with `authentication_required`.
 
 **Door D5 (EXPERIMENTAL) names the renewal** (PAYMENTS.md §5, item 4): a charge carries `Agreement` and `Cycle`, and
 Core charges one cycle once — a second is 409 while the first is paid or deciding; a refused cycle may be asked again.
+The payer may pay a cycle on-session too (v0.69.0, item 5): `PaymentSessionParams.Agreement` and `Cycle` hold it the
+same way. **The card updater** (v0.69.0, item 6): a gateway reports a kept method its processor changed with
+`Payments.ReportMethodUpdated` (a `nilda.PaymentMethodUpdate` → `nilda.PaymentMethodUpdateResult`), and a consumer that
+implements `nilda.SavedMethodWatcher` hears it as a `nilda.PaymentSavedUpdate` (`payment.saved.updated`).
 
 **v0.58.0 adds holding the money, then taking it** (PAYMENTS.md §4–§5): a consumer sends
 `PaymentSessionParams.Capture` `nilda.CaptureManual` on a method that lists `nilda.SupportManualCapture`; the gateway
@@ -3472,7 +3476,10 @@ the reward is for. `ShopOrder.CustomerUserID` names the buyer's account.
 `renewal.quote` (`SubscriptionQuoteRequest` → `SubscriptionQuoteAnswer`). An
 agreement is a `SubscriptionAgreement` of `SubscriptionLine`s at the price locked at sign-up, its `SubscriptionMethod`'s
 label (never its id) and its `SubscriptionCycle`s. Refusals are `SubscriptionRefusals()`; events `SubscriptionEvents()`.
-A subscriptions plugin places a cycle with `Services.PlaceRenewal`.
+A subscriptions plugin places a cycle with `Services.PlaceRenewal`. A shop that also implements `SubscriptionLinksProvider` (v0.69.0)
+answers the buyer's two links — `renewal.pay_link` (`SubscriptionPayLinkRequest`) and `method.update_link`
+(`SubscriptionMethodLinkRequest`), each a `SubscriptionLinkAnswer` — which a subscriptions plugin asks with
+`Services.RenewalPayLink` and `Services.MethodUpdateLink`.
 
 ### Another plugin's section on the buyer's account page (`shop.account.sections/v1`, experimental)
 

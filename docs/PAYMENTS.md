@@ -968,6 +968,22 @@ strong customer authentication when the method is kept, later charges out of its
    A subscriptions plugin never charges by itself: it asks the shop for the renewal (the shop's door D9), and the shop
    — which kept the method at its checkout — charges as here, naming the agreement and cycle.
 
+5. **The payer pays a cycle themselves (v0.69.0, EXPERIMENTAL).** A renewal whose off-session charge was refused can
+   be paid by the payer, present, on your own pay page: an ordinary session (`CreateSession`, a page to send them to)
+   carrying the same **`Agreement`** and **`Cycle`** as the charge would. It holds the cycle under the same index, so
+   the payer's payment and a dunning retry never both take money for one cycle — whichever comes second is `409
+   CONFLICT`, naming the session that holds it. Never with `Save`, `Credential` or `Reader`. A payer who leaves the page
+   lets the session expire (24 hours), and the cycle is free again for the next attempt.
+6. **The card updater (v0.69.0, EXPERIMENTAL).** A card network replaces a kept card's expiry or number by itself and
+   tells the processor (Stripe's `payment_method.automatically_updated`); the token stays the same. The GATEWAY reports
+   it — `Payments.ReportMethodUpdated(ctx, nilda.PaymentMethodUpdate{Token, Label, ExpiresAt, Source: "network",
+   EventID})`, the token exactly as it was kept and the processor's event id. Core changes the label and expiry of
+   every method this gateway keeps under that token and has not forgotten, once per event (`Matched`, `Changed`; a
+   token Core does not know is `Matched: 0`, no error), records the change for the owner, sets
+   `SavedPaymentMethod.UpdatedAt`, and tells each method's CONSUMER that implements `nilda.SavedMethodWatcher`
+   (`payment.saved.updated`: the method as it is now, its previous label and expiry, the source) — durably, until it
+   answers, as a session's news. A consumer that does not watch reads the new label with `GetSavedMethod`.
+
 A gateway that keeps methods implements `nilda.SavedMethodPayer`: `StartPaymentWithSaved` for the charge and
 `ForgetSaved` for the release. A token is never logged, echoed or shown: its types print `[token redacted]`.
 
@@ -986,6 +1002,7 @@ Hooks arrive over the plugin protocol (docs/ANY_LANGUAGE.md) with these JSON pay
 | `payment.sync` | gateway (a `PaymentSyncer`) | `{"session":{…}}` | `{}` — what it found is reported through the calls below |
 | `payment.dispute.updated` | consumer (a `PaymentDisputeConsumer`) | `{"dispute":{…},"session":{…}}` | `{}` — an error means "tell me again" |
 | `payment.saved.forget` | gateway (a `SavedMethodPayer`) | `{"token"}` | `{}` — let go of the method at the processor; an unknown token is forgotten already |
+| `payment.saved.updated` | consumer (a `SavedMethodWatcher`, v0.69.0) | `{"method":{…},"previous_label","previous_expires_at","source"}` | `{}` — an error means "tell me again" |
 | `payment.capture` | gateway (a `PaymentCapturer`) | `{"session":{…},"amount_minor","idempotency_key"}` | `{"status","amount_minor","provider_ref","failure_code","failure_message"}` — an error means "not answered, ask again" (v0.58.0) |
 | `payment.void` | gateway (a `PaymentCapturer`) | `{"session":{…},"idempotency_key"}` | `{"status","amount_minor","provider_ref"}` — the same |
 | `payment.reprice` | gateway (a `PaymentRepricer`) | `{"session":{…},"amount_minor","shipping_options":[{"id","label","amount_minor","selected"}]}` | `{"repriced","failure_message"}` — an error means "not answered, nothing changed" (v0.58.0, EXPERIMENTAL; from the Core of plan 10.2's X2b) |
@@ -1032,6 +1049,7 @@ Calls into Core, under `/api/rest/v1`, with the plugin's token; answers inside `
 | `POST /payments/charges` + `Idempotency-Key` | consumer | `{"saved_method","reference","amount_minor","currency","description","fulfilment","shipping_address"}` | 201, the session |
 | `GET /payments/saved-methods/{id}` | consumer | — | the kept method, never its token |
 | `POST /payments/saved-methods/{id}/forget` | consumer | — | the kept method, `forgotten_at` set |
+| `POST /payments/saved-methods/updates` | gateway (v0.69.0) | `{"token","label","expires_at","source","event_id"}` | `{"matched","changed"}` — the card updater |
 
 Refusals: **404** a session that is not yours; **409** a report the session has moved past, a refund of an
 unpaid session, or a keyed request sent again while the first is still being answered; **422** what `Validate`

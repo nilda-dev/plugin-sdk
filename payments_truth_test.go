@@ -118,7 +118,7 @@ func TestThePaymentHooksAreCores(t *testing.T) {
 	var sdk []string
 	for _, h := range []string{HookPaymentDescribe, HookPaymentStart, HookPaymentRefund, HookPaymentSync, HookPaymentForget,
 		HookPaymentCapture, HookPaymentVoid, HookPaymentReprice, HookPaymentConfirm, HookPaymentSessionUpdated,
-		HookPaymentRefundUpdated, HookPaymentDisputeUpdated} {
+		HookPaymentRefundUpdated, HookPaymentDisputeUpdated, HookPaymentSavedUpdated} {
 		if !coreLacks("hook " + h) { // SDK-first surface Core has not landed yet (coreahead_test.go)
 			sdk = append(sdk, h)
 		}
@@ -462,6 +462,9 @@ func TestThePaymentRoutesAreCores(t *testing.T) {
 		"Reprice":           func() { _, _ = pay.Reprice(ctx, "k6", "sid", PaymentReprice{AmountMinor: 1}) },
 		"Void":              func() { _, _ = pay.Void(ctx, "k5", "sid") },
 		"ForgetSavedMethod": func() { _, _ = pay.ForgetSavedMethod(ctx, "smid") },
+		"ReportMethodUpdated": func() {
+			_, _ = pay.ReportMethodUpdated(ctx, PaymentMethodUpdate{Token: "cus_1/pm_1", Label: "Visa", Source: MethodUpdatedByNetwork, EventID: "evt_1"})
+		},
 	}
 	methods := reflect.TypeOf(pay)
 	for i := 0; i < methods.NumMethod(); i++ {

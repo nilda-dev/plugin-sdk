@@ -73,8 +73,12 @@ type Payments struct {
 	disputes  map[string]*nilda.PaymentDispute
 	secrets   map[string]map[string]string // gateway key → name → value, as Core keeps them (encrypted there)
 	saved     map[string]*savedMethod      // kept payment methods by id, with their tokens (paymentsaved.go)
-	owed      []owed                       // what the consumers have not heard yet, oldest change first
-	log       []Delivery
+	// savedNews is what each kept method was before its processor last changed it, owed to its consumer (v0.69.0);
+	// methodEvents the processor events already applied, per gateway, event and method.
+	savedNews    map[string]nilda.PaymentSavedUpdate
+	methodEvents map[string]bool
+	owed         []owed // what the consumers have not heard yet, oldest change first
+	log          []Delivery
 	// holdDue are the sessions whose capture or void the gateway has not answered yet; asking the ones being asked
 	// right now — Core asks under the session's lock (paymentcapture.go).
 	holdDue map[string]bool
@@ -91,7 +95,9 @@ type Payments struct {
 // Delivery is one attempt to tell a consumer about a change.
 type Delivery struct {
 	// Dispute is the dispute told about, for nilda.HookPaymentDisputeUpdated; the zero value otherwise.
-	Dispute  nilda.PaymentDispute
+	Dispute nilda.PaymentDispute
+	// Saved is the kept method told about, for nilda.HookPaymentSavedUpdated (v0.69.0); the zero value otherwise.
+	Saved    nilda.PaymentSavedUpdate
 	Consumer string
 	// Hook is nilda.HookPaymentSessionUpdated or nilda.HookPaymentRefundUpdated.
 	Hook    string
@@ -101,7 +107,7 @@ type Delivery struct {
 	Err error
 }
 
-type owed struct{ session, refund, dispute string }
+type owed struct{ session, refund, dispute, saved string }
 
 type replay struct {
 	sum    [sha256.Size]byte
@@ -149,10 +155,10 @@ func NewPayments() *Payments {
 		keys:      map[string]replay{},
 		disputes:  map[string]*nilda.PaymentDispute{},
 		secrets:   map[string]map[string]string{},
-		saved:     map[string]*savedMethod{},
-		holdDue:   map[string]bool{},
-		asking:    map[string]bool{},
-		holdAsks:  map[string]int{},
+		saved:     map[string]*savedMethod{}, savedNews: map[string]nilda.PaymentSavedUpdate{},
+		holdDue:  map[string]bool{},
+		asking:   map[string]bool{},
+		holdAsks: map[string]int{},
 
 		approved:     map[string]bool{},
 		credentialed: map[string]bool{},
@@ -787,12 +793,17 @@ func (p *Payments) createSession(ctx context.Context, consumer string, params ni
 		Supports: nilda.SupportsOf(m), Fulfilment: params.Fulfilment,
 		BillingAddress: params.BillingAddress, ShippingAddress: params.ShippingAddress, Save: params.Save,
 		Reader: params.Reader, Capture: capture, ExpiresAt: &expires, CreatedAt: now, UpdatedAt: now,
-		Lines: params.Lines, Breakdown: params.Breakdown,
+		Lines: params.Lines, Breakdown: params.Breakdown, Agreement: params.Agreement, Cycle: params.Cycle,
 	}
 	if s.CancelURL == "" {
 		s.CancelURL = s.ReturnURL
 	}
 	p.mu.Lock()
+	// The payer paying a renewal's cycle on-session holds it as a kept charge does (v0.69.0): Core's one index.
+	if err := p.cycleFreeLocked(consumer, params.Agreement, params.Cycle); err != nil {
+		p.mu.Unlock()
+		return nilda.PaymentSession{}, err
+	}
 	p.sessions[s.ID] = s
 	p.order = append(p.order, s.ID)
 	if params.Credential != nil {
@@ -916,6 +927,10 @@ func (p *Payments) owe(o owed) {
 }
 
 func (p *Payments) deliver(ctx context.Context, o owed) {
+	if o.saved != "" {
+		p.deliverSaved(ctx, o)
+		return
+	}
 	p.mu.Lock()
 	s := *p.sessions[o.session]
 	var rf nilda.PaymentRefund

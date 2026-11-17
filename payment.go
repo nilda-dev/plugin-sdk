@@ -289,8 +289,9 @@ type PaymentSession struct {
 	// OffSessionUnscheduled, from the mandate (OffSessionOf) — set by Core, never by a consumer; "" when the payer is
 	// present (v0.58.0, door D5). A gateway tells its processor (Stripe: off_session "recurring" or "one_off").
 	OffSession string `json:"off_session,omitempty"`
-	// Agreement and Cycle are the renewal a ChargedSaved session is for (PaymentChargeParams.Agreement, door D5,
-	// EXPERIMENTAL); "" and 0 for every other session.
+	// Agreement and Cycle are the renewal the session pays: a ChargedSaved session's (PaymentChargeParams.Agreement,
+	// door D5, EXPERIMENTAL), or one the payer paid on-session (PaymentSessionParams.Agreement, v0.69.0); "" and 0 for
+	// every other session.
 	Agreement string `json:"agreement,omitempty"`
 	Cycle     int    `json:"cycle,omitempty"`
 	// DuplicateOf is set when this charge's money arrived after ANOTHER charge had taken its cycle — a late answer after a
@@ -415,6 +416,13 @@ type PaymentSessionParams struct {
 	// required with them and only with them. Optional: without lines the processor shows the one amount, as before.
 	Lines     []PaymentLine     `json:"lines,omitempty"`
 	Breakdown *PaymentBreakdown `json:"breakdown,omitempty"`
+	// Agreement and Cycle name the renewal this payment is for when the PAYER pays it, present (v0.69.0, door D5,
+	// EXPERIMENTAL): a renewal whose off-session charge was refused, paid on the shop's own pay page. Core's cycle, as in
+	// PaymentChargeParams — the same one paid-or-deciding payment per consumer, agreement and cycle holds, so the payer's
+	// payment and a dunning retry never both take money for one cycle: whichever comes second is refused 409, naming
+	// the session holding it. Never with Save, Credential or Reader. Both empty: no cycle is held.
+	Agreement string `json:"agreement,omitempty"`
+	Cycle     int    `json:"cycle,omitempty"`
 }
 
 // Validate refuses what Core refuses without asking anything: a missing gateway, method or reference, an
@@ -474,6 +482,9 @@ func (p PaymentSessionParams) Validate() error {
 		return err
 	}
 	if err := validCapture(p.Capture, p.AmountMinor); err != nil {
+		return err
+	}
+	if err := validSessionCycle(p); err != nil {
 		return err
 	}
 	if err := validLines(p.AmountMinor, p.Lines, p.Breakdown); err != nil {
@@ -935,6 +946,23 @@ func DispatchPaymentConsumerHook(ctx context.Context, _ *Core, c PaymentConsumer
 			return nil, true, fmt.Errorf("nilda: payment.dispute.updated payload: %w", err)
 		}
 		if err := dc.DisputeUpdated(ctx, in.Dispute, in.Session); err != nil {
+			return nil, true, err
+		}
+		return []byte(`{}`), true, nil
+
+	case HookPaymentSavedUpdated:
+		w, is := c.(SavedMethodWatcher)
+		if !is {
+			return nil, false, nil // does not watch its kept methods: Serve never subscribed it
+		}
+		var in PaymentSavedUpdate
+		if err := json.Unmarshal(payload, &in); err != nil {
+			return nil, true, fmt.Errorf("nilda: payment.saved.updated payload: %w", err)
+		}
+		if strings.TrimSpace(in.Method.ID) == "" {
+			return nil, true, fmt.Errorf("nilda: payment.saved.updated names the kept method")
+		}
+		if err := w.SavedMethodUpdated(ctx, in); err != nil {
 			return nil, true, err
 		}
 		return []byte(`{}`), true, nil
