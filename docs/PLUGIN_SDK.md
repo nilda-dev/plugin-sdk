@@ -3467,6 +3467,19 @@ agreement is a `SubscriptionAgreement` of `SubscriptionLine`s at the price locke
 label (never its id) and its `SubscriptionCycle`s. Refusals are `SubscriptionRefusals()`; events `SubscriptionEvents()`.
 A subscriptions plugin places a cycle with `Services.PlaceRenewal`.
 
+### Another plugin's section on the buyer's account page (`shop.account.sections/v1`, experimental)
+
+`docs/SHOP_ACCOUNT_SECTIONS.md` is the whole of it (`shopaccountsections.go`). A plugin with a section implements
+`AccountSectionsProvider`; `AccountSectionsMethods` answers `sections.describe` (an `AccountSectionsRequest` naming the site's account page) with an
+`AccountSectionsAnswer` of
+`AccountSection`s (key, label per language, its own path, a position hint), each held by `ValidAccountSectionPath`. The
+section's own route reads the buyer from `CurrentUser` and answers with `WriteAccountSection` (or sets
+`AccountSectionHeaders` itself); its links are `AccountSectionHref`, its id on the page `AccountSectionID`, and a mailed link that opens the account page at the section
+`AccountSectionPageURL`. The shop reads
+every provider's with `Services.AccountSections` (or `AccountSectionsFrom`) into an `AccountSectionsResult` of
+`ProvidedAccountSection`s, each path held by `UnderRoutePrefix` to the `ServiceAnswer.RoutePrefix` Core stamped.
+`nildatest.Services.RoutePrefix` gives a test provider its prefix.
+
 ### The shop's catalogue (`shop.catalog/v1`)
 
 The shop provides it; a channel plugin — a Google Merchant feed, a marketplace, an AI agent's catalogue — requires it

@@ -89,6 +89,10 @@ type ServiceAnswer struct {
 	// Cached marks the provider's last good answer to the same request, given because it did not answer now and the
 	// method's fallback is "cached".
 	Cached bool `json:"cached,omitempty"`
+	// RoutePrefix is the answering plugin's route_prefix, from its manifest — Core's word, stamped on the answer, never
+	// the plugin's (v0.69.0). Empty for a plugin with no routes, and from an older Core. A consumer that draws a route a
+	// provider named holds it under this (UnderRoutePrefix), as the shop does an account section's.
+	RoutePrefix string `json:"route_prefix,omitempty"`
 }
 
 // Decode reads the answer into out.
@@ -221,9 +225,9 @@ func Serves[In, Out any](contract, method string, fn func(ctx context.Context, i
 
 // serviceProviderOf is what answers a plugin's service hooks: its own ServiceMethods, or — for a plugin that
 // implements Carrier, CatalogProvider, OrdersProvider, DeliverablesProvider, AttributeProvider, AttributeValuesProvider,
-// ShopEventsProvider, RewardsProvider or SubscriptionsProvider and wrote no ServiceMethods — their methods (CarrierMethods,
-// CatalogMethods, OrdersMethods, DeliverablesMethods, AttributeMethods, AttributeValuesMethods, ShopEventsMethods,
-// RewardsMethods, SubscriptionsMethods), so a provider that forgot the one line is still answered rather than failing
+// ShopEventsProvider, RewardsProvider, SubscriptionsProvider or AccountSectionsProvider and wrote no ServiceMethods — their
+// methods (CarrierMethods, CatalogMethods, OrdersMethods, DeliverablesMethods, AttributeMethods, AttributeValuesMethods,
+// ShopEventsMethods, RewardsMethods, SubscriptionsMethods, AccountSectionsMethods), so a provider that forgot the one line is still answered rather than failing
 // every call. A plugin may be several.
 func serviceProviderOf(h Handler) ServiceProvider {
 	if sp, is := h.(ServiceProvider); is {
@@ -256,6 +260,9 @@ func serviceProviderOf(h Handler) ServiceProvider {
 	}
 	if c, is := h.(SubscriptionsProvider); is {
 		methods = append(methods, SubscriptionsMethods(c)...)
+	}
+	if c, is := h.(AccountSectionsProvider); is {
+		methods = append(methods, AccountSectionsMethods(c)...)
 	}
 	if methods == nil {
 		return nil

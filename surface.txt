@@ -2,6 +2,10 @@ const AccountDisconnectHook
 const AccountFinishHook
 const AccountNavAttr
 const AccountProfileSlot
+const AccountSectionOutsideRoutes
+const AccountSectionParam
+const AccountSectionView
+const AccountSectionsDescribe
 const AccountStartHook
 const AccountStatusHook
 const AddressSuggestPerMinute
@@ -191,6 +195,7 @@ const ConsentNotTold
 const ConsentUnknown
 const ContractExperimental
 const ContractShippingCarrier
+const ContractShopAccountSections
 const ContractShopAttributeValues
 const ContractShopAttributes
 const ContractShopCatalog
@@ -393,6 +398,10 @@ const LinkTargetsHook
 const MandatePreOrder
 const MandateSubscription
 const MandateUpdate
+const MaxAccountSectionLabel
+const MaxAccountSectionOrder
+const MaxAccountSectionPath
+const MaxAccountSections
 const MaxAddressQuery
 const MaxAddressSuggestions
 const MaxAdminNoticeLen
@@ -844,6 +853,15 @@ field AccountFinish.Error string json:error
 field AccountFinish.Iss string json:iss
 field AccountFinish.RedirectURI string json:redirect_uri
 field AccountFinish.State string json:state
+field AccountSection.Key string json:key
+field AccountSection.Label map[string]string json:label
+field AccountSection.Order int json:order
+field AccountSection.Path string json:path
+field AccountSectionsAnswer.Sections []AccountSection json:sections
+field AccountSectionsRequest.AccountPage string json:account_page
+field AccountSectionsResult.Cached bool
+field AccountSectionsResult.Dropped []ServiceMiss
+field AccountSectionsResult.Sections []ProvidedAccountSection
 field AccountStart.RedirectURI string json:redirect_uri
 field AccountStartResult.AuthorizeURL string json:authorize_url
 field AccountStartResult.State string json:state
@@ -1904,6 +1922,7 @@ field PrivacyRecord.Phone string json:phone
 field PrivacyRequest.Emails []string json:emails
 field PrivacyRequest.Phones []string json:phones
 field PrivacyRequest.RequestID string json:request_id
+field ProvidedAccountSection.Provider string
 field PublishResult.BecameFrontPage bool json:became_front_page
 field PublishResult.Status string json:status
 field PublishedPage.AuthorID string json:author_id
@@ -2049,6 +2068,7 @@ field Seller.VATID string json:vat_id
 field ServiceAnswer.Cached bool json:cached
 field ServiceAnswer.Output json.RawMessage json:output
 field ServiceAnswer.Provider string json:provider
+field ServiceAnswer.RoutePrefix string json:route_prefix
 field ServiceCallOptions.IdempotencyKey string
 field ServiceCallOptions.Provider string
 field ServiceContract.Description string json:description
@@ -2457,6 +2477,12 @@ field WindDownResult.Told int64 json:told
 field WriteAnswer.Already bool json:already
 field WriteAnswer.RecordID string json:record_id
 func AbilityHook(string) (string)
+func AccountSectionHeaders(http.ResponseWriter)
+func AccountSectionHref(string, string, url.Values) (string)
+func AccountSectionID(string, string) (string)
+func AccountSectionPageURL(string, string, string, url.Values) (string)
+func AccountSectionsFrom(ServiceResult) (AccountSectionsResult)
+func AccountSectionsMethods(AccountSectionsProvider) ([]ServiceMethod)
 func AdminFormURL(string, string, string, string) (string)
 func AdminPageURL(string, string, string) (string)
 func AgentOf(*http.Request) (Agent, bool)
@@ -2572,8 +2598,10 @@ func Supports([]string, string) (bool)
 func SupportsOf(PaymentMethod) ([]string)
 func TestHintFor(map[string]string, string) (string)
 func TextBody(string) (json.RawMessage)
+func UnderRoutePrefix(string, string) (bool)
 func UndoBy(string) (AbilityUndo)
 func UndoReasons() ([]UndoReason)
+func ValidAccountSectionPath(string) (error)
 func ValidPaymentMark(string) (bool)
 func ValidPriceGroup(string) (bool)
 func ValidateRecommendations([]Recommendation) (error)
@@ -2583,10 +2611,12 @@ func VisitorKey(*http.Request) (string)
 func VisitorLocale(*http.Request) (string, bool)
 func VisitorToolHook(string) (string)
 func WithCallInfo(context.Context, CallInfo) (context.Context)
+func WriteAccountSection(http.ResponseWriter, int, string)
 imethod AccountHandler.AccountDisconnect(context.Context) (error)
 imethod AccountHandler.AccountFinish(context.Context, AccountFinish) (AccountStatus, error)
 imethod AccountHandler.AccountStart(context.Context, AccountStart) (AccountStartResult, error)
 imethod AccountHandler.AccountStatus(context.Context) (AccountStatus, error)
+imethod AccountSectionsProvider.AccountSections(context.Context, AccountSectionsRequest) (AccountSectionsAnswer, error)
 imethod AddressSuggester.ResolveAddress(context.Context, AddressResolveRequest) (AddressResolveAnswer, error)
 imethod AddressSuggester.SuggestAddresses(context.Context, AddressSuggestRequest) (AddressSuggestAnswer, error)
 imethod AssetProvider.FooterScripts(context.Context, RenderAssetsRequest) ([]ScriptAsset)
@@ -2786,6 +2816,7 @@ method (*Reference) TaxTable(context.Context, time.Time) (TaxTable, error)
 method (*Secrets) Delete(context.Context, string) (bool, error)
 method (*Secrets) Get(context.Context, string) (string, bool, error)
 method (*Secrets) Set(context.Context, string, string) (error)
+method (*Services) AccountSections(context.Context, AccountSectionsRequest) (AccountSectionsResult, error)
 method (*Services) AttributeFields(context.Context) ([]AttributeFieldsAnswer, []ServiceMiss, error)
 method (*Services) AttributeValuesOf(context.Context, AttributeTarget) ([]AttributeValue, error)
 method (*Services) Call(context.Context, string, string, any, ServiceCallOptions) (ServiceResult, error)
@@ -2814,6 +2845,9 @@ method (*Services) VoidShippingLabel(context.Context, string, VoidRequest) (Void
 method (API) Format(fmt.State, rune)
 method (API) GoString() (string)
 method (API) String() (string)
+method (AccountSection) Validate() (error)
+method (AccountSectionsAnswer) Validate() (error)
+method (AccountSectionsRequest) Validate() (error)
 method (AddressResolveAnswer) Validate() (error)
 method (AddressResolveRequest) Validate() (error)
 method (AddressSuggestAnswer) ValidateFor(AddressSuggestRequest) (error)
@@ -2908,6 +2942,7 @@ method (PrivacyErasure) Validate() (error)
 method (PrivacyExport) Validate(PrivacyRequest) (error)
 method (PrivacyRequest) Asked(string) (bool)
 method (PrivacyRequest) AskedPhone(string) (bool)
+method (ProvidedAccountSection) ID() (string)
 method (RatesRequest) Validate() (error)
 method (RatesResult) Validate() (error)
 method (Recommendation) Target() (string)
@@ -2968,6 +3003,11 @@ type AbilityChange
 type AbilityUndo
 type AccountFinish
 type AccountHandler
+type AccountSection
+type AccountSectionsAnswer
+type AccountSectionsProvider
+type AccountSectionsRequest
+type AccountSectionsResult
 type AccountStart
 type AccountStartResult
 type AccountStatus
@@ -3214,6 +3254,7 @@ type PrivacyKept
 type PrivacyPolicy
 type PrivacyRecord
 type PrivacyRequest
+type ProvidedAccountSection
 type PublishResult
 type PublishedPage
 type RatesRequest

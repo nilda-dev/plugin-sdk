@@ -213,6 +213,7 @@ method (*Services) Ask(context.Context, string, string, any, nilda.ServiceCallOp
 method (*Services) Calls() ([]ServiceCallLog)
 method (*Services) Core(string, ...string) (*nilda.Core, *Host, *httptest.Server)
 method (*Services) Provider(string, nilda.ServiceProvider)
+method (*Services) RoutePrefix(string, string)
 method (*Services) SetAgentTier(string, nilda.AgentTier)
 method (*ShopEvents) Deliver(context.Context, nilda.Handler, nilda.ShopOrderEvent) (error)
 method (*ShopEvents) Events() ([]nilda.ShopOrderEvent)

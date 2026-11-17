@@ -221,7 +221,30 @@ const deliverablesAgentReason = "what was delivered is shown to its buyer; the o
 
 // contractDefs is every contract this module defines.
 var contractDefs = []contractDef{paymentsV1, shippingCarrierV1, shopCatalogV1, shopOrdersV1,
-	shopDeliverablesV1, siteReaderV1, shopAttributesV1, shopAttributeValuesV1, shopEventsV1, shopRewardsV1, shopSubscriptionsV1}
+	shopDeliverablesV1, siteReaderV1, shopAttributesV1, shopAttributeValuesV1, shopEventsV1, shopRewardsV1, shopSubscriptionsV1,
+	shopAccountSectionsV1}
+
+// shopAccountSectionsV1 is another plugin's section on the buyer's account page (SHOP_ACCOUNT_SECTIONS.md): the plugin
+// describes it, the shop draws it in its menu and mounts the plugin's own route, which Core's proxy tells who is signed in.
+var shopAccountSectionsV1 = contractDef{
+	name:   ContractShopAccountSections,
+	status: ContractExperimental,
+	description: "A plugin's sections on the buyer's account page (SHOP_ACCOUNT_SECTIONS.md): the plugin describes each — a key, " +
+		"the menu's words per language and its own route under its route_prefix; the shop puts it in its account menu where the " +
+		"owner chose and mounts that route, which the buyer's browser asks through Core's proxy, so the section answers only " +
+		"for the account Core's session names. No request carries a user id.",
+	methods: []methodDef{
+		{ContractMethod{Name: AccountSectionsDescribe, AnsweredBy: "provider", RetryClass: "failure", Fallback: "cached",
+			Idempotent: true, Agent: "none",
+			AgentReason: "the owner turns a section on or off and orders it through the shop's own abilities (list_account_sections, " +
+				"set_account_section) and reads what a buyer's section shows through the providing plugin's own ability; this is " +
+				"how the shop asks a plugin which sections it has",
+			Description: "EXPERIMENTAL. This plugin's sections on the buyer's account page: each one's key, the menu's words per " +
+				"language (English required), the plugin's own route that draws it for the signed-in buyer (under its route_prefix, " +
+				"no query) and a position hint. At most 4. The request names the site's published account page, so the plugin's mailed links open it at the section."},
+			AccountSectionsRequest{}, AccountSectionsAnswer{}},
+	},
+}
 
 // shopRewardsV1 is the shop's door for what a rewards plugin gives a buyer (SHOP_REWARDS.md): store credit and single-use
 // codes, as write commands. One shop answers, so a failure blocks. Experimental until its first plugin ships on it.

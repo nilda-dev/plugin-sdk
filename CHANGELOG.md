@@ -8,10 +8,31 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## Unreleased
+## v0.69.0 — unreleased (shop.account.sections/v1: other plugins' sections on the buyer's account page)
+
+Additive, and EXPERIMENTAL: the subscriptions plugin's "a view in the buyer's My Account" and the loyalty plugin's points
+tab (`docs/SHOP_ACCOUNT_SECTIONS.md`). Core relays it from the release built on this version, and stamps each answer's
+route prefix from that release.
+
+Added:
+
+- `shop.account.sections/v1` (`shopaccountsections.go`), provided by a plugin with a section, used by the shop:
+  `sections.describe` (`AccountSectionsRequest`, naming the site's account page) → `AccountSectionsAnswer` of `AccountSection` (key, label per language with English required, the
+  plugin's own path under its route_prefix, a position hint). `AccountSectionsProvider`, `AccountSectionsMethods`, `AccountSectionPageURL`,
+  `ValidAccountSectionPath`, `UnderRoutePrefix`, `AccountSectionID`, `AccountSectionHref`, `AccountSectionView`,
+  `AccountSectionParam`, `WriteAccountSection`, `AccountSectionHeaders`, `MaxAccountSections`, `MaxAccountSectionLabel`,
+  `MaxAccountSectionPath`, `MaxAccountSectionOrder`. The section is fetched by the buyer's browser from the plugin's own
+  route through Core's proxy, so it answers for the account Core's session names; no request carries a user id.
+- The shop's side: `Services.AccountSections`, `AccountSectionsFrom`, `AccountSectionsResult`, `ProvidedAccountSection`,
+  `AccountSectionOutsideRoutes` — a provider naming a path outside its own route prefix loses its whole answer.
+- `ServiceAnswer.RoutePrefix`: the answering plugin's route_prefix, stamped by Core (never the plugin's word).
+- `nildatest.Services.RoutePrefix` gives a test provider the prefix the desk stamps.
+
+Changed:
 
 - `MaxManifestEmits` is 128 (was 32), as Core's `maxEmitDecls` now is: the bound only stops a runaway list; the
   shop reached 32 with an event still to declare.
+
 
 ## v0.68.0 — 2026-11-17 (doors D5 and D11, shop.rewards/v1 and shop.subscriptions/v1, TermContents)
 

@@ -1,0 +1,64 @@
+{
+  "name": "shop.account.sections/v1",
+  "description": "A plugin's sections on the buyer's account page (SHOP_ACCOUNT_SECTIONS.md): the plugin describes each — a key, the menu's words per language and its own route under its route_prefix; the shop puts it in its account menu where the owner chose and mounts that route, which the buyer's browser asks through Core's proxy, so the section answers only for the account Core's session names. No request carries a user id.",
+  "methods": [
+    {
+      "name": "sections.describe",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. This plugin's sections on the buyer's account page: each one's key, the menu's words per language (English required), the plugin's own route that draws it for the signed-in buyer (under its route_prefix, no query) and a position hint. At most 4. The request names the site's published account page, so the plugin's mailed links open it at the section.",
+      "retry_class": "failure",
+      "fallback": "cached",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner turns a section on or off and orders it through the shop's own abilities (list_account_sections, set_account_section) and reads what a buyer's section shows through the providing plugin's own ability; this is how the shop asks a plugin which sections it has",
+      "input": {
+        "type": "object",
+        "properties": {
+          "account_page": {
+            "type": "string"
+          }
+        }
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "sections": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "path": {
+                  "type": "string"
+                },
+                "order": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "path"
+              ]
+            }
+          }
+        },
+        "required": [
+          "sections"
+        ]
+      }
+    }
+  ],
+  "status": "experimental"
+}

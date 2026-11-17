@@ -58,6 +58,10 @@ A provider sign-in comes back to the same page and view: the panel starts it wit
 which Core keeps with the sign-in only when it is a path on this site. A refused provider sign-in comes back with
 `?signin_error=` and the panel says why. Test a members-only view with `nildatest.AsksForSignIn`.
 
+Another plugin's section in the account — subscriptions, points — joins the shop's menu through
+`shop.account.sections/v1` (`SHOP_ACCOUNT_SECTIONS.md`): the shop mounts the plugin's own route inside its view, and the
+buyer's browser asks it through Core's proxy, so it answers for the signed-in buyer Core names.
+
 ## 3. The look: the account vocabulary
 
 Wear these classes and nothing else — no inline colour, no style attribute. They are **style parts of the account

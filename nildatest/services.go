@@ -39,6 +39,7 @@ type Services struct {
 	last      map[string][]byte // provider + request → last good answer, for the "cached" fallback
 	calls     []ServiceCallLog
 	tiers     map[string]nilda.AgentTier // operator → what the owner set (SetAgentTier); browse when absent
+	prefixes  map[string]string          // plugin key → its manifest's route_prefix (RoutePrefix)
 }
 
 // SetAgentTier sets what the site's owner lets an agent's operator do, as Core's SEO → Shopping agents list holds it —
@@ -71,6 +72,17 @@ func (s *Services) Provider(key string, p nilda.ServiceProvider) {
 		s.order = append(s.order, key)
 	}
 	s.providers[key] = p
+}
+
+// RoutePrefix gives provider key the route_prefix its manifest declares, which the desk stamps on each of its answers as
+// Core does (ServiceAnswer.RoutePrefix). A provider given none answers with no prefix — a plugin with no routes.
+func (s *Services) RoutePrefix(key, prefix string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.prefixes == nil {
+		s.prefixes = map[string]string{}
+	}
+	s.prefixes[key] = prefix
 }
 
 // StubService is a provider answering one method with fn — a stand-in for a carrier a consumer's test needs.
@@ -193,7 +205,7 @@ func (s *Services) call(ctx context.Context, caller, contract, method string, in
 			res.Missed = append(res.Missed, nilda.ServiceMiss{Provider: asked[i], Reason: g.miss})
 			continue
 		}
-		res.Answers = append(res.Answers, nilda.ServiceAnswer{Provider: asked[i], Output: g.out})
+		res.Answers = append(res.Answers, nilda.ServiceAnswer{Provider: asked[i], Output: g.out, RoutePrefix: s.prefixes[asked[i]]})
 		s.last[asked[i]+"\x00"+key] = g.out
 	}
 	if len(res.Answers) == 0 {
@@ -201,7 +213,7 @@ func (s *Services) call(ctx context.Context, caller, contract, method string, in
 		case "cached":
 			for _, miss := range res.Missed {
 				if out, ok := s.last[miss.Provider+"\x00"+key]; ok {
-					res.Answers = append(res.Answers, nilda.ServiceAnswer{Provider: miss.Provider, Output: out, Cached: true})
+					res.Answers = append(res.Answers, nilda.ServiceAnswer{Provider: miss.Provider, Output: out, Cached: true, RoutePrefix: s.prefixes[miss.Provider]})
 				}
 			}
 			res.Fallback = "cached"

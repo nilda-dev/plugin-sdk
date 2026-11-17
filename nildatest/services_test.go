@@ -144,3 +144,32 @@ func TestEveryDeliveringPluginIsAskedAndAFailureIsNotNone(t *testing.T) {
 		t.Errorf("one plugin failed: %+v missed %d %v — want the other's item and one missed", items, missed, err)
 	}
 }
+
+type pointsSection struct{ path string }
+
+func (p pointsSection) ServiceMethods() []nilda.ServiceMethod { return nilda.AccountSectionsMethods(p) }
+func (p pointsSection) AccountSections(context.Context, nilda.AccountSectionsRequest) (nilda.AccountSectionsAnswer, error) {
+	return nilda.AccountSectionsAnswer{Sections: []nilda.AccountSection{{Key: "points", Label: map[string]string{"en": "Points"}, Path: p.path}}}, nil
+}
+
+// The desk stamps each answer with its provider's route_prefix, as Core does, so the shop draws a section only from the
+// routes its provider owns.
+func TestTheDeskStampsTheProvidersRoutePrefix(t *testing.T) {
+	desk := NewServices()
+	desk.Provider("loyalty", pointsSection{"/loyalty/account"})
+	desk.RoutePrefix("loyalty", "/loyalty")
+	desk.Provider("rogue", pointsSection{"/loyalty/account"})
+	desk.RoutePrefix("rogue", "/rogue")
+	core, _, srv := desk.Core("ecommerce", nilda.ContractShopAccountSections)
+	defer srv.Close()
+	res, err := core.API().Services().AccountSections(context.Background(), nilda.AccountSectionsRequest{AccountPage: "/account"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Sections) != 1 || res.Sections[0].ID() != "loyalty.points" {
+		t.Fatalf("sections: %+v", res.Sections)
+	}
+	if len(res.Dropped) != 1 || res.Dropped[0].Provider != "rogue" || res.Dropped[0].Reason != nilda.AccountSectionOutsideRoutes {
+		t.Fatalf("dropped: %+v", res.Dropped)
+	}
+}
