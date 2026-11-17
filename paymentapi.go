@@ -106,8 +106,18 @@ func (p *Payments) CreateSession(ctx context.Context, idempotencyKey string, par
 		Data PaymentSession `json:"data"`
 	}
 	err := p.api.WithIdempotencyKey(idempotencyKey).Post(ctx, "/payments/sessions", params, &out)
+	if err == nil && params.Agreement != "" && (out.Data.Agreement != params.Agreement || out.Data.Cycle != params.Cycle) {
+		// A Core older than v0.69.0 drops the cycle it does not know: the session holds nothing, and the payer and a
+		// dunning retry could both pay the cycle. Said, never taken as held — the payer is not sent to it.
+		return out.Data, ErrCycleNotHeld
+	}
 	return out.Data, err
 }
+
+// ErrCycleNotHeld is CreateSession's answer when it asked to pay a renewal's cycle on-session and the Core it reached did
+// not hold the cycle (a Core older than plugin-sdk v0.69.0): do not send the payer to the session; it expires unused.
+var ErrCycleNotHeld = errors.New("nilda: this Core does not hold a renewal's cycle for an on-session payment; it needs " +
+	"the Core built on plugin-sdk v0.69.0 or later")
 
 // GetSession reads one session — the consumer that created it, or the gateway it was routed to. The answer to
 // "has this been paid" is here whenever a PaymentUpdated has not arrived yet: a payer back on your return page

@@ -2575,7 +2575,7 @@ rejected with `authentication_required`.
 **Door D5 (EXPERIMENTAL) names the renewal** (PAYMENTS.md §5, item 4): a charge carries `Agreement` and `Cycle`, and
 Core charges one cycle once — a second is 409 while the first is paid or deciding; a refused cycle may be asked again.
 The payer may pay a cycle on-session too (v0.69.0, item 5): `PaymentSessionParams.Agreement` and `Cycle` hold it the
-same way. **The card updater** (v0.69.0, item 6): a gateway reports a kept method its processor changed with
+same way; a Core too old to hold it answers `nilda.ErrCycleNotHeld`, and the payer is not sent to that session. **The card updater** (v0.69.0, item 6): a gateway reports a kept method its processor changed with
 `Payments.ReportMethodUpdated` (a `nilda.PaymentMethodUpdate` → `nilda.PaymentMethodUpdateResult`), and a consumer that
 implements `nilda.SavedMethodWatcher` hears it as a `nilda.PaymentSavedUpdate` (`payment.saved.updated`).
 

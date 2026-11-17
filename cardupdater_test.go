@@ -3,7 +3,11 @@ package nilda
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"slices"
 	"strings"
 	"testing"
@@ -193,5 +197,32 @@ func TestTheSavedMethodHookReachesOnlyAWatcher(t *testing.T) {
 	}
 	if got := withProvidedHooks(plainConsumer{}, nil); slices.Contains(got, HookPaymentSavedUpdated) {
 		t.Errorf("a consumer that does not watch is subscribed to %s: %v", HookPaymentSavedUpdated, got)
+	}
+}
+
+// A Core older than v0.69.0 drops an on-session payment's cycle without a word: the client says so rather than hand
+// back a session that holds nothing.
+func TestAnOnSessionCycleACoreDidNotHoldIsAnError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"data":{"id":"s1","status":"redirected","redirect_url":"https://pay.test/s1"}}`)
+	}))
+	defer srv.Close()
+	pay := newAPI(srv.URL, "tok", nil).Payments()
+	p := PaymentSessionParams{Gateway: "g", Method: "card", Reference: "o", AmountMinor: 100, Currency: "EUR",
+		ReturnURL: "https://site.test/order", Agreement: "agr-1", Cycle: 2}
+	if _, err := pay.CreateSession(context.Background(), "k1", p); !errors.Is(err, ErrCycleNotHeld) {
+		t.Fatalf("a cycle the Core did not hold: %v", err)
+	}
+	p.Agreement, p.Cycle = "", 0
+	if _, err := pay.CreateSession(context.Background(), "k2", p); err != nil {
+		t.Fatalf("an ordinary session: %v", err)
+	}
+}
+
+func TestALinkThatHasStoppedWorkingIsNoLink(t *testing.T) {
+	past := time.Now().Add(-time.Minute)
+	if (SubscriptionLinkAnswer{URL: "https://shop.test/x", ExpiresAt: &past}).Validate() == nil {
+		t.Fatal("a link past its expiry was accepted")
 	}
 }

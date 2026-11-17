@@ -60,7 +60,8 @@ Added:
   (`PaymentSavedUpdate`); `SavedPaymentMethod.UpdatedAt`. `nildatest.Payments` keeps it as Core does: once per
   processor event, never on a forgotten method, a token nobody kept `Matched: 0`; `Delivery.Saved`.
 - `PaymentSessionParams.Agreement` and `Cycle`: the payer pays a renewal's cycle on-session, holding the cycle as a
-  kept method's charge does (409 for the second). `nildatest.Payments` holds it so.
+  kept method's charge does (409 for the second); `ErrCycleNotHeld` when the Core reached does not echo the cycle back.
+  `nildatest.Payments` holds it so, a late payment on an expired one included (the cycle's duplicate, as Core books it).
 - `shop.subscriptions/v1`: `renewal.pay_link` and `method.update_link` (`SubscriptionLinksProvider`,
   `SubscriptionPayLinkRequest`, `SubscriptionMethodLinkRequest`, `SubscriptionLinkAnswer`, `Services.RenewalPayLink`,
   `Services.MethodUpdateLink`); refusals `no_renewal`, `renewal_closed`, `no_account`; `method_updated`'s `source`

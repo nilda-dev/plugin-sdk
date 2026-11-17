@@ -224,12 +224,12 @@ func liveCycle(status string) bool {
 // agreement and cycle that is live (created, pending, authorized or resolved) and no duplicate; "" when none. Callers
 // hold p.mu.
 func (p *Payments) cycleHolderLocked(s *nilda.PaymentSession) string {
-	if s.ChargedSaved == "" || s.Agreement == "" {
+	if s.Agreement == "" {
 		return ""
 	}
 	for _, id := range p.order {
 		o := p.sessions[id]
-		if o.ID != s.ID && o.Consumer == s.Consumer && o.ChargedSaved != "" && o.DuplicateOf == "" &&
+		if o.ID != s.ID && o.Consumer == s.Consumer && o.DuplicateOf == "" &&
 			o.Agreement == s.Agreement && o.Cycle == s.Cycle && liveCycle(o.Status) {
 			return o.ID
 		}
@@ -273,7 +273,7 @@ func (p *Payments) settledLocked(id string) bool {
 //     resolved, nothing refunded, no refund or chargeback open or lost — to the cycle's own payment, its consumer told,
 //     and the others name it (promoteDuplicate).
 func (p *Payments) cycleMovedLocked(s *nilda.PaymentSession, from string) {
-	if s.ChargedSaved == "" || s.Agreement == "" {
+	if s.Agreement == "" {
 		return
 	}
 	if s.DuplicateOf != "" {
@@ -337,7 +337,7 @@ func (p *Payments) cycleMovedLocked(s *nilda.PaymentSession, from string) {
 // is told when it changed. Callers hold p.mu.
 func (p *Payments) resettleLocked(id string) {
 	s, ok := p.sessions[id]
-	if !ok || s.ChargedSaved == "" || s.Agreement == "" || s.DuplicateOf == "" || s.Status != nilda.PaymentResolved {
+	if !ok || s.Agreement == "" || s.DuplicateOf == "" || s.Status != nilda.PaymentResolved {
 		return
 	}
 	holder := p.cycleHolderLocked(s)
@@ -550,14 +550,15 @@ func (p *Payments) methodUpdated(caller string, u nilda.PaymentMethodUpdate) (ni
 			continue
 		}
 		out.Matched++
+		// As Core: an event that changes nothing is not recorded, and one recorded for this method changes it once.
+		if m.Label == u.Label && sameTime(m.ExpiresAt, u.ExpiresAt) {
+			continue
+		}
 		seen := caller + "\x00" + u.EventID + "\x00" + m.ID
 		if p.methodEvents[seen] {
 			continue
 		}
 		p.methodEvents[seen] = true
-		if m.Label == u.Label && sameTime(m.ExpiresAt, u.ExpiresAt) {
-			continue
-		}
 		prev := nilda.PaymentSavedUpdate{PreviousLabel: m.Label, PreviousExpiresAt: m.ExpiresAt, Source: u.Source}
 		now := time.Now().UTC()
 		m.Label, m.ExpiresAt, m.UpdatedAt = u.Label, u.ExpiresAt, &now

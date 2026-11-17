@@ -621,6 +621,8 @@ func (a SubscriptionLinkAnswer) Validate() error {
 		return nil
 	case a.ExpiresAt == nil:
 		return errors.New("nilda: a buyer's link says when it stops working")
+	case !a.ExpiresAt.After(time.Now()):
+		return errors.New("nilda: a buyer's link that has already stopped working is no link")
 	}
 	u, err := url.Parse(a.URL)
 	if err != nil || u.Scheme != "https" || u.Host == "" || len(a.URL) > maxPayerURL {

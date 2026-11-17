@@ -153,3 +153,25 @@ func TestAnOnSessionPaymentOfACycleHoldsItAgainstTheDunning(t *testing.T) {
 		t.Fatalf("the retry once the payer's payment expired: %+v, %v", c, err)
 	}
 }
+
+// An event that changes nothing is not recorded (as Core): heard again later with a change, it applies.
+func TestAnEventThatChangedNothingIsNotRecorded(t *testing.T) {
+	w := newWorld(t)
+	ctx := context.Background()
+	w.gw.Methods = []nilda.PaymentMethod{{Key: "card", Label: "Card", Test: true, Supports: []string{nilda.SupportSaveForLater}}}
+	p := params()
+	p.Save = mandate()
+	s, _ := w.shopAPI.CreateSession(ctx, "k-save", p)
+	if _, err := w.gwAPI.Resolve(ctx, s.ID, nilda.PaymentResolution{AmountMinor: 1234, Currency: "EUR",
+		Saved: &nilda.PaymentSaved{Token: "cus_1/pm_1", Label: "Visa"}}); err != nil {
+		t.Fatal(err)
+	}
+	same := nilda.PaymentMethodUpdate{Token: "cus_1/pm_1", Label: "Visa", Source: nilda.MethodUpdatedByNetwork, EventID: "evt_1"}
+	if res, err := w.gwAPI.ReportMethodUpdated(ctx, same); err != nil || res.Changed != 0 {
+		t.Fatalf("nothing new: %+v, %v", res, err)
+	}
+	same.Label = "Visa 2"
+	if res, err := w.gwAPI.ReportMethodUpdated(ctx, same); err != nil || res.Changed != 1 {
+		t.Fatalf("the same event with a change, after a no-op: %+v, %v", res, err)
+	}
+}

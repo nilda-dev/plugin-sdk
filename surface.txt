@@ -3455,6 +3455,7 @@ type WindDownResult
 type WriteAnswer
 var AccountVocabulary
 var ErrAddressSuggestLimited
+var ErrCycleNotHeld
 var ErrNotABody
 var ErrTemplateOff
 var Handshake

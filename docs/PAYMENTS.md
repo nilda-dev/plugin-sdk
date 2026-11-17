@@ -973,7 +973,8 @@ strong customer authentication when the method is kept, later charges out of its
    carrying the same **`Agreement`** and **`Cycle`** as the charge would. It holds the cycle under the same index, so
    the payer's payment and a dunning retry never both take money for one cycle — whichever comes second is `409
    CONFLICT`, naming the session that holds it. Never with `Save`, `Credential` or `Reader`. A payer who leaves the page
-   lets the session expire (24 hours), and the cycle is free again for the next attempt.
+   lets the session expire (24 hours), and the cycle is free again for the next attempt. A Core older than this one drops
+   the cycle it does not know; `CreateSession` then answers `nilda.ErrCycleNotHeld` — do not send the payer to it.
 6. **The card updater (v0.69.0, EXPERIMENTAL).** A card network replaces a kept card's expiry or number by itself and
    tells the processor (Stripe's `payment_method.automatically_updated`); the token stays the same. The GATEWAY reports
    it — `Payments.ReportMethodUpdated(ctx, nilda.PaymentMethodUpdate{Token, Label, ExpiresAt, Source: "network",
