@@ -638,6 +638,7 @@ const RewardFixedAmount
 const RewardInUse
 const RewardInvalidAmount
 const RewardInvalidExpiry
+const RewardLimit
 const RewardNoCustomer
 const RewardOpen
 const RewardPercentage
@@ -717,6 +718,7 @@ const SiteSourceLive
 const StockAlertAlready
 const StockAlertRefused
 const StockAlertSubscribed
+const SubscriptionAccountRefused
 const SubscriptionAgreementGet
 const SubscriptionAgreementList
 const SubscriptionAgreementPending
@@ -725,14 +727,17 @@ const SubscriptionAgreementResume
 const SubscriptionAgreementStop
 const SubscriptionAgreementStopped
 const SubscriptionAmountOff
+const SubscriptionCharging
 const SubscriptionCycleOutOfOrder
 const SubscriptionCyclePaid
+const SubscriptionDeliveryUnavailable
 const SubscriptionInvalidPlan
 const SubscriptionItemUnavailable
 const SubscriptionMethodForgotten
 const SubscriptionNotStopped
 const SubscriptionNotYours
 const SubscriptionOutOfStock
+const SubscriptionOverAgreement
 const SubscriptionOverMandate
 const SubscriptionPastMaxCycles
 const SubscriptionPercentOff

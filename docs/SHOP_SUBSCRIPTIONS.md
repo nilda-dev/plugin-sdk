@@ -33,12 +33,20 @@ mandate's limit (`over_mandate`). One order per (agreement, cycle), held by a un
 for a cycle whose order is unpaid, the same order is charged again (a dunning retry); once it is paid, `cycle_paid`.
 Cycles may be skipped, never gone back to (`cycle_out_of_order`), and not placed more than a day before they are due
 (`too_early`). `renewal.quote` answers what a cycle would cost if it were placed now (the reminder before a charge), placing nothing.
-`renewal.undo` cancels an unpaid cycle's order; a paid one is refunded only by the owner, through the shop's
+`renewal.undo` cancels an unpaid cycle's order — refused `charging` while its charge is with the processor, undecided; a paid one is refunded only by the owner, through the shop's
 `refund_lines`. Events: `ecommerce.renewal.placed`, `.paid`, `.failed` (with `fail_code`), `.undone`.
 
 ## Stopping
 
 `agreement.stop {agreement_id, reason, ends_at}` stops renewals at once and cancels a cycle's order still unpaid; the method is forgotten at `ends_at` (now when
 absent) and until then `agreement.resume` takes the stop back. After it, a new agreement needs the buyer present.
+
+A renewal's lines never ask more of an item than the agreement has (`over_agreement`): a bigger order needs a new
+agreement, made with the buyer present. A delivery no longer offered is `delivery_unavailable`.
+
+**Cycles and Core.** The shop numbers an agreement's cycles from 1, the order that started it, paid on the buyer's own
+checkout session; each renewal's off-session charge carries `PaymentChargeParams.Agreement` = the agreement's id and
+`Cycle` = its cycle (2 and on), so Core's one paid-or-deciding charge per (kept method, agreement, cycle) is the
+shop's one order per cycle.
 
 Every write follows `WRITE_COMMANDS.md`; refusals are `SubscriptionRefusals()`; every event `SubscriptionEvents()`.

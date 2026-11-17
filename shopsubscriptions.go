@@ -125,9 +125,19 @@ const (
 	SubscriptionPastMaxCycles    = "past_max_cycles"    // renewal: the agreement ended by itself after its last cycle (max_cycles)
 	SubscriptionUnknownWrite     = AttributeUnknownWrite
 	SubscriptionUndoneAlready    = AttributeUndoneAlready
+	// SubscriptionCharging: renewal.undo of a cycle whose charge is with the processor, undecided — it is let settle;
+	// a refused one is then cancelled by the shop when the agreement is no longer active.
+	SubscriptionCharging = "charging"
+	// SubscriptionOverAgreement: a renewal's lines ask more of an item than the agreement has — a change needs a new
+	// agreement, made with the buyer present.
+	SubscriptionOverAgreement = "over_agreement"
+	// SubscriptionDeliveryUnavailable: the delivery the buyer chose is no longer offered to their address.
+	SubscriptionDeliveryUnavailable = "delivery_unavailable"
+	// SubscriptionAccountRefused: the buyer's account is suspended or banned on the site; nothing is sold to it.
+	SubscriptionAccountRefused = "account_refused"
 )
 
-var subscriptionRefusals = []string{SubscriptionUnknownSKU, SubscriptionInvalidPlan, SubscriptionUnknownAgreement,
+var subscriptionRefusals = []string{SubscriptionAccountRefused, SubscriptionCharging, SubscriptionOverAgreement, SubscriptionDeliveryUnavailable, SubscriptionUnknownSKU, SubscriptionInvalidPlan, SubscriptionUnknownAgreement,
 	SubscriptionNotYours, SubscriptionAgreementStopped, SubscriptionAgreementPending, SubscriptionCyclePaid,
 	SubscriptionCycleOutOfOrder, SubscriptionTooEarly, SubscriptionItemUnavailable, SubscriptionOutOfStock,
 	SubscriptionOverMandate, SubscriptionMethodForgotten, SubscriptionRenewalIsPaid, SubscriptionNotStopped, SubscriptionPastMaxCycles,
@@ -411,7 +421,8 @@ type SubscriptionRenewalRequest struct {
 	AgreementID string `json:"agreement_id"`
 	// Cycle is 2 for the first renewal (the order that started it is cycle 1). Cycles may be skipped, never gone back to.
 	Cycle int `json:"cycle"`
-	// Lines, when given, replace the agreement's quantities for this cycle — its own SKUs only, at the locked price.
+	// Lines, when given, replace the agreement's quantities for this cycle — its own SKUs only, never more of an item than
+	// the agreement has (over_agreement), at the locked price.
 	Lines []SubscriptionRenewalLine `json:"lines,omitempty"`
 	// PeriodStart and PeriodEnd are the period this cycle pays for, as the plugin counts it; written on the order.
 	PeriodStart *time.Time `json:"period_start,omitempty"`

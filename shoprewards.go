@@ -67,7 +67,7 @@ const (
 // The codes a write may be refused with (RewardWriteAnswer.Refused). A refusal is the ANSWER, never an error
 // (WRITE_COMMANDS.md §7): nothing was written, nothing is kept under the key.
 const (
-	RewardNoCustomer    = "no_customer"    // no customer_user_id: a reward is an account's, never a guest's
+	RewardNoCustomer    = "no_customer"    // no customer_user_id, or not an account Core knows: a reward is an account's, never a guest's
 	RewardInvalidAmount = "invalid_amount" // an amount or value outside its bounds
 	RewardWrongCurrency = "wrong_currency" // not the shop's currency
 	RewardInvalidExpiry = "invalid_expiry" // an expiry in the past
@@ -75,10 +75,13 @@ const (
 	RewardInUse         = "used"           // discount.undo: an order used the code already
 	RewardUnknownWrite  = AttributeUnknownWrite
 	RewardUndoneAlready = AttributeUndoneAlready
+	// RewardLimit: past the owner's limits — one credit or one fixed code at most the owner's per-reward amount, a
+	// percentage code at most the owner's percent, one plugin's credit and codes in 24 hours at most the owner's daily total.
+	RewardLimit = "limit"
 )
 
 // rewardRefusals is every code a write may be refused with.
-var rewardRefusals = []string{RewardNoCustomer, RewardInvalidAmount, RewardWrongCurrency, RewardInvalidExpiry, RewardSpent,
+var rewardRefusals = []string{RewardLimit, RewardNoCustomer, RewardInvalidAmount, RewardWrongCurrency, RewardInvalidExpiry, RewardSpent,
 	RewardInUse, RewardUnknownWrite, RewardUndoneAlready}
 
 // RewardRefusals returns every code a rewards write may be refused with, sorted.
@@ -90,9 +93,11 @@ func RewardRefusals() []string {
 
 // The contract's bounds.
 const (
-	MaxRewardCreditMinor = 100_000_00 // one credit: the shop's own store-credit bound
-	MaxRewardReason      = 200        // characters of a reason or a code's title, shown to the owner and the buyer
-	maxRewardID          = 128        // a Core account id, a record id
+	// MaxRewardCreditMinor is the contract's outer bound on one credit or fixed code, in minor units whatever the currency
+	// (100,000.00 in a two-decimal one): past it invalid_amount. The shop's own limit is the owner's and far lower (limit).
+	MaxRewardCreditMinor = 100_000_00
+	MaxRewardReason      = 200 // characters of a reason or a code's title, shown to the owner and the buyer
+	maxRewardID          = 128 // a Core account id, a record id
 )
 
 // RewardCreditRequest is credit.issue: store credit on one buyer's account.
