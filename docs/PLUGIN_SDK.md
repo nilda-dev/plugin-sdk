@@ -3207,6 +3207,7 @@ JSON. Each answers Core's `{"data": …}` unwrapped into structs carrying only f
 | `TaxonomyTerms(ctx, taxonomy, nilda.Paging{Limit, Offset})` → `[]nilda.Term` by name | `GET /taxonomies/{key}/terms` | `taxonomy.read` |
 | `CreateTerm(ctx, taxonomy, nilda.NewTerm{Name, Slug, ParentID, Description})` → `nilda.Term` | `POST /taxonomies/{key}/terms` | `taxonomy.write` |
 | `TermContent(ctx, termID, nilda.TermContentQuery{Limit, Offset, IncludeChildren})` → `[]nilda.ContentRef`, total | `GET /terms/{id}/content` | `taxonomy.read` — published items only |
+| `TermContents(ctx, termIDs, nilda.TermContentQuery{…})` → `map[string]nilda.TermContentPage` (`Total`, `Items`) by term id — each term's page, in one call per 100 ids | `GET /terms/content?ids=` | `taxonomy.read` — published items only; an unknown term is absent |
 | `Menus(ctx)` → `[]nilda.Menu`; `Menu(ctx, id)` → `nilda.MenuTree` (`Menu`, `Items []nilda.MenuItem`, nested) | `GET /menus`, `GET /menus/{id}` | `menus.read` |
 | `CreateMenu(ctx, name, location)` → `nilda.Menu` | `POST /menus` | `menus.write` |
 | `AddMenuItem(ctx, menuID, nilda.NewMenuItem{Type, Label, URL, ContentID, TermID, ParentID, …})` → `nilda.MenuItem` | `POST /menus/{id}/items` | `menus.write` |

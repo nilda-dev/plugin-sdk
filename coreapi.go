@@ -273,6 +273,60 @@ func (a *API) TermContent(ctx context.Context, termID string, q TermContentQuery
 	return out.Data, out.Meta.Total, nil
 }
 
+// MaxTermsPerCall is how many distinct terms Core reads in one GET /terms/content (Core's taxonomy.MaxTermsPerBatch).
+// TermContents sends ⌈n/MaxTermsPerCall⌉ calls for n terms.
+const MaxTermsPerCall = 100
+
+// TermContentPage is one term's answer in TermContents: the page and total TermContent answers for it alone.
+type TermContentPage struct {
+	TermID string       `json:"term_id"`
+	Total  int64        `json:"total"`
+	Items  []ContentRef `json:"items"`
+}
+
+// TermContents lists the PUBLISHED items of many terms at once — GET /terms/content?ids=, `taxonomy.read` — keyed by
+// term id: for each, the page q asks for (Limit, Offset and IncludeChildren apply to EACH term) and its total, exactly
+// what TermContent answers for that term. Use it where a page lists many terms (a storefront's category facet): one
+// call per MaxTermsPerCall distinct ids, one query each in Core, instead of a call and three queries per term. The calls
+// go one after another, so the plugin never holds more than one of a Cloud site's five database connections for it.
+//
+// A term Core does not have (deleted since you listed it) is absent from the map rather than an error; an id named
+// twice is read once. No ids is an empty map and no call. Needs a Core that serves GET /terms/content (added
+// 2026-11-17): an older one answers 422, reading "content" as a term id (APIError.Validation) — call TermContent per
+// term there.
+func (a *API) TermContents(ctx context.Context, termIDs []string, q TermContentQuery) (map[string]TermContentPage, error) {
+	out := map[string]TermContentPage{}
+	seen := make(map[string]bool, len(termIDs))
+	ids := make([]string, 0, len(termIDs))
+	for _, id := range termIDs {
+		if !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+	for start := 0; start < len(ids); start += MaxTermsPerCall {
+		query := url.Values{}
+		query.Set("ids", strings.Join(ids[start:min(start+MaxTermsPerCall, len(ids))], ","))
+		setPaging(query, q.Limit, q.Offset)
+		if q.IncludeChildren {
+			query.Set("include_children", "true")
+		}
+		var page struct {
+			Data []TermContentPage `json:"data"`
+		}
+		if err := a.Get(ctx, "/terms/content", query, &page); err != nil {
+			return nil, err
+		}
+		for _, tc := range page.Data {
+			if tc.Items == nil {
+				tc.Items = []ContentRef{}
+			}
+			out[tc.TermID] = tc
+		}
+	}
+	return out, nil
+}
+
 // ContentTerms reads every term a content item carries, by taxonomy key — GET /content/{type}/{id}/terms,
 // `taxonomy.read`. A taxonomy the item has no term of is absent.
 func (a *API) ContentTerms(ctx context.Context, contentType, id string) (map[string][]Term, error) {

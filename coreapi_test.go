@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -154,6 +155,44 @@ func TestSitePageAndBreadcrumbsReadTheStableAPI(t *testing.T) {
 	onlyCall(t, *calls, "GET", "/breadcrumbs/c1", "")
 	if len(crumbs) != 3 || crumbs[2] != (Crumb{Label: "Copper kettle", URL: "/shop/kettles/copper"}) {
 		t.Errorf("the trail decoded as %+v", crumbs)
+	}
+}
+
+// TermContents sends ONE call per MaxTermsPerCall distinct ids — never one per term — in the order the ids were named,
+// each id once, with the page asked of every term; and answers each term found by its id.
+func TestTermContentsReadsManyTermsInFewCalls(t *testing.T) {
+	ctx := context.Background()
+	api, calls := coreAPIStub(t, map[string]string{
+		"GET /terms/content": `{"data":[{"term_id":"t1","total":41,"items":[{"id":"c1","type":"product","title":"Kettle",
+			"slug":"kettle","status":"published"}]},{"term_id":"t2","total":0,"items":[]}]}`,
+	})
+	ids := []string{"t1", "t2"}
+	for i := 3; len(ids) < MaxTermsPerCall+50; i++ {
+		ids = append(ids, "t"+strconv.Itoa(i))
+	}
+	named := append(append([]string{}, ids...), "t1", "t2") // repeats are read once
+	got, err := api.TermContents(ctx, named, TermContentQuery{Limit: 20, IncludeChildren: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(*calls) != 2 {
+		t.Fatalf("%d distinct ids made %d calls, want 2", len(ids), len(*calls))
+	}
+	for i, want := range [][]string{ids[:MaxTermsPerCall], ids[MaxTermsPerCall:]} {
+		c := (*calls)[i]
+		if c.Method != "GET" || c.Path != "/terms/content" ||
+			c.Query != "ids="+strings.Join(want, "%2C")+"&include_children=true&limit=20" {
+			t.Errorf("call %d was %s %s?%s", i, c.Method, c.Path, c.Query)
+		}
+	}
+	if len(got) != 2 || got["t1"].Total != 41 || len(got["t1"].Items) != 1 || got["t1"].Items[0].Slug != "kettle" ||
+		got["t2"].Items == nil {
+		t.Errorf("the answers decoded as %+v", got)
+	}
+
+	*calls = nil
+	if got, err := api.TermContents(ctx, nil, TermContentQuery{}); err != nil || len(got) != 0 || got == nil || len(*calls) != 0 {
+		t.Errorf("no ids: %v, %v and %d calls; want an empty map and no call", got, err, len(*calls))
 	}
 }
 
@@ -439,6 +478,7 @@ func TestTheTypedRoutesAreCoresOwn(t *testing.T) {
 		{resources, "rest/resources_core.go", `g.GET("/content/:type/:id/terms", s.getContentTerms)`},
 		{resources, "rest/resources_core.go", `g.PUT("/content/:type/:id/terms", s.assignContentTerms)`},
 		{resources, "rest/resources_core.go", `g.GET("/terms/:id/content", s.getTermContent)`},
+		{resources, "rest/resources_core.go", `g.GET("/terms/content", s.getTermContents)`},
 		{resources, "rest/resources_core.go", `g.GET("/taxonomies/:key/terms", s.listTerms)`},
 		{resources, "rest/resources_core.go", `g.POST("/taxonomies/:key/terms", s.createTerm)`},
 		{resources, "rest/resources_core.go", `g.GET("/menus", s.listMenus)`},
@@ -461,7 +501,7 @@ func TestTheTypedRoutesAreCoresOwn(t *testing.T) {
 	for handler, scope := range map[string]string{
 		"getUser": "ScopeReadUsers", "listUsers": "ScopeReadUsers",
 		"getContentTerms": "ScopeReadTaxonomy", "assignContentTerms": "ScopeWriteTaxonomy",
-		"getTermContent": "ScopeReadTaxonomy", "listTerms": "ScopeReadTaxonomy", "createTerm": "ScopeWriteTaxonomy",
+		"getTermContent": "ScopeReadTaxonomy", "getTermContents": "ScopeReadTaxonomy", "listTerms": "ScopeReadTaxonomy", "createTerm": "ScopeWriteTaxonomy",
 		"listMenus": "ScopeReadMenus", "getMenu": "ScopeReadMenus", "createMenu": "ScopeWriteMenus",
 		"addMenuItem": "ScopeWriteMenus", "getMedia": "ScopeReadMedia", "getMediaFile": "ScopeReadMedia",
 		"updateMedia": "ScopeWriteMedia",
@@ -516,6 +556,8 @@ func TestTheTypedShapesAreCores(t *testing.T) {
 		{"Term", Term{}, coreStruct(t, taxSvc, "Term", "core taxonomy/service.go")},
 		{"NewTerm", NewTerm{}, coreStruct(t, taxSvc, "TermInput", "core taxonomy/service.go")},
 		{"ContentRef", ContentRef{}, coreStruct(t, taxSvc, "ContentRef", "core taxonomy/service.go")},
+		{"TermContentPage", TermContentPage{}, coreStruct(t, coreSource(t, "internal", "taxonomy", "query.go"), "TermContent",
+			"core taxonomy/query.go")},
 		{"Menu", Menu{}, coreStruct(t, menuSvc, "Menu", "core menu/service.go")},
 		{"MenuItem", MenuItem{}, coreStruct(t, menuSvc, "MenuItem", "core menu/service.go")},
 		{"NewMenuItem", NewMenuItem{}, coreStruct(t, menuSvc, "MenuItemInput", "core menu/service.go")},
@@ -541,6 +583,10 @@ func TestTheTypedShapesAreCores(t *testing.T) {
 	}
 	if !strings.Contains(resources, "Envelope{Data: items, Meta: &Meta{Page: (offset / limit) + 1, Total: total}}") {
 		t.Error("Core's term content no longer carries its total in meta")
+	}
+	if !strings.Contains(coreSource(t, "internal", "taxonomy", "query.go"),
+		"const MaxTermsPerBatch = "+strconv.Itoa(MaxTermsPerCall)+"\n") {
+		t.Errorf("Core's batch term read no longer takes %d terms a call — MaxTermsPerCall is Core's bound", MaxTermsPerCall)
 	}
 	if !regexp.MustCompile(`TermIDs \[\]uuid\.UUID +` + "`" + `json:"term_ids"`).MatchString(resources) {
 		t.Error("Core's term PUT no longer reads term_ids")

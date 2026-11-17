@@ -500,6 +500,7 @@ const MaxRowStateColumns
 const MaxServicePoints
 const MaxSetupSteps
 const MaxShopEventsRead
+const MaxTermsPerCall
 const MaxTrashID
 const MaxTrashKind
 const MaxTrashName
@@ -2124,6 +2125,9 @@ field Term.Name string json:name
 field Term.ParentID string json:parent_id
 field Term.Slug string json:slug
 field Term.TaxonomyID string json:taxonomy_id
+field TermContentPage.Items []ContentRef json:items
+field TermContentPage.TermID string json:term_id
+field TermContentPage.Total int64 json:total
 field TermContentQuery.IncludeChildren bool
 field TermContentQuery.Limit int
 field TermContentQuery.Offset int
@@ -2437,6 +2441,7 @@ method (*API) SetMediaPrivate(context.Context, string, bool) (MediaItem, error)
 method (*API) Site(context.Context) (Site, error)
 method (*API) TaxonomyTerms(context.Context, string, Paging) ([]Term, error)
 method (*API) TermContent(context.Context, string, TermContentQuery) ([]ContentRef, int64, error)
+method (*API) TermContents(context.Context, []string, TermContentQuery) (map[string]TermContentPage, error)
 method (*API) UploadMedia(context.Context, string, io.Reader, string, any) (error)
 method (*API) User(context.Context, string) (User, error)
 method (*API) Users(context.Context, UserQuery) ([]User, error)
@@ -2999,6 +3004,7 @@ type TaxTable
 type TaxThresholdValue
 type TemplatedEmail
 type Term
+type TermContentPage
 type TermContentQuery
 type TrackEvent
 type TrackRequest

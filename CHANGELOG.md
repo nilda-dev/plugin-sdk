@@ -8,6 +8,27 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## Unreleased (TermContents: many terms' items in one call)
+
+Additive. Mirrors Core's `GET /api/rest/v1/terms/content` (core, 2026-11-17): a page that lists many terms — a
+storefront's category facet — read each term with its own `TermContent`, one round trip and three Core queries per
+term; 200 categories were 200 calls and 600 statements on a Cloud site's pool of five connections.
+
+Added:
+
+- `API.TermContents(ctx, termIDs, nilda.TermContentQuery)` → `map[string]nilda.TermContentPage` keyed by term id: for
+  each term the page and total `TermContent` answers for it alone (`Limit`, `Offset` and `IncludeChildren` apply to
+  each term). One call per `nilda.MaxTermsPerCall` (100) distinct ids, sent one after another; one query each in Core.
+  A term Core does not have is absent; an id named twice is read once; no ids is no call. `taxonomy.read`.
+- `nilda.TermContentPage` (`TermID`, `Total`, `Items []ContentRef`) and `nilda.MaxTermsPerCall`, Core's
+  `taxonomy.MaxTermsPerBatch` (`coreapi_test.go` holds the two equal when Core is beside the SDK).
+- nildatest: the fake site answers `GET /terms/content` as Core does — order kept, repeats folded, an unknown term
+  absent, more than 100 ids or none a 422, `read:taxonomy` required — from the same list `GET /terms/{id}/content`
+  pages.
+
+An older Core answers `GET /terms/content` with 422 (it reads "content" as a term id): a plugin that must run on one
+calls `TermContent` per term when `TermContents` answers `APIError.Validation`.
+
 ## v0.67.0 — 2026-11-16 (security: secrets redacted when printed, no redirect from the OIDC token endpoint, dot segments refused, an ended licence takes no money)
 
 Additive: `String`, `GoString`, `Format`, `LogValue` (and `MarshalJSON` on `Core`) on `Core`, `API` and `OIDCClient`. Tagged at once under the release train's rule for security and money fixes.

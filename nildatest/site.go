@@ -348,7 +348,8 @@ func (s *Site) serve(h *Host, w http.ResponseWriter, r *http.Request) {
 	switch {
 	case strings.HasPrefix(route, "GET users"):
 		need = "read:users"
-	case route == "GET taxonomies/*/terms", route == "GET terms/*/content", route == "GET content/*/*/terms":
+	case route == "GET taxonomies/*/terms", route == "GET terms/*/content", route == "GET terms/content",
+		route == "GET content/*/*/terms":
 		need = "read:taxonomy"
 	case route == "POST taxonomies/*/terms", route == "PUT content/*/*/terms":
 		need = "write:taxonomy"
@@ -471,33 +472,42 @@ func (s *Site) serve(h *Host, w http.ResponseWriter, r *http.Request) {
 			writeError(w, err)
 			return
 		}
-		want := map[string]bool{t.ID: true}
-		if q.Get("include_children") == "true" {
-			for grew := true; grew; {
-				grew = false
-				for _, other := range s.terms {
-					if other.ParentID != "" && want[other.ParentID] && !want[other.ID] {
-						want[other.ID], grew = true, true
-					}
-				}
-			}
-		}
-		var out []nilda.ContentRef
-		for _, id := range s.order {
-			it := s.items[id]
-			if it.Status != "published" {
-				continue
-			}
-			for _, tid := range s.filed[id] {
-				if want[tid] {
-					out = append(out, nilda.ContentRef{ID: it.ID, Type: it.Type, Title: it.Title, Slug: it.Slug, Status: it.Status})
-					break
-				}
-			}
-		}
+		out := s.termItems(t.ID, q.Get("include_children") == "true")
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"data": window(out, limit, offset),
 			"meta": map[string]any{"page": offset/limit + 1, "size": 0, "total": len(out)}})
+	case "GET terms/content":
+		// Core's batch read (rest getTermContents): each named term's page and total, in the order named, each once;
+		// a term the site lacks is absent; more than nilda.MaxTermsPerCall distinct ids, or none, is a 422.
+		limit, offset, err := paging(q)
+		if err != nil {
+			writeError(w, err)
+			return
+		}
+		seen := map[string]bool{}
+		var ids []string
+		for _, id := range strings.Split(q.Get("ids"), ",") {
+			if id = strings.TrimSpace(id); id != "" && !seen[id] {
+				seen[id] = true
+				ids = append(ids, id)
+			}
+		}
+		if len(ids) == 0 {
+			writeError(w, invalid("ids is required: the term ids to read, separated by commas"))
+			return
+		}
+		if len(ids) > nilda.MaxTermsPerCall {
+			writeError(w, invalid("at most %d terms can be read in one call, and %d were named", nilda.MaxTermsPerCall, len(ids)))
+			return
+		}
+		pages := []nilda.TermContentPage{}
+		for _, id := range ids {
+			if _, ok := s.terms[id]; ok {
+				all := s.termItems(id, q.Get("include_children") == "true")
+				pages = append(pages, nilda.TermContentPage{TermID: id, Total: int64(len(all)), Items: window(all, limit, offset)})
+			}
+		}
+		answer(w, http.StatusOK, pages, nil)
 	case "GET content/*/*/terms":
 		if _, ok := s.typed(w, parts); ok {
 			answer(w, http.StatusOK, s.termsOf(parts[2]), nil)
@@ -809,6 +819,37 @@ func (s *Site) createTerm(taxonomy string, in nilda.NewTerm) nilda.Term {
 	return t.Term
 }
 
+// termItems is a term's published items, newest filed last as the site holds them — with includeChildren, everything
+// filed anywhere under it. The one list GET terms/{id}/content and GET terms/content both page, as Core's two reads
+// share one predicate.
+func (s *Site) termItems(termID string, includeChildren bool) []nilda.ContentRef {
+	want := map[string]bool{termID: true}
+	if includeChildren {
+		for grew := true; grew; {
+			grew = false
+			for _, other := range s.terms {
+				if other.ParentID != "" && want[other.ParentID] && !want[other.ID] {
+					want[other.ID], grew = true, true
+				}
+			}
+		}
+	}
+	out := []nilda.ContentRef{}
+	for _, id := range s.order {
+		it := s.items[id]
+		if it.Status != "published" {
+			continue
+		}
+		for _, tid := range s.filed[id] {
+			if want[tid] {
+				out = append(out, nilda.ContentRef{ID: it.ID, Type: it.Type, Title: it.Title, Slug: it.Slug, Status: it.Status})
+				break
+			}
+		}
+	}
+	return out
+}
+
 func (s *Site) termsOf(contentID string) map[string][]nilda.Term {
 	out := map[string][]nilda.Term{}
 	for _, id := range s.filed[contentID] {
@@ -971,6 +1012,9 @@ func shape(parts []string) string {
 	fixed := map[string][]int{ // the segments that are words, per first segment
 		"users": {0}, "site": {0}, "pages": {0}, "breadcrumbs": {0}, "taxonomies": {0, 2}, "terms": {0, 2},
 		"content": {0, 3}, "menus": {0, 2}, "layouts": {0, 1}, "media": {0, 2}, "api": {0, 1, 2, 4},
+	}
+	if len(parts) == 2 && parts[0] == "terms" && parts[1] == "content" {
+		return "terms/content" // Core's static route beside terms/{id}: a term id is never the word "content"
 	}
 	keep, ok := fixed[parts[0]]
 	if !ok {

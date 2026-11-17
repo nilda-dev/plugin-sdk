@@ -154,6 +154,23 @@ func TestSiteTermsAreReplacedAsCoreReplacesThem(t *testing.T) {
 	if items, _, _ := api.TermContent(ctx, kitchen.ID, nilda.TermContentQuery{IncludeChildren: true}); len(items) != 1 {
 		t.Errorf("the kitchen with its children lists %+v, want the kettle filed under knives", items)
 	}
+	// The batch read answers each term what the single read answers, and leaves out a term the site lacks.
+	gone := newID()
+	many, err := api.TermContents(ctx, []string{kitchen.ID, knives.ID, gone}, nilda.TermContentQuery{IncludeChildren: true})
+	if err != nil || len(many) != 2 || many[kitchen.ID].Total != 1 || many[knives.ID].Total != 1 ||
+		many[kitchen.ID].Items[0].ID != kettle || many[knives.ID].TermID != knives.ID {
+		t.Errorf("the batch read %+v (%v), want the kettle under both and no answer for the missing term", many, err)
+	}
+	if _, ok := many[gone]; ok {
+		t.Errorf("a term the site does not have was answered")
+	}
+	tooMany := make([]string, nilda.MaxTermsPerCall+1)
+	for i := range tooMany {
+		tooMany[i] = newID()
+	}
+	if err := api.JSON(ctx, http.MethodGet, "/terms/content?ids="+strings.Join(tooMany, ","), nil, nil); apiStatus(err) != http.StatusUnprocessableEntity {
+		t.Errorf("%d ids in one call answered %v, want 422 as Core answers it", len(tooMany), err)
+	}
 	list, err := api.TaxonomyTerms(ctx, "product_category", nilda.Paging{Limit: 2})
 	if err != nil || len(list) != 2 || list[0].Name != "Kitchen" {
 		t.Errorf("the first page of categories is %+v (%v)", list, err)
