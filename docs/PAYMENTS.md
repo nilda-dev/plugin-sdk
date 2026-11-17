@@ -958,7 +958,10 @@ strong customer authentication when the method is kept, later charges out of its
    ask after that is an ordinary refund of the period, and the cycle stays paid) — and a further charge of the cycle
    is refused naming it. A duplicate you refunded or are refunding, or one under a chargeback, is not promoted, and the
    cycle is open again. A duplicate held for a person (a different amount) takes the cycle when the person accepts
-   it, if nothing holds it then. A late `pending` with no money is
+   it, if nothing holds it then. **You are told again whenever the charge a duplicate names resolves or ends**, and
+   when a refund or chargeback on the duplicate settles: refund it on the notice that its charge resolved; when its
+   charge ended, wait — Core settles the duplicate again (the period's payment, or the duplicate of whichever charge
+   holds the cycle then) and tells you. A late `pending` with no money is
    refused (`409`). A charge left with no recorded answer is never expired: after ten minutes Core moves it to
    `pending` and asks the gateway again under the same session. While Core's cycle index is not valid, a charge naming
    a cycle is refused `503 UNAVAILABLE` and nothing is charged.

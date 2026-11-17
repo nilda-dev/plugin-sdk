@@ -299,7 +299,8 @@ type PaymentSession struct {
 	// If that charge ends without money instead, Core clears DuplicateOf and you are told again: "" then means this is
 	// the period's own payment — do not refund it as a duplicate; a refund you ask after that is an ordinary refund of the
 	// period, and the cycle stays paid. A duplicate you refunded, or whose money a chargeback took back, is never made the
-	// period's payment. "" for every other session.
+	// period's payment. You are told again whenever the charge it names resolves or ends; while that charge has ended
+	// and nothing is settled yet, wait — Core settles it and tells you. "" for every other session.
 	DuplicateOf string `json:"duplicate_of,omitempty"`
 	// Instrument is what the payer paid with (the Instrument constants), as the gateway reported it with the
 	// resolution; "" until resolved or when the gateway did not say. ResolvedAt is when the session first resolved —
