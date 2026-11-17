@@ -25,6 +25,12 @@ any 24 hours at most a daily total (pre-filled 2,000.00), all settable by the ow
 account Core knows (`no_customer`). `credit.undo` takes back only what the plugin gave that the buyer has provably not
 spent — never credit the shop gave them (a refund to store credit), refused `spent` otherwise.
 
+**`limit` is retryable under the SAME key.** A refusal writes nothing and keeps nothing under its key
+(`WRITE_COMMANDS.md` §7), so once the owner raises the limit — or the day's window moves on — the same request under the
+same key is asked again and issues the reward once. A consumer must never mint a NEW key for the same reward (the same
+redemption, the same referral): the shop cannot tell it from a second reward, and the buyer would be given it twice. A
+call that raced its own twin under one key answers the twin's record, never `limit`.
+
 Points come back with a refund, never as a second credit: the plugin hears `ecommerce.order.refunded` (`SHOP_EVENTS.md`)
 and adjusts its own balance. Whatever the plugin gave that an order must show — the code and who issued it — is copied
 into the order when it is placed (door D11's snapshot rule).
