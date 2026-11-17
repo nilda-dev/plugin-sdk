@@ -18,6 +18,10 @@ const AdminReportHook
 const AgentBlocked
 const AgentBrowse
 const AgentBuy
+const AgreementActive
+const AgreementPending
+const AgreementStopped
+const AgreementStopping
 const AttributeAllow
 const AttributeBlock
 const AttributeBoolean
@@ -193,6 +197,8 @@ const ContractShopCatalog
 const ContractShopDeliverables
 const ContractShopEvents
 const ContractShopOrders
+const ContractShopRewards
+const ContractShopSubscriptions
 const ContractSiteReader
 const ContractStable
 const CredentialStripeConfirmationToken
@@ -251,11 +257,25 @@ const EventContentUnpublished
 const EventContentUpdated
 const EventFormSubmitted
 const EventFormSubscribe
+const EventRenewalFailed
+const EventRenewalPaid
+const EventRenewalPlaced
+const EventRenewalUndone
+const EventRewardDiscountIssued
+const EventRewardDiscountUndone
+const EventSellingPlanSet
+const EventSellingPlanUndone
 const EventShopOrderCancelled
 const EventShopOrderFulfilled
 const EventShopOrderPaid
 const EventShopOrderPlaced
 const EventShopOrderRefunded
+const EventStoreCreditIssued
+const EventStoreCreditUndone
+const EventSubscriptionMethodUpdated
+const EventSubscriptionResumed
+const EventSubscriptionStarted
+const EventSubscriptionStopped
 const EventUserEmailVerified
 const EventUserErased
 const ExpressFromCart
@@ -501,10 +521,14 @@ const MaxPriceGroupLength
 const MaxPrivacyRecords
 const MaxRecommendationWhy
 const MaxRecommendations
+const MaxRewardCreditMinor
+const MaxRewardReason
 const MaxRowStateColumns
 const MaxServicePoints
 const MaxSetupSteps
 const MaxShopEventsRead
+const MaxSubscriptionLines
+const MaxSubscriptionSKUs
 const MaxTrashID
 const MaxTrashKind
 const MaxTrashName
@@ -595,7 +619,38 @@ const RefundReasonFraudulent
 const RefundRejected
 const RefundRequested
 const RefundResolved
+const RenewalAuthRequired
+const RenewalCancelled
+const RenewalDeclined
+const RenewalFailed
+const RenewalHardDecline
+const RenewalMethodExpired
+const RenewalMethodGone
+const RenewalPaid
+const RenewalPending
+const RenewalRefunded
 const ReportRowKey
+const RewardCreditRecord
+const RewardDiscountRecord
+const RewardExpired
+const RewardFixedAmount
+const RewardInUse
+const RewardInvalidAmount
+const RewardInvalidExpiry
+const RewardNoCustomer
+const RewardOpen
+const RewardPercentage
+const RewardSpent
+const RewardUndone
+const RewardUndoneAlready
+const RewardUnknownWrite
+const RewardUsed
+const RewardWrongCurrency
+const RewardsCreditIssue
+const RewardsCreditUndo
+const RewardsDiscountIssue
+const RewardsDiscountUndo
+const RewardsIssuedGet
 const RiskElevated
 const RiskHighest
 const RiskNormal
@@ -661,6 +716,38 @@ const SiteSourceLive
 const StockAlertAlready
 const StockAlertRefused
 const StockAlertSubscribed
+const SubscriptionAgreementGet
+const SubscriptionAgreementList
+const SubscriptionAgreementPending
+const SubscriptionAgreementRecord
+const SubscriptionAgreementResume
+const SubscriptionAgreementStop
+const SubscriptionAgreementStopped
+const SubscriptionAmountOff
+const SubscriptionCycleOutOfOrder
+const SubscriptionCyclePaid
+const SubscriptionInvalidPlan
+const SubscriptionItemUnavailable
+const SubscriptionMethodForgotten
+const SubscriptionNotStopped
+const SubscriptionNotYours
+const SubscriptionOutOfStock
+const SubscriptionOverMandate
+const SubscriptionPercentOff
+const SubscriptionPlanRecord
+const SubscriptionPlanSet
+const SubscriptionPlanUndo
+const SubscriptionPriceOf
+const SubscriptionRenewalIsPaid
+const SubscriptionRenewalPlace
+const SubscriptionRenewalQuote
+const SubscriptionRenewalRecord
+const SubscriptionRenewalUndo
+const SubscriptionTooEarly
+const SubscriptionUndoneAlready
+const SubscriptionUnknownAgreement
+const SubscriptionUnknownSKU
+const SubscriptionUnknownWrite
 const SupportCardPresent
 const SupportDisputes
 const SupportManualCapture
@@ -1849,6 +1936,34 @@ field ReportMetric.CurrencyKey string json:currency_key
 field ReportMetric.Format string json:format
 field ReportMetric.Key string json:key
 field ReportMetric.Label string json:label
+field RewardCreditRequest.AmountMinor int64 json:amount_minor
+field RewardCreditRequest.Currency string json:currency
+field RewardCreditRequest.CustomerUserID string json:customer_user_id
+field RewardCreditRequest.Reason string json:reason
+field RewardDiscountRequest.Currency string json:currency
+field RewardDiscountRequest.CustomerUserID string json:customer_user_id
+field RewardDiscountRequest.ExpiresAt *time.Time json:expires_at
+field RewardDiscountRequest.Kind string json:kind
+field RewardDiscountRequest.MinimumSubtotalMinor int64 json:minimum_subtotal_minor
+field RewardDiscountRequest.Title string json:title
+field RewardDiscountRequest.Value int64 json:value
+field RewardIssued.AmountMinor int64 json:amount_minor
+field RewardIssued.Code string json:code
+field RewardIssued.Currency string json:currency
+field RewardIssued.CustomerUserID string json:customer_user_id
+field RewardIssued.ExpiresAt *time.Time json:expires_at
+field RewardIssued.IssuedAt time.Time json:issued_at
+field RewardIssued.Kind string json:kind
+field RewardIssued.OrderID string json:order_id
+field RewardIssued.Percent int64 json:percent
+field RewardIssued.RecordID string json:record_id
+field RewardIssued.Status string json:status
+field RewardIssuedAnswer.Found bool json:found
+field RewardIssuedAnswer.Issued *RewardIssued json:issued
+field RewardIssuedRequest.RecordID string json:record_id
+field RewardWriteAnswer.BalanceMinor int64 json:balance_minor
+field RewardWriteAnswer.Code string json:code
+field RewardWriteAnswer.Refused string json:refused
 field RowAction.AlwaysAsk bool json:always_ask
 field RowAction.Confirm string json:confirm
 field RowAction.Key string json:key
@@ -2002,6 +2117,7 @@ field ShopEventsAnswer.More bool json:more
 field ShopEventsRequest.AfterSequence int64 json:after_sequence
 field ShopEventsRequest.Limit int json:limit
 field ShopOrder.Currency string json:currency
+field ShopOrder.CustomerUserID string json:customer_user_id
 field ShopOrder.Email string json:email
 field ShopOrder.ID string json:id
 field ShopOrder.Lines []ShopOrderLine json:lines
@@ -2094,6 +2210,90 @@ field StockAlertRequest.Title string json:title
 field StockAlertRequest.URL string json:url
 field StockAlertResult.Message string json:message
 field StockAlertResult.Status string json:status
+field SubscriptionAgreement.AgreedAt time.Time json:agreed_at
+field SubscriptionAgreement.Country string json:country
+field SubscriptionAgreement.Currency string json:currency
+field SubscriptionAgreement.CustomerUserID string json:customer_user_id
+field SubscriptionAgreement.Cycles []SubscriptionCycle json:cycles
+field SubscriptionAgreement.Digital bool json:digital
+field SubscriptionAgreement.Email string json:email
+field SubscriptionAgreement.EndsAt *time.Time json:ends_at
+field SubscriptionAgreement.FirstTotalMinor int64 json:first_total_minor
+field SubscriptionAgreement.ID string json:id
+field SubscriptionAgreement.Interval string json:interval
+field SubscriptionAgreement.IntervalCount int json:interval_count
+field SubscriptionAgreement.Lines []SubscriptionLine json:lines
+field SubscriptionAgreement.Locale string json:locale
+field SubscriptionAgreement.MandateText string json:mandate_text
+field SubscriptionAgreement.MaxAmountMinor int64 json:max_amount_minor
+field SubscriptionAgreement.Method *SubscriptionMethod json:method
+field SubscriptionAgreement.OriginOrderID string json:origin_order_id
+field SubscriptionAgreement.Plugin string json:plugin
+field SubscriptionAgreement.Status string json:status
+field SubscriptionAgreement.StopReason string json:stop_reason
+field SubscriptionAgreement.StoppedAt *time.Time json:stopped_at
+field SubscriptionAgreement.Test bool json:test
+field SubscriptionAgreementAnswer.Agreement *SubscriptionAgreement json:agreement
+field SubscriptionAgreementAnswer.Found bool json:found
+field SubscriptionAgreementRequest.AgreementID string json:agreement_id
+field SubscriptionAgreementsAnswer.Agreements []SubscriptionAgreement json:agreements
+field SubscriptionAgreementsAnswer.More bool json:more
+field SubscriptionAgreementsRequest.After string json:after
+field SubscriptionAgreementsRequest.Limit int json:limit
+field SubscriptionAgreementsRequest.Status string json:status
+field SubscriptionCycle.Cycle int json:cycle
+field SubscriptionCycle.FailCode string json:fail_code
+field SubscriptionCycle.OrderID string json:order_id
+field SubscriptionCycle.OrderRef string json:order_ref
+field SubscriptionCycle.PeriodEnd *time.Time json:period_end
+field SubscriptionCycle.PeriodStart *time.Time json:period_start
+field SubscriptionCycle.PlacedAt time.Time json:placed_at
+field SubscriptionCycle.Status string json:status
+field SubscriptionCycle.TotalMinor int64 json:total_minor
+field SubscriptionLine.PlanID string json:plan_id
+field SubscriptionLine.PlanName string json:plan_name
+field SubscriptionLine.PlanUnitMinor int64 json:plan_unit_minor
+field SubscriptionLine.Pricing SubscriptionPricing json:pricing
+field SubscriptionLine.Quantity int64 json:quantity
+field SubscriptionLine.SKU string json:sku
+field SubscriptionLine.Title string json:title
+field SubscriptionLine.UnitPriceMinor int64 json:unit_price_minor
+field SubscriptionMethod.ExpiresAt *time.Time json:expires_at
+field SubscriptionMethod.Label string json:label
+field SubscriptionPlanRequest.Interval string json:interval
+field SubscriptionPlanRequest.IntervalCount int json:interval_count
+field SubscriptionPlanRequest.Name string json:name
+field SubscriptionPlanRequest.Pricing SubscriptionPricing json:pricing
+field SubscriptionPlanRequest.SKUs []string json:skus
+field SubscriptionPricing.Kind string json:kind
+field SubscriptionPricing.Value int64 json:value
+field SubscriptionQuoteAnswer.AmountMinor int64 json:amount_minor
+field SubscriptionQuoteAnswer.Currency string json:currency
+field SubscriptionQuoteAnswer.DiscountMinor int64 json:discount_minor
+field SubscriptionQuoteAnswer.Refused string json:refused
+field SubscriptionQuoteAnswer.ShippingMinor int64 json:shipping_minor
+field SubscriptionQuoteAnswer.TaxMinor int64 json:tax_minor
+field SubscriptionQuoteRequest.AgreementID string json:agreement_id
+field SubscriptionQuoteRequest.Cycle int json:cycle
+field SubscriptionQuoteRequest.Lines []SubscriptionRenewalLine json:lines
+field SubscriptionRenewalAnswer.Currency string json:currency
+field SubscriptionRenewalAnswer.FailCode string json:fail_code
+field SubscriptionRenewalAnswer.OrderID string json:order_id
+field SubscriptionRenewalAnswer.OrderRef string json:order_ref
+field SubscriptionRenewalAnswer.Payment string json:payment
+field SubscriptionRenewalAnswer.Refused string json:refused
+field SubscriptionRenewalAnswer.TotalMinor int64 json:total_minor
+field SubscriptionRenewalLine.Quantity int64 json:quantity
+field SubscriptionRenewalLine.SKU string json:sku
+field SubscriptionRenewalRequest.AgreementID string json:agreement_id
+field SubscriptionRenewalRequest.Cycle int json:cycle
+field SubscriptionRenewalRequest.Lines []SubscriptionRenewalLine json:lines
+field SubscriptionRenewalRequest.PeriodEnd *time.Time json:period_end
+field SubscriptionRenewalRequest.PeriodStart *time.Time json:period_start
+field SubscriptionStopRequest.AgreementID string json:agreement_id
+field SubscriptionStopRequest.EndsAt *time.Time json:ends_at
+field SubscriptionStopRequest.Reason string json:reason
+field SubscriptionWriteAnswer.Refused string json:refused
 field TableExport.Columns []string json:columns
 field TableExport.Note string json:note
 field TableExport.RowCount int json:row_count
@@ -2326,6 +2526,8 @@ func ProtocolForSDK(string) (int, bool)
 func RefundCanMove(string, string) (bool)
 func RegisterContractForTest(ServiceContract) (func())
 func ReportScreens() ([]string)
+func RewardRefusals() ([]string)
+func RewardsMethods(RewardsProvider) ([]ServiceMethod)
 func ScheduleHook(string) (string)
 func SchemaAvailabilities() ([]string)
 func SchemaConditions() ([]string)
@@ -2346,6 +2548,9 @@ func ShowsPricesIncludingTax(*http.Request) (bool)
 func SplitServiceHook(string) (string, string, bool)
 func StartHTTP(http.Handler) (string, error)
 func StartHTTPWith(http.Handler, HTTPOptions) (string, error)
+func SubscriptionEvents() ([]string)
+func SubscriptionRefusals() ([]string)
+func SubscriptionsMethods(SubscriptionsProvider) ([]ServiceMethod)
 func Supports([]string, string) (bool)
 func SupportsOf(PaymentMethod) ([]string)
 func TestHintFor(map[string]string, string) (string)
@@ -2418,6 +2623,11 @@ imethod PaymentRepricer.RepricePayment(context.Context, PaymentRepriceRequest) (
 imethod PaymentSyncer.SyncPayment(context.Context, PaymentSession) (error)
 imethod PersonalDataHolder.ErasePersonalData(context.Context, PrivacyRequest) (PrivacyErasure, error)
 imethod PersonalDataHolder.ExportPersonalData(context.Context, PrivacyRequest) (PrivacyExport, error)
+imethod RewardsProvider.IssueCredit(context.Context, RewardCreditRequest) (RewardWriteAnswer, error)
+imethod RewardsProvider.IssueDiscount(context.Context, RewardDiscountRequest) (RewardWriteAnswer, error)
+imethod RewardsProvider.RewardIssued(context.Context, RewardIssuedRequest) (RewardIssuedAnswer, error)
+imethod RewardsProvider.UndoCredit(context.Context, UndoInput) (RewardWriteAnswer, error)
+imethod RewardsProvider.UndoDiscount(context.Context, UndoInput) (RewardWriteAnswer, error)
 imethod SavedMethodPayer.ForgetSaved(context.Context, string) (error)
 imethod SavedMethodPayer.StartPaymentWithSaved(context.Context, PaymentSession, string) (PaymentStartResult, error)
 imethod SearchProvider.Configure(context.Context) (error)
@@ -2428,6 +2638,15 @@ imethod SearchProvider.Remove(context.Context, []string) (error)
 imethod SearchProvider.Truncate(context.Context) (error)
 imethod ServiceProvider.ServiceMethods() ([]ServiceMethod)
 imethod ShopEventsProvider.ShopEvents(context.Context, ShopEventsRequest) (ShopEventsAnswer, error)
+imethod SubscriptionsProvider.PlaceRenewal(context.Context, SubscriptionRenewalRequest) (SubscriptionRenewalAnswer, error)
+imethod SubscriptionsProvider.QuoteRenewal(context.Context, SubscriptionQuoteRequest) (SubscriptionQuoteAnswer, error)
+imethod SubscriptionsProvider.ResumeAgreement(context.Context, UndoInput) (SubscriptionWriteAnswer, error)
+imethod SubscriptionsProvider.SetSubscriptionPlan(context.Context, SubscriptionPlanRequest) (SubscriptionWriteAnswer, error)
+imethod SubscriptionsProvider.StopAgreement(context.Context, SubscriptionStopRequest) (SubscriptionWriteAnswer, error)
+imethod SubscriptionsProvider.SubscriptionAgreement(context.Context, SubscriptionAgreementRequest) (SubscriptionAgreementAnswer, error)
+imethod SubscriptionsProvider.SubscriptionAgreements(context.Context, SubscriptionAgreementsRequest) (SubscriptionAgreementsAnswer, error)
+imethod SubscriptionsProvider.UndoRenewal(context.Context, UndoInput) (SubscriptionWriteAnswer, error)
+imethod SubscriptionsProvider.UndoSubscriptionPlan(context.Context, UndoInput) (SubscriptionWriteAnswer, error)
 imethod WidgetProvider.RenderWidget(context.Context, WidgetRenderRequest) (string, error)
 imethod WidgetProvider.Widgets() ([]WidgetDef)
 method (*API) AddMenuItem(context.Context, string, NewMenuItem) (MenuItem, error)
@@ -2557,7 +2776,10 @@ method (*Services) CatalogPage(context.Context, CatalogPageRequest) (CatalogPage
 method (*Services) CatalogProduct(context.Context, string) (CatalogProductResult, error)
 method (*Services) CreateShippingLabel(context.Context, string, LabelRequest) (LabelResult, error)
 method (*Services) DeliveredSKUs(context.Context) (map[string]bool, error)
+method (*Services) IssueRewardDiscount(context.Context, string, RewardDiscountRequest) (RewardWriteAnswer, error)
+method (*Services) IssueStoreCredit(context.Context, string, RewardCreditRequest) (RewardWriteAnswer, error)
 method (*Services) OrderDeliverables(context.Context, DeliverablesRequest) ([]DeliveredItem, int, error)
+method (*Services) PlaceRenewal(context.Context, string, SubscriptionRenewalRequest) (SubscriptionRenewalAnswer, error)
 method (*Services) ResolveAddress(context.Context, string, AddressResolveRequest) (AddressResolveAnswer, error)
 method (*Services) SetAttribute(context.Context, string, AttributeSetRequest) (AttributeWriteAnswer, error)
 method (*Services) ShippingDocuments(context.Context, string, DocumentsRequest) (DocumentsResult, error)
@@ -2568,6 +2790,7 @@ method (*Services) ShopOrder(context.Context, string) (ShopOrderResult, error)
 method (*Services) SuggestAddresses(context.Context, string, AddressSuggestRequest) (AddressSuggestAnswer, error)
 method (*Services) TrackShipment(context.Context, string, TrackRequest) (TrackResult, error)
 method (*Services) UndoAttribute(context.Context, string, string) (AttributeWriteAnswer, error)
+method (*Services) UndoReward(context.Context, string, string, string) (RewardWriteAnswer, error)
 method (*Services) ValidateAttributes(context.Context, string, AttributeDescription, AttributeValidateRequest) (AttributeValidateAnswer, error)
 method (*Services) VoidShippingLabel(context.Context, string, VoidRequest) (VoidResult, error)
 method (API) Format(fmt.State, rune)
@@ -2671,6 +2894,10 @@ method (RatesRequest) Validate() (error)
 method (RatesResult) Validate() (error)
 method (Recommendation) Target() (string)
 method (ReportLink) Validate() (error)
+method (RewardCreditRequest) Validate() (error)
+method (RewardDiscountRequest) Validate() (error)
+method (RewardIssuedAnswer) Validate() (error)
+method (RewardWriteAnswer) Validate() (error)
 method (ServiceAnswer) Decode(any) (error)
 method (ServiceContract) AssistantTools() ([]string)
 method (ServiceContract) Experimental() (bool)
@@ -2690,6 +2917,16 @@ method (ShopOrderRequest) Validate() (error)
 method (ShopOrderResult) Validate() (error)
 method (StockAlertRequest) Validate() (error)
 method (StockAlertResult) Validate() (error)
+method (SubscriptionAgreement) Validate() (error)
+method (SubscriptionAgreementAnswer) Validate() (error)
+method (SubscriptionPlanRequest) Validate() (error)
+method (SubscriptionPricing) Validate() (error)
+method (SubscriptionQuoteAnswer) Validate() (error)
+method (SubscriptionQuoteRequest) Validate() (error)
+method (SubscriptionRenewalAnswer) Validate() (error)
+method (SubscriptionRenewalRequest) Validate() (error)
+method (SubscriptionStopRequest) Validate() (error)
+method (SubscriptionWriteAnswer) Validate() (error)
 method (TaxReferenceRow) ImportRegime() (TaxImportRegimeValue, bool)
 method (TaxReferenceRow) Notice() (TaxNoticeValue, bool)
 method (TaxReferenceRow) Rate() (TaxRateValue, bool)
@@ -2967,6 +3204,13 @@ type Reference
 type RenderAssetsRequest
 type ReportLink
 type ReportMetric
+type RewardCreditRequest
+type RewardDiscountRequest
+type RewardIssued
+type RewardIssuedAnswer
+type RewardIssuedRequest
+type RewardWriteAnswer
+type RewardsProvider
 type RowAction
 type RowCondition
 type SavedMethodPayer
@@ -3023,6 +3267,24 @@ type SiteReaderStartAnswer
 type SiteReaderStartRequest
 type StockAlertRequest
 type StockAlertResult
+type SubscriptionAgreement
+type SubscriptionAgreementAnswer
+type SubscriptionAgreementRequest
+type SubscriptionAgreementsAnswer
+type SubscriptionAgreementsRequest
+type SubscriptionCycle
+type SubscriptionLine
+type SubscriptionMethod
+type SubscriptionPlanRequest
+type SubscriptionPricing
+type SubscriptionQuoteAnswer
+type SubscriptionQuoteRequest
+type SubscriptionRenewalAnswer
+type SubscriptionRenewalLine
+type SubscriptionRenewalRequest
+type SubscriptionStopRequest
+type SubscriptionWriteAnswer
+type SubscriptionsProvider
 type TableExport
 type TaxImportRegimeValue
 type TaxNoticeValue

@@ -80,6 +80,9 @@ type ShopOrder struct {
 	// ConsentSnapshot.AdUserDataGranted).
 	Email  string `json:"email"`
 	Locale string `json:"locale"`
+	// CustomerUserID is Core's account id of the buyer who was signed in when the order was placed; "" for a guest.
+	// It is how a plugin that keeps something per account (loyalty points, shop.rewards/v1) finds the buyer (v0.68.0).
+	CustomerUserID string `json:"customer_user_id,omitempty"`
 	// Currency is the order's (ISO 4217); TotalMinor what it cost, in minor units.
 	Currency   string          `json:"currency"`
 	TotalMinor int64           `json:"total_minor"`

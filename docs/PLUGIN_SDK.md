@@ -3443,6 +3443,28 @@ currency, its `ShopEventLine`s and the visitor's `ConsentSnapshot` copied when t
 - Test against `nildatest.ShopEvents` (`NewShopEvents`): it records events as the shop would, delivers them to your
   `HandleEvent`, and answers the read.
 
+### What a rewards plugin gives a buyer (`shop.rewards/v1`, experimental)
+
+`docs/SHOP_REWARDS.md` is the whole of it (`shoprewards.go`). The shop implements `RewardsProvider`; `RewardsMethods`
+answers `credit.issue` (`RewardCreditRequest`), `credit.undo` and `discount.undo` (`UndoInput`), `discount.issue`
+(`RewardDiscountRequest`) — each answering a `RewardWriteAnswer`, the record or `refused` with one of `RewardRefusals()` —
+and `issued.get` (`RewardIssuedRequest` → `RewardIssuedAnswer` with a `RewardIssued`). A loyalty plugin asks with
+`Services.IssueStoreCredit`, `Services.IssueRewardDiscount` and `Services.UndoReward`, always with a key derived from what
+the reward is for. `ShopOrder.CustomerUserID` names the buyer's account.
+
+### Subscriptions sold and renewed by the shop (`shop.subscriptions/v1`, experimental)
+
+`docs/SHOP_SUBSCRIPTIONS.md` is the whole of it (`shopsubscriptions.go`), doors D3 and D9. The shop implements
+`SubscriptionsProvider`; `SubscriptionsMethods` answers `plan.set` (`SubscriptionPlanRequest` with a
+`SubscriptionPricing`), `plan.undo`, `renewal.undo` and `agreement.resume` (`UndoInput`), `agreement.stop`
+(`SubscriptionStopRequest`) — each a `SubscriptionWriteAnswer` — `agreements.get` (`SubscriptionAgreementRequest` →
+`SubscriptionAgreementAnswer`), `agreements.list` (`SubscriptionAgreementsRequest` → `SubscriptionAgreementsAnswer`), and
+`renewal.place` (`SubscriptionRenewalRequest` with optional `SubscriptionRenewalLine`s → `SubscriptionRenewalAnswer`); and
+`renewal.quote` (`SubscriptionQuoteRequest` → `SubscriptionQuoteAnswer`). An
+agreement is a `SubscriptionAgreement` of `SubscriptionLine`s at the price locked at sign-up, its `SubscriptionMethod`'s
+label (never its id) and its `SubscriptionCycle`s. Refusals are `SubscriptionRefusals()`; events `SubscriptionEvents()`.
+A subscriptions plugin places a cycle with `Services.PlaceRenewal`.
+
 ### The shop's catalogue (`shop.catalog/v1`)
 
 The shop provides it; a channel plugin — a Google Merchant feed, a marketplace, an AI agent's catalogue — requires it

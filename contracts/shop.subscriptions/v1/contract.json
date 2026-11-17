@@ -1,0 +1,955 @@
+{
+  "name": "shop.subscriptions/v1",
+  "description": "Subscriptions sold and renewed by the shop (SHOP_SUBSCRIPTIONS.md): a plugin writes its plans as the shop's selling plans; the shop sells them, prices the plan's discount, keeps the buyer's method under a subscription mandate with Core and keeps the agreement at the price agreed; the plugin asks for each renewal, which the shop places through its own checkout and charges off-session — one order per agreement and cycle. Refunds only through the shop's refund_lines.",
+  "methods": [
+    {
+      "name": "plan.set",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. A new subscription plan — name, the SKUs it is offered on, its rhythm and its pricing — as one of the shop's selling plans. A plan is never edited: a change is a new plan and plan.undo of the old, so every agreement keeps the terms it was sold on.",
+      "retry_class": "answer",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reads agreements and renewal orders through the shop's own abilities (get_order, list_subscriptions) and stops or changes a subscription through the subscriptions plugin's abilities; this is how that plugin asks the shop, under its own key",
+      "input": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "skus": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "interval": {
+            "type": "string"
+          },
+          "interval_count": {
+            "type": "integer"
+          },
+          "pricing": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "value": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "kind",
+              "value"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "skus",
+          "interval",
+          "interval_count",
+          "pricing"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          },
+          "already": {
+            "type": "boolean"
+          },
+          "refused": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "already"
+        ]
+      },
+      "write": {
+        "record": "selling_plan",
+        "undo": "plan.undo",
+        "emits": "ecommerce.selling_plan.set"
+      }
+    },
+    {
+      "name": "plan.undo",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. Stop selling a plan this plugin wrote: it leaves the product pages and baskets; agreements on it keep their terms.",
+      "retry_class": "answer",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reads agreements and renewal orders through the shop's own abilities (get_order, list_subscriptions) and stops or changes a subscription through the subscriptions plugin's abilities; this is how that plugin asks the shop, under its own key",
+      "input": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          },
+          "already": {
+            "type": "boolean"
+          },
+          "refused": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "already"
+        ]
+      },
+      "write": {
+        "record": "selling_plan",
+        "emits": "ecommerce.selling_plan.undone"
+      }
+    },
+    {
+      "name": "agreements.get",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. One of this plugin's agreements: its lines at the locked price, rhythm, buyer, the mandate's words and limit, the kept method's label (never its id), and its cycles' orders.",
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reads agreements and renewal orders through the shop's own abilities (get_order, list_subscriptions) and stops or changes a subscription through the subscriptions plugin's abilities; this is how that plugin asks the shop, under its own key",
+      "input": {
+        "type": "object",
+        "properties": {
+          "agreement_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "agreement_id"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "found": {
+            "type": "boolean"
+          },
+          "agreement": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "plugin": {
+                "type": "string"
+              },
+              "origin_order_id": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "currency": {
+                "type": "string"
+              },
+              "customer_user_id": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "locale": {
+                "type": "string"
+              },
+              "country": {
+                "type": "string"
+              },
+              "interval": {
+                "type": "string"
+              },
+              "interval_count": {
+                "type": "integer"
+              },
+              "lines": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "sku": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": "integer"
+                    },
+                    "plan_id": {
+                      "type": "string"
+                    },
+                    "plan_name": {
+                      "type": "string"
+                    },
+                    "unit_price_minor": {
+                      "type": "integer"
+                    },
+                    "plan_unit_minor": {
+                      "type": "integer"
+                    },
+                    "pricing": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string"
+                        },
+                        "value": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "value"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "sku",
+                    "title",
+                    "quantity",
+                    "plan_id",
+                    "plan_name",
+                    "unit_price_minor",
+                    "plan_unit_minor",
+                    "pricing"
+                  ]
+                }
+              },
+              "method": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "expires_at": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  }
+                },
+                "required": [
+                  "label"
+                ]
+              },
+              "mandate_text": {
+                "type": "string"
+              },
+              "max_amount_minor": {
+                "type": "integer"
+              },
+              "digital": {
+                "type": "boolean"
+              },
+              "test": {
+                "type": "boolean"
+              },
+              "agreed_at": {
+                "type": "string"
+              },
+              "first_total_minor": {
+                "type": "integer"
+              },
+              "cycles": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "cycle": {
+                      "type": "integer"
+                    },
+                    "order_id": {
+                      "type": "string"
+                    },
+                    "order_ref": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "fail_code": {
+                      "type": "string"
+                    },
+                    "total_minor": {
+                      "type": "integer"
+                    },
+                    "period_start": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "period_end": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    },
+                    "placed_at": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "cycle",
+                    "order_id",
+                    "order_ref",
+                    "status",
+                    "total_minor",
+                    "placed_at"
+                  ]
+                }
+              },
+              "ends_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "stopped_at": {
+                "type": [
+                  "null",
+                  "string"
+                ]
+              },
+              "stop_reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "plugin",
+              "origin_order_id",
+              "status",
+              "currency",
+              "email",
+              "locale",
+              "country",
+              "interval",
+              "interval_count",
+              "lines",
+              "mandate_text",
+              "max_amount_minor",
+              "agreed_at",
+              "first_total_minor",
+              "cycles"
+            ]
+          }
+        },
+        "required": [
+          "found"
+        ]
+      }
+    },
+    {
+      "name": "agreements.list",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. This plugin's agreements, oldest first, after an id, at most 100 a page, optionally of one status.",
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reads agreements and renewal orders through the shop's own abilities (get_order, list_subscriptions) and stops or changes a subscription through the subscriptions plugin's abilities; this is how that plugin asks the shop, under its own key",
+      "input": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "after": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        }
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "agreements": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "plugin": {
+                  "type": "string"
+                },
+                "origin_order_id": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "currency": {
+                  "type": "string"
+                },
+                "customer_user_id": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "locale": {
+                  "type": "string"
+                },
+                "country": {
+                  "type": "string"
+                },
+                "interval": {
+                  "type": "string"
+                },
+                "interval_count": {
+                  "type": "integer"
+                },
+                "lines": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "sku": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "quantity": {
+                        "type": "integer"
+                      },
+                      "plan_id": {
+                        "type": "string"
+                      },
+                      "plan_name": {
+                        "type": "string"
+                      },
+                      "unit_price_minor": {
+                        "type": "integer"
+                      },
+                      "plan_unit_minor": {
+                        "type": "integer"
+                      },
+                      "pricing": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "value"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "sku",
+                      "title",
+                      "quantity",
+                      "plan_id",
+                      "plan_name",
+                      "unit_price_minor",
+                      "plan_unit_minor",
+                      "pricing"
+                    ]
+                  }
+                },
+                "method": {
+                  "type": [
+                    "null",
+                    "object"
+                  ],
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "expires_at": {
+                      "type": [
+                        "null",
+                        "string"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "label"
+                  ]
+                },
+                "mandate_text": {
+                  "type": "string"
+                },
+                "max_amount_minor": {
+                  "type": "integer"
+                },
+                "digital": {
+                  "type": "boolean"
+                },
+                "test": {
+                  "type": "boolean"
+                },
+                "agreed_at": {
+                  "type": "string"
+                },
+                "first_total_minor": {
+                  "type": "integer"
+                },
+                "cycles": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "cycle": {
+                        "type": "integer"
+                      },
+                      "order_id": {
+                        "type": "string"
+                      },
+                      "order_ref": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "fail_code": {
+                        "type": "string"
+                      },
+                      "total_minor": {
+                        "type": "integer"
+                      },
+                      "period_start": {
+                        "type": [
+                          "null",
+                          "string"
+                        ]
+                      },
+                      "period_end": {
+                        "type": [
+                          "null",
+                          "string"
+                        ]
+                      },
+                      "placed_at": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "cycle",
+                      "order_id",
+                      "order_ref",
+                      "status",
+                      "total_minor",
+                      "placed_at"
+                    ]
+                  }
+                },
+                "ends_at": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "stopped_at": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "stop_reason": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "plugin",
+                "origin_order_id",
+                "status",
+                "currency",
+                "email",
+                "locale",
+                "country",
+                "interval",
+                "interval_count",
+                "lines",
+                "mandate_text",
+                "max_amount_minor",
+                "agreed_at",
+                "first_total_minor",
+                "cycles"
+              ]
+            }
+          },
+          "more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "agreements",
+          "more"
+        ]
+      }
+    },
+    {
+      "name": "renewal.place",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. Place one cycle's order through the shop's checkout at the agreement's locked price and the plan's discount, with today's tax, and charge the kept method off-session, never above the mandate's limit. One order per agreement and cycle: asked again for an unpaid cycle, the same order is charged again; a paid one is refused cycle_paid.",
+      "retry_class": "answer",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reads agreements and renewal orders through the shop's own abilities (get_order, list_subscriptions) and stops or changes a subscription through the subscriptions plugin's abilities; this is how that plugin asks the shop, under its own key",
+      "input": {
+        "type": "object",
+        "properties": {
+          "agreement_id": {
+            "type": "string"
+          },
+          "cycle": {
+            "type": "integer"
+          },
+          "lines": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "sku": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sku",
+                "quantity"
+              ]
+            }
+          },
+          "period_start": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "period_end": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "agreement_id",
+          "cycle"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          },
+          "already": {
+            "type": "boolean"
+          },
+          "refused": {
+            "type": "string"
+          },
+          "order_id": {
+            "type": "string"
+          },
+          "order_ref": {
+            "type": "string"
+          },
+          "total_minor": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "payment": {
+            "type": "string"
+          },
+          "fail_code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "already"
+        ]
+      },
+      "write": {
+        "record": "renewal_order",
+        "undo": "renewal.undo",
+        "emits": "ecommerce.renewal.placed"
+      }
+    },
+    {
+      "name": "renewal.quote",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. What a cycle would cost if renewal.place placed it now — goods at the locked price less the plan's discount, today's tax, the delivery — for the reminder before a renewal charge; or the refusal renewal.place would answer. Nothing is placed, held or charged.",
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reads agreements and renewal orders through the shop's own abilities (get_order, list_subscriptions) and stops or changes a subscription through the subscriptions plugin's abilities; this is how that plugin asks the shop, under its own key",
+      "input": {
+        "type": "object",
+        "properties": {
+          "agreement_id": {
+            "type": "string"
+          },
+          "cycle": {
+            "type": "integer"
+          },
+          "lines": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "sku": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sku",
+                "quantity"
+              ]
+            }
+          }
+        },
+        "required": [
+          "agreement_id",
+          "cycle"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "refused": {
+            "type": "string"
+          },
+          "amount_minor": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "tax_minor": {
+            "type": "integer"
+          },
+          "shipping_minor": {
+            "type": "integer"
+          },
+          "discount_minor": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "amount_minor",
+          "tax_minor",
+          "shipping_minor",
+          "discount_minor"
+        ]
+      }
+    },
+    {
+      "name": "renewal.undo",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. Cancel an unpaid cycle's order (the retries gave up): its goods go back to stock. Refused paid — only the owner refunds, through refund_lines.",
+      "retry_class": "answer",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reads agreements and renewal orders through the shop's own abilities (get_order, list_subscriptions) and stops or changes a subscription through the subscriptions plugin's abilities; this is how that plugin asks the shop, under its own key",
+      "input": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          },
+          "already": {
+            "type": "boolean"
+          },
+          "refused": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "already"
+        ]
+      },
+      "write": {
+        "record": "renewal_order",
+        "emits": "ecommerce.renewal.undone"
+      }
+    },
+    {
+      "name": "agreement.stop",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. Stop an agreement: no renewal is placed from now on and an unpaid cycle's order is cancelled; the kept method is forgotten at ends_at (now when absent), and until then agreement.resume takes the stop back.",
+      "retry_class": "answer",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reads agreements and renewal orders through the shop's own abilities (get_order, list_subscriptions) and stops or changes a subscription through the subscriptions plugin's abilities; this is how that plugin asks the shop, under its own key",
+      "input": {
+        "type": "object",
+        "properties": {
+          "agreement_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "ends_at": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        },
+        "required": [
+          "agreement_id",
+          "reason"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          },
+          "already": {
+            "type": "boolean"
+          },
+          "refused": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "already"
+        ]
+      },
+      "write": {
+        "record": "subscription_agreement",
+        "undo": "agreement.resume",
+        "emits": "ecommerce.subscription.stopped"
+      }
+    },
+    {
+      "name": "agreement.resume",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. Take back this plugin's stop of an agreement while its method is still kept; refused method_forgotten after — a new agreement needs the buyer present.",
+      "retry_class": "answer",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the owner reads agreements and renewal orders through the shop's own abilities (get_order, list_subscriptions) and stops or changes a subscription through the subscriptions plugin's abilities; this is how that plugin asks the shop, under its own key",
+      "input": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "record_id": {
+            "type": "string"
+          },
+          "already": {
+            "type": "boolean"
+          },
+          "refused": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "already"
+        ]
+      },
+      "write": {
+        "record": "subscription_agreement",
+        "emits": "ecommerce.subscription.resumed"
+      }
+    }
+  ],
+  "status": "experimental"
+}

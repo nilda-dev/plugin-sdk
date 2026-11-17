@@ -221,7 +221,106 @@ const deliverablesAgentReason = "what was delivered is shown to its buyer; the o
 
 // contractDefs is every contract this module defines.
 var contractDefs = []contractDef{paymentsV1, shippingCarrierV1, shopCatalogV1, shopOrdersV1,
-	shopDeliverablesV1, siteReaderV1, shopAttributesV1, shopAttributeValuesV1, shopEventsV1}
+	shopDeliverablesV1, siteReaderV1, shopAttributesV1, shopAttributeValuesV1, shopEventsV1, shopRewardsV1, shopSubscriptionsV1}
+
+// shopRewardsV1 is the shop's door for what a rewards plugin gives a buyer (SHOP_REWARDS.md): store credit and single-use
+// codes, as write commands. One shop answers, so a failure blocks. Experimental until its first plugin ships on it.
+var shopRewardsV1 = contractDef{
+	name:   ContractShopRewards,
+	status: ContractExperimental,
+	description: "What a rewards plugin gives a buyer, honoured by the shop (SHOP_REWARDS.md): store credit on their account and " +
+		"single-use discount codes only they can use — write commands, keyed, kept with the plugin that issued them, announced " +
+		"once committed, and taken back while nothing depends on them. The plugin never prices a basket or keeps money.",
+	methods: []methodDef{
+		{ContractMethod{Name: RewardsCreditIssue, AnsweredBy: "provider", RetryClass: "answer", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: rewardsAgentReason,
+			Write:       &ContractWrite{Record: RewardCreditRecord, Undo: RewardsCreditUndo, Emits: EventStoreCreditIssued},
+			Description: "EXPERIMENTAL. Put store credit on one buyer's account (Core's account id), in the shop's currency, with the reason the owner and the buyer read; the same idempotency key answers the first credit with already: true. A refusal is the answer's refused code."},
+			RewardCreditRequest{}, RewardWriteAnswer{}},
+		{ContractMethod{Name: RewardsCreditUndo, AnsweredBy: "provider", RetryClass: "answer", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: rewardsAgentReason,
+			Write:       &ContractWrite{Record: RewardCreditRecord, Emits: EventStoreCreditUndone},
+			Description: "EXPERIMENTAL. Take back a credit this plugin issued. Refused spent when the buyer's balance no longer holds it."},
+			UndoInput{}, RewardWriteAnswer{}},
+		{ContractMethod{Name: RewardsDiscountIssue, AnsweredBy: "provider", RetryClass: "answer", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: rewardsAgentReason,
+			Write:       &ContractWrite{Record: RewardDiscountRecord, Undo: RewardsDiscountUndo, Emits: EventRewardDiscountIssued},
+			Description: "EXPERIMENTAL. Make one single-use discount code through the shop's discount engine, usable once and only by the named signed-in buyer: a fixed amount or a percentage of the goods, with its title, an optional expiry and minimum. The answer carries the code."},
+			RewardDiscountRequest{}, RewardWriteAnswer{}},
+		{ContractMethod{Name: RewardsDiscountUndo, AnsweredBy: "provider", RetryClass: "answer", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: rewardsAgentReason,
+			Write:       &ContractWrite{Record: RewardDiscountRecord, Emits: EventRewardDiscountUndone},
+			Description: "EXPERIMENTAL. Take back a code this plugin issued: it goes to the site's recycle bin. Refused used once an order used it."},
+			UndoInput{}, RewardWriteAnswer{}},
+		{ContractMethod{Name: RewardsIssuedGet, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: rewardsAgentReason,
+			Description: "EXPERIMENTAL. What one record this plugin issued is now: open, used (and by which order), expired or undone."},
+			RewardIssuedRequest{}, RewardIssuedAnswer{}},
+	},
+}
+
+const rewardsAgentReason = "the owner reads and takes back store credit and discount codes through the shop's own abilities " +
+	"(customer_store_credit, list_discounts, delete_discount), each saying which plugin issued it; this is how the plugin " +
+	"that owns the points spends them"
+
+// shopSubscriptionsV1 is doors D3 and D9 (SHOP_SUBSCRIPTIONS.md): plans as the shop's selling plans, the agreements its
+// checkout keeps, and one renewal order per cycle through the shop's own checkout. Experimental until its first plugin ships.
+var shopSubscriptionsV1 = contractDef{
+	name:   ContractShopSubscriptions,
+	status: ContractExperimental,
+	description: "Subscriptions sold and renewed by the shop (SHOP_SUBSCRIPTIONS.md): a plugin writes its plans as the shop's " +
+		"selling plans; the shop sells them, prices the plan's discount, keeps the buyer's method under a subscription mandate " +
+		"with Core and keeps the agreement at the price agreed; the plugin asks for each renewal, which the shop places through " +
+		"its own checkout and charges off-session — one order per agreement and cycle. Refunds only through the shop's refund_lines.",
+	methods: []methodDef{
+		{ContractMethod{Name: SubscriptionPlanSet, AnsweredBy: "provider", RetryClass: "answer", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: subscriptionsAgentReason,
+			Write:       &ContractWrite{Record: SubscriptionPlanRecord, Undo: SubscriptionPlanUndo, Emits: EventSellingPlanSet},
+			Description: "EXPERIMENTAL. A new subscription plan — name, the SKUs it is offered on, its rhythm and its pricing — as one of the shop's selling plans. A plan is never edited: a change is a new plan and plan.undo of the old, so every agreement keeps the terms it was sold on."},
+			SubscriptionPlanRequest{}, SubscriptionWriteAnswer{}},
+		{ContractMethod{Name: SubscriptionPlanUndo, AnsweredBy: "provider", RetryClass: "answer", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: subscriptionsAgentReason,
+			Write:       &ContractWrite{Record: SubscriptionPlanRecord, Emits: EventSellingPlanUndone},
+			Description: "EXPERIMENTAL. Stop selling a plan this plugin wrote: it leaves the product pages and baskets; agreements on it keep their terms."},
+			UndoInput{}, SubscriptionWriteAnswer{}},
+		{ContractMethod{Name: SubscriptionAgreementGet, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: subscriptionsAgentReason,
+			Description: "EXPERIMENTAL. One of this plugin's agreements: its lines at the locked price, rhythm, buyer, the mandate's words and limit, the kept method's label (never its id), and its cycles' orders."},
+			SubscriptionAgreementRequest{}, SubscriptionAgreementAnswer{}},
+		{ContractMethod{Name: SubscriptionAgreementList, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: subscriptionsAgentReason,
+			Description: "EXPERIMENTAL. This plugin's agreements, oldest first, after an id, at most 100 a page, optionally of one status."},
+			SubscriptionAgreementsRequest{}, SubscriptionAgreementsAnswer{}},
+		{ContractMethod{Name: SubscriptionRenewalPlace, AnsweredBy: "provider", RetryClass: "answer", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: subscriptionsAgentReason,
+			Write:       &ContractWrite{Record: SubscriptionRenewalRecord, Undo: SubscriptionRenewalUndo, Emits: EventRenewalPlaced},
+			Description: "EXPERIMENTAL. Place one cycle's order through the shop's checkout at the agreement's locked price and the plan's discount, with today's tax, and charge the kept method off-session, never above the mandate's limit. One order per agreement and cycle: asked again for an unpaid cycle, the same order is charged again; a paid one is refused cycle_paid."},
+			SubscriptionRenewalRequest{}, SubscriptionRenewalAnswer{}},
+		{ContractMethod{Name: SubscriptionRenewalQuote, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: subscriptionsAgentReason,
+			Description: "EXPERIMENTAL. What a cycle would cost if renewal.place placed it now — goods at the locked price less the plan's discount, today's tax, the delivery — for the reminder before a renewal charge; or the refusal renewal.place would answer. Nothing is placed, held or charged."},
+			SubscriptionQuoteRequest{}, SubscriptionQuoteAnswer{}},
+		{ContractMethod{Name: SubscriptionRenewalUndo, AnsweredBy: "provider", RetryClass: "answer", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: subscriptionsAgentReason,
+			Write:       &ContractWrite{Record: SubscriptionRenewalRecord, Emits: EventRenewalUndone},
+			Description: "EXPERIMENTAL. Cancel an unpaid cycle's order (the retries gave up): its goods go back to stock. Refused paid — only the owner refunds, through refund_lines."},
+			UndoInput{}, SubscriptionWriteAnswer{}},
+		{ContractMethod{Name: SubscriptionAgreementStop, AnsweredBy: "provider", RetryClass: "answer", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: subscriptionsAgentReason,
+			Write:       &ContractWrite{Record: SubscriptionAgreementRecord, Undo: SubscriptionAgreementResume, Emits: EventSubscriptionStopped},
+			Description: "EXPERIMENTAL. Stop an agreement: no renewal is placed from now on and an unpaid cycle's order is cancelled; the kept method is forgotten at ends_at (now when absent), and until then agreement.resume takes the stop back."},
+			SubscriptionStopRequest{}, SubscriptionWriteAnswer{}},
+		{ContractMethod{Name: SubscriptionAgreementResume, AnsweredBy: "provider", RetryClass: "answer", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: subscriptionsAgentReason,
+			Write:       &ContractWrite{Record: SubscriptionAgreementRecord, Emits: EventSubscriptionResumed},
+			Description: "EXPERIMENTAL. Take back this plugin's stop of an agreement while its method is still kept; refused method_forgotten after — a new agreement needs the buyer present."},
+			UndoInput{}, SubscriptionWriteAnswer{}},
+	},
+}
+
+const subscriptionsAgentReason = "the owner reads agreements and renewal orders through the shop's own abilities (get_order, " +
+	"list_subscriptions) and stops or changes a subscription through the subscriptions plugin's abilities; this is how that " +
+	"plugin asks the shop, under its own key"
 
 // shopEventsV1 is door D1 (SHOP_EVENTS.md): the shop's order events and the read a subscriber catches up with. One shop
 // answers, so a failure blocks. Experimental until its first plugin ships on it.

@@ -25,6 +25,17 @@ Added:
   the uninstall; `ObligationsRequest.For` names the plugin a provider of a contract it uses is asked on behalf of.
   `MaxObligations`, `MaxObligationKind`, `MaxObligationText`.
 
+Also added, for the same two plugins — two contracts the shop provides, both `"status": "experimental"` (outside the v1 promise until their first
+plugin ships green on them), each built on the write-command pattern (`WRITE_COMMANDS.md`):
+
+- `shop.rewards/v1` (`shoprewards.go`, `docs/SHOP_REWARDS.md`): `credit.issue` / `credit.undo`, `discount.issue` /
+  `discount.undo`, `issued.get` — store credit and single-use codes a loyalty plugin gives a buyer, honoured by the shop.
+  `RewardsProvider`, `RewardsMethods`, `Services.IssueStoreCredit`, `Services.IssueRewardDiscount`, `Services.UndoReward`.
+- `shop.subscriptions/v1` (`shopsubscriptions.go`, `docs/SHOP_SUBSCRIPTIONS.md`, doors D3 and D9): `plan.set` /
+  `plan.undo`, `agreements.get`, `agreements.list`, `renewal.place` / `renewal.undo`, `agreement.stop` /
+  `agreement.resume`, `renewal.quote`. `SubscriptionsProvider`, `SubscriptionsMethods`, `Services.PlaceRenewal`.
+- `ShopOrder.CustomerUserID` (shop.orders/v1, additive): Core's account id of the signed-in buyer.
+- `Serve` finds a `RewardsProvider` and a `SubscriptionsProvider` by itself, as it finds the shop's other doors.
 
 ## v0.67.0 — 2026-11-16 (security: secrets redacted when printed, no redirect from the OIDC token endpoint, dot segments refused, an ended licence takes no money)
 
