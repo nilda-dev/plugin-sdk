@@ -78,15 +78,12 @@ func (p *Payments) chargeSaved(ctx context.Context, consumer string, params nild
 	currency := strings.ToUpper(strings.TrimSpace(params.Currency))
 	p.mu.Lock()
 	m, ok := p.saved[params.SavedMethod]
-	if !ok || !m.mayCharge(consumer, params.Agreement) {
+	if !ok || m.Consumer != consumer {
 		p.mu.Unlock()
 		return nilda.PaymentSession{}, notFound("no kept payment method %q", params.SavedMethod)
 	}
 	kept := *m
 	p.mu.Unlock()
-	if consumer != kept.Consumer && params.Agreement == "" {
-		return nilda.PaymentSession{}, invalid("a plugin the method was granted to names the agreement it was granted")
-	}
 	if kept.ForgottenAt != nil {
 		return nilda.PaymentSession{}, invalid("the payment method %q was forgotten; it charges nothing again", params.SavedMethod)
 	}
@@ -186,31 +183,10 @@ func (p *Payments) readSaved(caller, id string) (nilda.SavedPaymentMethod, error
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	m, ok := p.saved[id]
-	if !ok || !m.mayCharge(caller, "") {
+	if !ok || m.Consumer != caller {
 		return nilda.SavedPaymentMethod{}, notFound("no kept payment method %q", id)
 	}
-	out := m.SavedPaymentMethod
-	if caller != m.Consumer {
-		out.Grants = nil // the holder's record; a grantee reads the method without it
-	}
-	return out, nil
-}
-
-// mayCharge reports whether caller holds the method, or a live grant of it — for agreement, or for any agreement when
-// agreement is "" (a read). Callers hold p.mu.
-func (m *savedMethod) mayCharge(caller, agreement string) bool {
-	if caller == m.Consumer {
-		return true
-	}
-	if m.ForgottenAt != nil {
-		return false
-	}
-	for _, g := range m.Grants {
-		if g.RevokedAt == nil && g.Plugin == caller && (agreement == "" || g.Agreement == agreement) {
-			return true
-		}
-	}
-	return false
+	return m.SavedPaymentMethod, nil
 }
 
 // cycleFree refuses a second charge for one agreement's cycle while one is paid or still deciding, as Core's unique
@@ -234,51 +210,6 @@ func (p *Payments) cycleFreeLocked(method, agreement string, cycle int) error {
 		}
 	}
 	return nil
-}
-
-// grant records or ends a grant of a kept method, for its holder only, as Core does.
-func (p *Payments) grant(caller, id string, g nilda.PaymentMandateGrant, revoke bool) (nilda.SavedPaymentMethod, error) {
-	if err := p.may(caller, "payment_session"); err != nil {
-		return nilda.SavedPaymentMethod{}, err
-	}
-	if err := g.Validate(); err != nil {
-		return nilda.SavedPaymentMethod{}, invalid("%v", err)
-	}
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	m, ok := p.saved[id]
-	if !ok || m.Consumer != caller {
-		return nilda.SavedPaymentMethod{}, notFound("no kept payment method %q", id)
-	}
-	if g.Plugin == caller {
-		return nilda.SavedPaymentMethod{}, invalid("a plugin charges the methods it kept already; grant another plugin")
-	}
-	live := 0
-	for i := range m.Grants {
-		cur := &m.Grants[i]
-		if cur.RevokedAt != nil {
-			continue
-		}
-		if cur.Plugin == g.Plugin && cur.Agreement == g.Agreement {
-			if revoke {
-				now := p.clock().UTC()
-				cur.RevokedAt = &now
-			}
-			return m.SavedPaymentMethod, nil // granted already, or now revoked
-		}
-		live++
-	}
-	if revoke {
-		return m.SavedPaymentMethod, nil // nothing to end
-	}
-	if m.ForgottenAt != nil {
-		return nilda.SavedPaymentMethod{}, invalid("this payment method was forgotten; it charges nothing again")
-	}
-	if live >= nilda.MaxMandateGrants {
-		return nilda.SavedPaymentMethod{}, invalid("a kept method carries at most %d live grants", nilda.MaxMandateGrants)
-	}
-	m.Grants = append(m.Grants, nilda.PaymentMandateGrant{Plugin: g.Plugin, Agreement: g.Agreement, CreatedAt: p.clock().UTC()})
-	return m.SavedPaymentMethod, nil
 }
 
 // forgetSaved asks the gateway to let go of the method at its processor, then drops the token. A gateway that cannot
@@ -336,15 +267,6 @@ func (p *Payments) savedRoutes(w http.ResponseWriter, r *http.Request, caller st
 		answer(w, http.StatusOK, m, err)
 	case r.Method == http.MethodPost && len(parts) == 4 && parts[1] == "saved-methods" && parts[3] == "forget":
 		m, err := p.forgetSaved(ctx, caller, parts[2])
-		answer(w, http.StatusOK, m, err)
-	case r.Method == http.MethodPost && parts[1] == "saved-methods" && (len(parts) == 4 && parts[3] == "grants" ||
-		len(parts) == 5 && parts[3] == "grants" && parts[4] == "revoke"):
-		var g nilda.PaymentMandateGrant
-		if err := json.Unmarshal(body, &g); err != nil {
-			answer(w, 0, nil, invalid("the body is not a grant: %v", err))
-			return true
-		}
-		m, err := p.grant(caller, parts[2], g, len(parts) == 5)
 		answer(w, http.StatusOK, m, err)
 	default:
 		return false

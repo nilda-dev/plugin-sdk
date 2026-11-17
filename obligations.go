@@ -26,6 +26,12 @@ import (
 //     uninstall (always, when you answered any obligation) and before a switch-off the owner asked to wind down —
 //     never for a plain switch-off, which is the owner's kill switch and may be undone a minute later.
 //
+// ON ANOTHER PLUGIN'S BEHALF (For). A plugin that provides a service contract may hold obligations for the plugins
+// that use it — the shop holds the renewal orders a subscriptions plugin asked for, the store credit a loyalty plugin
+// issued. When such a plugin is switched off or uninstalled, Core asks its providers too, with For naming it: answer
+// only what you hold on its behalf, and wind down only that. The leaving plugin may be dead or already switched off;
+// what its providers hold is still named and still settled. For "" is the plugin itself.
+//
 // Both are admitted for every plugin, with no capability: Core sends nothing from the site, and you answer only about
 // your own records. Keep within the budget (15 seconds): queue the mails, do not wait for them. Before an uninstall
 // Core also offers the owner the export of your stored data (your tables, as JSON), so the records stay theirs.
@@ -59,6 +65,9 @@ var obligationKindRe = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 // ObligationsRequest is what both hooks carry: the language the owner reads the answer in.
 type ObligationsRequest struct {
 	Locale string `json:"locale,omitempty"`
+	// For is the key of the plugin being switched off or uninstalled when you are asked as one of its providers (a
+	// contract it uses, you provide); "" when it is you.
+	For string `json:"for,omitempty"`
 }
 
 // WindDownRequest is what ObligationsWindDownHook carries.

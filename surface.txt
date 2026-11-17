@@ -399,7 +399,6 @@ const MaxCommerceNote
 const MaxCommerceRating
 const MaxDisputesPerSession
 const MaxListFilters
-const MaxMandateGrants
 const MaxManifestAbilityDefinitionBytes
 const MaxManifestAbilityDescriptionLen
 const MaxManifestAccountHostLen
@@ -1479,6 +1478,7 @@ field Obligation.Kind string json:kind
 field Obligation.Summary string json:summary
 field Obligation.WindDown string json:wind_down
 field ObligationsAnswer.Obligations []Obligation json:obligations
+field ObligationsRequest.For string json:for
 field ObligationsRequest.Locale string json:locale
 field PageForm.AlwaysAsk bool json:always_ask
 field PageForm.Create bool json:create
@@ -1604,10 +1604,6 @@ field PaymentMandate.MaxAmountMinor int64 json:max_amount_minor
 field PaymentMandate.Purpose string json:purpose
 field PaymentMandate.Replaces string json:replaces
 field PaymentMandate.Text string json:text
-field PaymentMandateGrant.Agreement string json:agreement
-field PaymentMandateGrant.CreatedAt time.Time json:created_at
-field PaymentMandateGrant.Plugin string json:plugin
-field PaymentMandateGrant.RevokedAt *time.Time json:revoked_at
 field PaymentMethod.CredentialTypes []string json:credential_types
 field PaymentMethod.Currencies []string json:currencies
 field PaymentMethod.Description string json:description
@@ -1867,7 +1863,6 @@ field SavedPaymentMethod.Email string json:email
 field SavedPaymentMethod.ExpiresAt *time.Time json:expires_at
 field SavedPaymentMethod.ForgottenAt *time.Time json:forgotten_at
 field SavedPaymentMethod.Gateway string json:gateway
-field SavedPaymentMethod.Grants []PaymentMandateGrant json:grants
 field SavedPaymentMethod.ID string json:id
 field SavedPaymentMethod.Label string json:label
 field SavedPaymentMethod.Mandate PaymentMandate json:mandate
@@ -2532,7 +2527,6 @@ method (*Payments) GetRefund(context.Context, string) (PaymentRefund, error)
 method (*Payments) GetSavedMethod(context.Context, string) (SavedPaymentMethod, error)
 method (*Payments) GetSecret(context.Context, string) (string, bool, error)
 method (*Payments) GetSession(context.Context, string) (PaymentSession, error)
-method (*Payments) GrantSavedMethod(context.Context, string, PaymentMandateGrant) (SavedPaymentMethod, error)
 method (*Payments) ListDisputes(context.Context, string) ([]PaymentDispute, error)
 method (*Payments) MarkPending(context.Context, string, string) (PaymentSession, error)
 method (*Payments) Methods(context.Context, string) ([]PaymentOption, error)
@@ -2545,7 +2539,6 @@ method (*Payments) Reprice(context.Context, string, string, PaymentReprice) (Pay
 method (*Payments) Resolve(context.Context, string, PaymentResolution) (PaymentSession, error)
 method (*Payments) ResolveRefund(context.Context, string, string) (PaymentRefund, error)
 method (*Payments) ReverseRefund(context.Context, string, PaymentRejection) (PaymentRefund, error)
-method (*Payments) RevokeSavedMethodGrant(context.Context, string, PaymentMandateGrant) (SavedPaymentMethod, error)
 method (*Payments) SetSecret(context.Context, string, string) (error)
 method (*Payments) Void(context.Context, string, string) (PaymentSession, error)
 method (*Reference) EUVATRates(context.Context, time.Time) (EUVATRateSet, error)
@@ -2658,7 +2651,6 @@ method (PaymentExternalRefund) Validate() (error)
 method (PaymentForgetRequest) GoString() (string)
 method (PaymentForgetRequest) String() (string)
 method (PaymentMandate) Validate() (error)
-method (PaymentMandateGrant) Validate() (error)
 method (PaymentRefund) Unmatched() (bool)
 method (PaymentRefundParams) Validate() (error)
 method (PaymentRejection) Validate() (error)
@@ -2924,7 +2916,6 @@ type PaymentGatewayPlugin
 type PaymentGatewayState
 type PaymentLine
 type PaymentMandate
-type PaymentMandateGrant
 type PaymentMethod
 type PaymentOption
 type PaymentReader

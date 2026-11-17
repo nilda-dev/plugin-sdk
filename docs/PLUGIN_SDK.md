@@ -2565,10 +2565,8 @@ with `nilda.PaymentChargeParams`) and forgets (`ForgetSavedMethod`). A gateway t
 as a `nilda.PaymentForgetRequest` (`payment.saved.forget`). A charge the payer's bank wants them present for is
 rejected with `authentication_required`.
 
-**Door D5 (EXPERIMENTAL) names the renewal and lets another plugin charge** (PAYMENTS.md §5, items 4 and 5): a charge
-carries `Agreement` and `Cycle`, and Core charges one cycle once; the consumer that kept the method grants one other
-plugin one agreement with a `nilda.PaymentMandateGrant` (`GrantSavedMethod`, `RevokeSavedMethodGrant`), and the
-grantee charges it with `ChargeSaved` — never holding the token.
+**Door D5 (EXPERIMENTAL) names the renewal** (PAYMENTS.md §5, item 4): a charge carries `Agreement` and `Cycle`, and
+Core charges one cycle once — a second is 409 while the first is paid or deciding; a refused cycle may be asked again.
 
 **v0.58.0 adds holding the money, then taking it** (PAYMENTS.md §4–§5): a consumer sends
 `PaymentSessionParams.Capture` `nilda.CaptureManual` on a method that lists `nilda.SupportManualCapture`; the gateway
@@ -2681,6 +2679,12 @@ The request types are `nilda.ObligationsRequest` (the owner's `Locale`) and `nil
   again, change nothing more and mail nobody twice. Core calls it before an uninstall whenever you answered an
   obligation — the uninstall is refused while it fails or leaves something live — and before a switch-off only when the
   owner chose to wind down: a plain switch-off is the owner's kill switch, and may be undone a minute later.
+
+**On another plugin's behalf.** If you provide a service contract, you may hold obligations for the plugins that use
+it — the renewal orders a subscriptions plugin asked the shop for, the credit a loyalty plugin issued through it. When
+such a plugin is switched off or uninstalled, Core asks you too, with `For` naming it: answer only what you hold for it,
+and wind down only that. The leaving plugin may be dead; what you hold for it is still named and settled. `For` is ""
+when the question is about you.
 
 Both have 15 seconds: queue the mails, do not wait for them. Your error is your answer, never a failure that counts
 toward switching you off. Before an uninstall the owner is also offered the export of your stored data, so the records

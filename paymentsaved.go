@@ -227,45 +227,14 @@ type SavedPaymentMethod struct {
 	CreatedAt time.Time  `json:"created_at"`
 	// ForgottenAt is set once the method was forgotten: it charges nothing again.
 	ForgottenAt *time.Time `json:"forgotten_at,omitempty"`
-	// Grants are the other plugins the consumer that kept the method let charge it, one agreement each (door D5,
-	// EXPERIMENTAL); only that consumer reads them — a grantee reads the method without them.
-	Grants []PaymentMandateGrant `json:"grants,omitempty"`
 }
 
-// A KEPT METHOD CHARGED BY ANOTHER PLUGIN (door D5, EXPERIMENTAL). The consumer whose session kept a method — the
-// shop, which ran the checkout where the payer accepted the mandate — may let one other plugin charge it for one
-// agreement: a subscriptions plugin renewing the subscription the payer signed up to. The grantee charges with
-// Payments.ChargeSaved like the holder, naming the agreement; Core holds the charge to the same mandate, the session is
-// the grantee's (it hears the outcome and refunds it), and the token reaches neither plugin. A grant ends when the
-// holder revokes it, when the method is forgotten, and when the grantee is uninstalled.
-
-// MaxPaymentAgreement is the longest agreement name; MaxPaymentCycle the highest cycle; MaxMandateGrants the most live
-// grants one kept method may carry.
+// MaxPaymentAgreement is the longest agreement name a charge carries (PaymentChargeParams.Agreement, door D5,
+// EXPERIMENTAL); MaxPaymentCycle the highest cycle.
 const (
 	MaxPaymentAgreement = 128
 	MaxPaymentCycle     = 1_000_000
-	MaxMandateGrants    = 16
 )
-
-// PaymentMandateGrant lets Plugin charge a kept method for Agreement.
-type PaymentMandateGrant struct {
-	// Plugin is the grantee's key, as its plugin.json names it.
-	Plugin string `json:"plugin"`
-	// Agreement is the grantee's own id for what the payer agreed to ("sub_8f2c"): 1-128 letters, digits and . _ : -.
-	// The grantee names it on every charge.
-	Agreement string `json:"agreement"`
-	// CreatedAt is when Core recorded the grant; RevokedAt when it ended. Core sets both.
-	CreatedAt time.Time  `json:"created_at,omitempty"`
-	RevokedAt *time.Time `json:"revoked_at,omitempty"`
-}
-
-// Validate refuses a grant Core would refuse without looking anything up.
-func (g PaymentMandateGrant) Validate() error {
-	if !grantPluginRe.MatchString(g.Plugin) {
-		return fmt.Errorf("nilda: a grant names the plugin's key, as its plugin.json does; got %q", g.Plugin)
-	}
-	return validAgreement(g.Agreement)
-}
 
 func validAgreement(a string) error {
 	if a == "" || len(a) > MaxPaymentAgreement || !agreementRe.MatchString(a) {
@@ -275,11 +244,7 @@ func validAgreement(a string) error {
 	return nil
 }
 
-var (
-	agreementRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]*$`)
-	// grantPluginRe is Core's plugin key: lowercase, 3-40, a letter first, a letter or digit last.
-	grantPluginRe = regexp.MustCompile(`^[a-z][a-z0-9_]{1,38}[a-z0-9]$`)
-)
+var agreementRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]*$`)
 
 // PaymentChargeParams is what a CONSUMER sends to charge a kept method (Payments.ChargeSaved): the payer is not
 // there, so there are no return addresses and no page.
@@ -298,8 +263,7 @@ type PaymentChargeParams struct {
 	// and its billing cycle, 1 for the first charge after sign-up. Core keeps at most ONE charge per kept method,
 	// agreement and cycle that is paid or still deciding: another is refused (409 CONFLICT, naming the session) while
 	// that one stands, and a cycle whose charge was refused or expired may be charged again — your retry after a
-	// decline, with a new idempotency key. Both empty: no cycle is held. A grantee (PaymentMandateGrant) must name the
-	// agreement it was granted.
+	// decline, with a new idempotency key. Both empty: no cycle is held.
 	Agreement string `json:"agreement,omitempty"`
 	Cycle     int    `json:"cycle,omitempty"`
 }
@@ -386,8 +350,7 @@ func (r PaymentForgetRequest) GoString() string { return r.String() }
 
 // ---- the consumer's calls -------------------------------------------------------------------------------------
 
-// ChargeSaved charges a kept method with the payer absent. Core checks the method is this consumer's — or granted to it
-// for params.Agreement (PaymentMandateGrant) — not forgotten,
+// ChargeSaved charges a kept method with the payer absent. Core checks the method is this consumer's, not forgotten,
 // and that the charge is inside the mandate — its currency; at most its amount (or its MaxAmountMinor); a pre-order's
 // one charge, once; a subscription's charge no sooner than its interval after the last — creates a session and hands
 // the token to its gateway; the answer is the session as
@@ -411,8 +374,7 @@ func (p *Payments) ChargeSaved(ctx context.Context, idempotencyKey string, param
 	return out.Data, err
 }
 
-// GetSavedMethod reads a kept method — the consumer whose session kept it, with its grants, or a plugin it granted a
-// live agreement to, without them.
+// GetSavedMethod reads a kept method — only the consumer whose session kept it.
 func (p *Payments) GetSavedMethod(ctx context.Context, id string) (SavedPaymentMethod, error) {
 	path, err := paymentPath("/payments/saved-methods/", id, "")
 	if err != nil {
@@ -437,33 +399,5 @@ func (p *Payments) ForgetSavedMethod(ctx context.Context, id string) (SavedPayme
 		Data SavedPaymentMethod `json:"data"`
 	}
 	err = p.api.Post(ctx, path, struct{}{}, &out)
-	return out.Data, err
-}
-
-// GrantSavedMethod lets another plugin charge a kept method for one agreement (door D5, EXPERIMENTAL) — only the consumer
-// whose session kept it may. Granting the same plugin the same agreement again is no error. The answer is the method,
-// with its grants.
-func (p *Payments) GrantSavedMethod(ctx context.Context, id string, g PaymentMandateGrant) (SavedPaymentMethod, error) {
-	return p.grantCall(ctx, id, "/grants", g)
-}
-
-// RevokeSavedMethodGrant ends a grant: the grantee charges the method for that agreement no more, from now. A charge it
-// already began is not called back. Revoking twice is no error.
-func (p *Payments) RevokeSavedMethodGrant(ctx context.Context, id string, g PaymentMandateGrant) (SavedPaymentMethod, error) {
-	return p.grantCall(ctx, id, "/grants/revoke", g)
-}
-
-func (p *Payments) grantCall(ctx context.Context, id, suffix string, g PaymentMandateGrant) (SavedPaymentMethod, error) {
-	if err := g.Validate(); err != nil {
-		return SavedPaymentMethod{}, err
-	}
-	path, err := paymentPath("/payments/saved-methods/", id, suffix)
-	if err != nil {
-		return SavedPaymentMethod{}, err
-	}
-	var out struct {
-		Data SavedPaymentMethod `json:"data"`
-	}
-	err = p.api.Post(ctx, path, PaymentMandateGrant{Plugin: g.Plugin, Agreement: g.Agreement}, &out)
 	return out.Data, err
 }

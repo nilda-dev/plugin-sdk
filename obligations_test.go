@@ -83,7 +83,7 @@ func TestAWindDownCarriesItsReasonAndAnswersWhatRemains(t *testing.T) {
 	left := subs()
 	left.Count, left.Summary = 1, "1 renewal is already at the processor"
 	h := &holder{list: []Obligation{subs()}, left: []Obligation{left}}
-	out, handled, err := DispatchObligations(ctx, h, ObligationsWindDownHook, []byte(`{"reason":"uninstall","locale":"fa"}`))
+	out, handled, err := DispatchObligations(ctx, h, ObligationsWindDownHook, []byte(`{"reason":"uninstall","locale":"fa","for":"subscriptions"}`))
 	if !handled || err != nil {
 		t.Fatalf("handled %v, %v", handled, err)
 	}
@@ -91,7 +91,7 @@ func TestAWindDownCarriesItsReasonAndAnswersWhatRemains(t *testing.T) {
 	if err := json.Unmarshal(out, &res); err != nil || len(res.Remaining) != 1 || res.Told != 1 {
 		t.Fatalf("the result: %s, %v", out, err)
 	}
-	if len(h.asked) != 1 || h.asked[0].Reason != WindDownUninstall || h.asked[0].Locale != "fa" {
+	if len(h.asked) != 1 || h.asked[0].Reason != WindDownUninstall || h.asked[0].Locale != "fa" || h.asked[0].For != "subscriptions" {
 		t.Fatalf("the plugin was asked %+v", h.asked)
 	}
 	if _, _, err := DispatchObligations(ctx, h, ObligationsWindDownHook, []byte(`{"reason":"because"}`)); err == nil {

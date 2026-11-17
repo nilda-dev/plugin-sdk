@@ -951,16 +951,8 @@ strong customer authentication when the method is kept, later charges out of its
    that is paid or still deciding — a unique index, so two retries racing for one cycle cannot both charge, whatever
    keys they send: another is `409 CONFLICT`, naming the session that holds the cycle. A cycle whose charge was refused
    or expired may be charged again — your retry after a decline, under a new idempotency key.
-5. **Let another plugin charge it (door D5, EXPERIMENTAL).** The consumer whose session kept the method — the shop, which
-   ran the checkout where the payer accepted the mandate — may grant ONE other plugin ONE agreement:
-   `Payments.GrantSavedMethod(ctx, id, nilda.PaymentMandateGrant{Plugin: "subscriptions", Agreement: "sub_8f2c"})`. The
-   grantee charges with `ChargeSaved` like the holder, naming that agreement; Core holds the charge to the same mandate,
-   the session is the grantee's (it hears the outcome, and refunds it), and the token reaches neither plugin. The grantee
-   reads the method with `GetSavedMethod` (without its grants) but cannot forget it — only the holder can. A grant ends at
-   `RevokeSavedMethodGrant`, when the method is forgotten, and when the grantee is uninstalled. At most 16 live grants a
-   method; granting and revoking twice are no error. Whether a subscription renews through the shop's own checkout (the
-   shop charges as the holder, naming the agreement and cycle) or through a grant is the shop's and the plugin's
-   design; the commerce plan's renewals go through the shop (its doors D3 and D9).
+   A subscriptions plugin never charges by itself: it asks the shop for the renewal (the shop's door D9), and the shop
+   — which kept the method at its checkout — charges as here, naming the agreement and cycle.
 
 A gateway that keeps methods implements `nilda.SavedMethodPayer`: `StartPaymentWithSaved` for the charge and
 `ForgetSaved` for the release. A token is never logged, echoed or shown: its types print `[token redacted]`.
@@ -1133,11 +1125,9 @@ write). The token's scopes: `payment_session` → `read:payments write:payments`
   keys. The market's billing engines key an attempt by its subscription and period (Stripe's invoice per billing period,
   Shopify's billing attempts per contract and cycle), so Core holds (kept method, agreement, cycle) unique among the
   charges paid or deciding — and leaves a refused cycle open, because dunning is the same cycle asked again.
-- **A grant is the holder's, for one plugin and one agreement** (recorded 2026-11-17). The token never moves: the grantee
-  holds an id, as the holder does. The grant is as narrow as the use — one agreement — so a subscriptions plugin cannot
-  charge the card for anything but the subscription the payer signed up to, and the payer's agreement stays the one the
-  holder's checkout showed. It dies with the grantee's uninstall (the row goes with the plugin's), so a different plugin
-  later installed under the same key inherits nothing.
+- **No second charger** (recorded 2026-11-17). A grant letting another plugin charge a kept method was drafted and
+  dropped: the commerce plan sends every renewal through the shop's checkout (its door D9), so the consumer that kept
+  the method is the one that charges it, and there is one path to the money, not two.
 
 ### Risk's decisions (commerce plan 10.3, step F1, recorded 2026-11-05)
 
