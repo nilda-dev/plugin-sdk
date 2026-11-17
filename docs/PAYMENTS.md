@@ -1049,7 +1049,7 @@ Calls into Core, under `/api/rest/v1`, with the plugin's token; answers inside `
 | `POST /payments/charges` + `Idempotency-Key` | consumer | `{"saved_method","reference","amount_minor","currency","description","fulfilment","shipping_address"}` | 201, the session |
 | `GET /payments/saved-methods/{id}` | consumer | — | the kept method, never its token |
 | `POST /payments/saved-methods/{id}/forget` | consumer | — | the kept method, `forgotten_at` set |
-| `POST /payments/saved-methods/updates` | gateway (v0.69.0) | `{"token","label","expires_at","source","event_id"}` | `{"matched","changed"}` — the card updater |
+| `POST /payments/saved-methods/updates` | gateway | `{"token","label","expires_at","source","event_id"}` | `{"matched","changed"}` — the card updater (v0.69.0) |
 
 Refusals: **404** a session that is not yours; **409** a report the session has moved past, a refund of an
 unpaid session, or a keyed request sent again while the first is still being answered; **422** what `Validate`

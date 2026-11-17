@@ -46,7 +46,7 @@ type InitResult struct {
 	// `field`, auth.* by `auth_provider`, widget.* by `widget`, render.assets by `render.assets`, link.targets by `route`,
 	// payment.describe/payment.start/payment.refund/payment.sync/payment.saved.forget/payment.capture/payment.void/payment.reprice
 	// by `payment_gateway` (payment.reprice from the Core of plan 10.2's X2b), and
-	// payment.session.confirm/payment.session.updated/payment.refund.updated/payment.dispute.updated by
+	// payment.session.confirm/payment.session.updated/payment.refund.updated/payment.dispute.updated/payment.saved.updated by
 	// `payment_session`, privacy.export/privacy.erase by `personal_data`, trash.restore/trash.purge by `trash`,
 	// obligations.list/obligations.wind_down by `datastore` — and
 	// `hooks` does not admit them. account.*
