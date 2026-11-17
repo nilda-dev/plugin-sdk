@@ -8,7 +8,10 @@ subscriptions plugin requires it.
 
 A subscription plan IS one of the shop's selling plans — the mechanism its pre-orders use — written by the plugin
 (`plan.set`). A plan is never edited: a change is a new plan and `plan.undo` of the old one, so every agreement keeps the
-terms it was sold on. The shop sells it: the basket line on the plan, the plan's discount priced as a line deal beside a
+terms it was sold on. A plan's terms in deliveries (`SubscriptionCycles`): `discount_cycles` — the discount applies to
+the first N deliveries, later renewals are charged at the price agreed; `min_cycles` — the minimum term, shown above the
+order button and in the mandate (a stop before it is the plugin's call, the shop records it); `max_cycles` — the
+subscription ends by itself after N deliveries, a renewal past it refused `past_max_cycles`. The shop sells it: the basket line on the plan, the plan's discount priced as a line deal beside a
 member's price and an offer (tax is worked on what is left), the stock, the checkout.
 
 ## The agreement

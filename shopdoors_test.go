@@ -88,6 +88,10 @@ func TestASubscriptionDoorIsHeldToItsRules(t *testing.T) {
 		func(p *SubscriptionPlanRequest) { p.IntervalCount = 0 },
 		func(p *SubscriptionPlanRequest) { p.SKUs = nil },
 		func(p *SubscriptionPlanRequest) { p.Pricing.Kind = "free" },
+		func(p *SubscriptionPlanRequest) { p.DiscountCycles = -1 },
+		func(p *SubscriptionPlanRequest) { p.MaxCycles, p.MinCycles = 3, 6 },
+		func(p *SubscriptionPlanRequest) { p.MaxCycles, p.DiscountCycles = 3, 4 },
+		func(p *SubscriptionPlanRequest) { p.MaxCycles = MaxSubscriptionCycles + 1 },
 	} {
 		bad := plan
 		bad.SKUs = append([]string(nil), plan.SKUs...)

@@ -122,6 +122,7 @@ const (
 	SubscriptionMethodForgotten  = "method_forgotten"   // resume: the kept method is gone
 	SubscriptionRenewalIsPaid    = "paid"               // renewal.undo: paid — only the owner refunds it (refund_lines)
 	SubscriptionNotStopped       = "not_stopped"        // resume: the agreement is not stopping
+	SubscriptionPastMaxCycles    = "past_max_cycles"    // renewal: the agreement ended by itself after its last cycle (max_cycles)
 	SubscriptionUnknownWrite     = AttributeUnknownWrite
 	SubscriptionUndoneAlready    = AttributeUndoneAlready
 )
@@ -129,7 +130,7 @@ const (
 var subscriptionRefusals = []string{SubscriptionUnknownSKU, SubscriptionInvalidPlan, SubscriptionUnknownAgreement,
 	SubscriptionNotYours, SubscriptionAgreementStopped, SubscriptionAgreementPending, SubscriptionCyclePaid,
 	SubscriptionCycleOutOfOrder, SubscriptionTooEarly, SubscriptionItemUnavailable, SubscriptionOutOfStock,
-	SubscriptionOverMandate, SubscriptionMethodForgotten, SubscriptionRenewalIsPaid, SubscriptionNotStopped,
+	SubscriptionOverMandate, SubscriptionMethodForgotten, SubscriptionRenewalIsPaid, SubscriptionNotStopped, SubscriptionPastMaxCycles,
 	SubscriptionUnknownWrite, SubscriptionUndoneAlready}
 
 // SubscriptionRefusals returns every code a subscriptions write may be refused with, sorted.
@@ -146,7 +147,35 @@ const (
 	maxSubscriptionName  = 100
 	maxSubscriptionID    = 128
 	maxSubscriptionPage  = 100
+	// MaxSubscriptionCycles bounds a plan's discount_cycles, min_cycles and max_cycles.
+	MaxSubscriptionCycles = 1000
 )
+
+// SubscriptionCycles are a plan's terms in deliveries, copied onto every agreement sold on it.
+type SubscriptionCycles struct {
+	// DiscountCycles is how many deliveries the plan's discount applies to, the first one included; 0 is every one.
+	// A renewal past it is charged at the unit price agreed, without the discount.
+	DiscountCycles int `json:"discount_cycles,omitempty"`
+	// MinCycles is the minimum term the buyer agreed to, shown above the order button and in the mandate; 0 is none.
+	// A stop before it is the plugin's call — the shop records it.
+	MinCycles int `json:"min_cycles,omitempty"`
+	// MaxCycles is how many deliveries the subscription makes before it ends by itself; 0 is until stopped. A renewal
+	// past it is refused past_max_cycles.
+	MaxCycles int `json:"max_cycles,omitempty"`
+}
+
+// Validate refuses terms the shop could not keep.
+func (c SubscriptionCycles) Validate() error {
+	for _, n := range []int{c.DiscountCycles, c.MinCycles, c.MaxCycles} {
+		if n < 0 || n > MaxSubscriptionCycles {
+			return fmt.Errorf("nilda: a plan's cycles are 0 to %d", MaxSubscriptionCycles)
+		}
+	}
+	if c.MaxCycles > 0 && (c.MinCycles > c.MaxCycles || c.DiscountCycles > c.MaxCycles) {
+		return errors.New("nilda: a plan's minimum term and its discount's deliveries are at most its max_cycles")
+	}
+	return nil
+}
 
 // SubscriptionPricing is what a plan does to a unit's price.
 type SubscriptionPricing struct {
@@ -181,6 +210,7 @@ type SubscriptionPlanRequest struct {
 	Interval      string              `json:"interval"`
 	IntervalCount int                 `json:"interval_count"`
 	Pricing       SubscriptionPricing `json:"pricing"`
+	SubscriptionCycles
 }
 
 // Validate refuses a plan no shop could sell.
@@ -197,6 +227,9 @@ func (r SubscriptionPlanRequest) Validate() error {
 		}
 	}
 	if err := validRhythm(r.Interval, r.IntervalCount); err != nil {
+		return err
+	}
+	if err := r.SubscriptionCycles.Validate(); err != nil {
 		return err
 	}
 	return r.Pricing.Validate()
@@ -273,19 +306,21 @@ type SubscriptionCycle struct {
 // SubscriptionAgreement is what the shop keeps of one subscription. Email is here to write to the buyer about THEIR
 // subscription (the pre-renewal notice, a failed charge) and for nothing else.
 type SubscriptionAgreement struct {
-	ID             string              `json:"id"`
-	Plugin         string              `json:"plugin"`
-	OriginOrderID  string              `json:"origin_order_id"`
-	Status         string              `json:"status"`
-	Currency       string              `json:"currency"`
-	CustomerUserID string              `json:"customer_user_id,omitempty"`
-	Email          string              `json:"email"`
-	Locale         string              `json:"locale"`
-	Country        string              `json:"country"`
-	Interval       string              `json:"interval"`
-	IntervalCount  int                 `json:"interval_count"`
-	Lines          []SubscriptionLine  `json:"lines"`
-	Method         *SubscriptionMethod `json:"method,omitempty"`
+	ID             string `json:"id"`
+	Plugin         string `json:"plugin"`
+	OriginOrderID  string `json:"origin_order_id"`
+	Status         string `json:"status"`
+	Currency       string `json:"currency"`
+	CustomerUserID string `json:"customer_user_id,omitempty"`
+	Email          string `json:"email"`
+	Locale         string `json:"locale"`
+	Country        string `json:"country"`
+	Interval       string `json:"interval"`
+	IntervalCount  int    `json:"interval_count"`
+	// The plan\'s terms in deliveries, as they were when the buyer agreed.
+	SubscriptionCycles
+	Lines  []SubscriptionLine  `json:"lines"`
+	Method *SubscriptionMethod `json:"method,omitempty"`
 	// MandateText is the agreement as the buyer read it; MaxAmountMinor the most one renewal may charge.
 	MandateText    string `json:"mandate_text"`
 	MaxAmountMinor int64  `json:"max_amount_minor"`

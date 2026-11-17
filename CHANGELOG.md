@@ -34,6 +34,8 @@ plugin ships green on them), each built on the write-command pattern (`WRITE_COM
 - `shop.subscriptions/v1` (`shopsubscriptions.go`, `docs/SHOP_SUBSCRIPTIONS.md`, doors D3 and D9): `plan.set` /
   `plan.undo`, `agreements.get`, `agreements.list`, `renewal.place` / `renewal.undo`, `agreement.stop` /
   `agreement.resume`, `renewal.quote`. `SubscriptionsProvider`, `SubscriptionsMethods`, `Services.PlaceRenewal`.
+- `SubscriptionCycles` on `SubscriptionPlanRequest` and `SubscriptionAgreement` (`discount_cycles`, `min_cycles`,
+  `max_cycles`, `MaxSubscriptionCycles`) and the refusal `past_max_cycles` (`SubscriptionPastMaxCycles`).
 - `ShopOrder.CustomerUserID` (shop.orders/v1, additive): Core's account id of the signed-in buyer.
 - `Serve` finds a `RewardsProvider` and a `SubscriptionsProvider` by itself, as it finds the shop's other doors.
 

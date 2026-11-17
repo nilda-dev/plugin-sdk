@@ -3456,7 +3456,7 @@ the reward is for. `ShopOrder.CustomerUserID` names the buyer's account.
 
 `docs/SHOP_SUBSCRIPTIONS.md` is the whole of it (`shopsubscriptions.go`), doors D3 and D9. The shop implements
 `SubscriptionsProvider`; `SubscriptionsMethods` answers `plan.set` (`SubscriptionPlanRequest` with a
-`SubscriptionPricing`), `plan.undo`, `renewal.undo` and `agreement.resume` (`UndoInput`), `agreement.stop`
+`SubscriptionPricing` and its `SubscriptionCycles`), `plan.undo`, `renewal.undo` and `agreement.resume` (`UndoInput`), `agreement.stop`
 (`SubscriptionStopRequest`) — each a `SubscriptionWriteAnswer` — `agreements.get` (`SubscriptionAgreementRequest` →
 `SubscriptionAgreementAnswer`), `agreements.list` (`SubscriptionAgreementsRequest` → `SubscriptionAgreementsAnswer`), and
 `renewal.place` (`SubscriptionRenewalRequest` with optional `SubscriptionRenewalLine`s → `SubscriptionRenewalAnswer`); and

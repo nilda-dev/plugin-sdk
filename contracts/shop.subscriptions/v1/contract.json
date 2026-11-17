@@ -46,6 +46,15 @@
               "kind",
               "value"
             ]
+          },
+          "discount_cycles": {
+            "type": "integer"
+          },
+          "min_cycles": {
+            "type": "integer"
+          },
+          "max_cycles": {
+            "type": "integer"
           }
         },
         "required": [
@@ -186,6 +195,15 @@
                 "type": "string"
               },
               "interval_count": {
+                "type": "integer"
+              },
+              "discount_cycles": {
+                "type": "integer"
+              },
+              "min_cycles": {
+                "type": "integer"
+              },
+              "max_cycles": {
                 "type": "integer"
               },
               "lines": {
@@ -441,6 +459,15 @@
                   "type": "string"
                 },
                 "interval_count": {
+                  "type": "integer"
+                },
+                "discount_cycles": {
+                  "type": "integer"
+                },
+                "min_cycles": {
+                  "type": "integer"
+                },
+                "max_cycles": {
                   "type": "integer"
                 },
                 "lines": {

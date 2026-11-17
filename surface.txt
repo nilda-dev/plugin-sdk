@@ -527,6 +527,7 @@ const MaxRowStateColumns
 const MaxServicePoints
 const MaxSetupSteps
 const MaxShopEventsRead
+const MaxSubscriptionCycles
 const MaxSubscriptionLines
 const MaxSubscriptionSKUs
 const MaxTrashID
@@ -733,6 +734,7 @@ const SubscriptionNotStopped
 const SubscriptionNotYours
 const SubscriptionOutOfStock
 const SubscriptionOverMandate
+const SubscriptionPastMaxCycles
 const SubscriptionPercentOff
 const SubscriptionPlanRecord
 const SubscriptionPlanSet
@@ -2250,6 +2252,9 @@ field SubscriptionCycle.PeriodStart *time.Time json:period_start
 field SubscriptionCycle.PlacedAt time.Time json:placed_at
 field SubscriptionCycle.Status string json:status
 field SubscriptionCycle.TotalMinor int64 json:total_minor
+field SubscriptionCycles.DiscountCycles int json:discount_cycles
+field SubscriptionCycles.MaxCycles int json:max_cycles
+field SubscriptionCycles.MinCycles int json:min_cycles
 field SubscriptionLine.PlanID string json:plan_id
 field SubscriptionLine.PlanName string json:plan_name
 field SubscriptionLine.PlanUnitMinor int64 json:plan_unit_minor
@@ -2919,6 +2924,7 @@ method (StockAlertRequest) Validate() (error)
 method (StockAlertResult) Validate() (error)
 method (SubscriptionAgreement) Validate() (error)
 method (SubscriptionAgreementAnswer) Validate() (error)
+method (SubscriptionCycles) Validate() (error)
 method (SubscriptionPlanRequest) Validate() (error)
 method (SubscriptionPricing) Validate() (error)
 method (SubscriptionQuoteAnswer) Validate() (error)
@@ -3273,6 +3279,7 @@ type SubscriptionAgreementRequest
 type SubscriptionAgreementsAnswer
 type SubscriptionAgreementsRequest
 type SubscriptionCycle
+type SubscriptionCycles
 type SubscriptionLine
 type SubscriptionMethod
 type SubscriptionPlanRequest
