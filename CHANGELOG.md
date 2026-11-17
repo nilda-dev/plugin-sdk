@@ -40,6 +40,9 @@ plugin ships green on them), each built on the write-command pattern (`WRITE_COM
   `max_cycles`, `MaxSubscriptionCycles`) and the refusal `past_max_cycles` (`SubscriptionPastMaxCycles`).
 - Refusals from the money review: `limit` (`RewardLimit`), `charging` (`SubscriptionCharging`), `over_agreement`
   (`SubscriptionOverAgreement`), `delivery_unavailable` (`SubscriptionDeliveryUnavailable`), `account_refused` (`SubscriptionAccountRefused`).
+- `RewardBinned` (`binned`) and `RewardIssued.PurgesAt`: issued.get's state for a code the owner deleted that is in the
+  site's recycle bin until `purges_at` — still the buyer's, nothing to give back for it yet; `undone` now also means
+  deleted for good.
 - `ShopOrder.CustomerUserID` (shop.orders/v1, additive): Core's account id of the signed-in buyer.
 - `Serve` finds a `RewardsProvider` and a `SubscriptionsProvider` by itself, as it finds the shop's other doors.
 

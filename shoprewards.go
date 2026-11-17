@@ -61,7 +61,11 @@ const (
 	RewardOpen    = "open"    // credit on the account / a code not used yet
 	RewardUsed    = "used"    // a code an order used (OrderID names it)
 	RewardExpired = "expired" // a code past its ExpiresAt, unused
-	RewardUndone  = "undone"  // taken back by its undo
+	RewardUndone  = "undone"  // taken back by its undo, or deleted by the owner for good
+	// RewardBinned: the owner deleted it and it is in the site's recycle bin until PurgesAt — it can be put back, so it
+	// is still the buyer's: whatever the plugin took for it (points) is NOT given back yet. After PurgesAt, or once
+	// purged, it is undone.
+	RewardBinned = "binned"
 )
 
 // The codes a write may be refused with (RewardWriteAnswer.Refused). A refusal is the ANSWER, never an error
@@ -207,6 +211,8 @@ type RewardIssued struct {
 	OrderID     string     `json:"order_id,omitempty"` // the order that used a code
 	ExpiresAt   *time.Time `json:"expires_at,omitempty"`
 	IssuedAt    time.Time  `json:"issued_at"`
+	// PurgesAt is when a binned record leaves the recycle bin for good (Status binned only).
+	PurgesAt *time.Time `json:"purges_at,omitempty"`
 }
 
 // RewardIssuedAnswer is issued.get's answer; Found false for a record that is not the caller's.
@@ -224,9 +230,12 @@ func (a RewardIssuedAnswer) Validate() error {
 		return nil
 	}
 	switch a.Issued.Status {
-	case RewardOpen, RewardUsed, RewardExpired, RewardUndone:
+	case RewardOpen, RewardUsed, RewardExpired, RewardUndone, RewardBinned:
 	default:
 		return fmt.Errorf("nilda: an issued record's status is not %q", a.Issued.Status)
+	}
+	if (a.Issued.Status == RewardBinned) != (a.Issued.PurgesAt != nil) {
+		return errors.New("nilda: an issued record carries purges_at exactly when it is binned")
 	}
 	if a.Issued.Kind != RewardCreditRecord && a.Issued.Kind != RewardDiscountRecord {
 		return fmt.Errorf("nilda: an issued record's kind is not %q", a.Issued.Kind)

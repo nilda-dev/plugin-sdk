@@ -631,6 +631,7 @@ const RenewalPaid
 const RenewalPending
 const RenewalRefunded
 const ReportRowKey
+const RewardBinned
 const RewardCreditRecord
 const RewardDiscountRecord
 const RewardExpired
@@ -1964,6 +1965,7 @@ field RewardIssued.IssuedAt time.Time json:issued_at
 field RewardIssued.Kind string json:kind
 field RewardIssued.OrderID string json:order_id
 field RewardIssued.Percent int64 json:percent
+field RewardIssued.PurgesAt *time.Time json:purges_at
 field RewardIssued.RecordID string json:record_id
 field RewardIssued.Status string json:status
 field RewardIssuedAnswer.Found bool json:found

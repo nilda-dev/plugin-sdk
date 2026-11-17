@@ -12,7 +12,7 @@ honours.
 | `credit.undo` | undo, emits `ecommerce.store_credit.undone` | takes the credit back; refused `spent` once the balance no longer holds it |
 | `discount.issue` | write, record `reward_discount`, undo `discount.undo`, emits `ecommerce.reward_discount.issued` | one single-use code through the shop's discount engine, usable once and only by that signed-in buyer |
 | `discount.undo` | undo, emits `ecommerce.reward_discount.undone` | the code is switched off and ended — kept, so the owner's Discounts page still reads what was issued and by whom; refused `used` once an order used it |
-| `issued.get` | read | what one record the caller issued is now: `open`, `used` (with the order), `expired`, `undone` |
+| `issued.get` | read | what one record the caller issued is now: `open`, `used` (with the order), `expired`, `binned` (the owner deleted it and it is in the site's recycle bin until `purges_at`: it can be put back, so it is still the buyer's — give nothing back for it yet), `undone` (taken back by its undo, or deleted for good) |
 
 Every write follows `WRITE_COMMANDS.md`: the idempotency key is derived from what the reward is for (a redemption's id,
 a referral's id) and answers the first record with `already: true` for as long as the shop keeps it; the shop keeps the

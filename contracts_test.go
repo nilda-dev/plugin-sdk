@@ -254,7 +254,7 @@ var shopRewardsV1 = contractDef{
 			UndoInput{}, RewardWriteAnswer{}},
 		{ContractMethod{Name: RewardsIssuedGet, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
 			Idempotent: true, Agent: "none", AgentReason: rewardsAgentReason,
-			Description: "EXPERIMENTAL. What one record this plugin issued is now: open, used (and by which order), expired or undone."},
+			Description: "EXPERIMENTAL. What one record this plugin issued is now: open, used (and by which order), expired, binned (in the site's recycle bin until purges_at: still the buyer's) or undone."},
 			RewardIssuedRequest{}, RewardIssuedAnswer{}},
 	},
 }
