@@ -18,7 +18,8 @@ Added:
 - `PaymentChargeParams.Agreement` and `Cycle`, echoed on `PaymentSession`: the renewal a charge of a kept method is for.
   Core keeps at most one charge per consumer, agreement and cycle that is paid or still deciding (409 for another); a
   refused or expired cycle may be charged again, and a late answer for a cycle paid meanwhile is booked with
-  `PaymentSession.DuplicateOf` naming the charge that paid it. `MaxPaymentAgreement`, `MaxPaymentCycle`.
+  `PaymentSession.DuplicateOf` naming the charge holding the cycle — refunded once that charge resolves, and cleared
+  (you are told again) when it ends without money instead. `MaxPaymentAgreement`, `MaxPaymentCycle`.
   `nildatest.Payments` holds the cycle as Core does, and books a late answer for a paid cycle as its duplicate.
 - `ObligationsListHook`, `ObligationsWindDownHook`, `Obligation`, `ObligationsRequest`, `ObligationsAnswer`,
   `WindDownRequest` (`WindDownUninstall`, `WindDownDisable`), `WindDownResult`, `ObligationsHolder` and

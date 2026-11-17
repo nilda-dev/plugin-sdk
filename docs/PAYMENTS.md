@@ -952,7 +952,13 @@ strong customer authentication when the method is kept, later charges out of its
    keys they send: another is `409 CONFLICT`, naming the session that holds the cycle. A cycle whose charge was refused
    or expired may be charged again — your retry after a decline, under a new idempotency key. Money for a charge that was
    refused or expired and then arrives after all is booked, never refused: the session resolves with **`DuplicateOf`**
-   naming the charge that paid the cycle, you hear it as any change, and you refund it.
+   naming the charge holding the cycle, you hear it as any change, and you refund it — **once the charge it names has
+   resolved**. If that charge ends without money instead, Core clears `DuplicateOf` in the same transaction and you are
+   told again: the late payment is now the cycle's own, and a further charge of the cycle is refused naming it. A
+   duplicate you already refunded is not promoted, and the cycle is open again. A late `pending` with no money is
+   refused (`409`). A charge left with no recorded answer is never expired: after ten minutes Core moves it to
+   `pending` and asks the gateway again under the same session. While Core's cycle index is not valid, a charge naming
+   a cycle is refused `503 UNAVAILABLE` and nothing is charged.
    A subscriptions plugin never charges by itself: it asks the shop for the renewal (the shop's door D9), and the shop
    — which kept the method at its checkout — charges as here, naming the agreement and cycle.
 

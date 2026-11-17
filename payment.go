@@ -293,9 +293,11 @@ type PaymentSession struct {
 	// EXPERIMENTAL); "" and 0 for every other session.
 	Agreement string `json:"agreement,omitempty"`
 	Cycle     int    `json:"cycle,omitempty"`
-	// DuplicateOf is set when this charge's money arrived after ANOTHER charge had paid its cycle — a late answer after a
-	// retry (door D5, EXPERIMENTAL): the session it duplicates. The payer paid twice; this session holds the second
-	// payment, resolved because the processor has the money, and you refund it. "" for every other session.
+	// DuplicateOf is set when this charge's money arrived after ANOTHER charge had taken its cycle — a late answer after a
+	// retry (door D5, EXPERIMENTAL): the session holding the cycle. The payer paid twice; this session holds the second
+	// payment, resolved because the processor has the money, and you refund it — once the charge it names has resolved.
+	// If that charge ends without money instead, Core clears DuplicateOf and you are told again: this one is now the
+	// cycle's own payment. "" for every other session.
 	DuplicateOf string `json:"duplicate_of,omitempty"`
 	// Instrument is what the payer paid with (the Instrument constants), as the gateway reported it with the
 	// resolution; "" until resolved or when the gateway did not say. ResolvedAt is when the session first resolved —

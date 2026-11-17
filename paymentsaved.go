@@ -265,7 +265,9 @@ type PaymentChargeParams struct {
 	// cycle once: another is refused (409 CONFLICT, naming the session) while that one stands, and a cycle whose charge
 	// was refused or expired may be charged again — your retry after a decline, with a new idempotency key. If the
 	// refused or expired charge's money arrives after all, Core books it — resolved, with PaymentSession.DuplicateOf
-	// naming the charge that paid the cycle — and you refund it. Both empty: no cycle is held.
+	// naming the charge holding the cycle — and you refund it once that charge has resolved; if it ends without money,
+	// Core clears DuplicateOf and tells you, and the late one is the cycle's payment. A late "pending" with no money is
+	// refused. A kept charge left unanswered ten minutes is asked again, never expired. Both empty: no cycle is held.
 	Agreement string `json:"agreement,omitempty"`
 	Cycle     int    `json:"cycle,omitempty"`
 }
