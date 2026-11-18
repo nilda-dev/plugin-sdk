@@ -41,7 +41,7 @@ Added (the import):
   `"KIND"` beside `"kind"` reach the provider); `ParseContract` refuses an open object in a closed contract, as it still
   refuses a closed one elsewhere. `Serves` checks a request against its method's schema itself before decoding it. (The
   security review of D10-a, F1 and F2.)
-- `nildatest.Services.SetImportEnabled`, `nildatest.ErrImportOff` (Core's 409 `import_off`) and
+- `nildatest.Services.SetImportEnabled`, `nildatest.ErrImportOff` (Core's 409 `plugin_import_off`) and
   `nildatest.ErrProviderNotNamed` (Core's 422 `provider_not_named`); the desk checks an import contract's grant and switch
   before it reads the request, for every method (F8).
 - The neutral records as the shop needs them (D10 §1.4 amendments 8–11): `ShopImportPricing.TaxStatus` (`taxable`,

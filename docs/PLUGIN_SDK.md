@@ -3575,7 +3575,7 @@ that makes the shop's callbacks quiet, to one shop, never from a cache, up to `M
 contract needs the grant (`ServiceContract.CallerCapability` `"import"`), and its objects are closed
 (`ServiceContract.Closed`). Test with `nildatest.Services.ImportPlugin`, which grants `import` as the owner would; a plugin
 made with `Core` is refused (`nildatest.ErrImportNotGranted`), as every call is while `Services.SetImportEnabled(false)`
-(`nildatest.ErrImportOff`, Core's 409 `import_off`); an import call with two shops and none named is
+(`nildatest.ErrImportOff`, Core's 409 `plugin_import_off`); an import call with two shops and none named is
 `nildatest.ErrProviderNotNamed` (Core's 422 `provider_not_named`). `ShopImportApplyRequest.Validate` refuses an act whose
 settings name no currency.
 

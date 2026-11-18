@@ -25,8 +25,9 @@ before the act. `records.list` is also the assistant's read tool: it is the shop
 
 EVERY method needs the `import` capability the owner granted (`"caller_capability": "import"`): the read, the plan, the
 act and the undo as much as `records.put`. Core checks it — and the site's import switch — before it reads the request
-and before any shop is asked: 403 `import_not_granted` without the grant (Core's own calls included), 409 `import_off`
-while the switch is off (not retried). The contract is CLOSED (`"closed": true`): every object refuses a member it does not
+and before any shop is asked: 403 `import_not_granted` without the grant, 409 `plugin_import_off` while the switch is
+off (not retried). Core's own call — the owner's assistant — reaches `records.list` alone (agent `read`), whatever the
+switch says. The contract is CLOSED (`"closed": true`): every object refuses a member it does not
 declare, so `"KIND"` beside `"kind"`, or a `"NAME"` the schema never bounded, is refused at Core, at the client and in
 `Serves` before the shop decodes the request.
 

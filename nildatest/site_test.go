@@ -436,3 +436,26 @@ func TestSiteAnswersItsReferenceRoutes(t *testing.T) {
 		t.Errorf("asked %v", got)
 	}
 }
+
+// A page's status changes as Core's PATCH changes it — a page published, or put back to draft — and a status Core does not
+// know is refused.
+func TestSitePageStatusChangesByPatch(t *testing.T) {
+	ctx := context.Background()
+	site := NewSite()
+	core, host, srv := site.Core("shop")
+	defer srv.Close()
+	host.Grant(nilda.CapContentWrite)
+	id := site.AddPage(SitePage{Type: "shop_product", Title: "Apron"})
+	api := core.API()
+	for _, status := range []string{"published", "draft"} {
+		if err := api.JSON(ctx, "PATCH", "/content/shop_product/"+id, map[string]any{"status": status}, nil); err != nil {
+			t.Fatalf("PATCH status %s: %v", status, err)
+		}
+		if p, _ := site.Page(id); p.Status != status {
+			t.Errorf("the page is %s after a PATCH to %s", p.Status, status)
+		}
+	}
+	if err := api.JSON(ctx, "PATCH", "/content/shop_product/"+id, map[string]any{"status": "live"}, nil); apiStatus(err) != 422 {
+		t.Errorf("an unknown status: %v, want 422", err)
+	}
+}
