@@ -127,7 +127,7 @@ type Ability struct {
 	// IN THE BACKGROUND: start it on a context of your own, return what was started ("importing 50 products"),
 	// and make the result visible where the owner looks — your admin list page, an event, a row in your table.
 	// Permission is the key of one of your manifest's `permissions` the person the assistant acts for needs to have it
-	// run (v0.69.0, permissions.go). Core reads it from the manifest's abilities[].permission — what the owner
+	// run (v0.70.0, permissions.go). Core reads it from the manifest's abilities[].permission — what the owner
 	// approved — and holds the call to it in the panel's chat and over every connector. Empty: only those who may
 	// configure the whole plugin.
 	Permission string

@@ -32,7 +32,7 @@ type manifestAbility struct {
 	Effect string `json:"effect,omitempty"`
 	// Undo: its way back on Core's AI changes ledger, or why it has none (nilda.Ability.Undo, v0.66.0, EXPERIMENTAL).
 	Undo *manifestUndo `json:"undo,omitempty"`
-	// Permission: the manifest permission the person the assistant acts for needs (nilda.Ability.Permission, v0.69.0).
+	// Permission: the manifest permission the person the assistant acts for needs (nilda.Ability.Permission, v0.70.0).
 	Permission string `json:"permission,omitempty"`
 }
 

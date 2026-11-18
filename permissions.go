@@ -1,6 +1,6 @@
 package nilda
 
-// STAFF PERMISSIONS (v0.69.0, EXPERIMENTAL). Roles live in Core and only in Core: a plugin never stores users or
+// STAFF PERMISSIONS (v0.70.0, EXPERIMENTAL). Roles live in Core and only in Core: a plugin never stores users or
 // decides who may do what. What a plugin may do is DECLARE the parts of itself a role can be given, so the owner can
 // make "Order handler" — sees orders, ships them, cannot refund or change the shop's settings — on Core's own Roles
 // screen, beside every other permission of the site.
