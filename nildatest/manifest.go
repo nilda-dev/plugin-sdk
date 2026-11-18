@@ -32,6 +32,8 @@ type manifestAbility struct {
 	Effect string `json:"effect,omitempty"`
 	// Undo: its way back on Core's AI changes ledger, or why it has none (nilda.Ability.Undo, v0.66.0, EXPERIMENTAL).
 	Undo *manifestUndo `json:"undo,omitempty"`
+	// Permission: the manifest permission the person the assistant acts for needs (nilda.Ability.Permission, v0.69.0).
+	Permission string `json:"permission,omitempty"`
 }
 
 // manifestUndo is an ability's declared way back as plugin.json writes it.
@@ -62,7 +64,7 @@ func sameUndo(a, b *manifestUndo) bool {
 func (m manifestAbility) same(o manifestAbility) bool {
 	return m.Name == o.Name && m.Label == o.Label && m.Description == o.Description && m.Class == o.Class &&
 		m.AlwaysAsk == o.AlwaysAsk && slices.Equal(m.Callers, o.Callers) && m.Effect == o.Effect &&
-		sameUndo(m.Undo, o.Undo)
+		sameUndo(m.Undo, o.Undo) && m.Permission == o.Permission
 }
 
 // ManifestAbilities holds plugin.json's "abilities" to the abilities your Init returns.
@@ -96,7 +98,7 @@ func ManifestAbilities(t testing.TB, manifestPath string, abilities []nilda.Abil
 	for _, a := range abilities {
 		want = append(want, manifestAbility{Name: a.Name, Label: a.Label, Description: a.Description, Class: string(a.Class),
 			AlwaysAsk: a.AlwaysAsk || a.Effect.AlwaysAsks(), Callers: a.Callers, Effect: string(a.Effect),
-			Undo: undoOf(a.Undo)})
+			Undo: undoOf(a.Undo), Permission: a.Permission})
 	}
 	raw, err := os.ReadFile(manifestPath)
 	if err != nil {
