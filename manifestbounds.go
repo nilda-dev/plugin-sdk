@@ -173,7 +173,7 @@ const (
 	// Events, notices and personal data (`emits`, `notifications`, `processing`).
 
 	// MaxManifestEmits bounds emits: a count.
-	MaxManifestEmits = 32
+	MaxManifestEmits = 128
 	// MaxManifestEmitFields bounds one event's fields: a count.
 	MaxManifestEmitFields = 64
 	// MaxManifestEmitTypeLen bounds an event's type: bytes (the type is lowercase ASCII).

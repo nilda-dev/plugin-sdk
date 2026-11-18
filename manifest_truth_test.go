@@ -218,10 +218,10 @@ func TestTheMailTemplateBoundsTheDocsNameAreCores(t *testing.T) {
 func TestTheEmitsBoundTheDocsNameIsCores(t *testing.T) {
 	schema := coreSource(t, "internal", "plugin", "schema_emits.go")
 	doc := strings.Join(strings.Fields(readText(t, "docs/PLUGIN_SDK.md")), " ")
-	if !strings.Contains(schema, "maxEmitDecls = 32") {
-		t.Error("core no longer bounds emits at 32 — re-read the guide")
+	if !strings.Contains(schema, "maxEmitDecls = 128") {
+		t.Error("core no longer bounds emits at 128 — re-read the guide")
 	}
-	if !strings.Contains(doc, "at most 32 events") {
-		t.Error("PLUGIN_SDK.md does not say a plugin declares at most 32 events, which is Core's bound")
+	if !strings.Contains(doc, "at most 128 events") {
+		t.Error("PLUGIN_SDK.md does not say a plugin declares at most 128 events, which is Core's bound")
 	}
 }

@@ -8,6 +8,11 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## Unreleased
+
+- `MaxManifestEmits` is 128 (was 32), as Core's `maxEmitDecls` now is: the bound only stops a runaway list; the
+  shop reached 32 with an event still to declare.
+
 ## v0.68.0 — 2026-11-17 (doors D5 and D11, shop.rewards/v1 and shop.subscriptions/v1, TermContents)
 
 

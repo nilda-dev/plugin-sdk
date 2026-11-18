@@ -806,7 +806,7 @@ locale code) is not here — the pattern is the rule, and `nilda plugin check` s
 | `MaxManifestEmailLocales` | 64 | the languages one template's defaults are written in |
 | `MaxManifestEmailSubjectLen` | 200 characters | a default's subject |
 | `MaxManifestEmailBodyBytes` | 32 KiB | a default's text, and its HTML, each |
-| `MaxManifestEmits` | 32 | emits |
+| `MaxManifestEmits` | 128 | emits |
 | `MaxManifestEmitFields` | 64 | one event's fields |
 | `MaxManifestEmitTypeLen` | 96 bytes | an event's type (the type is lowercase ASCII) |
 | `MaxManifestNotifications` | 16 | notifications |
@@ -1386,7 +1386,7 @@ it, signed and retried as Core's own events are.
 ]
 ```
 
-Each entry is an `EventDecl` with its payload's `EventField`s. Needs the `events` capability; at most 32 events, each a
+Each entry is an `EventDecl` with its payload's `EventField`s. Needs the `events` capability; at most 128 events, each a
 type your plugin may emit (your key's namespace, or a capability's such as `ecommerce.*`), once, with a title the owner
 reads after your plugin's name ("Shop: Order paid"). The payload an automation or a webhook receives is your event's
 fields plus `event_id` and `plugin`, which you cannot redefine. A disabled plugin's events leave the catalogue with it,
