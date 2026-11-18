@@ -3290,6 +3290,15 @@ Each capability a manifest may declare has its constant — `nilda.CapKV`, `CapT
 text with `nilda.BodyText(body)` (a heading, a list item, a quote each its own block; bold and links read as their
 words), and check one before a write, or in a test, with `nilda.CheckBody(body)` — Core's own rule (`ErrNotABody`).
 
+Words that come as HTML — an old shop's product description, a feed's article — become a body with
+`nilda.HTMLBody(html, picture)` (v0.70.0): headings, paragraphs and line breaks, bold, italic, underline, strikethrough,
+code, links (http, https, mailto, tel or a path on the site), bullet and numbered lists, quotes, code blocks, rules, tables
+and pictures, in the node vocabulary Core's editor and renderer use. Text is only ever text on a text node. `picture`
+answers each `nilda.HTMLImage` (its `Src`, `Alt` and `Class` — WordPress names its library file there, `wp-image-<id>`)
+with the address of Core's own copy, or false: a body never names a file Core does not hold. What it could not carry comes
+back in `nilda.HTMLBodyLeft` — the pictures not placed, and the kinds of markup left (`embed`, `form`, `script`,
+`shortcode`) — for the plugin to tell its owner.
+
 **A page's layout is a `nilda.LayoutTree`** — sections (`nilda.LayoutSection`) holding columns (`LayoutColumn`)
 holding widgets (`LayoutWidget`), each a `nilda.LayoutNode` with its `ID`, `Widget` key and `Config`. The shop's widget
 keys are constants — `nilda.WidgetProductLoop`, `WidgetCart`, `WidgetCheckout`, `WidgetAccount`, `WidgetAddToCart`,
