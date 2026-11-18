@@ -225,9 +225,9 @@ func Serves[In, Out any](contract, method string, fn func(ctx context.Context, i
 
 // serviceProviderOf is what answers a plugin's service hooks: its own ServiceMethods, or — for a plugin that
 // implements Carrier, CatalogProvider, OrdersProvider, DeliverablesProvider, AttributeProvider, AttributeValuesProvider,
-// ShopEventsProvider, RewardsProvider, SubscriptionsProvider or AccountSectionsProvider and wrote no ServiceMethods — their
+// ShopEventsProvider, RewardsProvider, SubscriptionsProvider, AccountSectionsProvider or ShopImportProvider and wrote no ServiceMethods — their
 // methods (CarrierMethods, CatalogMethods, OrdersMethods, DeliverablesMethods, AttributeMethods, AttributeValuesMethods,
-// ShopEventsMethods, RewardsMethods, SubscriptionsMethods, AccountSectionsMethods), so a provider that forgot the one line is still answered rather than failing
+// ShopEventsMethods, RewardsMethods, SubscriptionsMethods, AccountSectionsMethods, ShopImportMethods), so a provider that forgot the one line is still answered rather than failing
 // every call. A plugin may be several.
 func serviceProviderOf(h Handler) ServiceProvider {
 	if sp, is := h.(ServiceProvider); is {
@@ -263,6 +263,9 @@ func serviceProviderOf(h Handler) ServiceProvider {
 	}
 	if c, is := h.(AccountSectionsProvider); is {
 		methods = append(methods, AccountSectionsMethods(c)...)
+	}
+	if c, is := h.(ShopImportProvider); is {
+		methods = append(methods, ShopImportMethods(c)...)
 	}
 	if methods == nil {
 		return nil

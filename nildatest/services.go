@@ -40,6 +40,7 @@ type Services struct {
 	calls     []ServiceCallLog
 	tiers     map[string]nilda.AgentTier // operator → what the owner set (SetAgentTier); browse when absent
 	prefixes  map[string]string          // plugin key → its manifest's route_prefix (RoutePrefix)
+	importers map[string]bool            // plugin keys the owner granted the import capability (ImportPlugin)
 }
 
 // SetAgentTier sets what the site's owner lets an agent's operator do, as Core's SEO → Shopping agents list holds it —
@@ -57,6 +58,10 @@ func (s *Services) SetAgentTier(operator string, tier nilda.AgentTier) {
 type ServiceCallLog struct {
 	Provider, Contract, Method, Caller, IdempotencyKey string
 	Input                                              json.RawMessage
+	// ImportMarker is the marker Core opened an import call under ("plugin:<caller>:<id>", ContractMethod.Import), and
+	// ImportPlanned the job's planned records; empty and 0 for any other call.
+	ImportMarker  string
+	ImportPlanned int
 }
 
 // NewServices makes an empty desk.
@@ -115,6 +120,29 @@ func (s *Services) Core(key string, contracts ...string) (*nilda.Core, *Host, *h
 	return nilda.NewCoreForTest(key, granted, h, srv.URL, "test-token", scopes), h, srv
 }
 
+// ImportPlugin is Core for an import plugin: like Core, and holding the `import` capability the owner granted, which an
+// import call (ContractMethod.Import, shop.import/v1's records.put) needs. A plugin given Core instead is refused an import
+// call with a 403 whose reason is import_not_granted, as Core refuses it, before any provider is asked.
+func (s *Services) ImportPlugin(key string, contracts ...string) (*nilda.Core, *Host, *httptest.Server) {
+	s.mu.Lock()
+	if s.importers == nil {
+		s.importers = map[string]bool{}
+	}
+	s.importers[key] = true
+	s.mu.Unlock()
+	granted := []string{nilda.CapServiceConsumer, nilda.CapImport}
+	h := newHost(key, granted)
+	scopes := make([]string, 0, len(contracts))
+	for _, c := range contracts {
+		scopes = append(scopes, "use:"+c)
+	}
+	srv := httptest.NewServer(s.routes(key, scopes))
+	return nilda.NewCoreForTest(key, granted, h, srv.URL, "test-token", scopes), h, srv
+}
+
+// ErrImportNotGranted is the desk's answer to an import call from a plugin the owner did not grant `import` — Core's 403.
+var ErrImportNotGranted = errors.New("an import call needs the import capability, granted by the site's owner")
+
 // Ask calls as Core's own assistant would — no caller plugin, no scope — for a provider's test.
 func (s *Services) Ask(ctx context.Context, contract, method string, input any, opts nilda.ServiceCallOptions) (nilda.ServiceResult, error) {
 	raw, err := json.Marshal(input)
@@ -142,6 +170,23 @@ func (s *Services) call(ctx context.Context, caller, contract, method string, in
 	if err := m.ValidateInput(input); err != nil {
 		return nilda.ServiceResult{}, err
 	}
+	// AN IMPORT CALL, as Core's desk relays it: only for a caller the owner granted import (Core itself holds no grant),
+	// under a marker namespaced by the caller's key, to ONE provider.
+	var marker string
+	var planned int
+	if m.Import {
+		s.mu.Lock()
+		granted := s.importers[caller]
+		s.mu.Unlock()
+		if caller == "" || !granted {
+			return nilda.ServiceResult{}, ErrImportNotGranted
+		}
+		ic, err := nilda.ReadImportCall(input)
+		if err != nil {
+			return nilda.ServiceResult{}, err
+		}
+		marker, planned = "plugin:"+caller+":"+ic.ID, ic.Planned
+	}
 	s.mu.Lock()
 	var asked []string
 	for _, k := range s.order {
@@ -152,6 +197,9 @@ func (s *Services) call(ctx context.Context, caller, contract, method string, in
 	s.mu.Unlock()
 	if opts.Provider != "" && len(asked) == 0 {
 		return nilda.ServiceResult{}, errors.New("the plugin " + opts.Provider + " is not an active provider of " + contract)
+	}
+	if m.Import && len(asked) > 1 {
+		return nilda.ServiceResult{}, errors.New("more than one plugin provides " + contract + ": an import call names the one it writes into")
 	}
 	budget := time.Duration(m.BudgetMS) * time.Millisecond
 	if budget == 0 {
@@ -171,7 +219,8 @@ func (s *Services) call(ctx context.Context, caller, contract, method string, in
 			s.mu.Lock()
 			p := s.providers[k]
 			s.calls = append(s.calls, ServiceCallLog{Provider: k, Contract: contract, Method: method, Caller: caller,
-				IdempotencyKey: opts.IdempotencyKey, Input: append(json.RawMessage(nil), input...)})
+				IdempotencyKey: opts.IdempotencyKey, Input: append(json.RawMessage(nil), input...),
+				ImportMarker: marker, ImportPlanned: planned})
 			s.mu.Unlock()
 			cctx, cancel := context.WithTimeout(ctx, budget)
 			defer cancel()
@@ -206,7 +255,9 @@ func (s *Services) call(ctx context.Context, caller, contract, method string, in
 			continue
 		}
 		res.Answers = append(res.Answers, nilda.ServiceAnswer{Provider: asked[i], Output: g.out, RoutePrefix: s.prefixes[asked[i]]})
-		s.last[asked[i]+"\x00"+key] = g.out
+		if !m.Import { // an import call's answer is never kept to answer another
+			s.last[asked[i]+"\x00"+key] = g.out
+		}
 	}
 	if len(res.Answers) == 0 {
 		switch m.Fallback {
@@ -293,6 +344,9 @@ func (s *Services) routes(caller string, scopes []string) http.Handler {
 		switch {
 		case errors.Is(err, ErrServiceBlocked):
 			writeServiceError(w, http.StatusServiceUnavailable, "UNAVAILABLE", err.Error(), nil)
+		case errors.Is(err, ErrImportNotGranted):
+			writeServiceError(w, http.StatusForbidden, "FORBIDDEN", err.Error(),
+				map[string]string{"reason": "import_not_granted", "contract": contract})
 		case err != nil:
 			writeServiceError(w, http.StatusUnprocessableEntity, "VALIDATION", err.Error(), nil)
 		default:

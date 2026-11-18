@@ -3549,6 +3549,31 @@ every provider's with `Services.AccountSections` (or `AccountSectionsFrom`) into
 `ProvidedAccountSection`s, each path held by `UnderRoutePrefix` to the `ServiceAnswer.RoutePrefix` Core stamped.
 `nildatest.Services.RoutePrefix` gives a test provider its prefix.
 
+### An old shop written into the shop by an import plugin (`shop.import/v1`, experimental)
+
+`docs/SHOP_IMPORT.md` is the whole of it (`shopimport.go`), door D10. The shop implements `ShopImportProvider`;
+`ShopImportMethods` answers `settings.answer` (`ShopImportSettingsRequest` with the old shop's `ShopImportSettings` and
+their `ShopImportConvert` → `ShopImportSettingsResult`, with the ECB's `ShopImportRate`), `records.put` (a `ShopImportBatch`
+of ONE kind of `ShopImportRecord`s → a `ShopImportAnswer` of `ShopImportResult`s with their `ShopImportRefs`, holds and
+`ShopImportLoss`es, and a `ShopImportDebug`), `records.list` (`ShopImportListRequest` → `ShopImportListAnswer` of
+`ShopImportRow`s, each with its `ShopImportPair` of `ShopImportProductRef`s and `ShopImportSourceMoney`), `publish.plan`
+(`ShopImportActRequest` → `ShopImportPlan` of `ShopImportCounts`, `ShopImportGroups` with `ShopImportSKUPair`s and
+`ShopImportSaleSoon`s, and `ShopImportShopSettings`), `publish.prices` (→ `ShopImportPrices` of `ShopImportPriceRow`s),
+`publish.apply` (`ShopImportApplyRequest` with the owner's `ShopImportChoices`) and `publish.undo`
+(`ShopImportUndoRequest`), each answering a `ShopImportActPage`. A record's data is its kind's, in the order
+`ShopImportKinds` lists them: `ShopImportCategoryData`, `ShopImportTagData`, `ShopImportAttributeData` (with
+`ShopImportAttributeTerm`s), `ShopImportProductData` (its `ShopImportPricing`, `ShopImportStock` and `ShopImportParcel`,
+`ShopImportImage`s, `ShopImportAxis`es, `ShopImportChoice`s, `ShopImportDownload`s), `ShopImportVariantData`,
+`ShopImportLinksData`, `ShopImportReviewData`, `ShopImportCouponData`; `ShopImportRecordOf` makes a record of one and
+`ShopImportRecord.Decode` reads it back. The import plugin asks with `Services.ShopImportSettings`,
+`Services.PutShopImportRecords`, `Services.ShopImportRecords`, `Services.PlanShopImport`, `Services.ShopImportPrices`,
+`Services.ApplyShopImport` and `Services.UndoShopImport`.
+
+`records.put` is an IMPORT CALL (`ContractMethod.Import`): its request carries an `ImportCall` (the job's id and planned
+records; `ReadImportCall` reads and checks it), Core relays it only for a plugin holding `import`, under a marker of its own
+that makes the shop's callbacks quiet, to one shop, never from a cache, up to `MaxImportInputBytes`. Test with
+`nildatest.Services.ImportPlugin`, which grants `import` as the owner would; a plugin made with `Core` is refused.
+
 ### The shop's catalogue (`shop.catalog/v1`)
 
 The shop provides it; a channel plugin — a Google Merchant feed, a marketplace, an AI agent's catalogue — requires it

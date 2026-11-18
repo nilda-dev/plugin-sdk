@@ -26,6 +26,10 @@ on it.
 - **Only the contracts this SDK ships exist.** Core reads the files of the SDK version it is built with; a manifest
   naming any other contract is refused at install. A new contract is a change to this module, reviewed like a
   protocol change, never something a plugin declares into being.
+- **An import call** (`"import": true`, from v0.70.0; `SHOP_IMPORT.md`) is one batch of a job an import plugin runs:
+  Core relays it only for a caller holding the `import` capability, reads the job's `import: {id, planned}` from the
+  checked request, opens it under a marker of Core's own so the provider's callbacks are quiet and counted on the job's
+  own allowance, asks one provider, never answers it from a cache, and takes its request up to 1 MiB.
 - **Within a major, a contract only grows.** A schema never closes an object, so a field one side adds is never refused
   by the other. A breaking change is a new major (`…/v2`), served beside the old one for a while.
 
