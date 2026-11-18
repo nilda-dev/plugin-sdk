@@ -3514,6 +3514,21 @@ every provider's with `Services.AccountSections` (or `AccountSectionsFrom`) into
 `ProvidedAccountSection`s, each path held by `UnderRoutePrefix` to the `ServiceAnswer.RoutePrefix` Core stamped.
 `nildatest.Services.RoutePrefix` gives a test provider its prefix.
 
+### Core's doors for an import plugin (`/plugin-import`, v0.70.0)
+
+A plugin holding `import` reaches Core's import doors through the typed client (`pluginimport.go`; Core's
+`internal/pluginimport`), and nothing broader: `api.LookupImported(ctx, source, ids)` answers what an earlier import of the
+site made of each id, one `ImportFound` per id in order (its `Kind` — content, term, media, menu or menu_item — and Core's
+`TargetID`); `api.AddImportRedirects(ctx, rules)` writes `ImportRedirect`s (old path → a page of this site, 301) and answers an
+`ImportRedirectResult` per rule — `Written` with the `ID` that takes it back, left as it was (already there, or an address the
+site serves), or `Refused` (`from_not_local`, `to_not_local`: a redirect never leaves the site); `api.RemoveImportRedirects(ctx, removals)`
+takes back `ImportRedirectRemoval`s only while each is still exactly the rule written; `api.ImportCheckpoint(ctx, reason)`
+asks for the site's safety copy (`ImportSafetyCopy`) and an error means none was made — do not start. Each call carries 1
+to `MaxImportBatch` ids or rules (a reason at most `MaxImportReason` characters), and an answer that is not one result per one
+asked is `ErrImportAnswer`. `nildatest.NewImports()` fakes the doors as Core answers them — `Map` what an earlier import made,
+`Serve` an address the site serves, then read `Redirects`, `Checkpoints` and `Lookups`, or `RefuseCheckpoints`; `Core` gives
+a plugin its own Core over them, `Handler` serves them beside other fakes.
+
 ### An old shop written into the shop by an import plugin (`shop.import/v1`, experimental)
 
 `docs/SHOP_IMPORT.md` is the whole of it (`shopimport.go`), door D10. The shop implements `ShopImportProvider`;
@@ -3534,7 +3549,8 @@ of ONE kind of `ShopImportRecord`s → a `ShopImportAnswer` of `ShopImportResult
 `Services.PutShopImportRecords`, `Services.ShopImportRecords`, `Services.PlanShopImport`, `Services.ShopImportPrices`,
 `Services.ApplyShopImport` and `Services.UndoShopImport`.
 
-`records.put` is an IMPORT CALL (`ContractMethod.Import`): its request carries an `ImportCall` (the job's id and planned
+`records.put`, `publish.apply` and `publish.undo` are IMPORT CALLS (`ContractMethod.Import`; the act since v0.70.0, so its
+page edits are quiet as Core's own import publish is): each request carries an `ImportCall` (the job's id and planned
 records; `ReadImportCall` reads and checks it), Core relays it only for a plugin holding `import`, under a marker of its own
 that makes the shop's callbacks quiet, to one shop, never from a cache, up to `MaxImportInputBytes`. EVERY method of the
 contract needs the grant (`ServiceContract.CallerCapability` `"import"`), and its objects are closed

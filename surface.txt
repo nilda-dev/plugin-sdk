@@ -431,9 +431,11 @@ const MaxCommercePlanID
 const MaxCommercePlans
 const MaxCommerceRating
 const MaxDisputesPerSession
+const MaxImportBatch
 const MaxImportCallID
 const MaxImportInputBytes
 const MaxImportPlanned
+const MaxImportReason
 const MaxListFilters
 const MaxManifestAbilityDefinitionBytes
 const MaxManifestAbilityDescriptionLen
@@ -1552,6 +1554,20 @@ field HoldingPage.Status string json:status
 field HoldingPage.Type string json:type
 field ImportCall.ID string json:id
 field ImportCall.Planned int json:planned
+field ImportFound.ExternalID string json:external_id
+field ImportFound.Found bool json:found
+field ImportFound.Kind string json:kind
+field ImportFound.TargetID string json:target_id
+field ImportRedirect.From string json:from
+field ImportRedirect.To string json:to
+field ImportRedirectRemoval.From string json:from
+field ImportRedirectRemoval.ID string json:id
+field ImportRedirectRemoval.To string json:to
+field ImportRedirectResult.ID string json:id
+field ImportRedirectResult.Refused string json:refused
+field ImportRedirectResult.Written bool json:written
+field ImportSafetyCopy.ID string json:id
+field ImportSafetyCopy.Reused bool json:reused
 field InitResult.Abilities []Ability
 field InitResult.Events []string
 field InitResult.Hooks []string
@@ -3097,6 +3113,7 @@ imethod SubscriptionsProvider.UndoRenewal(context.Context, UndoInput) (Subscript
 imethod SubscriptionsProvider.UndoSubscriptionPlan(context.Context, UndoInput) (SubscriptionWriteAnswer, error)
 imethod WidgetProvider.RenderWidget(context.Context, WidgetRenderRequest) (string, error)
 imethod WidgetProvider.Widgets() ([]WidgetDef)
+method (*API) AddImportRedirects(context.Context, []ImportRedirect) ([]ImportRedirectResult, error)
 method (*API) AddMenuItem(context.Context, string, NewMenuItem) (MenuItem, error)
 method (*API) AgentTier(context.Context, string) (AgentTier, error)
 method (*API) BindLicence(context.Context) (BindResult, error)
@@ -3109,9 +3126,11 @@ method (*API) Do(context.Context, string, string, any) (*http.Response, error)
 method (*API) Get(context.Context, string, url.Values, any) (error)
 method (*API) HasScope(string) (bool)
 method (*API) HoldingPages(context.Context, string) ([]HoldingPage, error)
+method (*API) ImportCheckpoint(context.Context, string) (ImportSafetyCopy, error)
 method (*API) JSON(context.Context, string, string, any, any) (error)
 method (*API) Licence(context.Context) (Licence, error)
 method (*API) LogValue() (slog.Value)
+method (*API) LookupImported(context.Context, string, []string) ([]ImportFound, error)
 method (*API) Media(context.Context, string) (MediaItem, error)
 method (*API) MediaFile(context.Context, string) (*MediaBytes, error)
 method (*API) Menu(context.Context, string) (MenuTree, error)
@@ -3123,6 +3142,7 @@ method (*API) PlanLimit(context.Context, string) (int64, bool, error)
 method (*API) Post(context.Context, string, any, any) (error)
 method (*API) PublishContent(context.Context, string, string) (PublishResult, error)
 method (*API) Reference() (*Reference)
+method (*API) RemoveImportRedirects(context.Context, []ImportRedirectRemoval) ([]bool, error)
 method (*API) Scopes() ([]string)
 method (*API) Secrets() (*Secrets)
 method (*API) Services() (*Services)
@@ -3583,6 +3603,11 @@ type HeadMeta
 type HeadlineMetric
 type HoldingPage
 type ImportCall
+type ImportFound
+type ImportRedirect
+type ImportRedirectRemoval
+type ImportRedirectResult
+type ImportSafetyCopy
 type InitResult
 type LabelRequest
 type LabelResult
@@ -3875,6 +3900,7 @@ type WriteAnswer
 var AccountVocabulary
 var ErrAddressSuggestLimited
 var ErrCycleNotHeld
+var ErrImportAnswer
 var ErrNotABody
 var ErrTemplateOff
 var Handshake

@@ -69,6 +69,13 @@ Added (the import):
   fired a content.published webhook, automation and author notice for every product (D10 §1.4 amendment 17). The nildatest
   desk opens an import call with a fresh request id the provider sees (`CallOf(ctx).RequestID`, so its callbacks carry
   `CallHeader`), recorded as `ServiceCallLog.RequestID`.
+- Core's doors for an import plugin (`pluginimport.go`; core internal/pluginimport, S4 and S5), typed:
+  `API.LookupImported` (the import map: `ImportFound`), `API.AddImportRedirects` / `API.RemoveImportRedirects`
+  (`ImportRedirect`, `ImportRedirectResult`, `ImportRedirectRemoval`), `API.ImportCheckpoint` (`ImportSafetyCopy`),
+  `MaxImportBatch`, `MaxImportReason`, `ErrImportAnswer` (an answer that is not one result per one asked). A plugin wrote the
+  bodies by hand and tested them against a server of its own. `nildatest.NewImports` fakes the doors as Core answers them
+  (`Imports.Map`, `Serve`, `Redirects`, `Checkpoints`, `Lookups`, `RefuseCheckpoints`, `Core`, `Handler`; `ImportRule`), and
+  the fake's `import` capability carries `manage:import`.
 
 
 ## v0.69.0 — 2026-11-18 (account-page sections, purchase options on the product page, renewal recovery, 128 events)
