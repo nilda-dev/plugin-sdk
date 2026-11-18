@@ -91,6 +91,19 @@ Added:
   owner what is still owed to the payer reads these instead of guessing (false for an older Core, which sends none).
   `nildatest.Payments` answers it as Core does.
 
+Additive, and EXPERIMENTAL: the storefront in the page's language and the shop's search suggestions (commerce plan
+3.6 and 11.9). Core sends both from the release built on this version; an older Core sends no locale and never asks.
+
+Added (language and search):
+
+- `CommerceQuery.Locale` and `CommerceLocaleOf(ctx)`: the language the page is drawn in, on every commerce hook (the
+  `locale` key of the products, product, product_for_content, count and facets payloads), lifted into the context for
+  `Product` and `ProductForContent` as the viewer is. A value that is no lowercase language code is none.
+- `CommerceEndpoints.SearchSuggest`: a GET answering `CommerceSearchAnswer` (`Query`, `Corrected`, `Suggestions`,
+  `Products` of `CommerceSearchHit`), held by `CommerceSearchAnswer.Validate`; `MaxCommerceSearchSuggestions` (8),
+  `MaxCommerceSearchHits` (20), `MaxCommerceSearchText` (100).
+
+
 ## v0.68.0 — 2026-11-17 (doors D5 and D11, shop.rewards/v1 and shop.subscriptions/v1, TermContents)
 
 

@@ -2445,6 +2445,21 @@ most `nilda.MaxPriceGroupLength` printable ASCII characters, no space; a name ou
 is the public price, never a guess. `nilda.CommerceViewer` is what arrives: the user id, to look the group's terms up,
 and the group.
 
+**In the page's language (v0.69.0, EXPERIMENTAL).** Every commerce hook carries the language the page is drawn in —
+`q.Locale` on a query, `nilda.CommerceLocaleOf(ctx)` inside `Product` and `ProductForContent` — as a lowercase language
+code, one of the site's published languages. Answer titles, descriptions, choice names and category names in it where
+your catalogue holds them and in your own language where it does not; a choice's `Key` stays your own, so what comes
+back on add-to-cart is answered in the page's language and keyed by yours. Core keeps one page per address and
+language, so the answer is still cacheable. An older Core sends none: answer in your own language.
+
+**Search as the shopper types (v0.69.0, EXPERIMENTAL).** Name `SearchSuggest` in `Endpoints` — a GET on your route taking
+`?q=` and `&limit=` — and answer `nilda.CommerceSearchAnswer` as JSON: the products the words match, each a
+`nilda.CommerceSearchHit` priced for the visitor (its picture, price, struck price, badge), the whole searches the words
+complete to, and `Corrected`, the search you ran instead when a word was a typo of a word of your catalogue. Core's search
+box scoped to your products asks it beside its own search, so a site without a typo-tolerant search engine still forgives
+"candel". `CommerceSearchAnswer.Validate` holds the bounds (`nilda.MaxCommerceSearchSuggestions`,
+`nilda.MaxCommerceSearchHits`, `nilda.MaxCommerceSearchText`); answer `Cache-Control: no-store`.
+
 **Which product a page is (v0.39.0).** Implement `ProductForContent(ctx, contentID)` (the `nilda.CommerceProductPages`
 interface; the hook is `nilda.HookCommerceProductForContent`, `"commerce.product_for_content"`, which `Serve` subscribes
 only for a shop that implements it) and a product widget placed on a product's own page with no product chosen draws that
