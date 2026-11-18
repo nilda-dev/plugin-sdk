@@ -34,7 +34,9 @@ func TestDispatchAdminBulkActionLeavesOtherHooksAndPassesARefusal(t *testing.T) 
 	}
 	refusal := errors.New("This change is not available")
 	_, handled, err := DispatchAdminBulkAction(context.Background(), AdminBulkActionHook, []byte(`{"ids":[]}`),
-		func(context.Context, AdminBulkAction) (AdminBulkActionResult, error) { return AdminBulkActionResult{}, refusal })
+		func(context.Context, AdminBulkAction) (AdminBulkActionResult, error) {
+			return AdminBulkActionResult{}, refusal
+		})
 	if !handled || !errors.Is(err, refusal) {
 		t.Fatalf("handled=%v err=%v, want the plugin's refusal", handled, err)
 	}
