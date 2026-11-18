@@ -58,6 +58,11 @@ Added (the import):
   address; UploadMedia then a PATCH to private left a moment in which it had one. A keyed private upload is another request
   than a public one of the same key and file. `nildatest.Site` takes `POST /media` as Core does (multipart `file`, `alt`,
   `private`; `write:media`).
+- `HTMLBody`, `HTMLImage`, `HTMLBodyLeft`: HTML as a Core body — headings, paragraphs, inline formats, links, lists,
+  quotes, code, rules, tables and pictures in Core's editor's node vocabulary, each picture's address the caller's (its
+  copy in Core), what could not be carried named (pictures, `embed`, `form`, `script`, `shortcode`). An import plugin's
+  product description kept only its paragraphs (`TextBody`); D10 §1.2 asks for the description as a Core document.
+  `golang.org/x/net` is now a direct requirement (it was an indirect one through gRPC).
 
 
 ## v0.69.0 — 2026-11-18 (account-page sections, purchase options on the product page, renewal recovery, 128 events)

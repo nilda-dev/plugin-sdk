@@ -1524,6 +1524,11 @@ field FormSection.Key string json:key
 field FormSection.Label string json:label
 field FormSection.Side bool json:side
 field GRPCPlugin.Impl contract.PluginServiceServer
+field HTMLBodyLeft.Parts []string
+field HTMLBodyLeft.Pictures int
+field HTMLImage.Alt string
+field HTMLImage.Class string
+field HTMLImage.Src string
 field HTTPOptions.MaxBodyBytes int64
 field HTTPOptions.WriteTimeout time.Duration
 field HeadMeta.Canonical string json:canonical
@@ -2916,6 +2921,7 @@ func FilterPeriods() ([]string)
 func FormFieldTypes() ([]string)
 func FormatMinor(int64, string) (string, bool)
 func GuardRoute(http.Handler) (http.Handler)
+func HTMLBody(string, func(HTMLImage) (string, bool)) (json.RawMessage, HTMLBodyLeft)
 func HTTPClient(time.Duration) (*http.Client)
 func HostPluginMap() (map[int]plugin.PluginSet)
 func LabelIn(map[string]string, string) (string)
@@ -3309,6 +3315,7 @@ method (ExpressAnswer) Validate() (error)
 method (ExpressPayer) Validate() (error)
 method (ExpressRequest) Validate() (error)
 method (FormField) MarshalJSON() ([]byte, error)
+method (HTMLBodyLeft) Any() (bool)
 method (ImportCall) Validate() (error)
 method (LabelRequest) Validate() (error)
 method (LabelResult) Validate() (error)
@@ -3566,6 +3573,8 @@ type FormField
 type FormReplacement
 type FormSection
 type GRPCPlugin
+type HTMLBodyLeft
+type HTMLImage
 type HTTPOptions
 type Handler
 type HeadMeta
