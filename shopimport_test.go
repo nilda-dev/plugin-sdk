@@ -152,8 +152,11 @@ func TestTheImportContractRefusesWhatItDoesNotDeclare(t *testing.T) {
 	}
 }
 
-// Only records.put of shop.import/v1 is an import call; the act and the reads are ordinary calls.
-func TestOnlyRecordsPutIsAnImportCall(t *testing.T) {
+// records.put and the owner's act — publish.apply and publish.undo — are import calls (D10 §1.4 amendment 17): what the shop
+// writes back through Core while it serves them is quiet, as Core's own import publish is (core internal/importer/publish.go,
+// events.WithImport "publish:<job>"); the act's page edits fired content.published webhooks, automations and author notices for
+// every product while only records.put was one. The settings answer, the reads and the plan are ordinary calls.
+func TestTheBatchAndTheActAreImportCalls(t *testing.T) {
 	c, ok := ContractNamed(ContractShopImport)
 	if !ok {
 		t.Fatal("shop.import/v1 is not a contract of this SDK")
@@ -162,7 +165,7 @@ func TestOnlyRecordsPutIsAnImportCall(t *testing.T) {
 		t.Fatal("shop.import/v1 ships experimental")
 	}
 	for _, m := range c.Methods {
-		if m.Import != (m.Name == ShopImportRecordsPut) {
+		if want := m.Name == ShopImportRecordsPut || m.Name == ShopImportPublishApply || m.Name == ShopImportPublishUndo; m.Import != want {
 			t.Errorf("%s: import %v", m.Name, m.Import)
 		}
 		if want := m.Name == ShopImportRecordsList; (m.Agent == "read") != want {
@@ -446,10 +449,10 @@ func TestServeFindsTheShopImportDoor(t *testing.T) {
 	if err := call(ShopImportRecordsPut, b); err == nil || len(shop.got) != 1 {
 		t.Fatalf("a batch whose source is another platform's reached the shop: %v", err)
 	}
-	if err := call(ShopImportPublishApply, ShopImportApplyRequest{Source: "woocommerce:shop.example.com", Marker: "publish:job-7"}); err == nil {
+	if err := call(ShopImportPublishApply, ShopImportApplyRequest{Import: ImportCall{ID: "job-7", Planned: 3}, Source: "woocommerce:shop.example.com", Marker: "publish:job-7"}); err == nil {
 		t.Fatal("an act's page that is neither done nor names the next was let out")
 	}
-	if err := call(ShopImportPublishUndo, ShopImportUndoRequest{Source: "woocommerce:shop.example.com", Marker: "publish:job-7"}); err != nil {
+	if err := call(ShopImportPublishUndo, ShopImportUndoRequest{Import: ImportCall{ID: "job-7", Planned: 3}, Source: "woocommerce:shop.example.com", Marker: "publish:job-7"}); err != nil {
 		t.Fatalf("undo: %v", err)
 	}
 	if err := call(ShopImportSettingsAnswer, ShopImportSettingsRequest{Source: "woocommerce:shop.example.com", Platform: ShopImportWooCommerce,

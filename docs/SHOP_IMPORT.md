@@ -15,8 +15,8 @@ lives in the plugin; the shop keeps only this door.
 | `records.list` | no | read | default | what imports brought, held, paired and converted, with the old prices as read |
 | `publish.plan` | no | none | 15 s | what the act would do now: counts, groups (`converted`, `per_person`, SKU pairs, sales starting within 30 days), the settings it replaces |
 | `publish.prices` | no | none | default | a page of the converted products' old and new prices |
-| `publish.apply` | no | none | 15 s | the owner's act, a page at a time under the act's marker, with the owner's choices |
-| `publish.undo` | no | none | 15 s | takes the act back, a page at a time |
+| `publish.apply` | **yes** | none | 15 s | the owner's act, a page at a time under the act's marker, with the owner's choices |
+| `publish.undo` | **yes** | none | 15 s | takes the act back, a page at a time |
 
 `none` methods are reached through the import plugin's own abilities, which keep the job, preview first and ask the owner
 before the act. `records.list` is also the assistant's read tool: it is the shop's own truth after the act.
@@ -35,7 +35,10 @@ and the tax classes of `tax_class_rates` are a map's keys, where `"abc"` and `"A
 
 ## The import call
 
-`records.put` is marked `"import": true` (`ContractMethod.Import`). Its request carries `import: {id, planned}`
+`records.put`, `publish.apply` and `publish.undo` are marked `"import": true` (`ContractMethod.Import`): the act writes
+pages back through Core as the batches do, and is quiet as Core's own import publish is — no `content.published` webhook,
+automation or author notice per product. The act's `import.id` is the same job id as its batches', its `planned` the act's
+rows (the plan's counts); its `marker` is still the act's own. Each request carries `import: {id, planned}`
 (`ImportCall`: the plugin's job id, 1 to 200 characters of letters, digits and `. _ : -`; the records the whole job plans,
 0 to 1,000,000). Core's service desk:
 

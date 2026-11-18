@@ -2349,6 +2349,7 @@ field ShopImportAnswer.Kind string json:kind
 field ShopImportAnswer.Results []ShopImportResult json:results
 field ShopImportApplyRequest.Choices ShopImportChoices json:choices
 field ShopImportApplyRequest.Cursor string json:cursor
+field ShopImportApplyRequest.Import ImportCall json:import
 field ShopImportApplyRequest.Locale string json:locale
 field ShopImportApplyRequest.Marker string json:marker
 field ShopImportApplyRequest.Settings *ShopImportShopSettings json:settings
@@ -2576,6 +2577,7 @@ field ShopImportTagData.Description string json:description
 field ShopImportTagData.Name string json:name
 field ShopImportTagData.Slug string json:slug
 field ShopImportUndoRequest.Cursor string json:cursor
+field ShopImportUndoRequest.Import ImportCall json:import
 field ShopImportUndoRequest.Locale string json:locale
 field ShopImportUndoRequest.Marker string json:marker
 field ShopImportUndoRequest.Source string json:source

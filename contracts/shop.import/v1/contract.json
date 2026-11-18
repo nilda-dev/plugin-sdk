@@ -2448,7 +2448,7 @@
     {
       "name": "publish.apply",
       "answered_by": "provider",
-      "description": "EXPERIMENTAL. The owner's act, one page at a time under the act's marker: publishes what was public at the old shop and is not held, with the owner's choices; a page asked again changes nothing.",
+      "description": "EXPERIMENTAL. The owner's act, one page at a time under the act's marker, an import call of the job whose records it publishes: publishes what was public at the old shop and is not held, with the owner's choices, quietly (no webhook, automation or notice per product); a page asked again changes nothing.",
       "budget_ms": 15000,
       "retry_class": "failure",
       "fallback": "block",
@@ -2458,6 +2458,25 @@
       "input": {
         "type": "object",
         "properties": {
+          "import": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9._:-]{1,200}$"
+              },
+              "planned": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000
+              }
+            },
+            "required": [
+              "id",
+              "planned"
+            ],
+            "additionalProperties": false
+          },
           "source": {
             "type": "string",
             "minLength": 1,
@@ -2527,6 +2546,7 @@
           }
         },
         "required": [
+          "import",
           "source",
           "marker",
           "choices"
@@ -2626,12 +2646,13 @@
           "losses"
         ],
         "additionalProperties": false
-      }
+      },
+      "import": true
     },
     {
       "name": "publish.undo",
       "answered_by": "provider",
-      "description": "EXPERIMENTAL. Takes an act back, one page at a time, from what each record held before it.",
+      "description": "EXPERIMENTAL. Takes an act back, one page at a time, from what each record held before it; an import call, quiet as the act.",
       "budget_ms": 15000,
       "retry_class": "failure",
       "fallback": "block",
@@ -2641,6 +2662,25 @@
       "input": {
         "type": "object",
         "properties": {
+          "import": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9._:-]{1,200}$"
+              },
+              "planned": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000
+              }
+            },
+            "required": [
+              "id",
+              "planned"
+            ],
+            "additionalProperties": false
+          },
           "source": {
             "type": "string",
             "minLength": 1,
@@ -2663,6 +2703,7 @@
           }
         },
         "required": [
+          "import",
           "source",
           "marker"
         ],
@@ -2761,7 +2802,8 @@
           "losses"
         ],
         "additionalProperties": false
-      }
+      },
+      "import": true
     }
   ],
   "status": "experimental",

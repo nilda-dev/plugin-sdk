@@ -15,8 +15,9 @@ import (
 
 // tagShop answers shop.import/v1 as a shop would shape it, and keeps what it was sent.
 type tagShop struct {
-	mu  sync.Mutex
-	got []nilda.ShopImportBatch
+	mu   sync.Mutex
+	got  []nilda.ShopImportBatch
+	acts []nilda.CallInfo // how each act's page was called
 }
 
 func (s *tagShop) ShopImportSettings(context.Context, nilda.ShopImportSettingsRequest) (nilda.ShopImportSettingsResult, error) {
@@ -43,7 +44,10 @@ func (s *tagShop) PlanShopImport(context.Context, nilda.ShopImportActRequest) (n
 func (s *tagShop) ShopImportPrices(context.Context, nilda.ShopImportActRequest) (nilda.ShopImportPrices, error) {
 	return nilda.ShopImportPrices{Rows: []nilda.ShopImportPriceRow{}}, nil
 }
-func (s *tagShop) ApplyShopImport(context.Context, nilda.ShopImportApplyRequest) (nilda.ShopImportActPage, error) {
+func (s *tagShop) ApplyShopImport(ctx context.Context, _ nilda.ShopImportApplyRequest) (nilda.ShopImportActPage, error) {
+	s.mu.Lock()
+	s.acts = append(s.acts, nilda.CallOf(ctx))
+	s.mu.Unlock()
 	return nilda.ShopImportActPage{Done: true, Losses: []nilda.ShopImportLoss{}}, nil
 }
 func (s *tagShop) UndoShopImport(context.Context, nilda.ShopImportUndoRequest) (nilda.ShopImportActPage, error) {
@@ -108,7 +112,8 @@ func TestTheDeskRelaysAnImportCallAsCoreDoes(t *testing.T) {
 			return err
 		},
 		"publish.undo": func() error {
-			_, err := stranger.API().Services().UndoShopImport(ctx, "", nilda.ShopImportUndoRequest{Source: "woocommerce:shop.example.com", Marker: "act-1"})
+			_, err := stranger.API().Services().UndoShopImport(ctx, "", nilda.ShopImportUndoRequest{Import: nilda.ImportCall{ID: "job-1", Planned: 1},
+				Source: "woocommerce:shop.example.com", Marker: "act-1"})
 			return err
 		},
 	} {
@@ -172,5 +177,48 @@ func TestTheDeskRelaysAnImportCallAsCoreDoes(t *testing.T) {
 	}
 	if len(shop.got) != 1 {
 		t.Fatal("a refused batch reached the shop")
+	}
+}
+
+// The owner's act is an import call too (D10 §1.4 amendment 17): the desk opens each page of publish.apply and publish.undo under
+// the job's marker with its planned rows, and names the call with a fresh request id, so what the shop writes back through Core
+// while it serves the page carries nilda.CallHeader — the quiet call Core opens (callquiet.go's beginImportCall). An act's page
+// without the import object is refused before the shop is asked.
+func TestTheDeskOpensTheActAsAQuietImportCall(t *testing.T) {
+	ctx := context.Background()
+	desk := NewServices()
+	shop := &tagShop{}
+	desk.Provider("ecommerce", shop)
+	importer, _, srv := desk.ImportPlugin("site_import", nilda.ContractShopImport)
+	defer srv.Close()
+	svc := importer.API().Services()
+	act := nilda.ShopImportApplyRequest{Import: nilda.ImportCall{ID: "job-7", Planned: 12}, Source: "woocommerce:shop.example.com",
+		Marker: "act-job-7", Choices: nilda.ShopImportChoices{SwitchOnPerPerson: true}}
+	if _, err := svc.ApplyShopImport(ctx, "", act); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.UndoShopImport(ctx, "", nilda.ShopImportUndoRequest{Import: nilda.ImportCall{ID: "job-7", Planned: 12},
+		Source: "woocommerce:shop.example.com", Marker: "act-job-7"}); err != nil {
+		t.Fatal(err)
+	}
+	calls := desk.Calls()
+	if len(calls) != 2 {
+		t.Fatalf("%d calls", len(calls))
+	}
+	for _, c := range calls {
+		if c.ImportMarker != "plugin:site_import:job-7" || c.ImportPlanned != 12 || c.RequestID == "" {
+			t.Errorf("%s was opened as %+v; want the job's marker, its 12 rows and a request id", c.Method, c)
+		}
+	}
+	if len(shop.acts) != 1 || shop.acts[0].RequestID == "" || shop.acts[0].RequestID != calls[0].RequestID {
+		t.Errorf("the shop's act page was called as %+v: its callbacks would not be quiet", shop.acts)
+	}
+	raw, _ := json.Marshal(map[string]any{"source": "woocommerce:shop.example.com", "marker": "act-job-7",
+		"choices": map[string]any{"publish_converted": false, "switch_on_per_person": true}})
+	if _, err := svc.Call(ctx, nilda.ContractShopImport, nilda.ShopImportPublishApply, json.RawMessage(raw), nilda.ServiceCallOptions{}); err == nil {
+		t.Error("an act's page without its import object was relayed")
+	}
+	if len(shop.acts) != 1 {
+		t.Errorf("the shop was asked %d times", len(shop.acts))
 	}
 }

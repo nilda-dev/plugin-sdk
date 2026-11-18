@@ -73,6 +73,9 @@ type ServiceCallLog struct {
 	// ImportPlanned the job's planned records; empty and 0 for any other call.
 	ImportMarker  string
 	ImportPlanned int
+	// RequestID is the id the desk named an import call with (nilda.CallOf(ctx).RequestID in the provider): what the provider
+	// writes back through Core while it serves the call carries it (nilda.CallHeader), which is how Core keeps it quiet.
+	RequestID string
 }
 
 // NewServices makes an empty desk.
@@ -224,14 +227,15 @@ func (s *Services) call(ctx context.Context, caller, contract, method string, in
 		return nilda.ServiceResult{}, err
 	}
 	// An import call is opened under a marker namespaced by the caller's key, to ONE provider.
-	var marker string
+	var marker, requestID string
 	var planned int
 	if m.Import {
 		ic, err := nilda.ReadImportCall(input)
 		if err != nil {
 			return nilda.ServiceResult{}, err
 		}
-		marker, planned = "plugin:"+caller+":"+ic.ID, ic.Planned
+		// A fresh request id, as Core's beginImportCall names the call: the provider's callbacks carry it and are quiet.
+		marker, planned, requestID = "plugin:"+caller+":"+ic.ID, ic.Planned, "import-"+newID()
 	}
 	s.mu.Lock()
 	var asked []string
@@ -266,12 +270,13 @@ func (s *Services) call(ctx context.Context, caller, contract, method string, in
 			p := s.providers[k]
 			s.calls = append(s.calls, ServiceCallLog{Provider: k, Contract: contract, Method: method, Caller: caller,
 				IdempotencyKey: opts.IdempotencyKey, Input: append(json.RawMessage(nil), input...),
-				ImportMarker: marker, ImportPlanned: planned})
+				ImportMarker: marker, ImportPlanned: planned, RequestID: requestID})
 			s.mu.Unlock()
 			cctx, cancel := context.WithTimeout(ctx, budget)
 			defer cancel()
 			// What Core tells a provider about the call: the contract, the asking plugin, its key (CallOf).
-			cctx = nilda.WithCallInfo(cctx, nilda.CallInfo{Contract: contract, Caller: caller, IdempotencyKey: opts.IdempotencyKey})
+			cctx = nilda.WithCallInfo(cctx, nilda.CallInfo{Contract: contract, Caller: caller, IdempotencyKey: opts.IdempotencyKey,
+				RequestID: requestID})
 			done := make(chan got, 1)
 			go func() {
 				out, _, err := nilda.DispatchServiceHook(cctx, p, nilda.ServiceHook(contract, method), input)
