@@ -8,6 +8,25 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.70.0 — unreleased (bulk actions, staff permissions, a form card filled per row)
+
+Additive, and EXPERIMENTAL: bulk actions, staff permissions and a form card filled per row (commerce plan 11.5, 11.6
+and the owner's custom product fields). Core reads them from the release that carries the `plugin_bulk_action` tool;
+an older Core ignores them (and reports them among the keys it does not know) and the plugin's pages work as before.
+
+Added:
+
+- `AdminPage.BulkActions` (`BulkAction`: key, label, confirm, fields, always_ask, permission; `MaxPageBulkActions`,
+  `MaxBulkActionFields`), the hook `admin.bulk_action` (`AdminBulkActionHook`, `AdminBulkAction`,
+  `AdminBulkActionResult`, `BulkRowResult`, `BulkOpen`, `DispatchAdminBulkAction`) and the bounds `MaxBulkBatch` (50
+  ids a call) and `MaxBulkSelection` (5000 rows a run) — `adminbulk.go`.
+- `PermissionDecl` and `RolePreset` for the manifest's `permissions` and `role_presets` (`MaxManifestPermissions`,
+  `MaxManifestRolePresets`), and `Permission` on `AdminPage`, `RowAction`, `PageForm`, `BulkAction` and `Ability` —
+  `permissions.go`.
+- `FormSection.Extra` and `AdminFormResult.Fields` (`MaxExtraFormFields`): one card of a form whose fields the plugin's
+  load answers per row.
+
+
 ## v0.69.0 — 2026-11-18 (account-page sections, purchase options on the product page, renewal recovery, 128 events)
 
 Additive, and EXPERIMENTAL: the subscriptions plugin's "a view in the buyer's My Account" and the loyalty plugin's points

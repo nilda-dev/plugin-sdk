@@ -2049,6 +2049,40 @@ your sign-in server's issuer, and a missing one when its metadata says it always
 `nilda.PluginAccount`, `nilda.AccountStart`, `nilda.AccountStartResult`, `nilda.AccountFinish` and
 `nilda.AccountStatus` are the types; `nilda.DispatchAccount` routes the hooks for a plugin that does it by hand.
 
+### Acting on many rows at once (`bulk_actions`, v0.69.0, EXPERIMENTAL)
+
+A list page may declare `bulk_actions` beside its row `actions` (`nilda.BulkAction`: key, label, a `confirm` asked
+once for the run, `fields` the owner answers first in the form vocabulary, `always_ask`, `permission`). Core draws a box
+on every row and "all rows matching this view" — the page's search and filters as they stand — resolves the chosen
+rows ITSELF from your declared table (an id you receive is always a primary key of it; at most
+`nilda.MaxBulkSelection` a run), and calls your `admin.bulk_action` hook (`nilda.AdminBulkActionHook`, subscribe it)
+with `nilda.AdminBulkAction` batches of at most `nilda.MaxBulkBatch` ids, typed `values`, the batch's number, the run's
+total and `last`. Answer `nilda.AdminBulkActionResult`: `rows` (`nilda.BulkRowResult`, an id left out is done; `failed`
+or `skipped` with a fixed sentence), `run` (your own name for the run, sent back on its later batches — a preview's id),
+`message` and `open` (`nilda.BulkOpen`, a row of one of your list pages the owner opens when it ends). An error fails
+the whole batch and stops the run. `nilda.DispatchAdminBulkAction` routes the hook. The assistant reaches the same door
+through Core's `plugin_bulk_action` tool; when an ability of yours already does the same over many rows, make both call
+one function.
+
+### Staff permissions and suggested roles (`permissions`, `role_presets`, v0.69.0, EXPERIMENTAL)
+
+Roles live in Core alone. Your manifest declares the parts of your plugin a role can be given — `permissions`
+(`nilda.PermissionDecl`: key such as `orders.refund`, label, help; at most `nilda.MaxManifestPermissions`) — and
+`role_presets` (`nilda.RolePreset`: a suggested role and its permissions; at most `nilda.MaxManifestRolePresets`), which
+Core's Roles screen offers as "New role from preset". Each admin page (`permission`: who may open it), row and bulk action
+(who may press it), form (`form.permission`: who may save it) and ability (`abilities[].permission`, `Ability.Permission`:
+who may have the assistant run it) names the one it needs. Core registers each as `plugin.<key>.<permission>`;
+`plugin.<key>.configure` and `plugin.manage` still open everything, and an entry with no `permission` stays theirs alone.
+The assistant acting for a person is held to that person's permissions. You never check a permission yourself:
+`CallOf(ctx).ActorUserID` is attribution only.
+
+### A form card you fill per row (`FormSection.Extra`, v0.69.0, EXPERIMENTAL)
+
+One section of a form may be `extra`: its fields are not declared in the manifest but answered by your form load as
+`AdminFormResult.Fields` (each naming that section) — fields the owner defined (custom product fields), at most
+`nilda.MaxExtraFormFields`. Core holds them to the form vocabulary and checks a save against the fields the load
+answered, never against what the browser sends.
+
 ### Contributing a field type (`field`)
 
 Declare the type; Nilda renders it with one of its own controls (`base`), stores the value in that

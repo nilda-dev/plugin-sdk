@@ -10,6 +10,7 @@ const AccountStartHook
 const AccountStatusHook
 const AddressSuggestPerMinute
 const AdminActionHook
+const AdminBulkActionHook
 const AdminCalendarHook
 const AdminFormLoadHook
 const AdminFormSaveHook
@@ -418,6 +419,9 @@ const MaxAttributeSKUs
 const MaxAttributeText
 const MaxAttributeTextarea
 const MaxAttributeValues
+const MaxBulkActionFields
+const MaxBulkBatch
+const MaxBulkSelection
 const MaxCommerceChoices
 const MaxCommerceFacetOptions
 const MaxCommerceFacets
@@ -430,6 +434,7 @@ const MaxCommercePlanID
 const MaxCommercePlans
 const MaxCommerceRating
 const MaxDisputesPerSession
+const MaxExtraFormFields
 const MaxListFilters
 const MaxManifestAbilityDefinitionBytes
 const MaxManifestAbilityDescriptionLen
@@ -480,6 +485,7 @@ const MaxManifestNoticeBodyLen
 const MaxManifestNoticeTitleLen
 const MaxManifestNotifications
 const MaxManifestPageFields
+const MaxManifestPermissions
 const MaxManifestPickActionLabelLen
 const MaxManifestPickActions
 const MaxManifestPickEffectLen
@@ -493,6 +499,7 @@ const MaxManifestRecommendationWhyLen
 const MaxManifestRecommends
 const MaxManifestRepeaterFields
 const MaxManifestReportParams
+const MaxManifestRolePresets
 const MaxManifestRowActions
 const MaxManifestRowSubtitle
 const MaxManifestSearchNameLen
@@ -521,6 +528,7 @@ const MaxManifestWebhookPaths
 const MaxObligationKind
 const MaxObligationText
 const MaxObligations
+const MaxPageBulkActions
 const MaxPaymentAgreement
 const MaxPaymentCycle
 const MaxPaymentLineName
@@ -851,6 +859,7 @@ field Ability.Effect Effect
 field Ability.InputSchema json.RawMessage
 field Ability.Label string
 field Ability.Name string
+field Ability.Permission string
 field Ability.ReadOnly bool
 field Ability.Run func(ctx context.Context, args json.RawMessage) (any, error)
 field Ability.Undo AbilityUndo
@@ -904,6 +913,18 @@ field AdminAction.ID string json:id
 field AdminAction.Page string json:page
 field AdminActionResult.Message string json:message
 field AdminActionResult.Reveal string json:reveal
+field AdminBulkAction.Action string json:action
+field AdminBulkAction.Batch int json:batch
+field AdminBulkAction.IDs []string json:ids
+field AdminBulkAction.Last bool json:last
+field AdminBulkAction.Page string json:page
+field AdminBulkAction.Run string json:run
+field AdminBulkAction.Total int json:total
+field AdminBulkAction.Values map[string]any json:values
+field AdminBulkActionResult.Message string json:message
+field AdminBulkActionResult.Open *BulkOpen json:open
+field AdminBulkActionResult.Rows []BulkRowResult json:rows
+field AdminBulkActionResult.Run string json:run
 field AdminCalendarRequest.From string json:from
 field AdminCalendarRequest.Page string json:page
 field AdminCalendarRequest.Params map[string]string json:params
@@ -917,6 +938,7 @@ field AdminFormRequest.Values map[string]any json:values
 field AdminFormRequest.Version string json:version
 field AdminFormResult.Conflict *FormConflict json:conflict
 field AdminFormResult.Errors []FormError json:errors
+field AdminFormResult.Fields []FormField json:fields
 field AdminFormResult.ID string json:id
 field AdminFormResult.Title string json:title
 field AdminFormResult.Values map[string]any json:values
@@ -928,6 +950,7 @@ field AdminListRowsRequest.IDs []string json:ids
 field AdminListRowsRequest.Page string json:page
 field AdminListRowsResult.Rows map[string]AdminListRow json:rows
 field AdminPage.Actions []RowAction json:actions
+field AdminPage.BulkActions []BulkAction json:bulk_actions
 field AdminPage.Columns []ListColumn json:columns
 field AdminPage.DefaultView string json:default_view
 field AdminPage.Detail string json:detail
@@ -946,6 +969,7 @@ field AdminPage.Metrics []ReportMetric json:metrics
 field AdminPage.Mobile *PageMobile json:mobile
 field AdminPage.Order string json:order
 field AdminPage.OrderBy string json:order_by
+field AdminPage.Permission string json:permission
 field AdminPage.RowState *ListRowState json:row_state
 field AdminPage.RowsPage string json:rows_page
 field AdminPage.Search []string json:search
@@ -1037,6 +1061,18 @@ field AuthStartRequest.State string json:state
 field BindResult.Bound bool json:bound
 field BindResult.Licence Licence json:licence
 field BindResult.Reason string json:reason
+field BulkAction.AlwaysAsk bool json:always_ask
+field BulkAction.Confirm string json:confirm
+field BulkAction.Fields []FormField json:fields
+field BulkAction.Key string json:key
+field BulkAction.Label string json:label
+field BulkAction.Permission string json:permission
+field BulkOpen.Page string json:page
+field BulkOpen.Row string json:row
+field BulkRowResult.Failed bool json:failed
+field BulkRowResult.ID string json:id
+field BulkRowResult.Message string json:message
+field BulkRowResult.Skipped bool json:skipped
 field CalendarEvent.End string json:end
 field CalendarEvent.EndDate string json:end_date
 field CalendarEvent.ID string json:id
@@ -1455,6 +1491,7 @@ field FormField.Unit string json:unit
 field FormReplacement.Config map[string]any json:config
 field FormReplacement.FormSlugs []string json:form_slugs
 field FormReplacement.Widget string json:widget
+field FormSection.Extra bool json:extra
 field FormSection.Folded bool json:folded
 field FormSection.Help string json:help
 field FormSection.Key string json:key
@@ -1628,6 +1665,7 @@ field PageForm.Create bool json:create
 field PageForm.CreateLabel string json:create_label
 field PageForm.Edit bool json:edit
 field PageForm.Fields []FormField json:fields
+field PageForm.Permission string json:permission
 field PageForm.Sections []FormSection json:sections
 field PageMobile.Hide bool json:hide
 field PageMobile.Pick *PagePick json:pick
@@ -1920,6 +1958,9 @@ field PaymentVoidResult.Status string json:status
 field PaymentsReadiness.Gateways []PaymentGatewayState json:gateways
 field PaymentsReadiness.MethodsOn int json:methods_on
 field PaymentsReadiness.Test bool json:test
+field PermissionDecl.Help string json:help
+field PermissionDecl.Key string json:key
+field PermissionDecl.Label string json:label
 field PickAction.Ability string json:ability
 field PickAction.CurrencyField string json:currency_field
 field PickAction.Effect string json:effect
@@ -2042,10 +2083,15 @@ field RewardIssuedRequest.RecordID string json:record_id
 field RewardWriteAnswer.BalanceMinor int64 json:balance_minor
 field RewardWriteAnswer.Code string json:code
 field RewardWriteAnswer.Refused string json:refused
+field RolePreset.Help string json:help
+field RolePreset.Key string json:key
+field RolePreset.Label string json:label
+field RolePreset.Permissions []string json:permissions
 field RowAction.AlwaysAsk bool json:always_ask
 field RowAction.Confirm string json:confirm
 field RowAction.Key string json:key
 field RowAction.Label string json:label
+field RowAction.Permission string json:permission
 field RowAction.ShownWhen *RowCondition json:shown_when
 field RowCondition.Column string json:column
 field RowCondition.In []string json:in
@@ -2567,6 +2613,7 @@ func DecodeShopOrderEvent(string, []byte) (ShopOrderEvent, error)
 func DeliverablesMethods(DeliverablesProvider) ([]ServiceMethod)
 func DispatchAccount(context.Context, string, []byte, AccountHandler) ([]byte, bool, error)
 func DispatchAdminAction(context.Context, string, []byte, func(context.Context, AdminAction) (AdminActionResult, error)) ([]byte, bool, error)
+func DispatchAdminBulkAction(context.Context, string, []byte, func(context.Context, AdminBulkAction) (AdminBulkActionResult, error)) ([]byte, bool, error)
 func DispatchAdminCalendar(context.Context, string, []byte, func(context.Context, AdminCalendarRequest) (AdminCalendarResult, error)) ([]byte, bool, error)
 func DispatchAdminForm(context.Context, string, []byte, func(context.Context, AdminFormRequest) (AdminFormResult, error), func(context.Context, AdminFormRequest) (AdminFormResult, error)) ([]byte, bool, error)
 func DispatchAdminListRows(context.Context, string, []byte, func(context.Context, AdminListRowsRequest) (AdminListRowsResult, error)) ([]byte, bool, error)
@@ -3089,6 +3136,8 @@ type AddressSuggester
 type AddressSuggestion
 type AdminAction
 type AdminActionResult
+type AdminBulkAction
+type AdminBulkActionResult
 type AdminCalendarRequest
 type AdminCalendarResult
 type AdminFormRequest
@@ -3126,6 +3175,9 @@ type AuthProvider
 type AuthProviderStatus
 type AuthStartRequest
 type BindResult
+type BulkAction
+type BulkOpen
+type BulkRowResult
 type CalendarEvent
 type CalendarShade
 type CallInfo
@@ -3314,6 +3366,7 @@ type PaymentVoidRequest
 type PaymentVoidResult
 type Payments
 type PaymentsReadiness
+type PermissionDecl
 type PersonalDataHolder
 type PickAction
 type PickGroupBy
@@ -3345,6 +3398,7 @@ type RewardIssuedAnswer
 type RewardIssuedRequest
 type RewardWriteAnswer
 type RewardsProvider
+type RolePreset
 type RowAction
 type RowCondition
 type SavedMethodPayer
