@@ -16,7 +16,7 @@ an older Core ignores them (and reports them among the keys it does not know) an
 
 Added:
 
-- `AdminPage.BulkActions` (`BulkAction`: key, label, confirm, fields, always_ask, permission; `MaxPageBulkActions`,
+- `AdminPage.BulkActions` (`BulkAction`: key, label, confirm — required, fields, always_ask, permission; `MaxPageBulkActions`,
   `MaxBulkActionFields`), the hook `admin.bulk_action` (`AdminBulkActionHook`, `AdminBulkAction`,
   `AdminBulkActionResult`, `BulkRowResult`, `BulkOpen`, `DispatchAdminBulkAction`) and the bounds `MaxBulkBatch` (50
   ids a call) and `MaxBulkSelection` (5000 rows a run) — `adminbulk.go`.

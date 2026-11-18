@@ -90,7 +90,9 @@ type FormSection struct {
 	// form load, as AdminFormResult.Fields with this section's key — fields the owner defined themselves (a shop's
 	// custom product fields), which no manifest written in advance can list. Core holds them to the same vocabulary
 	// and checks a save against the fields the load answered, never against what the browser sends. At most
-	// MaxExtraFormFields; no repeaters, files or secrets. A form declares at most one extra card.
+	// MaxExtraFormFields; no repeaters, galleries, figures, secrets, effects or conditions. A picture (FormImage) or a file
+	// (FormFile) is one Media id, and an extra card's picture must be one the library has. A form declares at most one
+	// extra card.
 	Extra bool `json:"extra,omitempty"`
 }
 

@@ -40,8 +40,10 @@ type BulkAction struct {
 	Key string `json:"key"`
 	// Label is the button, translated through your translations ("Change prices", "Mark shipped").
 	Label string `json:"label"`
-	// Confirm is the question Core asks ONCE before the run starts, naming how many rows it covers. Set it for
-	// anything that changes the rows; at most 300 characters.
+	// Confirm is the question Core asks ONCE before the run starts, naming how many rows it covers. REQUIRED: Core
+	// refuses a bulk action without one at install and does not run a stored one — one click over thousands of rows
+	// with nobody asked is not a run it starts. A fixed sentence, translated through your translations; at most 300
+	// characters.
 	Confirm string `json:"confirm,omitempty"`
 	// Fields are what the owner answers before the run — the new price, the carrier. The form vocabulary
 	// (FormField): Core checks every value against its field exactly as it checks a form's, so your hook receives

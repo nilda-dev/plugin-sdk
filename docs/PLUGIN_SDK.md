@@ -2052,7 +2052,7 @@ your sign-in server's issuer, and a missing one when its metadata says it always
 ### Acting on many rows at once (`bulk_actions`, v0.69.0, EXPERIMENTAL)
 
 A list page may declare `bulk_actions` beside its row `actions` (`nilda.BulkAction`: key, label, a `confirm` asked
-once for the run, `fields` the owner answers first in the form vocabulary, `always_ask`, `permission`). Core draws a box
+once for the run — required: Core refuses a bulk action without one — `fields` the owner answers first in the form vocabulary, `always_ask`, `permission`). Core draws a box
 on every row and "all rows matching this view" — the page's search and filters as they stand — resolves the chosen
 rows ITSELF from your declared table (an id you receive is always a primary key of it; at most
 `nilda.MaxBulkSelection` a run), and calls your `admin.bulk_action` hook (`nilda.AdminBulkActionHook`, subscribe it)
@@ -2080,7 +2080,7 @@ The assistant acting for a person is held to that person's permissions. You neve
 
 One section of a form may be `extra`: its fields are not declared in the manifest but answered by your form load as
 `AdminFormResult.Fields` (each naming that section) — fields the owner defined (custom product fields), at most
-`nilda.MaxExtraFormFields`. Core holds them to the form vocabulary and checks a save against the fields the load
+`nilda.MaxExtraFormFields`; values only, a picture or a file being one Media id. Core holds them to the form vocabulary and checks a save against the fields the load
 answered, never against what the browser sends.
 
 ### Contributing a field type (`field`)
