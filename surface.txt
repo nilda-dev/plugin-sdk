@@ -2290,6 +2290,7 @@ field ShopImportActPage.Done bool json:done
 field ShopImportActPage.Failed int json:failed
 field ShopImportActPage.Held int json:held
 field ShopImportActPage.Kept int json:kept
+field ShopImportActPage.Live []ShopImportLive json:live
 field ShopImportActPage.Losses []ShopImportLoss json:losses
 field ShopImportActPage.Products int json:products
 field ShopImportActRequest.Cursor string json:cursor
@@ -2392,6 +2393,9 @@ field ShopImportListRequest.ImportID string json:import_id
 field ShopImportListRequest.Limit int json:limit
 field ShopImportListRequest.Locale string json:locale
 field ShopImportListRequest.Source string json:source
+field ShopImportLive.Kind string json:kind
+field ShopImportLive.Path string json:path
+field ShopImportLive.SourceID string json:source_id
 field ShopImportLoss.Code string json:code
 field ShopImportLoss.Count int json:count
 field ShopImportLoss.Fields []string json:fields
@@ -3786,6 +3790,7 @@ type ShopImportImage
 type ShopImportLinksData
 type ShopImportListAnswer
 type ShopImportListRequest
+type ShopImportLive
 type ShopImportLoss
 type ShopImportPair
 type ShopImportParcel

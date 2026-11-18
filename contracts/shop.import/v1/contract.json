@@ -2634,6 +2634,43 @@
               "additionalProperties": false
             },
             "maxItems": 100
+          },
+          "live": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "product",
+                    "category"
+                  ]
+                },
+                "source_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300,
+                  "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000,
+                  "pattern": "^/[^\\s\\x00-\\x1F\\x7F]*$"
+                }
+              },
+              "required": [
+                "kind",
+                "source_id",
+                "path"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 100
           }
         },
         "required": [
@@ -2786,6 +2823,43 @@
                 "code",
                 "count",
                 "sentence"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 100
+          },
+          "live": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "product",
+                    "category"
+                  ]
+                },
+                "source_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300,
+                  "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000,
+                  "pattern": "^/[^\\s\\x00-\\x1F\\x7F]*$"
+                }
+              },
+              "required": [
+                "kind",
+                "source_id",
+                "path"
               ],
               "additionalProperties": false
             },

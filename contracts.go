@@ -162,7 +162,8 @@ var contractPatterns = map[string]string{
 	"percent":          `^[0-9]{1,3}(\.[0-9]{1,4})?$`,
 	"rate":             `^[0-9]{1,18}(\.[0-9]{1,18})?$`,
 	"rate_or_none":     `^([0-9]{1,18}(\.[0-9]{1,18})?)?$`,
-	"ref":              `^[^|\x00-\x1F\x7F]*$`, // a record's id at the old shop: one line, no "|" (the shop's key joins on it)
+	"ref":              `^[^|\x00-\x1F\x7F]*$`,   // a record's id at the old shop: one line, no "|" (the shop's key joins on it)
+	"sitepath":         `^/[^\s\x00-\x1F\x7F]*$`, // a public path on the site: from its root, no space or control character
 	"source":           `^(woocommerce|shopify|wix|squarespace|csv):[^|\s]+$`,
 	"source_or_none":   `^((woocommerce|shopify|wix|squarespace|csv):[^|\s]+)?$`,
 	"time":             `^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?Z)?$`, // RFC 3339 UTC, or none

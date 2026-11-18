@@ -3540,7 +3540,7 @@ of ONE kind of `ShopImportRecord`s → a `ShopImportAnswer` of `ShopImportResult
 (`ShopImportActRequest` → `ShopImportPlan` of `ShopImportCounts`, `ShopImportGroups` with `ShopImportSKUPair`s and
 `ShopImportSaleSoon`s, and `ShopImportShopSettings`), `publish.prices` (→ `ShopImportPrices` of `ShopImportPriceRow`s),
 `publish.apply` (`ShopImportApplyRequest` with the owner's `ShopImportChoices`) and `publish.undo`
-(`ShopImportUndoRequest`), each answering a `ShopImportActPage`. A record's data is its kind's, in the order
+(`ShopImportUndoRequest`), each answering a `ShopImportActPage` (an act's page names what it made live, `ShopImportLive`: kind, source id, public path). A record's data is its kind's, in the order
 `ShopImportKinds` lists them: `ShopImportCategoryData`, `ShopImportTagData`, `ShopImportAttributeData` (with
 `ShopImportAttributeTerm`s), `ShopImportProductData` (its `ShopImportPricing`, `ShopImportStock` and `ShopImportParcel`,
 `ShopImportImage`s, `ShopImportAxis`es, `ShopImportChoice`s, `ShopImportDownload`s), `ShopImportVariantData`,
