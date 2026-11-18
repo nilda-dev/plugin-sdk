@@ -126,7 +126,12 @@ type Ability struct {
 	// fifty products" does not fit, and half of it is worse than none. Work that long ANSWERS FAST AND FINISHES
 	// IN THE BACKGROUND: start it on a context of your own, return what was started ("importing 50 products"),
 	// and make the result visible where the owner looks — your admin list page, an event, a row in your table.
-	Run func(ctx context.Context, args json.RawMessage) (any, error)
+	// Permission is the key of one of your manifest's `permissions` the person the assistant acts for needs to have it
+	// run (v0.69.0, permissions.go). Core reads it from the manifest's abilities[].permission — what the owner
+	// approved — and holds the call to it in the panel's chat and over every connector. Empty: only those who may
+	// configure the whole plugin.
+	Permission string
+	Run        func(ctx context.Context, args json.RawMessage) (any, error)
 }
 
 // AbilityChange is one thing an ability changed, as the owner reads it: "Price €12.00 → €13.00". An ability that
