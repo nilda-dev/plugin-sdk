@@ -3527,8 +3527,10 @@ contract needs the grant (`ServiceContract.CallerCapability` `"import"`), and it
 (`ServiceContract.Closed`). Test with `nildatest.Services.ImportPlugin`, which grants `import` as the owner would; a plugin
 made with `Core` is refused (`nildatest.ErrImportNotGranted`), as every call is while `Services.SetImportEnabled(false)`
 (`nildatest.ErrImportOff`, Core's 409 `plugin_import_off`); an import call with two shops and none named is
-`nildatest.ErrProviderNotNamed` (Core's 422 `provider_not_named`). `ShopImportApplyRequest.Validate` refuses an act whose
-settings name no currency.
+`nildatest.ErrProviderNotNamed` (Core's 422 `provider_not_named`). A request whose object names one key twice is
+`nildatest.ErrKeyGivenTwice` on every contract (Core's 422 `key_given_twice`, `at` the object's path: an exact repeat
+anywhere, a repeat in another case inside a declared object, never two keys of a free-form map such as `sku_pairs`), asked
+after the grant and before the schema. `ShopImportApplyRequest.Validate` refuses an act whose settings name no currency.
 
 ### The shop's catalogue (`shop.catalog/v1`)
 

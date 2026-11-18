@@ -44,6 +44,11 @@ Added (the import):
 - `nildatest.Services.SetImportEnabled`, `nildatest.ErrImportOff` (Core's 409 `plugin_import_off`) and
   `nildatest.ErrProviderNotNamed` (Core's 422 `provider_not_named`); the desk checks an import contract's grant and switch
   before it reads the request, for every method (F8).
+- The desk refuses, as Core does (review round 2, N3), a request whose object names one key twice: 422 `VALIDATION`
+  with details reason `key_given_twice` and `at` the object's JSON path (`nildatest.ErrKeyGivenTwice`,
+  `*nildatest.KeyGivenTwice`) — an exact repeat anywhere, and inside an object whose schema declares `properties` a
+  repeat under Unicode simple case folding; the keys of a free-form map (`additionalProperties: {schema}`: `sku_pairs`,
+  `tax_class_rates`) are the caller's data, so "abc" and "ABC" are two. The grant first, then the keys, then the schema.
 - The neutral records as the shop needs them (D10 §1.4 amendments 8–11): `ShopImportPricing.TaxStatus` (`taxable`,
   `shipping_only`, `none`; empty is taxable) replaces `Taxable`, whose zero value sold an item untaxed; `ShopImportParcel.Virtual`
   (an item nothing is delivered for); `ShopImportSettingsResult.Currency` and `ShopImportShopSettings.Currency` may be empty (a

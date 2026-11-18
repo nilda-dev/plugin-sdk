@@ -36,6 +36,11 @@ on it.
   `plugin_import_off`, not retried). Core's own call — the owner's assistant — reaches a method of it whose agent is `read`
   and that is no import call, whatever the switch says. A contract with an import call must require `import`, so a plugin
   that may not import can neither plan, publish nor undo one.
+- **One key, one spelling** (every contract): Core refuses a request in which an object names one key twice — 422
+  `key_given_twice`, `details.at` the object's JSON path — after the grant and before the schema. An exact repeat is
+  refused anywhere; a repeat that differs only by Unicode simple case folding (`strings.EqualFold`) only inside an object
+  whose schema declares `properties`, because encoding/json reads such keys as one field. The keys of a free-form map
+  (`additionalProperties: {schema}`) are data: `"abc"` and `"ABC"` are two. `nildatest.Services` refuses the same.
 - **Within a major, a contract only grows.** A schema never closes an object, so a field one side adds is never refused
   by the other. A breaking change is a new major (`…/v2`), served beside the old one for a while. The one exception is a
   CLOSED contract (`"closed": true`, `ServiceContract.Closed`, from v0.70.0; `shop.import/v1`): every object of it is
