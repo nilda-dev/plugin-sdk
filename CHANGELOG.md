@@ -8,6 +8,34 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.70.0 — unreleased (the shop import: shop.import/v1, its import calls, private uploads, HTMLBody, Core's import doors)
+
+Additive, and EXPERIMENTAL: door D10, `shop.import/v1` (`docs/SHOP_IMPORT.md`, `shopimport.go`), phase A — the
+catalogue, the owner's act and the read. The import plugin writes an old shop into the shop through it, in the shop's
+neutral records; Core relays it from the release built on this version.
+
+Added (the import):
+
+- `ContractMethod.Import`: an IMPORT CALL. `ParseContract` holds it to answered by the provider, fallback `block`,
+  idempotent, agent `none`, and a request requiring `import: {id, planned}` (`ImportCall`, `ReadImportCall`,
+  `MaxImportCallID`, `MaxImportPlanned`). Core relays it only for a caller holding `import`, under its own marker
+  `plugin:<caller>:<id>` (quiet callbacks, the job's own rate allowance), to one provider, never from a cache, up to
+  `MaxImportInputBytes`.
+- `shop.import/v1`: `settings.answer`, `records.put` (the import call; budget 15 s), `records.list` (agent `read`),
+  `publish.plan`, `publish.prices`, `publish.apply`, `publish.undo`. `ShopImportProvider`, `ShopImportMethods`, the
+  plugin's `Services.ShopImportSettings`, `Services.PutShopImportRecords`, `Services.ShopImportRecords`,
+  `Services.PlanShopImport`, `Services.ShopImportPrices`, `Services.ApplyShopImport`, `Services.UndoShopImport`; the
+  envelope `ShopImportBatch` of `ShopImportRecord`s (`ShopImportRecordOf`, `Decode`) with `ShopImportSettings` and
+  `ShopImportConvert`; one data type per kind (`ShopImportKinds`: category, tag, attribute, product, variant, links,
+  review, coupon); the answers' types; constants for the methods, kinds, platforms, outcomes, holds, statuses and money
+  answers. The contract's schema bounds every field (lengths, patterns, values, list sizes) and checks each record's data
+  by its batch's kind, so Core refuses a malformed batch before the shop is asked.
+- A contract type's field may carry a `contract` tag (`len`, `items`, `props`, `pattern`, `enum`, `min`, `max`), which the
+  contract file's schema is generated from. No earlier contract's file changed.
+- `nildatest.Services.ImportPlugin` (Core for a plugin holding `import`), `nildatest.ErrImportNotGranted`, and
+  `ServiceCallLog.ImportMarker` / `ImportPlanned`: the desk relays an import call as Core does.
+
+
 ## v0.69.0 — 2026-11-18 (account-page sections, purchase options on the product page, renewal recovery, 128 events)
 
 Additive, and EXPERIMENTAL: the subscriptions plugin's "a view in the buyer's My Account" and the loyalty plugin's points

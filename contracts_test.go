@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -32,6 +33,9 @@ type contractDef struct {
 	name, description string
 	status            string
 	methods           []methodDef
+	// refineIn finishes a method's input schema, by the method's name, with what no one Go type says (shop.import's
+	// records.put: each kind's data checked by its kind).
+	refineIn map[string]func(t *testing.T, s *jsonschema.Schema)
 }
 
 // ordinary is a request or an answer that carries nothing.
@@ -226,7 +230,77 @@ const deliverablesAgentReason = "what was delivered is shown to its buyer; the o
 // contractDefs is every contract this module defines.
 var contractDefs = []contractDef{paymentsV1, shippingCarrierV1, shopCatalogV1, shopOrdersV1,
 	shopDeliverablesV1, siteReaderV1, shopAttributesV1, shopAttributeValuesV1, shopEventsV1, shopRewardsV1, shopSubscriptionsV1,
-	shopAccountSectionsV1}
+	shopAccountSectionsV1, shopImportV1}
+
+// shopImportV1 is door D10 (SHOP_IMPORT.md): an import plugin writes an old shop into this one, in the shop's neutral
+// records. One shop answers, so a failure blocks; records.put is an import call. Experimental until its first plugin ships.
+var shopImportV1 = contractDef{
+	name:   ContractShopImport,
+	status: ContractExperimental,
+	description: "An old shop written into this one by an import plugin (SHOP_IMPORT.md): the plugin reads WooCommerce, later " +
+		"Shopify or Wix, and sends the shop's own NEUTRAL records one kind a batch — categories, tags, attributes, products, " +
+		"variants, links, reviews, coupons; the shop writes drafts only, quietly, keyed by where each came from so a batch sent " +
+		"again changes nothing, converts money only at the owner's rate, holds what cannot be published yet, and later publishes " +
+		"the import on the owner's act and takes that act back.",
+	methods: []methodDef{
+		{ContractMethod{Name: ShopImportSettingsAnswer, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: shopImportAgentReason,
+			Description: "EXPERIMENTAL. What the shop would do with an old shop's settings: the money decision (same, adopt, convert, no_prices, or ask when the currencies differ and the owner has not answered), the ECB's rate for the pair, whether the two shops' prices_include_tax differ, this shop's currency and whether it is empty."},
+			ShopImportSettingsRequest{}, ShopImportSettingsResult{}},
+		{ContractMethod{Name: ShopImportRecordsPut, AnsweredBy: "provider", BudgetMS: 15000, RetryClass: "failure",
+			Fallback: "block", Idempotent: true, Agent: "none", AgentReason: shopImportAgentReason, Import: true,
+			Description: "EXPERIMENTAL. One batch of ONE kind of an old shop's records, an import call: drafts only, no mail, webhook, notice or catalogue event; keyed by source, kind and source id, so a batch sent again answers already (the same record and money), kept (changed here since: never overwritten) or updated. apply false is the preview: nothing is written. Each record's answer names what was made, why it is held, and what it lost."},
+			ShopImportBatch{}, ShopImportAnswer{}},
+		{ContractMethod{Name: ShopImportRecordsList, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "read",
+			Description: "EXPERIMENTAL. What imports brought into the shop, held, paired with the owner's products and converted, with the old prices as they were read, a page at a time."},
+			ShopImportListRequest{}, ShopImportListAnswer{}},
+		{ContractMethod{Name: ShopImportPublishPlan, AnsweredBy: "provider", BudgetMS: 15000, RetryClass: "failure",
+			Fallback: "block", Idempotent: true, Agent: "none", AgentReason: shopImportAgentReason,
+			Description: "EXPERIMENTAL. What publishing an old shop's import would do now: its counts, its groups (converted products, used once-per-customer codes, SKU pairs, sales starting within 30 days) and the shop's settings it would replace."},
+			ShopImportActRequest{}, ShopImportPlan{}},
+		{ContractMethod{Name: ShopImportPublishPrices, AnsweredBy: "provider", RetryClass: "failure", Fallback: "block",
+			Idempotent: true, Agent: "none", AgentReason: shopImportAgentReason,
+			Description: "EXPERIMENTAL. A page of the converted products' old and new prices, for the owner to check before the act."},
+			ShopImportActRequest{}, ShopImportPrices{}},
+		{ContractMethod{Name: ShopImportPublishApply, AnsweredBy: "provider", BudgetMS: 15000, RetryClass: "failure",
+			Fallback: "block", Idempotent: true, Agent: "none", AgentReason: shopImportAgentReason,
+			Description: "EXPERIMENTAL. The owner's act, one page at a time under the act's marker: publishes what was public at the old shop and is not held, with the owner's choices; a page asked again changes nothing."},
+			ShopImportApplyRequest{}, ShopImportActPage{}},
+		{ContractMethod{Name: ShopImportPublishUndo, AnsweredBy: "provider", BudgetMS: 15000, RetryClass: "failure",
+			Fallback: "block", Idempotent: true, Agent: "none", AgentReason: shopImportAgentReason,
+			Description: "EXPERIMENTAL. Takes an act back, one page at a time, from what each record held before it."},
+			ShopImportUndoRequest{}, ShopImportActPage{}},
+	},
+	refineIn: map[string]func(*testing.T, *jsonschema.Schema){ShopImportRecordsPut: shopImportDataByKind},
+}
+
+const shopImportAgentReason = "the import plugin's own abilities are the door: they keep the job, preview first and ask the " +
+	"owner before the act"
+
+// shopImportData is each kind's data type.
+var shopImportData = map[string]any{
+	ShopImportCategory: ShopImportCategoryData{}, ShopImportTag: ShopImportTagData{}, ShopImportAttribute: ShopImportAttributeData{},
+	ShopImportProduct: ShopImportProductData{}, ShopImportVariant: ShopImportVariantData{}, ShopImportLinks: ShopImportLinksData{},
+	ShopImportReview: ShopImportReviewData{}, ShopImportCoupon: ShopImportCouponData{},
+}
+
+// shopImportDataByKind holds each record's data to its batch's kind: if kind is K, every record's data is K's.
+func shopImportDataByKind(t *testing.T, s *jsonschema.Schema) {
+	t.Helper()
+	for _, kind := range ShopImportKinds() {
+		data, ok := shopImportData[kind]
+		if !ok {
+			t.Fatalf("the kind %s has no data type", kind)
+		}
+		var k any = kind
+		s.AllOf = append(s.AllOf, &jsonschema.Schema{
+			If: &jsonschema.Schema{Properties: map[string]*jsonschema.Schema{"kind": {Const: &k}}, Required: []string{"kind"}},
+			Then: &jsonschema.Schema{Properties: map[string]*jsonschema.Schema{"records": {Items: &jsonschema.Schema{
+				Properties: map[string]*jsonschema.Schema{"data": schemaTree(t, data)}}}}},
+		})
+	}
+}
 
 // shopAccountSectionsV1 is another plugin's section on the buyer's account page (SHOP_ACCOUNT_SECTIONS.md): the plugin
 // describes it, the shop draws it in its menu and mounts the plugin's own route, which Core's proxy tells who is signed in.
@@ -385,7 +459,11 @@ func (d contractDef) render(t *testing.T) []byte {
 		if m.Agent == "" {
 			m.Agent, m.AgentReason = "none", paymentsAgentReason
 		}
-		m.Input, m.Output = schemaOf(t, md.in), schemaOf(t, md.out)
+		in := schemaTree(t, md.in)
+		if refine := d.refineIn[m.Name]; refine != nil {
+			refine(t, in)
+		}
+		m.Input, m.Output = marshalSchema(t, in), schemaOf(t, md.out)
 		c.Methods = append(c.Methods, m)
 	}
 	b, err := json.MarshalIndent(c, "", "  ")
@@ -397,6 +475,12 @@ func (d contractDef) render(t *testing.T) []byte {
 
 func schemaOf(t *testing.T, v any) json.RawMessage {
 	t.Helper()
+	return marshalSchema(t, schemaTree(t, v))
+}
+
+// schemaTree is the schema inferred from v's Go type, opened, with its fields' contract tags applied.
+func schemaTree(t *testing.T, v any) *jsonschema.Schema {
+	t.Helper()
 	// json.RawMessage is any JSON value (a reader's piece holds members of the site; an input holds the owner's field values), not
 	// the array of bytes the default translation would make of it.
 	s, err := jsonschema.ForType(reflect.TypeOf(v), &jsonschema.ForOptions{
@@ -406,11 +490,126 @@ func schemaOf(t *testing.T, v any) json.RawMessage {
 		t.Fatalf("inferring the schema of %T: %v", v, err)
 	}
 	openObjects(s)
+	boundSchema(t, reflect.TypeOf(v), s)
+	return s
+}
+
+func marshalSchema(t *testing.T, s *jsonschema.Schema) json.RawMessage {
+	t.Helper()
 	b, err := json.Marshal(s)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return b
+}
+
+// boundSchema applies the `contract` tags of typ's fields (contractPatterns says the grammar) to s, the schema inferred
+// from typ, all the way down.
+func boundSchema(t *testing.T, typ reflect.Type, s *jsonschema.Schema) {
+	t.Helper()
+	for typ.Kind() == reflect.Pointer {
+		typ = typ.Elem()
+	}
+	switch typ.Kind() {
+	case reflect.Slice, reflect.Array:
+		if s.Items != nil {
+			boundSchema(t, typ.Elem(), s.Items)
+		}
+	case reflect.Map:
+		if s.AdditionalProperties != nil {
+			boundSchema(t, typ.Elem(), s.AdditionalProperties)
+		}
+	case reflect.Struct:
+		for i := 0; i < typ.NumField(); i++ {
+			f := typ.Field(i)
+			name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
+			if f.Anonymous && name == "" {
+				boundSchema(t, f.Type, s) // its fields are the parent's, as encoding/json promotes them
+				continue
+			}
+			p := s.Properties[name]
+			if !f.IsExported() || name == "-" || p == nil {
+				continue
+			}
+			if tag, ok := f.Tag.Lookup("contract"); ok {
+				applyBounds(t, typ.Name()+"."+f.Name, f.Type, p, tag)
+			}
+			boundSchema(t, f.Type, p)
+		}
+	}
+}
+
+// applyBounds applies one field's contract tag to its schema p.
+func applyBounds(t *testing.T, field string, typ reflect.Type, p *jsonschema.Schema, tag string) {
+	t.Helper()
+	for typ.Kind() == reflect.Pointer {
+		typ = typ.Elem()
+	}
+	each := p // what len, pattern, enum, min and max hold: the value, or each item or value of a list or a map
+	switch typ.Kind() {
+	case reflect.Slice:
+		each = p.Items
+	case reflect.Map:
+		each = p.AdditionalProperties
+	}
+	span := func(v string) (lo, hi int) {
+		a, b, ok := strings.Cut(v, "-")
+		var err1, err2 error
+		lo, err1 = strconv.Atoi(a)
+		hi, err2 = strconv.Atoi(b)
+		if !ok || err1 != nil || err2 != nil || lo < 0 || hi < lo {
+			t.Fatalf("%s: %q is not <least>-<most>", field, v)
+		}
+		return lo, hi
+	}
+	for _, part := range strings.Split(tag, ",") {
+		key, v, ok := strings.Cut(part, "=")
+		if !ok || each == nil {
+			t.Fatalf("%s: contract tag %q: %q is not key=value of a field it can bound", field, tag, part)
+		}
+		switch key {
+		case "len":
+			lo, hi := span(v)
+			if lo > 0 {
+				each.MinLength = &lo
+			}
+			each.MaxLength = &hi
+		case "items":
+			lo, hi := span(v)
+			if lo > 0 {
+				p.MinItems = &lo
+			}
+			p.MaxItems = &hi
+		case "props":
+			n, err := strconv.Atoi(v)
+			if err != nil || typ.Kind() != reflect.Map {
+				t.Fatalf("%s: props=%q bounds a map's keys", field, v)
+			}
+			p.MaxProperties = &n
+		case "pattern":
+			re, known := contractPatterns[v]
+			if !known {
+				t.Fatalf("%s: no contract pattern %q", field, v)
+			}
+			each.Pattern = re
+		case "enum":
+			for _, e := range strings.Split(v, "|") {
+				each.Enum = append(each.Enum, e)
+			}
+		case "min", "max":
+			n, err := strconv.ParseFloat(v, 64)
+			if err != nil {
+				t.Fatalf("%s: %s=%q is not a number", field, key, v)
+			}
+			if key == "min" {
+				each.Minimum = &n
+			} else {
+				each.Maximum = &n
+			}
+		default:
+			t.Fatalf("%s: contract tag %q: no bound %q", field, tag, key)
+		}
+	}
 }
 
 // openObjects undoes the one thing inference gets wrong for a contract: it closes every struct's object
