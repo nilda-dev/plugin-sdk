@@ -53,6 +53,11 @@ Added (the import):
   `shipping_only`, `none`; empty is taxable) replaces `Taxable`, whose zero value sold an item untaxed; `ShopImportParcel.Virtual`
   (an item nothing is delivered for); `ShopImportSettingsResult.Currency` and `ShopImportShopSettings.Currency` may be empty (a
   shop that has chosen no currency yet, which is the one that may adopt the old one); `ShopImportApplyRequest.Validate`.
+- `API.UploadPrivateMedia`: a file uploaded PRIVATE from the insert (Core's `POST /media` with `private=true`), for a file
+  that is sold or handed over — an import plugin's copy of an old shop's download (D10 §1.2) — which never has a public
+  address; UploadMedia then a PATCH to private left a moment in which it had one. A keyed private upload is another request
+  than a public one of the same key and file. `nildatest.Site` takes `POST /media` as Core does (multipart `file`, `alt`,
+  `private`; `write:media`).
 
 
 ## v0.69.0 — 2026-11-18 (account-page sections, purchase options on the product page, renewal recovery, 128 events)

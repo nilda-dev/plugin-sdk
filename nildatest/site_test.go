@@ -459,3 +459,51 @@ func TestSitePageStatusChangesByPatch(t *testing.T) {
 		t.Errorf("an unknown status: %v, want 422", err)
 	}
 }
+
+// The fake site takes an upload as Core's POST /media does (a multipart `file`, `alt`, and `private=true` for a file that is
+// sold): a private one has no public address from the insert and opens through MediaFile; without write:media it is refused.
+func TestTheSiteTakesAnUploadPrivateFromTheInsert(t *testing.T) {
+	site := NewSite()
+	core, _, srv := site.Core("site_import", "media.read", "media.write")
+	defer srv.Close()
+	ctx := context.Background()
+	var out struct {
+		Data nilda.MediaItem `json:"data"`
+	}
+	if err := core.API().UploadPrivateMedia(ctx, "pattern.pdf", strings.NewReader("%PDF-1.7 pattern"), &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Data.ID == "" || !out.Data.Private || out.Data.Filename != "pattern.pdf" || !strings.HasSuffix(out.Data.URL, "/private-file") {
+		t.Fatalf("the upload answered %+v", out.Data)
+	}
+	res, err := http.Get(srv.URL + "/api/v1/media/" + out.Data.ID + "/file")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusNotFound {
+		t.Errorf("the private file's public address answered %d", res.StatusCode)
+	}
+	f, err := core.API().MediaFile(ctx, out.Data.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := io.ReadAll(f)
+	f.Close()
+	if string(b) != "%PDF-1.7 pattern" {
+		t.Errorf("MediaFile read %q", b)
+	}
+	var pub struct {
+		Data nilda.MediaItem `json:"data"`
+	}
+	if err := core.API().UploadMedia(ctx, "kettle.png", strings.NewReader("PNG"), "A kettle", &pub); err != nil || pub.Data.Private ||
+		pub.Data.Alt != "A kettle" {
+		t.Fatalf("a public upload: %+v %v", pub.Data, err)
+	}
+	reader, _, srv2 := site.Core("reader", "media.read")
+	defer srv2.Close()
+	if err := reader.API().UploadPrivateMedia(ctx, "x.pdf", strings.NewReader("x"), nil); err == nil ||
+		!strings.Contains(err.Error(), "write:media") {
+		t.Errorf("an upload without write:media: %v", err)
+	}
+}
