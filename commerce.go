@@ -357,6 +357,13 @@ type CommerceQuery struct {
 	// Filters are what the shopper narrowed the catalogue by in Core's product filter (EXPERIMENTAL, v0.58.0); nil
 	// narrows nothing. Honour them in Products and CountProducts alike, so the pager and the list agree.
 	Filters *CommerceFilters `json:"filters,omitempty"`
+	// Locale is the language the page is drawn in — the reader's, as Core rendered it (/fr/… is "fr") — as a lowercase
+	// language code, one of the site's published languages (v0.69.0). Answer titles, descriptions, choice names and
+	// category names in it where your catalogue holds them, and in your own language where it does not: a product with
+	// no French title is drawn with its own, never with none. "" from an older Core: answer in your own language.
+	// CommerceLocaleOf reads it from the context too, for Product and ProductForContent, whose signatures have no query.
+	// Core keeps a page per address and language, so an answer that varies by Locale is still safe to cache.
+	Locale string `json:"locale,omitempty"`
 }
 
 // CommerceViewer is a signed-in visitor with prices of their own: a business buyer in a wholesale group, a member
@@ -443,6 +450,13 @@ type CommerceEndpoints struct {
 	// draw them. Yours, not Core's, because only you know which methods your checkout offers: the strip may never show
 	// a method a buyer then cannot choose. Empty draws no strip (v0.58.0).
 	PaymentMarks []string `json:"payment_marks,omitempty"`
+	// SearchSuggest is a GET answering what a shopper's search box offers as they type, as JSON CommerceSearchAnswer
+	// (v0.69.0): `?q=<what they typed>&limit=<hits>` — your products that match, with their picture and price for the
+	// viewer, the searches it completes to, and the search you ran instead when a word was a typo. Core's search box
+	// scoped to your products asks it beside its own search, so a shop on a site without a typo-tolerant search engine
+	// still forgives "candel". Answer in the visitor's language (VisitorLocale) and for the signed-in viewer's price
+	// group; never cache it shared. Empty, the box asks Core's search alone.
+	SearchSuggest string `json:"search_suggest,omitempty"`
 }
 
 // Commerce is the interface a shop plugin implements.
@@ -510,6 +524,44 @@ func withCommerceViewer(ctx context.Context, v *CommerceViewer) context.Context 
 		return ctx
 	}
 	return context.WithValue(ctx, commerceViewerKey{}, *v)
+}
+
+// commerceLocaleKey carries the page's language to Product and ProductForContent, as commerceViewerKey carries the
+// viewer.
+type commerceLocaleKey struct{}
+
+// CommerceLocaleOf is the language the page this commerce hook is drawn for is in (CommerceQuery.Locale), or false when
+// Core did not say (an older Core): answer in your own language then.
+func CommerceLocaleOf(ctx context.Context) (string, bool) {
+	l, ok := ctx.Value(commerceLocaleKey{}).(string)
+	return l, ok && l != ""
+}
+
+// withCommerceLocale puts a payload's locale in the context; one that is no language code (two or three lowercase
+// letters, as VisitorLocale reads one) is no locale.
+func withCommerceLocale(ctx context.Context, l string) context.Context {
+	if !validLocaleCode(l) {
+		return ctx
+	}
+	return context.WithValue(ctx, commerceLocaleKey{}, l)
+}
+
+// validLocaleCode is a language code as Core sends one: two or three lowercase ASCII letters.
+func validLocaleCode(l string) bool {
+	if len(l) < 2 || len(l) > 3 {
+		return false
+	}
+	for i := 0; i < len(l); i++ {
+		if l[i] < 'a' || l[i] > 'z' {
+			return false
+		}
+	}
+	return true
+}
+
+// commerceCtx is the context a commerce hook's answer is drawn in: the price display, the viewer and the language.
+func commerceCtx(ctx context.Context, gross bool, v *CommerceViewer, locale string) context.Context {
+	return withCommerceLocale(withCommerceViewer(withGrossPrices(ctx, gross), v), locale)
 }
 
 // validQueryFilters refuses a query whose filters Core never sends (CommerceFilters.Validate).
@@ -594,7 +646,7 @@ func DispatchCommerceHook(ctx context.Context, _ *Core, c Commerce, hook string,
 		if err := validQueryFilters(q); err != nil {
 			return nil, true, fmt.Errorf("nilda: commerce.products payload: %w", err)
 		}
-		products, err := c.Products(withCommerceViewer(withGrossPrices(ctx, q.ShowPricesIncludingTax), q.Viewer), q)
+		products, err := c.Products(commerceCtx(ctx, q.ShowPricesIncludingTax, q.Viewer, q.Locale), q)
 		if err != nil {
 			return nil, true, err
 		}
@@ -616,11 +668,12 @@ func DispatchCommerceHook(ctx context.Context, _ *Core, c Commerce, hook string,
 			ID                     string          `json:"id"`
 			ShowPricesIncludingTax bool            `json:"show_prices_including_tax,omitempty"`
 			Viewer                 *CommerceViewer `json:"viewer,omitempty"`
+			Locale                 string          `json:"locale,omitempty"`
 		}
 		if err := json.Unmarshal(payload, &in); err != nil {
 			return nil, true, fmt.Errorf("nilda: commerce.product payload: %w", err)
 		}
-		p, found := c.Product(withCommerceViewer(withGrossPrices(ctx, in.ShowPricesIncludingTax), in.Viewer), in.ID)
+		p, found := c.Product(commerceCtx(ctx, in.ShowPricesIncludingTax, in.Viewer, in.Locale), in.ID)
 		if !found {
 			// An explicit null, not an omitted key: "we looked and there is no such product" and "the
 			// plugin did not answer" must not be the same bytes.
@@ -654,7 +707,7 @@ func DispatchCommerceHook(ctx context.Context, _ *Core, c Commerce, hook string,
 		if err := validQueryFilters(q); err != nil {
 			return nil, true, fmt.Errorf("nilda: commerce.count payload: %w", err)
 		}
-		total, answered := counter.CountProducts(withCommerceViewer(ctx, q.Viewer), q)
+		total, answered := counter.CountProducts(withCommerceLocale(withCommerceViewer(ctx, q.Viewer), q.Locale), q)
 		if !answered {
 			return []byte(`{}`), true, nil
 		}
@@ -670,6 +723,7 @@ func DispatchCommerceHook(ctx context.Context, _ *Core, c Commerce, hook string,
 			ContentID              string          `json:"content_id"`
 			ShowPricesIncludingTax bool            `json:"show_prices_including_tax,omitempty"`
 			Viewer                 *CommerceViewer `json:"viewer,omitempty"`
+			Locale                 string          `json:"locale,omitempty"`
 		}
 		if err := json.Unmarshal(payload, &in); err != nil {
 			return nil, true, fmt.Errorf("nilda: commerce.product_for_content payload: %w", err)
@@ -677,7 +731,7 @@ func DispatchCommerceHook(ctx context.Context, _ *Core, c Commerce, hook string,
 		if in.ContentID == "" {
 			return []byte(`{"product":null}`), true, nil
 		}
-		p, found := pages.ProductForContent(withCommerceViewer(withGrossPrices(ctx, in.ShowPricesIncludingTax), in.Viewer), in.ContentID)
+		p, found := pages.ProductForContent(commerceCtx(ctx, in.ShowPricesIncludingTax, in.Viewer, in.Locale), in.ContentID)
 		if !found {
 			return []byte(`{"product":null}`), true, nil
 		}
@@ -706,7 +760,7 @@ func DispatchCommerceHook(ctx context.Context, _ *Core, c Commerce, hook string,
 			return []byte(`{"facets":[]}`), true, nil
 		}
 		q := in.CommerceQuery
-		got, err := facets.Facets(withCommerceViewer(withGrossPrices(ctx, q.ShowPricesIncludingTax), q.Viewer), q, in.Want)
+		got, err := facets.Facets(commerceCtx(ctx, q.ShowPricesIncludingTax, q.Viewer, q.Locale), q, in.Want)
 		if err != nil {
 			return nil, true, err
 		}

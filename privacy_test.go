@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"unicode"
 )
 
 // guestBook is a holder the way a booking plugin is one: rows keyed by email, one kept for the accounts after it is
@@ -307,5 +308,51 @@ func TestAPhoneTypedInPersianOrArabicDigitsIsTheSameNumber(t *testing.T) {
 	}
 	if d, ok := decimalDigit('𝟗'); !ok || d != 9 {
 		t.Errorf("a mathematical digit nine reads %d %v", d, ok)
+	}
+}
+
+// decimalDigitReference is decimalDigit as it was written before the narrowing conversion went (gosec G115): the
+// behaviour the rewrite must keep, rune for rune.
+func decimalDigitReference(r rune) (byte, bool) {
+	if r >= '0' && r <= '9' {
+		return byte(r - '0'), true
+	}
+	if r < 0x80 || !unicode.Is(unicode.Nd, r) {
+		return 0, false
+	}
+	start := r
+	for unicode.Is(unicode.Nd, start-1) {
+		start--
+	}
+	return byte((r - start) % 10), true
+}
+
+// TestDecimalDigitReadsEveryRuneAsItAlwaysDid compares decimalDigit with the previous implementation for every code
+// point (including the surrogates and the values past unicode.MaxRune), so the digit mapping of the privacy
+// matching cannot drift, and pins the borders of the digit runs: the first and the last digit of ASCII, Arabic-Indic,
+// Persian, fullwidth and the mathematical runs, and the runes just outside them.
+func TestDecimalDigitReadsEveryRuneAsItAlwaysDid(t *testing.T) {
+	for r := rune(-1); r <= unicode.MaxRune+1; r++ {
+		gd, gok := decimalDigit(r)
+		wd, wok := decimalDigitReference(r)
+		if gd != wd || gok != wok {
+			t.Fatalf("decimalDigit(%U) = %d, %v; the previous implementation gave %d, %v", r, gd, gok, wd, wok)
+		}
+	}
+	for _, c := range []struct {
+		r    rune
+		want byte
+		ok   bool
+	}{
+		{'/', 0, false}, {'0', 0, true}, {'9', 9, true}, {':', 0, false},
+		{'\u0660' - 1, 0, false}, {'\u0660', 0, true}, {'\u0669', 9, true}, {'\u066a', 0, false},
+		{'\u06f0', 0, true}, {'\u06f9', 9, true}, {'\u06fa', 0, false},
+		{'\uff10' - 1, 0, false}, {'\uff10', 0, true}, {'\uff19', 9, true}, {'\uff1a', 0, false},
+		{0x1d7ce, 0, true}, {0x1d7d7, 9, true}, {0x1d7d8, 0, true}, {0x1d7ff, 9, true}, {0x1d800, 0, false},
+		{-1, 0, false}, {0, 0, false}, {unicode.MaxRune + 1, 0, false},
+	} {
+		if d, ok := decimalDigit(c.r); d != c.want || ok != c.ok {
+			t.Errorf("decimalDigit(%U) = %d, %v; want %d, %v", c.r, d, ok, c.want, c.ok)
+		}
 	}
 }

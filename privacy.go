@@ -339,5 +339,7 @@ func decimalDigit(r rune) (byte, bool) {
 	for unicode.Is(unicode.Nd, start-1) {
 		start--
 	}
-	return byte((r - start) % 10), true
+	// An index into the ten values, not a conversion: (r-start) is never negative here (start is the lowest rune of
+	// r's run), so the remainder is 0..9 and nothing is narrowed.
+	return [10]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}[(r-start)%10], true
 }

@@ -175,6 +175,10 @@ type AdminPage struct {
 	// that sets it (a report has the Install cell). An older Core ignores the key. Advice on the page, never a gate:
 	// the page works whether or not the recommendation is met.
 	Install string `json:"install,omitempty"`
+	// Permission is the key of one of your manifest's `permissions` a person needs to OPEN this page (v0.70.0,
+	// permissions.go). Empty: only those who may configure the whole plugin. A list page's row and bulk actions and
+	// its form's save each name their own; a settings page's permission also saves it.
+	Permission string `json:"permission,omitempty"`
 
 	// --- kind: "list" ---
 
@@ -217,6 +221,10 @@ type AdminPage struct {
 	// convenience of the screen, never a lock — your admin.action hook still checks every press. An older Core
 	// ignores it and draws the page as before.
 	RowState *ListRowState `json:"row_state,omitempty"`
+	// BulkActions are actions on many rows at once (v0.70.0, adminbulk.go): Core draws a box on every row and "all
+	// rows matching this view", and hands the chosen rows to your `admin.bulk_action` hook in batches. At most
+	// MaxPageBulkActions. A list page with bulk actions needs a primary key on its table, as one with Actions does.
+	BulkActions []BulkAction `json:"bulk_actions,omitempty"`
 	// Form lets the owner create and edit this list's rows in a form you declare and save yourself (adminform.go).
 	// Nil keeps the list read-only.
 	Form *PageForm `json:"form,omitempty"`
@@ -501,6 +509,9 @@ type RowAction struct {
 	// granted (v0.41.0) — for a button that moves money or lets data out, as the ability that does the same is
 	// declared (Ability.AlwaysAsk). A person's own press in the panel is not asked twice: Confirm already asks them.
 	AlwaysAsk bool `json:"always_ask,omitempty"`
+	// Permission is the key of one of your manifest's `permissions` a person needs to press this button (v0.70.0).
+	// Empty: only those who may configure the whole plugin — the page's own permission does not open its buttons.
+	Permission string `json:"permission,omitempty"`
 }
 
 // RowCondition is a test on one cell of a row. Column is a column of the page's table; a null cell reads as the
