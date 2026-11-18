@@ -692,9 +692,13 @@ type ShopImportChoices struct {
 	SKUPairs          map[string]string `json:"sku_pairs,omitempty" contract:"props=1000,enum=keep_mine|keep_both"`
 }
 
-// ShopImportApplyRequest is publish.apply: the owner's act, one page at a time under the act's marker.
+// ShopImportApplyRequest is publish.apply: the owner's act, one page at a time under the act's marker. It is an import
+// call (D10 §1.4 amendment 17): Import names the job whose records the act publishes — the same id as its records.put
+// calls — and Planned the act's rows (the plan's counts), so what the shop writes back through Core while it serves a page
+// is quiet, as Core's own import publish is: no content.published webhook, automation or author notice per product.
 type ShopImportApplyRequest struct {
-	Source string `json:"source" contract:"len=1-300,pattern=source"`
+	Import ImportCall `json:"import"`
+	Source string     `json:"source" contract:"len=1-300,pattern=source"`
 	// Marker is the act's, chosen by the caller once for the whole act and sent with every page and with the undo.
 	Marker string `json:"marker" contract:"pattern=importid"`
 	// Settings are set on an empty shop that adopts the old currency; absent otherwise.
@@ -705,11 +709,13 @@ type ShopImportApplyRequest struct {
 }
 
 // ShopImportUndoRequest is publish.undo: takes back exactly what an act published, from what each record held before it.
+// An import call like the act (Import: the job and the act's rows).
 type ShopImportUndoRequest struct {
-	Source string `json:"source" contract:"len=1-300,pattern=source"`
-	Marker string `json:"marker" contract:"pattern=importid"`
-	Cursor string `json:"cursor,omitempty" contract:"len=0-200,pattern=line"`
-	Locale string `json:"locale,omitempty" contract:"len=0-35,pattern=locale"`
+	Import ImportCall `json:"import"`
+	Source string     `json:"source" contract:"len=1-300,pattern=source"`
+	Marker string     `json:"marker" contract:"pattern=importid"`
+	Cursor string     `json:"cursor,omitempty" contract:"len=0-200,pattern=line"`
+	Locale string     `json:"locale,omitempty" contract:"len=0-35,pattern=locale"`
 }
 
 // ShopImportActPage is one page of publish.apply or publish.undo: what it published (or took back), held, kept and

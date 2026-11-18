@@ -238,7 +238,8 @@ var contractDefs = []contractDef{paymentsV1, shippingCarrierV1, shopCatalogV1, s
 	shopAccountSectionsV1, shopImportV1}
 
 // shopImportV1 is door D10 (SHOP_IMPORT.md): an import plugin writes an old shop into this one, in the shop's neutral
-// records. One shop answers, so a failure blocks; records.put is an import call. Experimental until its first plugin ships.
+// records. One shop answers, so a failure blocks; records.put and the act (publish.apply, publish.undo) are import calls.
+// Experimental until its first plugin ships.
 var shopImportV1 = contractDef{
 	name:   ContractShopImport,
 	status: ContractExperimental,
@@ -273,12 +274,12 @@ var shopImportV1 = contractDef{
 			Description: "EXPERIMENTAL. A page of the converted products' old and new prices, for the owner to check before the act."},
 			ShopImportActRequest{}, ShopImportPrices{}},
 		{ContractMethod{Name: ShopImportPublishApply, AnsweredBy: "provider", BudgetMS: 15000, RetryClass: "failure",
-			Fallback: "block", Idempotent: true, Agent: "none", AgentReason: shopImportAgentReason,
-			Description: "EXPERIMENTAL. The owner's act, one page at a time under the act's marker: publishes what was public at the old shop and is not held, with the owner's choices; a page asked again changes nothing."},
+			Fallback: "block", Idempotent: true, Agent: "none", AgentReason: shopImportAgentReason, Import: true,
+			Description: "EXPERIMENTAL. The owner's act, one page at a time under the act's marker, an import call of the job whose records it publishes: publishes what was public at the old shop and is not held, with the owner's choices, quietly (no webhook, automation or notice per product); a page asked again changes nothing."},
 			ShopImportApplyRequest{}, ShopImportActPage{}},
 		{ContractMethod{Name: ShopImportPublishUndo, AnsweredBy: "provider", BudgetMS: 15000, RetryClass: "failure",
-			Fallback: "block", Idempotent: true, Agent: "none", AgentReason: shopImportAgentReason,
-			Description: "EXPERIMENTAL. Takes an act back, one page at a time, from what each record held before it."},
+			Fallback: "block", Idempotent: true, Agent: "none", AgentReason: shopImportAgentReason, Import: true,
+			Description: "EXPERIMENTAL. Takes an act back, one page at a time, from what each record held before it; an import call, quiet as the act."},
 			ShopImportUndoRequest{}, ShopImportActPage{}},
 	},
 	refineIn: map[string]func(*testing.T, *jsonschema.Schema){ShopImportRecordsPut: shopImportDataByKind},

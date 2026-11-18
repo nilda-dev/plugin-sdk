@@ -63,6 +63,12 @@ Added (the import):
   copy in Core), what could not be carried named (pictures, `embed`, `form`, `script`, `shortcode`). An import plugin's
   product description kept only its paragraphs (`TextBody`); D10 §1.2 asks for the description as a Core document.
   `golang.org/x/net` is now a direct requirement (it was an indirect one through gRPC).
+- `publish.apply` and `publish.undo` of `shop.import/v1` are import calls (`"import": true`), as `records.put` is:
+  `ShopImportApplyRequest.Import` and `ShopImportUndoRequest.Import` (`ImportCall`, required) name the job — the same id as
+  its batches — and the act's rows, so Core opens each page quietly, as its own import publish runs; the act's page edits
+  fired a content.published webhook, automation and author notice for every product (D10 §1.4 amendment 17). The nildatest
+  desk opens an import call with a fresh request id the provider sees (`CallOf(ctx).RequestID`, so its callbacks carry
+  `CallHeader`), recorded as `ServiceCallLog.RequestID`.
 
 
 ## v0.69.0 — 2026-11-18 (account-page sections, purchase options on the product page, renewal recovery, 128 events)

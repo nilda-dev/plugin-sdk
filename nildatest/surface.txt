@@ -66,6 +66,7 @@ field ServiceCallLog.ImportPlanned int
 field ServiceCallLog.Input json.RawMessage
 field ServiceCallLog.Method string
 field ServiceCallLog.Provider string
+field ServiceCallLog.RequestID string
 field ShopEvent.Data map[string]any
 field ShopEvent.Type string
 field SitePage.Body json.RawMessage

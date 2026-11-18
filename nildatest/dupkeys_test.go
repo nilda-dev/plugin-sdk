@@ -73,7 +73,7 @@ func TestTheDeskRefusesAKeyGivenTwiceAsCoreDoes(t *testing.T) {
 	}
 
 	// A FREE-FORM MAP: two SKU pairs whose source ids differ only by case are two pairs, relayed; an exact repeat is not.
-	apply := `{"source":"woocommerce:shop.example.com","marker":"act-1","choices":{"publish_converted":false,` +
+	apply := `{"import":{"id":"job-1","planned":3},"source":"woocommerce:shop.example.com","marker":"act-1","choices":{"publish_converted":false,` +
 		`"switch_on_per_person":true,"sku_pairs":{"abc":"keep_both","ABC":"keep_mine"}}}`
 	if code, d := post(importer, nilda.ShopImportPublishApply, apply); code != http.StatusOK {
 		t.Errorf("sku_pairs keyed abc and ABC: %d %v, want relayed (a map's keys are the caller's data)", code, d)
