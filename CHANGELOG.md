@@ -69,6 +69,9 @@ Added (the import):
   fired a content.published webhook, automation and author notice for every product (D10 §1.4 amendment 17). The nildatest
   desk opens an import call with a fresh request id the provider sees (`CallOf(ctx).RequestID`, so its callbacks carry
   `CallHeader`), recorded as `ServiceCallLog.RequestID`.
+- `ShopImportActPage.Live` (`ShopImportLive`: `kind` product | category, `source_id`, `path`; the contract's new
+  pattern `sitepath`): each page of `publish.apply` names what it made live and its public path, so the import plugin can
+  redirect the old shop's addresses (D10 §1.4 amendment 22). Additive: an answer without it is still a whole answer.
 - Core's doors for an import plugin (`pluginimport.go`; core internal/pluginimport, S4 and S5), typed:
   `API.LookupImported` (the import map: `ImportFound`), `API.AddImportRedirects` / `API.RemoveImportRedirects`
   (`ImportRedirect`, `ImportRedirectResult`, `ImportRedirectRemoval`), `API.ImportCheckpoint` (`ImportSafetyCopy`),

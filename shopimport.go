@@ -729,6 +729,18 @@ type ShopImportActPage struct {
 	Kept     int              `json:"kept" contract:"min=0,max=1000000000"`
 	Failed   int              `json:"failed" contract:"min=0,max=1000000000"`
 	Losses   []ShopImportLoss `json:"losses" contract:"items=0-100"`
+	// Live names, on publish.apply's pages, each product the page made live and each category the import brought, with
+	// its public path on the site — the address the shop's storefront uses — so the import plugin can redirect the old
+	// shop's addresses to them (D10 §1.4 amendment 22). A page asked again names its live rows again. Empty on an undo.
+	Live []ShopImportLive `json:"live,omitempty" contract:"items=0-100"`
+}
+
+// ShopImportLive is one thing the act made live, by its old shop's record and its public path here ("/scarf",
+// "/product-category/aprons").
+type ShopImportLive struct {
+	Kind     string `json:"kind" contract:"enum=product|category"`
+	SourceID string `json:"source_id" contract:"len=1-300,pattern=ref"`
+	Path     string `json:"path" contract:"len=1-2000,pattern=sitepath"`
 }
 
 // Validate refuses an act whose settings name no currency: an act sets the old currency on an empty shop, or none.

@@ -15,11 +15,20 @@ lives in the plugin; the shop keeps only this door.
 | `records.list` | no | read | default | what imports brought, held, paired and converted, with the old prices as read |
 | `publish.plan` | no | none | 15 s | what the act would do now: counts, groups (`converted`, `per_person`, SKU pairs, sales starting within 30 days), the settings it replaces |
 | `publish.prices` | no | none | default | a page of the converted products' old and new prices |
-| `publish.apply` | **yes** | none | 15 s | the owner's act, a page at a time under the act's marker, with the owner's choices |
+| `publish.apply` | **yes** | none | 15 s | the owner's act, a page at a time under the act's marker, with the owner's choices; each page names what it made live (`live`: kind, source id, public path) for the plugin's redirects |
 | `publish.undo` | **yes** | none | 15 s | takes the act back, a page at a time |
 
 `none` methods are reached through the import plugin's own abilities, which keep the job, preview first and ask the owner
 before the act. `records.list` is also the assistant's read tool: it is the shop's own truth after the act.
+
+## What the act made live
+
+Each page of `publish.apply` answers `live`: for every product the page published (or had published under the same
+marker, when the page is asked again) and every category the import brought, its `kind` (`product`, `category`), its
+old shop's `source_id` and its public `path` here, from the site's root — the address the shop's storefront links to
+(a product's from Core's breadcrumb trail, so the owner's permalink setting is followed; a category's under the
+shop's category archive). The import plugin writes the old shop's addresses as redirects to them. `publish.undo` answers
+none. The field is additive; a provider built before it answers none.
 
 ## Who may call it
 
