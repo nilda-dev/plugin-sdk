@@ -71,7 +71,7 @@ type PageForm struct {
 	// AlwaysAsk makes the assistant ask the person before every save of this form, whatever a connector was granted
 	// (v0.41.0) — for a form that moves money, such as one that issues a gift card.
 	AlwaysAsk bool `json:"always_ask,omitempty"`
-	// Permission is the key of one of your manifest's `permissions` a person needs to SAVE this form (v0.69.0);
+	// Permission is the key of one of your manifest's `permissions` a person needs to SAVE this form (v0.70.0);
 	// opening it is the page's. Empty: only those who may configure the whole plugin.
 	Permission string `json:"permission,omitempty"`
 }
@@ -86,7 +86,7 @@ type FormSection struct {
 	Side bool `json:"side,omitempty"`
 	// Folded starts the card closed, showing its label and a one-line summary — for what is rarely changed.
 	Folded bool `json:"folded,omitempty"`
-	// Extra makes this card YOURS TO FILL PER ROW (v0.69.0): its fields are not declared here but answered by your
+	// Extra makes this card YOURS TO FILL PER ROW (v0.70.0): its fields are not declared here but answered by your
 	// form load, as AdminFormResult.Fields with this section's key — fields the owner defined themselves (a shop's
 	// custom product fields), which no manifest written in advance can list. Core holds them to the same vocabulary
 	// and checks a save against the fields the load answered, never against what the browser sends. At most
@@ -213,7 +213,7 @@ type AdminFormResult struct {
 	Errors   []FormError    `json:"errors,omitempty"`
 	Warnings []FormError    `json:"warnings,omitempty"`
 	Conflict *FormConflict  `json:"conflict,omitempty"`
-	// Fields are the extra card's fields for THIS row, on a load (FormSection.Extra, v0.69.0): each names the extra
+	// Fields are the extra card's fields for THIS row, on a load (FormSection.Extra, v0.70.0): each names the extra
 	// section as its Section, and its key must not be one of the form's declared fields. Their values ride in Values
 	// like any other field's. Ignored on a save's answer.
 	Fields []FormField `json:"fields,omitempty"`

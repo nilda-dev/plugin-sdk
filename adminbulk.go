@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-// BULK ACTIONS (v0.69.0, EXPERIMENTAL). A list page may offer actions on MANY rows at once: the owner ticks rows (or
+// BULK ACTIONS (v0.70.0, EXPERIMENTAL). A list page may offer actions on MANY rows at once: the owner ticks rows (or
 // "all rows matching this view" — the search and the filters as they stand), presses one of the page's BulkActions,
 // answers its Fields if it has any, and Core hands the chosen rows to your `admin.bulk_action` hook in batches of at
 // most MaxBulkBatch ids, showing the owner the progress and every row you said failed.

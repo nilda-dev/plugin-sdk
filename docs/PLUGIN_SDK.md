@@ -2049,7 +2049,7 @@ your sign-in server's issuer, and a missing one when its metadata says it always
 `nilda.PluginAccount`, `nilda.AccountStart`, `nilda.AccountStartResult`, `nilda.AccountFinish` and
 `nilda.AccountStatus` are the types; `nilda.DispatchAccount` routes the hooks for a plugin that does it by hand.
 
-### Acting on many rows at once (`bulk_actions`, v0.69.0, EXPERIMENTAL)
+### Acting on many rows at once (`bulk_actions`, v0.70.0, EXPERIMENTAL)
 
 A list page may declare `bulk_actions` beside its row `actions` (`nilda.BulkAction`: key, label, a `confirm` asked
 once for the run — required: Core refuses a bulk action without one — `fields` the owner answers first in the form vocabulary, `always_ask`, `permission`). Core draws a box
@@ -2064,7 +2064,7 @@ the whole batch and stops the run. `nilda.DispatchAdminBulkAction` routes the ho
 through Core's `plugin_bulk_action` tool; when an ability of yours already does the same over many rows, make both call
 one function.
 
-### Staff permissions and suggested roles (`permissions`, `role_presets`, v0.69.0, EXPERIMENTAL)
+### Staff permissions and suggested roles (`permissions`, `role_presets`, v0.70.0, EXPERIMENTAL)
 
 Roles live in Core alone. Your manifest declares the parts of your plugin a role can be given — `permissions`
 (`nilda.PermissionDecl`: key such as `orders.refund`, label, help; at most `nilda.MaxManifestPermissions`) — and
@@ -2076,7 +2076,7 @@ who may have the assistant run it) names the one it needs. Core registers each a
 The assistant acting for a person is held to that person's permissions. You never check a permission yourself:
 `CallOf(ctx).ActorUserID` is attribution only.
 
-### A form card you fill per row (`FormSection.Extra`, v0.69.0, EXPERIMENTAL)
+### A form card you fill per row (`FormSection.Extra`, v0.70.0, EXPERIMENTAL)
 
 One section of a form may be `extra`: its fields are not declared in the manifest but answered by your form load as
 `AdminFormResult.Fields` (each naming that section) — fields the owner defined (custom product fields), at most
