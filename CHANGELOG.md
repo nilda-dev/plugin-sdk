@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.70.0 — unreleased (bulk actions, staff permissions, a form card filled per row)
+## v0.70.0 — 2026-11-18 (bulk actions, staff permissions, a form card filled per row, the storefront's language and search)
 
 Additive, and EXPERIMENTAL: bulk actions, staff permissions and a form card filled per row (commerce plan 11.5, 11.6
 and the owner's custom product fields). Core reads them from the release that carries the `plugin_bulk_action` tool;
@@ -25,6 +25,18 @@ Added:
   `permissions.go`.
 - `FormSection.Extra` and `AdminFormResult.Fields` (`MaxExtraFormFields`): one card of a form whose fields the plugin's
   load answers per row.
+
+Also additive and EXPERIMENTAL: the storefront in the page's language and the shop's search suggestions (commerce plan
+3.6 and 11.9). Core sends both from the release built on this version; an older Core sends no locale and never asks.
+
+Added (language and search):
+
+- `CommerceQuery.Locale` and `CommerceLocaleOf(ctx)`: the language the page is drawn in, on every commerce hook (the
+  `locale` key of the products, product, product_for_content, count and facets payloads), lifted into the context for
+  `Product` and `ProductForContent` as the viewer is. A value that is no lowercase language code is none.
+- `CommerceEndpoints.SearchSuggest`: a GET answering `CommerceSearchAnswer` (`Query`, `Corrected`, `Suggestions`,
+  `Products` of `CommerceSearchHit`), held by `CommerceSearchAnswer.Validate`; `MaxCommerceSearchSuggestions` (8),
+  `MaxCommerceSearchHits` (20), `MaxCommerceSearchText` (100).
 
 
 ## v0.69.0 — 2026-11-18 (account-page sections, purchase options on the product page, renewal recovery, 128 events)
@@ -90,18 +102,6 @@ Added:
   returned, refunded, still refundable. Its sentence says only that the bank returned "part"; a consumer telling its
   owner what is still owed to the payer reads these instead of guessing (false for an older Core, which sends none).
   `nildatest.Payments` answers it as Core does.
-
-Additive, and EXPERIMENTAL: the storefront in the page's language and the shop's search suggestions (commerce plan
-3.6 and 11.9). Core sends both from the release built on this version; an older Core sends no locale and never asks.
-
-Added (language and search):
-
-- `CommerceQuery.Locale` and `CommerceLocaleOf(ctx)`: the language the page is drawn in, on every commerce hook (the
-  `locale` key of the products, product, product_for_content, count and facets payloads), lifted into the context for
-  `Product` and `ProductForContent` as the viewer is. A value that is no lowercase language code is none.
-- `CommerceEndpoints.SearchSuggest`: a GET answering `CommerceSearchAnswer` (`Query`, `Corrected`, `Suggestions`,
-  `Products` of `CommerceSearchHit`), held by `CommerceSearchAnswer.Validate`; `MaxCommerceSearchSuggestions` (8),
-  `MaxCommerceSearchHits` (20), `MaxCommerceSearchText` (100).
 
 
 ## v0.68.0 — 2026-11-17 (doors D5 and D11, shop.rewards/v1 and shop.subscriptions/v1, TermContents)
