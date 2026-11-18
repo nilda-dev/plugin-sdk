@@ -29,7 +29,9 @@ and before any shop is asked: 403 `import_not_granted` without the grant, 409 `p
 off (not retried). Core's own call — the owner's assistant — reaches `records.list` alone (agent `read`), whatever the
 switch says. The contract is CLOSED (`"closed": true`): every object refuses a member it does not
 declare, so `"KIND"` beside `"kind"`, or a `"NAME"` the schema never bounded, is refused at Core, at the client and in
-`Serves` before the shop decodes the request.
+`Serves` before the shop decodes the request. And `"name"` beside `"NAME"` in a record — both declared, one key to Go —
+is refused by Core's desk (422 `key_given_twice`) after the grant and before the schema; the source ids of `sku_pairs`
+and the tax classes of `tax_class_rates` are a map's keys, where `"abc"` and `"ABC"` are two.
 
 ## The import call
 

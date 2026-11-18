@@ -15,8 +15,8 @@ import (
 )
 
 // Services is Core's service desk, in memory: providers answer contract methods, a consumer calls them, and in
-// between it does what Core does — the consumer must declare the contract, the request is checked against the
-// method's input schema before any provider sees it, every provider is asked at once within the method's budget, an
+// between it does what Core does — the consumer must declare the contract, an object naming one key twice is refused
+// (dupkeys.go), the request is checked against the method's input schema before any provider sees it, every provider is asked at once within the method's budget, an
 // answer the output schema refuses is dropped, and when nothing answered the method's fallback decides. A provider is
 // asked through the SAME dispatch a plugin's Serve runs (nilda.DispatchServiceHook).
 //
@@ -216,6 +216,10 @@ func (s *Services) call(ctx context.Context, caller, contract, method string, in
 	if len(input) == 0 || string(input) == "null" {
 		input = []byte(`{}`)
 	}
+	// ONE KEY, ONE SPELLING (dupkeys.go): after the grant, before the schema.
+	if err := refuseKeyGivenTwice(input, m.Input); err != nil {
+		return nilda.ServiceResult{}, err
+	}
 	if err := m.ValidateInput(input); err != nil {
 		return nilda.ServiceResult{}, err
 	}
@@ -392,6 +396,11 @@ func (s *Services) routes(caller string, scopes []string) http.Handler {
 			writeServiceError(w, http.StatusServiceUnavailable, "UNAVAILABLE", err.Error(), nil)
 		case errors.Is(err, ErrImportNotGranted), errors.Is(err, ErrImportOff), errors.Is(err, ErrProviderNotNamed):
 			writeDeskRefusal(w, err, contract)
+		case errors.Is(err, ErrKeyGivenTwice):
+			var twice *KeyGivenTwice
+			errors.As(err, &twice)
+			writeServiceError(w, http.StatusUnprocessableEntity, "VALIDATION", err.Error(),
+				map[string]string{"reason": "key_given_twice", "at": twice.At})
 		case err != nil:
 			writeServiceError(w, http.StatusUnprocessableEntity, "VALIDATION", err.Error(), nil)
 		default:

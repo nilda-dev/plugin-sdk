@@ -51,6 +51,7 @@ field Event.Data []byte
 field Event.Type string
 field Host.EmailRefusal error
 field Host.Fail error
+field KeyGivenTwice.At string
 field Payments.Now func() time.Time
 field Payments.Site *Site
 field Payments.SiteURL string
@@ -169,6 +170,8 @@ method (*Host) SendTemplatedEmail(context.Context, *contract.SendTemplatedEmailR
 method (*Host) SetSessionsPerIdentity(int)
 method (*Host) SwitchOffTemplate(string)
 method (*Host) UseEmailTemplates([]nilda.EmailTemplateDecl)
+method (*KeyGivenTwice) Error() (string)
+method (*KeyGivenTwice) Unwrap() (error)
 method (*Licence) BindFails()
 method (*Licence) BindGrants(nilda.Licence)
 method (*Licence) BindRefuses(string)
@@ -286,6 +289,7 @@ type Email
 type Event
 type HookFunc
 type Host
+type KeyGivenTwice
 type Licence
 type Payments
 type Reference
@@ -308,6 +312,7 @@ var ErrAttributeNeedsKey
 var ErrAttributeNotThroughCore
 var ErrImportNotGranted
 var ErrImportOff
+var ErrKeyGivenTwice
 var ErrNotSubscribed
 var ErrProviderNotNamed
 var ErrServiceBlocked
