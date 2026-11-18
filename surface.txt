@@ -631,6 +631,8 @@ const RatesOK
 const RatesUnavailable
 const RefundPending
 const RefundReasonFraudulent
+const RefundRefusalExceedsPaid
+const RefundRefusalLostChargeback
 const RefundRejected
 const RefundRequested
 const RefundResolved
@@ -1994,6 +1996,12 @@ field RatesResult.Status string json:status
 field Recommendation.Capability string json:capability
 field Recommendation.Contract string json:contract
 field Recommendation.Why string json:why
+field RefundRefusal.ChargedBackMinor int64 json:charged_back_minor
+field RefundRefusal.Currency string json:currency
+field RefundRefusal.PaidMinor int64 json:paid_minor
+field RefundRefusal.Reason string json:reason
+field RefundRefusal.RefundableMinor int64 json:refundable_minor
+field RefundRefusal.RefundedMinor int64 json:refunded_minor
 field RenderAssetsRequest.Locale string json:locale
 field RenderAssetsRequest.PageKind string json:page_kind
 field ReportLink.Install string json:install
@@ -2614,6 +2622,7 @@ func PaymentCanMove(string, string) (bool)
 func PaymentMarks() ([]string)
 func ProtocolForSDK(string) (int, bool)
 func RefundCanMove(string, string) (bool)
+func RefundRefusalOf(error) (RefundRefusal, bool)
 func RegisterContractForTest(ServiceContract) (func())
 func ReportScreens() ([]string)
 func RewardRefusals() ([]string)
@@ -3325,6 +3334,7 @@ type RatesRequest
 type RatesResult
 type Recommendation
 type Reference
+type RefundRefusal
 type RenderAssetsRequest
 type ReportLink
 type ReportMetric

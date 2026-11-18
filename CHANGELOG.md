@@ -66,6 +66,11 @@ Added:
   `SubscriptionPayLinkRequest`, `SubscriptionMethodLinkRequest`, `SubscriptionLinkAnswer`, `Services.RenewalPayLink`,
   `Services.MethodUpdateLink`); refusals `no_renewal`, `renewal_closed`, `no_account`; `method_updated`'s `source`
   (`SubscriptionMethodByNetwork`, `SubscriptionMethodByBuyer`) and `renewal.failed`'s `by_buyer`.
+- `RefundRefusalOf` (`RefundRefusal`, `RefundRefusalExceedsPaid`, `RefundRefusalLostChargeback`): the numbers Core
+  decided on when it refused a refund past what the payment can still give back — paid, what a lost chargeback
+  returned, refunded, still refundable. Its sentence says only that the bank returned "part"; a consumer telling its
+  owner what is still owed to the payer reads these instead of guessing (false for an older Core, which sends none).
+  `nildatest.Payments` answers it as Core does.
 
 ## v0.68.0 — 2026-11-17 (doors D5 and D11, shop.rewards/v1 and shop.subscriptions/v1, TermContents)
 

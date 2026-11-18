@@ -1393,8 +1393,20 @@ func (p *Payments) refundFits(s *nilda.PaymentSession, amount int64) error {
 		}
 	}
 	if committed+lost+amount > s.AmountMinor {
-		return invalid("a refund of %d would take this payment's refunds to %d, past the %d paid less the %d a lost chargeback returned",
-			amount, committed+amount, s.AmountMinor, lost)
+		// As Core (lock-B round 6, P10): the refusal carries the numbers it was decided on, read by
+		// nilda.RefundRefusalOf, so a consumer never guesses what the bank returned from the sentence.
+		reason := nilda.RefundRefusalExceedsPaid
+		if lost > 0 {
+			reason = nilda.RefundRefusalLostChargeback
+		}
+		rest := s.AmountMinor - lost - committed
+		if rest < 0 {
+			rest = 0
+		}
+		return &detailedError{invalid("a refund of %d would take this payment's refunds to %d, past the %d paid less the %d a lost chargeback returned",
+			amount, committed+amount, s.AmountMinor, lost).(*apiError),
+			nilda.RefundRefusal{Reason: reason, PaidMinor: s.AmountMinor, ChargedBackMinor: lost,
+				RefundedMinor: committed, RefundableMinor: rest, Currency: s.Currency}}
 	}
 	return nil
 }
@@ -1613,6 +1625,15 @@ type apiError struct {
 	message string
 }
 
+// detailedError is an apiError with Core's structured detail beside the sentence (its error body's "details").
+// Its own type, so the many positional apiError literals stay as they are.
+type detailedError struct {
+	*apiError
+	details any
+}
+
+func (e *detailedError) Unwrap() error { return e.apiError }
+
 func (e *apiError) Error() string { return e.message }
 
 func invalid(format string, a ...any) error {
@@ -1639,13 +1660,21 @@ func answer(w http.ResponseWriter, status int, v any, err error) {
 }
 
 func writeError(w http.ResponseWriter, err error) {
+	var details any
+	if de, ok := err.(*detailedError); ok {
+		err, details = de.apiError, de.details
+	}
 	ae, ok := err.(*apiError)
 	if !ok {
 		ae = &apiError{http.StatusInternalServerError, "INTERNAL", "internal error"}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(ae.status)
-	_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"code": ae.code, "message": ae.message}})
+	body := map[string]any{"code": ae.code, "message": ae.message}
+	if details != nil {
+		body["details"] = details
+	}
+	_ = json.NewEncoder(w).Encode(map[string]any{"error": body})
 }
 
 // newID is a random UUID, the shape Core's ids have: a plugin that stores one somewhere with a length limit

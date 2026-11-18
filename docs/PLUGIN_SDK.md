@@ -2529,6 +2529,12 @@ A **consumer** implements `nilda.PaymentConsumer` — `ConfirmPayment(ctx, nilda
 `nilda.PaymentOption`), `CreateSession` (with `nilda.PaymentSessionParams` — since v0.58.0 optionally its item lines, `nilda.PaymentLine`s with a
 `nilda.PaymentBreakdown`, which must add up to the amount exactly; `docs/PAYMENTS.md` §5 "Item lines"), `GetSession`, `CreateRefund`
 (with `nilda.PaymentRefundParams`) and `GetRefund` on the same `nilda.Payments` client.
+A refund Core refuses for being larger than the payment can still give back (422) carries the numbers it decided on:
+`nilda.RefundRefusalOf(err)` (v0.69.0, EXPERIMENTAL) answers a `nilda.RefundRefusal` — its `Reason`
+(`nilda.RefundRefusalExceedsPaid`, or `nilda.RefundRefusalLostChargeback` when the payer's bank already returned part
+through a lost chargeback), `PaidMinor`, `ChargedBackMinor`, `RefundedMinor`, `RefundableMinor` and `Currency`. Decide
+what is still owed to the payer from those, never from the sentence, which says only "part"; `ok` is false on an
+older Core, which sends no numbers — then say nothing is decided yet rather than guess.
 `Readiness(ctx, currency)` (v0.42.0) says why a site cannot take a payment yet — a `nilda.PaymentsReadiness` of
 every installed gateway as a `nilda.PaymentGatewayState` (`key`, `name`, `enabled`), how many switched-on methods
 take the currency (`methods_on`) and whether any of them is a test method (`test`); `nildatest.Payments.SwitchGateway`
