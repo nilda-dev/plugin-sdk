@@ -2250,6 +2250,8 @@ field ServiceAnswer.Provider string json:provider
 field ServiceAnswer.RoutePrefix string json:route_prefix
 field ServiceCallOptions.IdempotencyKey string
 field ServiceCallOptions.Provider string
+field ServiceContract.CallerCapability string json:caller_capability
+field ServiceContract.Closed bool json:closed
 field ServiceContract.Description string json:description
 field ServiceContract.Methods []ContractMethod json:methods
 field ServiceContract.Name string json:name
@@ -2442,6 +2444,7 @@ field ShopImportPair.Theirs ShopImportProductRef json:theirs
 field ShopImportParcel.Height string json:height
 field ShopImportParcel.Length string json:length
 field ShopImportParcel.ShippingClass string json:shipping_class
+field ShopImportParcel.Virtual bool json:virtual
 field ShopImportParcel.Weight string json:weight
 field ShopImportParcel.Width string json:width
 field ShopImportPlan.Counts ShopImportCounts json:counts
@@ -2462,7 +2465,7 @@ field ShopImportPricing.SaleFrom string json:sale_from
 field ShopImportPricing.SalePrice string json:sale_price
 field ShopImportPricing.SaleTo string json:sale_to
 field ShopImportPricing.TaxClass string json:tax_class
-field ShopImportPricing.Taxable bool json:taxable
+field ShopImportPricing.TaxStatus string json:tax_status
 field ShopImportProductData.Axes []ShopImportAxis json:axes
 field ShopImportProductData.Body json.RawMessage json:body
 field ShopImportProductData.Brands []string json:brands
@@ -3438,6 +3441,7 @@ method (ShopEventsAnswer) ValidateFor(ShopEventsRequest) (error)
 method (ShopEventsRequest) Validate() (error)
 method (ShopImportActPage) Validate() (error)
 method (ShopImportAnswer) ValidateFor(ShopImportBatch) (error)
+method (ShopImportApplyRequest) Validate() (error)
 method (ShopImportBatch) Validate() (error)
 method (ShopImportRecord) Decode(any) (error)
 method (ShopImportSettings) Validate() (error)

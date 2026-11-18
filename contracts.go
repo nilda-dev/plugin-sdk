@@ -45,7 +45,21 @@ type ServiceContract struct {
 	// it is outside the v1 no-breaking promise until its first plugin has shipped green on it (DR-24, docs/
 	// WRITE_COMMANDS.md §5). Empty or "stable" is a contract inside the promise. From v0.58.0.
 	Status string `json:"status,omitempty"`
+	// CallerCapability is a capability EVERY call of the contract needs its caller to hold, granted by the site's owner —
+	// before the request is read, before any provider is asked, whatever the method: "import" (CapImport) for
+	// shop.import/v1, whose every method is the import's (a plugin that may not import may not plan, publish or undo an
+	// import either). Empty for a contract any consumer naming it under `uses` may call. A method marked Import needs
+	// the contract to say "import" here. From v0.70.0.
+	CallerCapability string `json:"caller_capability,omitempty"`
+	// Closed is a contract whose every object is CLOSED (additionalProperties: false): a member neither side declared is
+	// refused, so a request cannot carry "KIND" beside "kind" — encoding/json matches a key without regard to case, and
+	// would decode the one the schema never checked. Such a contract grows by a new major version, not within one. For a
+	// contract that carries an outside party's data (an old shop's records). From v0.70.0.
+	Closed bool `json:"closed,omitempty"`
 }
+
+// The capabilities a contract may require of every caller (ServiceContract.CallerCapability).
+var contractCallerCapabilities = []string{CapImport}
 
 // Contract statuses (ServiceContract.Status).
 const (
@@ -394,10 +408,14 @@ func ParseContract(raw []byte) (ServiceContract, error) {
 	if c.Status != "" && c.Status != ContractStable && c.Status != ContractExperimental {
 		return c, fmt.Errorf("%s has status %q; it is stable (or empty) or experimental", c.Name, c.Status)
 	}
+	if c.CallerCapability != "" && !slices.Contains(contractCallerCapabilities, c.CallerCapability) {
+		return c, fmt.Errorf("%s requires the caller capability %q; a contract may require %v", c.Name, c.CallerCapability,
+			contractCallerCapabilities)
+	}
 	seen := map[string]bool{}
 	for i := range c.Methods {
 		m := &c.Methods[i]
-		if err := checkMethod(m); err != nil {
+		if err := checkMethod(m, c.Closed); err != nil {
 			return c, fmt.Errorf("%s method %q: %w", c.Name, m.Name, err)
 		}
 		if seen[m.Name] {
@@ -411,6 +429,10 @@ func ParseContract(raw []byte) (ServiceContract, error) {
 	for _, m := range c.Methods {
 		if err := checkImport(m); err != nil {
 			return c, fmt.Errorf("%s method %q: %w", c.Name, m.Name, err)
+		}
+		if m.Import && c.CallerCapability != CapImport {
+			return c, fmt.Errorf("%s method %q is an import call, and the contract does not require caller_capability %q of every "+
+				"caller: a plugin that may not import would plan, publish and undo the import", c.Name, m.Name, CapImport)
 		}
 	}
 	return c, nil
@@ -517,7 +539,7 @@ func requiresProps(raw json.RawMessage, names ...string) bool {
 	return true
 }
 
-func checkMethod(m *ContractMethod) error {
+func checkMethod(m *ContractMethod, closed bool) error {
 	switch {
 	case !contractMethodRe.MatchString(m.Name):
 		return fmt.Errorf("the name is not lower-case words joined by dots or underscores")
@@ -543,17 +565,18 @@ func checkMethod(m *ContractMethod) error {
 		return fmt.Errorf("agent_reason is for a method kept from the assistant; this one is a %s tool", m.Agent)
 	}
 	var err error
-	if m.in, err = compileObjectSchema(m.Input); err != nil {
+	if m.in, err = compileObjectSchema(m.Input, closed); err != nil {
 		return fmt.Errorf("input: %w", err)
 	}
-	if m.out, err = compileObjectSchema(m.Output); err != nil {
+	if m.out, err = compileObjectSchema(m.Output, closed); err != nil {
 		return fmt.Errorf("output: %w", err)
 	}
 	return nil
 }
 
-// compileObjectSchema compiles a method's schema; each must describe a JSON object.
-func compileObjectSchema(raw json.RawMessage) (*jsonschema.Resolved, error) {
+// compileObjectSchema compiles a method's schema; each must describe a JSON object — every object open, or for a closed
+// contract every object closed.
+func compileObjectSchema(raw json.RawMessage, closed bool) (*jsonschema.Resolved, error) {
 	if len(raw) == 0 {
 		return nil, fmt.Errorf("no schema")
 	}
@@ -568,11 +591,62 @@ func compileObjectSchema(raw json.RawMessage) (*jsonschema.Resolved, error) {
 	if err := json.Unmarshal(raw, &tree); err != nil {
 		return nil, err
 	}
-	if closesAnObject(tree) {
+	switch {
+	case closed:
+		if path := openObjectIn(tree, "$"); path != "" {
+			return nil, fmt.Errorf("the contract is closed and the object at %s is open: give it additionalProperties: false", path)
+		}
+	case closesAnObject(tree):
 		return nil, fmt.Errorf("it closes an object (additionalProperties: false): within a major version a " +
 			"contract only grows, so a field added on one side must not be refused by the other")
 	}
 	return s.Resolve(nil)
+}
+
+// openObjectIn is the path of the first object schema (type object, with properties) in tree that does not close its
+// members, "" when every one does. A map — an object whose additionalProperties is its values' schema — is not one.
+func openObjectIn(v any, path string) string {
+	switch t := v.(type) {
+	case map[string]any:
+		_, hasProps := t["properties"]
+		if hasProps && isObjectType(t["type"]) {
+			if b, ok := t["additionalProperties"].(bool); !ok || b {
+				return path
+			}
+		}
+		keys := make([]string, 0, len(t))
+		for k := range t {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			if p := openObjectIn(t[k], path+"."+k); p != "" {
+				return p
+			}
+		}
+	case []any:
+		for i, c := range t {
+			if p := openObjectIn(c, fmt.Sprintf("%s[%d]", path, i)); p != "" {
+				return p
+			}
+		}
+	}
+	return ""
+}
+
+// isObjectType is a schema's type naming an object: "object", or a list holding it.
+func isObjectType(v any) bool {
+	switch t := v.(type) {
+	case string:
+		return t == "object"
+	case []any:
+		for _, x := range t {
+			if x == "object" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // closesAnObject reports whether a schema tree anywhere says "additionalProperties": false.

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -32,7 +33,11 @@ type methodDef struct {
 type contractDef struct {
 	name, description string
 	status            string
-	methods           []methodDef
+	// callerCapability and closed are the contract's own (ServiceContract.CallerCapability, .Closed): a closed contract's
+	// every object is generated closed.
+	callerCapability string
+	closed           bool
+	methods          []methodDef
 	// refineIn finishes a method's input schema, by the method's name, with what no one Go type says (shop.import's
 	// records.put: each kind's data checked by its kind).
 	refineIn map[string]func(t *testing.T, s *jsonschema.Schema)
@@ -237,6 +242,10 @@ var contractDefs = []contractDef{paymentsV1, shippingCarrierV1, shopCatalogV1, s
 var shopImportV1 = contractDef{
 	name:   ContractShopImport,
 	status: ContractExperimental,
+	// Every call of it is the import's: the owner's import grant, not only for records.put (the security review of D10-a,
+	// F1). Closed, because it carries an outside party's data, which a Go provider decodes case-blind (F2).
+	callerCapability: CapImport,
+	closed:           true,
 	description: "An old shop written into this one by an import plugin (SHOP_IMPORT.md): the plugin reads WooCommerce, later " +
 		"Shopify or Wix, and sends the shop's own NEUTRAL records one kind a batch — categories, tags, attributes, products, " +
 		"variants, links, reviews, coupons; the shop writes drafts only, quietly, keyed by where each came from so a batch sent " +
@@ -453,17 +462,22 @@ const shopEventsAgentReason = "the owner reads orders, refunds and shipments thr
 // render builds a contract file from its definition.
 func (d contractDef) render(t *testing.T) []byte {
 	t.Helper()
-	c := ServiceContract{Name: d.name, Description: d.description, Status: d.status}
+	c := ServiceContract{Name: d.name, Description: d.description, Status: d.status, CallerCapability: d.callerCapability,
+		Closed: d.closed}
 	for _, md := range d.methods {
 		m := md.row
 		if m.Agent == "" {
 			m.Agent, m.AgentReason = "none", paymentsAgentReason
 		}
-		in := schemaTree(t, md.in)
+		in, out := schemaTree(t, md.in), schemaTree(t, md.out)
 		if refine := d.refineIn[m.Name]; refine != nil {
 			refine(t, in)
 		}
-		m.Input, m.Output = marshalSchema(t, in), schemaOf(t, md.out)
+		if d.closed {
+			closeObjects(in)
+			closeObjects(out)
+		}
+		m.Input, m.Output = marshalSchema(t, in), marshalSchema(t, out)
 		c.Methods = append(c.Methods, m)
 	}
 	b, err := json.MarshalIndent(c, "", "  ")
@@ -630,6 +644,31 @@ func openObjects(s *jsonschema.Schema) {
 	for _, list := range [][]*jsonschema.Schema{s.AnyOf, s.OneOf, s.AllOf, s.PrefixItems} {
 		for _, c := range list {
 			openObjects(c)
+		}
+	}
+}
+
+// closeObjects closes every object schema of a closed contract (ServiceContract.Closed): each struct's object refuses a
+// member it does not declare. A map keeps its values' schema; a schema with no type — an if/then condition — is not an
+// object of the wire and stays as it is.
+func closeObjects(s *jsonschema.Schema) {
+	if s == nil {
+		return
+	}
+	if (s.Type == "object" || slices.Contains(s.Types, "object")) && s.Properties != nil && s.AdditionalProperties == nil {
+		s.AdditionalProperties = &jsonschema.Schema{Not: &jsonschema.Schema{}}
+	}
+	closeObjects(s.AdditionalProperties)
+	closeObjects(s.Items)
+	closeObjects(s.If)
+	closeObjects(s.Then)
+	closeObjects(s.Else)
+	for _, p := range s.Properties {
+		closeObjects(p)
+	}
+	for _, list := range [][]*jsonschema.Schema{s.AnyOf, s.OneOf, s.AllOf, s.PrefixItems} {
+		for _, c := range list {
+			closeObjects(c)
 		}
 	}
 }

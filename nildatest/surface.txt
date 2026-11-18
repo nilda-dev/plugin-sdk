@@ -219,6 +219,7 @@ method (*Services) ImportPlugin(string, ...string) (*nilda.Core, *Host, *httptes
 method (*Services) Provider(string, nilda.ServiceProvider)
 method (*Services) RoutePrefix(string, string)
 method (*Services) SetAgentTier(string, nilda.AgentTier)
+method (*Services) SetImportEnabled(bool)
 method (*ShopEvents) Deliver(context.Context, nilda.Handler, nilda.ShopOrderEvent) (error)
 method (*ShopEvents) Events() ([]nilda.ShopOrderEvent)
 method (*ShopEvents) Record(nilda.ShopOrderEvent) (nilda.ShopOrderEvent, error)
@@ -306,6 +307,8 @@ var ErrAddressesNotOffered
 var ErrAttributeNeedsKey
 var ErrAttributeNotThroughCore
 var ErrImportNotGranted
+var ErrImportOff
 var ErrNotSubscribed
+var ErrProviderNotNamed
 var ErrServiceBlocked
 var SessionsPerIdentity

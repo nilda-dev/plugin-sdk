@@ -360,8 +360,10 @@ type ShopImportPricing struct {
 	SalePrice    string `json:"sale_price,omitempty" contract:"pattern=money"`
 	SaleFrom     string `json:"sale_from,omitempty" contract:"pattern=time"`
 	SaleTo       string `json:"sale_to,omitempty" contract:"pattern=time"`
-	Taxable      bool   `json:"taxable,omitempty"`
-	TaxClass     string `json:"tax_class,omitempty" contract:"len=0-200,pattern=line"`
+	// TaxStatus is what the tax is charged on: taxable (the item; "" is taxable too, so a record that does not say is
+	// never sold untaxed), shipping_only (only its delivery) or none.
+	TaxStatus string `json:"tax_status,omitempty" contract:"enum=|taxable|shipping_only|none"`
+	TaxClass  string `json:"tax_class,omitempty" contract:"len=0-200,pattern=line"`
 }
 
 // ShopImportStock is a product's or a variant's stock.
@@ -374,7 +376,9 @@ type ShopImportStock struct {
 }
 
 // ShopImportParcel is a product's or a variant's weight, dimensions and shipping class: decimals in the settings' units.
+// Virtual is an item nothing is delivered for (a service, a booking, a ticket): it asks no address and no shipping.
 type ShopImportParcel struct {
+	Virtual       bool   `json:"virtual,omitempty"`
 	Weight        string `json:"weight,omitempty" contract:"pattern=measure"`
 	Length        string `json:"length,omitempty" contract:"pattern=measure"`
 	Width         string `json:"width,omitempty" contract:"pattern=measure"`
@@ -535,12 +539,13 @@ type ShopImportRate struct {
 // has not answered), the ECB's rate for the pair when it has one, whether the two shops' prices_include_tax differ,
 // this shop's currency and whether it is empty (only an empty shop may adopt the old currency).
 type ShopImportSettingsResult struct {
-	Decision          string           `json:"decision" contract:"enum=same|adopt|convert|no_prices|ask"`
-	ECBRate           *ShopImportRate  `json:"ecb_rate,omitempty"`
-	TaxIncludeDiffers bool             `json:"tax_include_differs"`
-	Currency          string           `json:"currency" contract:"pattern=currency"`
-	Empty             bool             `json:"empty"`
-	Losses            []ShopImportLoss `json:"losses" contract:"items=0-100"`
+	Decision          string          `json:"decision" contract:"enum=same|adopt|convert|no_prices|ask"`
+	ECBRate           *ShopImportRate `json:"ecb_rate,omitempty"`
+	TaxIncludeDiffers bool            `json:"tax_include_differs"`
+	// Currency is this shop's, empty while it has not chosen one (a new shop, which may adopt the old one).
+	Currency string           `json:"currency" contract:"pattern=currency_or_none"`
+	Empty    bool             `json:"empty"`
+	Losses   []ShopImportLoss `json:"losses" contract:"items=0-100"`
 }
 
 // ShopImportListRequest is records.list: what imports brought, held, paired and converted, newest first, a page at a time.
@@ -623,7 +628,8 @@ type ShopImportCounts struct {
 type ShopImportSKUPair struct {
 	SourceID string `json:"source_id" contract:"len=1-300,pattern=ref"`
 	ShopImportPair
-	// LooksSame is the shop's guess that the two are one product (the same name and price).
+	// LooksSame is the shop's hint that the two are one product (the same barcode, or the same name once case, width and
+	// spacing are set aside); the owner chooses, nothing is merged on it.
 	LooksSame bool `json:"looks_same"`
 }
 
@@ -645,9 +651,10 @@ type ShopImportGroups struct {
 }
 
 // ShopImportShopSettings are the shop's currency and whether its prices include tax: what the act sets on an empty shop
-// that adopts the old currency, and what it replaced.
+// that adopts the old currency (publish.apply names a currency), and what it replaced (publish.plan's settings_before,
+// whose currency is empty when the shop had not chosen one).
 type ShopImportShopSettings struct {
-	Currency         string `json:"currency" contract:"pattern=currency"`
+	Currency         string `json:"currency" contract:"pattern=currency_or_none"`
 	PricesIncludeTax bool   `json:"prices_include_tax"`
 }
 
@@ -718,6 +725,14 @@ type ShopImportActPage struct {
 	Losses   []ShopImportLoss `json:"losses" contract:"items=0-100"`
 }
 
+// Validate refuses an act whose settings name no currency: an act sets the old currency on an empty shop, or none.
+func (r ShopImportApplyRequest) Validate() error {
+	if r.Settings != nil && r.Settings.Currency == "" {
+		return errors.New("nilda: an act's settings name the currency it sets")
+	}
+	return nil
+}
+
 // Validate refuses a page that is done and asks for another, or is not done and cannot.
 func (p ShopImportActPage) Validate() error {
 	if p.Done == (p.Cursor != "") {
@@ -775,7 +790,12 @@ func ShopImportMethods(p ShopImportProvider) []ServiceMethod {
 		Serves(ContractShopImport, ShopImportRecordsList, p.ShopImportRecords),
 		Serves(ContractShopImport, ShopImportPublishPlan, p.PlanShopImport),
 		Serves(ContractShopImport, ShopImportPublishPrices, p.ShopImportPrices),
-		Serves(ContractShopImport, ShopImportPublishApply, act(p.ApplyShopImport)),
+		Serves(ContractShopImport, ShopImportPublishApply, act(func(ctx context.Context, req ShopImportApplyRequest) (ShopImportActPage, error) {
+			if err := req.Validate(); err != nil {
+				return ShopImportActPage{}, err
+			}
+			return p.ApplyShopImport(ctx, req)
+		})),
 		Serves(ContractShopImport, ShopImportPublishUndo, func(ctx context.Context, req ShopImportUndoRequest) (ShopImportActPage, error) {
 			a, err := p.UndoShopImport(ctx, req)
 			if err != nil {
@@ -842,6 +862,9 @@ func (s *Services) ShopImportPrices(ctx context.Context, provider string, req Sh
 // ApplyShopImport runs one page of the owner's act; ask again with the page's cursor until it is done.
 func (s *Services) ApplyShopImport(ctx context.Context, provider string, req ShopImportApplyRequest) (ShopImportActPage, error) {
 	var a ShopImportActPage
+	if err := req.Validate(); err != nil {
+		return a, err
+	}
 	if err := shopImportCall(ctx, s, ShopImportPublishApply, provider, req, &a); err != nil {
 		return a, err
 	}
