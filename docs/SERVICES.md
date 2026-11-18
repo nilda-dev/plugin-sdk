@@ -33,8 +33,9 @@ on it.
 - **A contract may need a capability of EVERY caller** (`"caller_capability": "import"`, `ServiceContract.CallerCapability`,
   from v0.70.0): Core refuses any call of any of its methods from a plugin the owner did not grant it, before the request
   is read and before any provider is asked (403 `import_not_granted`; while the site's import switch is off, 409
-  `import_off`, not retried). A contract with an import call must require `import`, so a plugin that may not import can
-  neither plan, publish nor undo one.
+  `plugin_import_off`, not retried). Core's own call — the owner's assistant — reaches a method of it whose agent is `read`
+  and that is no import call, whatever the switch says. A contract with an import call must require `import`, so a plugin
+  that may not import can neither plan, publish nor undo one.
 - **Within a major, a contract only grows.** A schema never closes an object, so a field one side adds is never refused
   by the other. A breaking change is a new major (`…/v2`), served beside the old one for a while. The one exception is a
   CLOSED contract (`"closed": true`, `ServiceContract.Closed`, from v0.70.0; `shop.import/v1`): every object of it is

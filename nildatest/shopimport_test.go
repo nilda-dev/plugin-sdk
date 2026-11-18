@@ -117,9 +117,14 @@ func TestTheDeskRelaysAnImportCallAsCoreDoes(t *testing.T) {
 			t.Errorf("%s from a plugin without import: %v, want Core's 403 import_not_granted", name, err)
 		}
 	}
+	// Core's own call (the owner's assistant) reaches the read and nothing else, as Core relays it.
 	if _, err := desk.Ask(ctx, nilda.ContractShopImport, nilda.ShopImportRecordsList, nilda.ShopImportListRequest{Filter: nilda.ShopImportListAll},
+		nilda.ServiceCallOptions{}); err != nil {
+		t.Errorf("Core's own records.list: %v, want the owner's read answered", err)
+	}
+	if _, err := desk.Ask(ctx, nilda.ContractShopImport, nilda.ShopImportPublishPlan, nilda.ShopImportActRequest{Source: "woocommerce:shop.example.com"},
 		nilda.ServiceCallOptions{}); !errors.Is(err, ErrImportNotGranted) {
-		t.Errorf("Core's own records.list: %v, want refused as ungranted", err)
+		t.Errorf("Core's own publish.plan: %v, want refused as ungranted", err)
 	}
 	stranger2 := desk.routes("stranger", []string{"use:" + nilda.ContractShopImport})
 	rec := httptest.NewRecorder()
@@ -131,14 +136,18 @@ func TestTheDeskRelaysAnImportCallAsCoreDoes(t *testing.T) {
 		t.Fatalf("records.list from the import plugin: %v", err)
 	}
 
-	// The switch off (PLUGIN_IMPORT_ENABLED): every call refused with Core's 409 import_off, which the client does not
-	// retry; the shop never asked.
+	// The switch off (PLUGIN_IMPORT_ENABLED): every call of a plugin refused with Core's 409 plugin_import_off, which the
+	// client does not retry; the shop never asked. The owner's own read still answers.
 	desk.SetImportEnabled(false)
 	asked := len(shop.got)
 	var off *nilda.APIError
 	if _, err := importer.API().Services().PutShopImportRecords(ctx, "", tagBatch(t)); !errors.As(err, &off) || off.Status != 409 ||
-		!strings.Contains(off.Body, "import_off") || len(shop.got) != asked {
-		t.Errorf("a batch with imports switched off: %v (asked %d → %d), want Core's 409 import_off", err, asked, len(shop.got))
+		!strings.Contains(off.Body, "plugin_import_off") || len(shop.got) != asked {
+		t.Errorf("a batch with imports switched off: %v (asked %d → %d), want Core's 409 plugin_import_off", err, asked, len(shop.got))
+	}
+	if _, err := desk.Ask(ctx, nilda.ContractShopImport, nilda.ShopImportRecordsList, nilda.ShopImportListRequest{Filter: nilda.ShopImportListAll},
+		nilda.ServiceCallOptions{}); err != nil {
+		t.Errorf("the owner's read with imports switched off: %v", err)
 	}
 	desk.SetImportEnabled(true)
 

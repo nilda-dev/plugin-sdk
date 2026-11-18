@@ -668,6 +668,14 @@ func (s *Site) serve(h *Host, w http.ResponseWriter, r *http.Request) {
 			it.Body = raw
 		}
 		_ = json.Unmarshal(body["title"], &it.Title)
+		var status string
+		if json.Unmarshal(body["status"], &status) == nil && status != "" {
+			if status != "draft" && status != "published" {
+				writeError(w, invalid("status is draft or published, not %q", status))
+				return
+			}
+			it.Status = status // as Core's PATCH: a page published or put back to draft
+		}
 		var slug string
 		if json.Unmarshal(body["slug"], &slug) == nil && slug != "" {
 			it.Slug = s.uniqueSlug(it.Type, slug, it.ID)
