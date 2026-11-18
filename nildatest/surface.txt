@@ -51,6 +51,9 @@ field Event.Data []byte
 field Event.Type string
 field Host.EmailRefusal error
 field Host.Fail error
+field ImportRule.From string
+field ImportRule.ID string
+field ImportRule.To string
 field KeyGivenTwice.At string
 field Payments.Now func() time.Time
 field Payments.Site *Site
@@ -126,6 +129,7 @@ func ManifestVisitorTools(testing.TB, string, []nilda.VisitorTool)
 func MobilePreview(testing.TB, string, string)
 func New(string, ...string) (*nilda.Core, *Host)
 func NewAttributeShop(*Services) (*AttributeShop)
+func NewImports() (*Imports)
 func NewLicence() (*Licence)
 func NewPayments() (*Payments)
 func NewReference() (*Reference)
@@ -171,6 +175,14 @@ method (*Host) SendTemplatedEmail(context.Context, *contract.SendTemplatedEmailR
 method (*Host) SetSessionsPerIdentity(int)
 method (*Host) SwitchOffTemplate(string)
 method (*Host) UseEmailTemplates([]nilda.EmailTemplateDecl)
+method (*Imports) Checkpoints() (int)
+method (*Imports) Core(string, ...string) (*nilda.Core, *Host, *httptest.Server)
+method (*Imports) Handler(string, *Host) (http.Handler)
+method (*Imports) Lookups() (int)
+method (*Imports) Map(string, string, string, string)
+method (*Imports) Redirects() ([]ImportRule)
+method (*Imports) RefuseCheckpoints(bool)
+method (*Imports) Serve(string)
 method (*KeyGivenTwice) Error() (string)
 method (*KeyGivenTwice) Unwrap() (error)
 method (*Licence) BindFails()
@@ -290,6 +302,8 @@ type Email
 type Event
 type HookFunc
 type Host
+type ImportRule
+type Imports
 type KeyGivenTwice
 type Licence
 type Payments

@@ -230,6 +230,8 @@ func scopesFor(granted []string) []string {
 		"secrets": {"manage:secrets"},
 		// A plugin's own items in the site's recycle bin: the plugin-only scope behind /plugin-trash.
 		"trash": {"manage:trash"},
+		// An import plugin's doors (/plugin-import: the import map, redirects, the safety copy).
+		"import": {"manage:import"},
 	}
 	seen := map[string]bool{}
 	var out []string
