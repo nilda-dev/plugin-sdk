@@ -204,6 +204,11 @@ var up struct{ Data struct{ ID string `json:"id"` } `json:"data"` }
 err = api.UploadMedia(ctx, "kettle.jpg", file, "A copper kettle", &up)
 ```
 
+A file that is SOLD or handed over (a shop's download) goes in with `api.UploadPrivateMedia(ctx, name, file, &up)`
+instead: Core's `POST /media` with `private=true` makes it private in the insert, so it never has a public address —
+uploading it public and making it private afterwards leaves a moment in which it does. Only the site's own people and
+its plugins open it (`api.MediaFile`).
+
 **Check before you use it.** `core.API()` is `nil` when the manifest declared no capability that grants
 API access (and `core.HasCapability("email")` answers the same question for any one capability — a mirror
 of what Core enforces, never the enforcement):

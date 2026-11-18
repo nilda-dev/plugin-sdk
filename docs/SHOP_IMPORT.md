@@ -73,7 +73,8 @@ for the assistant, or whose request does not require that `import` object.
 - `unmapped` names every source field the plugin read and could not carry; the shop counts them as the loss
   `unmapped_field` with their names, so the report's field counts balance.
 - The plugin resolves Core's things BEFORE the call: pictures and downloads as Core media ids (downloads uploaded born
-  private), a product's description as a Core editor document, its excerpt as plain text. The shop never fetches an address.
+  private: `API.UploadPrivateMedia`), a product's description as a Core editor document, its excerpt as plain text. The shop
+  never fetches an address.
 - A product's or a variant's `tax_status` is `taxable` (also when it says nothing: a record is never sold untaxed by
   omission), `shipping_only` or `none`; `virtual` marks an item nothing is delivered for (a service, a booking), which
   asks no address and no shipping. Both are the plugin's to resolve from its platform's words.

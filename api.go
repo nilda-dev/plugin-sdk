@@ -431,6 +431,19 @@ func (a *API) Delete(ctx context.Context, path string) error {
 // an upload is an image or a document, not a stream. Core runs it through the same checks as the admin's
 // own uploader (type sniffing, the allowlist, SVG sanitising, metadata stripping) and may refuse it.
 func (a *API) UploadMedia(ctx context.Context, filename string, file io.Reader, alt string, out any) error {
+	return a.upload(ctx, filename, file, alt, false, out)
+}
+
+// UploadPrivateMedia puts one file in the media library PRIVATE FROM THE INSERT — Core's POST /media with
+// `private=true` — for a file that is sold or handed over (a shop's download): only the site's own people and its
+// plugins can open it (MediaFile), and there is no moment at which it has a public address. Uploading it with
+// UploadMedia and making it private afterwards leaves exactly that moment. Requires `media.write`; everything
+// else is UploadMedia's (the checks Core runs, the whole file read before sending, a keyed upload's bytes).
+func (a *API) UploadPrivateMedia(ctx context.Context, filename string, file io.Reader, out any) error {
+	return a.upload(ctx, filename, file, "", true, out)
+}
+
+func (a *API) upload(ctx context.Context, filename string, file io.Reader, alt string, private bool, out any) error {
 	if a == nil {
 		return errNoAPI
 	}
@@ -447,10 +460,15 @@ func (a *API) UploadMedia(ctx context.Context, filename string, file io.Reader, 
 	// a public formula of something often guessable (a row's id), and a file could then carry the boundary to end
 	// its own part early and add form fields of its own — an `alt` Core reads first. A file cannot contain a hash
 	// of itself; and it is checked anyway, because a boundary inside the content is what a multipart body cannot
-	// survive.
+	// survive. A private upload adds its field to the hash (a public one's is unchanged), so the two are never one
+	// request.
 	if a.idempotencyKey != "" {
 		h := sha256.New()
-		for _, s := range []string{"nilda-upload", a.idempotencyKey, filename, alt} {
+		fields := []string{"nilda-upload", a.idempotencyKey, filename, alt}
+		if private {
+			fields = append(fields, "private=true")
+		}
+		for _, s := range fields {
 			_, _ = io.WriteString(h, s)
 			_, _ = h.Write([]byte{0})
 		}
@@ -472,6 +490,11 @@ func (a *API) UploadMedia(ctx context.Context, filename string, file io.Reader, 
 	}
 	if alt != "" {
 		if err := mw.WriteField("alt", alt); err != nil {
+			return err
+		}
+	}
+	if private {
+		if err := mw.WriteField("private", "true"); err != nil {
 			return err
 		}
 	}
