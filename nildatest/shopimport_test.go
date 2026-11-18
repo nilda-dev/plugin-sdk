@@ -3,6 +3,9 @@ package nildatest
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -92,16 +95,60 @@ func TestTheDeskRelaysAnImportCallAsCoreDoes(t *testing.T) {
 	if len(shop.got) != 1 {
 		t.Fatalf("the shop was asked %d times; only the granted plugin's batch reaches it", len(shop.got))
 	}
-	// An ordinary method of the same contract needs no grant.
-	if _, err := stranger.API().Services().ShopImportRecords(ctx, "", nilda.ShopImportListRequest{Filter: nilda.ShopImportListAll}); err != nil {
-		t.Fatalf("records.list from a consumer without import: %v", err)
+	// EVERY method of the import contract needs the grant (caller_capability import): the read, the plan, the act and the
+	// undo as much as records.put — and the grant is checked before the request is read, so a malformed request from a
+	// plugin without it is refused for the grant, not for its shape.
+	for name, call := range map[string]func() error{
+		"records.list": func() error {
+			_, err := stranger.API().Services().ShopImportRecords(ctx, "", nilda.ShopImportListRequest{Filter: nilda.ShopImportListAll})
+			return err
+		},
+		"publish.plan": func() error {
+			_, err := stranger.API().Services().PlanShopImport(ctx, "", nilda.ShopImportActRequest{Source: "woocommerce:shop.example.com"})
+			return err
+		},
+		"publish.undo": func() error {
+			_, err := stranger.API().Services().UndoShopImport(ctx, "", nilda.ShopImportUndoRequest{Source: "woocommerce:shop.example.com", Marker: "act-1"})
+			return err
+		},
+	} {
+		var apiErr *nilda.APIError
+		if err := call(); !errors.As(err, &apiErr) || apiErr.Status != 403 || !strings.Contains(apiErr.Body, "import_not_granted") {
+			t.Errorf("%s from a plugin without import: %v, want Core's 403 import_not_granted", name, err)
+		}
 	}
+	if _, err := desk.Ask(ctx, nilda.ContractShopImport, nilda.ShopImportRecordsList, nilda.ShopImportListRequest{Filter: nilda.ShopImportListAll},
+		nilda.ServiceCallOptions{}); !errors.Is(err, ErrImportNotGranted) {
+		t.Errorf("Core's own records.list: %v, want refused as ungranted", err)
+	}
+	stranger2 := desk.routes("stranger", []string{"use:" + nilda.ContractShopImport})
+	rec := httptest.NewRecorder()
+	stranger2.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/services/shop.import/v1/records.put", strings.NewReader(`not json`)))
+	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "import_not_granted") {
+		t.Errorf("a malformed request from a plugin without import: %d %s, want the grant's 403 first", rec.Code, rec.Body.String())
+	}
+	if _, err := importer.API().Services().ShopImportRecords(ctx, "", nilda.ShopImportListRequest{Filter: nilda.ShopImportListAll}); err != nil {
+		t.Fatalf("records.list from the import plugin: %v", err)
+	}
+
+	// The switch off (PLUGIN_IMPORT_ENABLED): every call refused with Core's 409 import_off, which the client does not
+	// retry; the shop never asked.
+	desk.SetImportEnabled(false)
+	asked := len(shop.got)
+	var off *nilda.APIError
+	if _, err := importer.API().Services().PutShopImportRecords(ctx, "", tagBatch(t)); !errors.As(err, &off) || off.Status != 409 ||
+		!strings.Contains(off.Body, "import_off") || len(shop.got) != asked {
+		t.Errorf("a batch with imports switched off: %v (asked %d → %d), want Core's 409 import_off", err, asked, len(shop.got))
+	}
+	desk.SetImportEnabled(true)
 
 	// Two shops and none named: refused, nothing written twice; naming one asks that one.
 	other := &tagShop{}
 	desk.Provider("second_shop", other)
-	if _, err := importer.API().Services().PutShopImportRecords(ctx, "", tagBatch(t)); err == nil {
-		t.Fatal("a batch with two shops and none named was relayed")
+	var unnamed *nilda.APIError
+	if _, err := importer.API().Services().PutShopImportRecords(ctx, "", tagBatch(t)); !errors.As(err, &unnamed) ||
+		unnamed.Status != 422 || !strings.Contains(unnamed.Body, "provider_not_named") {
+		t.Fatalf("a batch with two shops and none named: %v, want Core's 422 provider_not_named", err)
 	}
 	if _, err := importer.API().Services().PutShopImportRecords(ctx, "second_shop", tagBatch(t)); err != nil || len(other.got) != 1 || len(shop.got) != 1 {
 		t.Fatalf("naming one shop: %v (asked %d and %d)", err, len(shop.got), len(other.got))

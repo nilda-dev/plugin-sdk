@@ -21,7 +21,8 @@ func importContract(t *testing.T, edit func(m map[string]any)) []byte {
 	if edit != nil {
 		edit(m)
 	}
-	raw, err := json.Marshal(map[string]any{"name": "shop.example/v1", "description": "An example import.", "methods": []any{m}})
+	raw, err := json.Marshal(map[string]any{"name": "shop.example/v1", "description": "An example import.",
+		"caller_capability": CapImport, "methods": []any{m}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,6 +70,85 @@ func TestAnImportCallIsHeldToItsRules(t *testing.T) {
 	}
 	if m, _ := plain.Method("records.put"); m.Import {
 		t.Fatal("a method without import: true reads as an import call")
+	}
+}
+
+// EVERY CALL OF AN IMPORT CONTRACT NEEDS THE IMPORT GRANT (the security review of D10-a, F1): a contract with an import
+// call requires caller_capability import, so Core gates every method by it — the plan, the act and the undo as much as
+// records.put; a capability no contract may require is refused; shop.import/v1 requires it.
+func TestAnImportContractRequiresTheGrantOfEveryCaller(t *testing.T) {
+	var tree map[string]any
+	if err := json.Unmarshal(importContract(t, nil), &tree); err != nil {
+		t.Fatal(err)
+	}
+	for name, edit := range map[string]func(){
+		"no caller capability":       func() { delete(tree, "caller_capability") },
+		"an unknown one":             func() { tree["caller_capability"] = "commerce" },
+		"an empty one beside import": func() { tree["caller_capability"] = "" },
+	} {
+		var saved = tree["caller_capability"]
+		edit()
+		raw, _ := json.Marshal(tree)
+		if _, err := ParseContract(raw); err == nil {
+			t.Errorf("%s: the contract was taken", name)
+		}
+		tree["caller_capability"] = saved
+	}
+	c, ok := ContractNamed(ContractShopImport)
+	if !ok || c.CallerCapability != CapImport {
+		t.Fatalf("shop.import/v1 requires %q of its callers, want %q", c.CallerCapability, CapImport)
+	}
+	// A contract with no import call may require the grant too; one requiring nothing stays open to its consumers.
+	for _, other := range contractDefs {
+		if other.name != ContractShopImport && other.callerCapability != "" {
+			t.Errorf("%s requires %q of every caller; only the import contract does", other.name, other.callerCapability)
+		}
+	}
+}
+
+// A CLOSED CONTRACT REFUSES WHAT IT DOES NOT DECLARE (the security review of D10-a, F2): encoding/json matches a key without
+// regard to case, so in an open schema "KIND" beside "kind", or a "NAME" of any length and any characters, passed the check
+// and reached the provider decoded. shop.import/v1 is closed: every object of its schemas refuses an undeclared member,
+// on Core's side, on the client's and in Serves before it decodes; a closed contract with an open object is refused.
+func TestTheImportContractRefusesWhatItDoesNotDeclare(t *testing.T) {
+	c, ok := ContractNamed(ContractShopImport)
+	if !ok || !c.Closed {
+		t.Fatal("shop.import/v1 is not a closed contract")
+	}
+	put, _ := c.Method(ShopImportRecordsPut)
+	ok1 := `{"import":{"id":"j","planned":1},"source":"woocommerce:a.example","platform":"woocommerce","settings":` +
+		`{"currency":"EUR","prices_include_tax":true,"weight_unit":"kg","dimension_unit":"cm","from":"site","money":"same"},` +
+		`"kind":"tag","records":[{"source_id":"a#1","data":{"name":"Linen","slug":"linen"}}]}`
+	if err := put.ValidateInput([]byte(ok1)); err != nil {
+		t.Fatalf("a well-formed batch was refused: %v", err)
+	}
+	for name, bad := range map[string]string{
+		"a case-folded kind":         strings.Replace(ok1, `"kind":"tag"`, `"kind":"tag","KIND":"product"`, 1),
+		"a case-folded name in data": strings.Replace(ok1, `"name":"Linen"`, `"name":"Linen","NAME":"`+strings.Repeat("", 70)+`"`, 1),
+		"an undeclared member":       strings.Replace(ok1, `"slug":"linen"`, `"slug":"linen","email":"a@b.example"`, 1),
+		"one in the import object":   strings.Replace(ok1, `"planned":1`, `"planned":1,"Planned":9`, 1),
+		"one in the settings":        strings.Replace(ok1, `"money":"same"`, `"money":"same","Money":"convert"`, 1),
+	} {
+		if err := put.ValidateInput([]byte(bad)); err == nil {
+			t.Errorf("%s was taken", name)
+		}
+	}
+	// Serves checks the request itself, before it decodes it, whoever calls its Handle.
+	var decoded bool
+	sm := Serves(ContractShopImport, ShopImportRecordsPut, func(_ context.Context, b ShopImportBatch) (ShopImportAnswer, error) {
+		decoded = true
+		return ShopImportAnswer{Kind: b.Kind, Results: []ShopImportResult{}}, nil
+	})
+	if _, err := sm.Handle(context.Background(), json.RawMessage(strings.Replace(ok1, `"kind":"tag"`, `"KIND":"product","kind":"tag"`, 1))); err == nil || decoded {
+		t.Errorf("Serves decoded a request its schema refuses: %v (decoded %v)", err, decoded)
+	}
+	// A closed contract whose object is open is refused when it loads.
+	var tree map[string]any
+	_ = json.Unmarshal(importContract(t, nil), &tree)
+	tree["closed"] = true
+	raw, _ := json.Marshal(tree)
+	if _, err := ParseContract(raw); err == nil || !strings.Contains(err.Error(), "is open") {
+		t.Errorf("a closed contract with an open object: %v", err)
 	}
 }
 

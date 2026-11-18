@@ -30,8 +30,17 @@ on it.
   Core relays it only for a caller holding the `import` capability, reads the job's `import: {id, planned}` from the
   checked request, opens it under a marker of Core's own so the provider's callbacks are quiet and counted on the job's
   own allowance, asks one provider, never answers it from a cache, and takes its request up to 1 MiB.
+- **A contract may need a capability of EVERY caller** (`"caller_capability": "import"`, `ServiceContract.CallerCapability`,
+  from v0.70.0): Core refuses any call of any of its methods from a plugin the owner did not grant it, before the request
+  is read and before any provider is asked (403 `import_not_granted`; while the site's import switch is off, 409
+  `import_off`, not retried). A contract with an import call must require `import`, so a plugin that may not import can
+  neither plan, publish nor undo one.
 - **Within a major, a contract only grows.** A schema never closes an object, so a field one side adds is never refused
-  by the other. A breaking change is a new major (`…/v2`), served beside the old one for a while.
+  by the other. A breaking change is a new major (`…/v2`), served beside the old one for a while. The one exception is a
+  CLOSED contract (`"closed": true`, `ServiceContract.Closed`, from v0.70.0; `shop.import/v1`): every object of it is
+  closed (`additionalProperties: false`), because it carries an outside party's data and encoding/json matches a key
+  without regard to case — `"KIND"` beside `"kind"` would pass an open schema and reach the provider decoded. It grows by
+  a new major only. `Serves` checks every request against its method's schema itself, before it decodes it.
 
 ## 2. The manifest
 

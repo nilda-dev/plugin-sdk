@@ -3522,8 +3522,13 @@ of ONE kind of `ShopImportRecord`s → a `ShopImportAnswer` of `ShopImportResult
 
 `records.put` is an IMPORT CALL (`ContractMethod.Import`): its request carries an `ImportCall` (the job's id and planned
 records; `ReadImportCall` reads and checks it), Core relays it only for a plugin holding `import`, under a marker of its own
-that makes the shop's callbacks quiet, to one shop, never from a cache, up to `MaxImportInputBytes`. Test with
-`nildatest.Services.ImportPlugin`, which grants `import` as the owner would; a plugin made with `Core` is refused.
+that makes the shop's callbacks quiet, to one shop, never from a cache, up to `MaxImportInputBytes`. EVERY method of the
+contract needs the grant (`ServiceContract.CallerCapability` `"import"`), and its objects are closed
+(`ServiceContract.Closed`). Test with `nildatest.Services.ImportPlugin`, which grants `import` as the owner would; a plugin
+made with `Core` is refused (`nildatest.ErrImportNotGranted`), as every call is while `Services.SetImportEnabled(false)`
+(`nildatest.ErrImportOff`, Core's 409 `import_off`); an import call with two shops and none named is
+`nildatest.ErrProviderNotNamed` (Core's 422 `provider_not_named`). `ShopImportApplyRequest.Validate` refuses an act whose
+settings name no currency.
 
 ### The shop's catalogue (`shop.catalog/v1`)
 

@@ -21,6 +21,15 @@ lives in the plugin; the shop keeps only this door.
 `none` methods are reached through the import plugin's own abilities, which keep the job, preview first and ask the owner
 before the act. `records.list` is also the assistant's read tool: it is the shop's own truth after the act.
 
+## Who may call it
+
+EVERY method needs the `import` capability the owner granted (`"caller_capability": "import"`): the read, the plan, the
+act and the undo as much as `records.put`. Core checks it — and the site's import switch — before it reads the request
+and before any shop is asked: 403 `import_not_granted` without the grant (Core's own calls included), 409 `import_off`
+while the switch is off (not retried). The contract is CLOSED (`"closed": true`): every object refuses a member it does not
+declare, so `"KIND"` beside `"kind"`, or a `"NAME"` the schema never bounded, is refused at Core, at the client and in
+`Serves` before the shop decodes the request.
+
 ## The import call
 
 `records.put` is marked `"import": true` (`ContractMethod.Import`). Its request carries `import: {id, planned}`
@@ -33,7 +42,8 @@ before the act. `records.list` is also the assistant's read tool: it is the shop
 3. opens the call under the marker `plugin:<caller key>:<id>`: what the shop then writes back through Core's API (its
    products' pages, its terms, media reads) is quiet — no mail, webhook, notice or automation — and counted on the job's
    own hourly allowance, sized from `planned`, never on the shop's token;
-4. relays to ONE shop: the one the call names, or the only one; with two and none named it refuses;
+4. relays to ONE shop: the one the call names, or the only one; with two and none named it refuses (422
+   `provider_not_named`);
 5. never answers it from a cache; takes a request up to 1 MiB (`MaxImportInputBytes`).
 
 `ParseContract` refuses an import call that is not answered by the provider, does not block, is not idempotent, is a tool
@@ -61,6 +71,9 @@ for the assistant, or whose request does not require that `import` object.
   `unmapped_field` with their names, so the report's field counts balance.
 - The plugin resolves Core's things BEFORE the call: pictures and downloads as Core media ids (downloads uploaded born
   private), a product's description as a Core editor document, its excerpt as plain text. The shop never fetches an address.
+- A product's or a variant's `tax_status` is `taxable` (also when it says nothing: a record is never sold untaxed by
+  omission), `shipping_only` or `none`; `virtual` marks an item nothing is delivered for (a service, a booking), which
+  asks no address and no shipping. Both are the plugin's to resolve from its platform's words.
 - Money is a decimal string in the settings' currency, `""` for none (`-?[0-9]{1,15}(.[0-9]{1,6})?`); the shop converts
   ONLY at the settings' `convert` rate, rounding once, and keeps the money as read so nothing converts twice. Times are
   RFC 3339 UTC. References to other records are their source ids.

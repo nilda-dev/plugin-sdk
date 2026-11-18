@@ -41,6 +41,16 @@ type Services struct {
 	tiers     map[string]nilda.AgentTier // operator → what the owner set (SetAgentTier); browse when absent
 	prefixes  map[string]string          // plugin key → its manifest's route_prefix (RoutePrefix)
 	importers map[string]bool            // plugin keys the owner granted the import capability (ImportPlugin)
+	importOff bool                       // Core's import switch is off (SetImportEnabled)
+}
+
+// SetImportEnabled is Core's import switch (PLUGIN_IMPORT_ENABLED, D-110): off, every call of an import contract is refused
+// with Core's 409 whose reason is import_off — after the grant is checked, before any provider is asked. The desk starts
+// with it on, so an import plugin's test runs; a test of the switch turns it off. (A real Core ships it off.)
+func (s *Services) SetImportEnabled(on bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.importOff = !on
 }
 
 // SetAgentTier sets what the site's owner lets an agent's operator do, as Core's SEO → Shopping agents list holds it —
@@ -140,8 +150,34 @@ func (s *Services) ImportPlugin(key string, contracts ...string) (*nilda.Core, *
 	return nilda.NewCoreForTest(key, granted, h, srv.URL, "test-token", scopes), h, srv
 }
 
-// ErrImportNotGranted is the desk's answer to an import call from a plugin the owner did not grant `import` — Core's 403.
-var ErrImportNotGranted = errors.New("an import call needs the import capability, granted by the site's owner")
+// The desk's refusals of an import contract's call (ServiceContract.CallerCapability import), as Core answers them:
+// ErrImportNotGranted from a caller the owner did not grant `import` (Core's own calls included) — Core's 403, reason
+// import_not_granted; ErrImportOff while the import switch is off — Core's 409, reason import_off (not retried: the switch
+// is the owner's); ErrProviderNotNamed for an import call with two providers and none named — Core's 422, reason
+// provider_not_named.
+var (
+	ErrImportNotGranted = errors.New("an import call needs the import capability, granted by the site's owner")
+	ErrImportOff        = errors.New("imports are switched off on this site")
+	ErrProviderNotNamed = errors.New("more than one plugin provides the contract: an import call names the one it writes into")
+)
+
+// callerMay is the grant and the switch of a contract whose every call needs a capability, checked before the request
+// is read, as Core checks them.
+func (s *Services) callerMay(caller, contract string) error {
+	c, ok := nilda.ContractNamed(contract)
+	if !ok || c.CallerCapability != nilda.CapImport {
+		return nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if caller == "" || !s.importers[caller] {
+		return ErrImportNotGranted
+	}
+	if s.importOff {
+		return ErrImportOff
+	}
+	return nil
+}
 
 // Ask calls as Core's own assistant would — no caller plugin, no scope — for a provider's test.
 func (s *Services) Ask(ctx context.Context, contract, method string, input any, opts nilda.ServiceCallOptions) (nilda.ServiceResult, error) {
@@ -164,23 +200,21 @@ func (s *Services) call(ctx context.Context, caller, contract, method string, in
 	if !ok || m.Hook != "" {
 		return nilda.ServiceResult{}, errors.New("Core relays no method " + method + " of " + contract)
 	}
+	// AN IMPORT CONTRACT'S CALL, as Core's desk relays it: only for a caller the owner granted import (Core itself holds no
+	// grant), while the switch is on — both before the request is read.
+	if err := s.callerMay(caller, contract); err != nil {
+		return nilda.ServiceResult{}, err
+	}
 	if len(input) == 0 || string(input) == "null" {
 		input = []byte(`{}`)
 	}
 	if err := m.ValidateInput(input); err != nil {
 		return nilda.ServiceResult{}, err
 	}
-	// AN IMPORT CALL, as Core's desk relays it: only for a caller the owner granted import (Core itself holds no grant),
-	// under a marker namespaced by the caller's key, to ONE provider.
+	// An import call is opened under a marker namespaced by the caller's key, to ONE provider.
 	var marker string
 	var planned int
 	if m.Import {
-		s.mu.Lock()
-		granted := s.importers[caller]
-		s.mu.Unlock()
-		if caller == "" || !granted {
-			return nilda.ServiceResult{}, ErrImportNotGranted
-		}
 		ic, err := nilda.ReadImportCall(input)
 		if err != nil {
 			return nilda.ServiceResult{}, err
@@ -199,7 +233,7 @@ func (s *Services) call(ctx context.Context, caller, contract, method string, in
 		return nilda.ServiceResult{}, errors.New("the plugin " + opts.Provider + " is not an active provider of " + contract)
 	}
 	if m.Import && len(asked) > 1 {
-		return nilda.ServiceResult{}, errors.New("more than one plugin provides " + contract + ": an import call names the one it writes into")
+		return nilda.ServiceResult{}, ErrProviderNotNamed
 	}
 	budget := time.Duration(m.BudgetMS) * time.Millisecond
 	if budget == 0 {
@@ -331,6 +365,10 @@ func (s *Services) routes(caller string, scopes []string) http.Handler {
 				map[string]string{"reason": "contract_not_declared", "contract": contract})
 			return
 		}
+		if err := s.callerMay(caller, contract); err != nil {
+			writeDeskRefusal(w, err, contract)
+			return
+		}
 		var body struct {
 			Input    json.RawMessage `json:"input"`
 			Provider string          `json:"provider"`
@@ -344,9 +382,8 @@ func (s *Services) routes(caller string, scopes []string) http.Handler {
 		switch {
 		case errors.Is(err, ErrServiceBlocked):
 			writeServiceError(w, http.StatusServiceUnavailable, "UNAVAILABLE", err.Error(), nil)
-		case errors.Is(err, ErrImportNotGranted):
-			writeServiceError(w, http.StatusForbidden, "FORBIDDEN", err.Error(),
-				map[string]string{"reason": "import_not_granted", "contract": contract})
+		case errors.Is(err, ErrImportNotGranted), errors.Is(err, ErrImportOff), errors.Is(err, ErrProviderNotNamed):
+			writeDeskRefusal(w, err, contract)
 		case err != nil:
 			writeServiceError(w, http.StatusUnprocessableEntity, "VALIDATION", err.Error(), nil)
 		default:
@@ -355,6 +392,21 @@ func (s *Services) routes(caller string, scopes []string) http.Handler {
 			_ = json.NewEncoder(w).Encode(map[string]any{"data": res})
 		}
 	})
+}
+
+// writeDeskRefusal answers one of an import contract's refusals as Core does.
+func writeDeskRefusal(w http.ResponseWriter, err error, contract string) {
+	switch {
+	case errors.Is(err, ErrImportNotGranted):
+		writeServiceError(w, http.StatusForbidden, "FORBIDDEN", err.Error(),
+			map[string]string{"reason": "import_not_granted", "contract": contract})
+	case errors.Is(err, ErrImportOff):
+		writeServiceError(w, http.StatusConflict, "CONFLICT", err.Error(),
+			map[string]string{"reason": "import_off", "contract": contract})
+	default:
+		writeServiceError(w, http.StatusUnprocessableEntity, "VALIDATION", err.Error(),
+			map[string]string{"reason": "provider_not_named", "contract": contract})
+	}
 }
 
 func writeServiceError(w http.ResponseWriter, status int, code, msg string, details map[string]string) {

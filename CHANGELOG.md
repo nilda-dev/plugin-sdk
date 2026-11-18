@@ -34,6 +34,20 @@ Added (the import):
   contract file's schema is generated from. No earlier contract's file changed.
 - `nildatest.Services.ImportPlugin` (Core for a plugin holding `import`), `nildatest.ErrImportNotGranted`, and
   `ServiceCallLog.ImportMarker` / `ImportPlanned`: the desk relays an import call as Core does.
+- `ServiceContract.CallerCapability` (`"caller_capability"`): a capability every call of the contract needs, whatever the
+  method — `shop.import/v1` requires `import` of every caller, not only of `records.put`; `ParseContract` refuses an import
+  call in a contract that does not, and a capability no contract may require. `ServiceContract.Closed` (`"closed"`): every
+  object of the contract's schemas is closed (`shop.import/v1`: encoding/json reads keys case-blind, so an open schema let
+  `"KIND"` beside `"kind"` reach the provider); `ParseContract` refuses an open object in a closed contract, as it still
+  refuses a closed one elsewhere. `Serves` checks a request against its method's schema itself before decoding it. (The
+  security review of D10-a, F1 and F2.)
+- `nildatest.Services.SetImportEnabled`, `nildatest.ErrImportOff` (Core's 409 `import_off`) and
+  `nildatest.ErrProviderNotNamed` (Core's 422 `provider_not_named`); the desk checks an import contract's grant and switch
+  before it reads the request, for every method (F8).
+- The neutral records as the shop needs them (D10 §1.4 amendments 8–11): `ShopImportPricing.TaxStatus` (`taxable`,
+  `shipping_only`, `none`; empty is taxable) replaces `Taxable`, whose zero value sold an item untaxed; `ShopImportParcel.Virtual`
+  (an item nothing is delivered for); `ShopImportSettingsResult.Currency` and `ShopImportShopSettings.Currency` may be empty (a
+  shop that has chosen no currency yet, which is the one that may adopt the old one); `ShopImportApplyRequest.Validate`.
 
 
 ## v0.69.0 — 2026-11-18 (account-page sections, purchase options on the product page, renewal recovery, 128 events)
