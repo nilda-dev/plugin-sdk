@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.69.0 — unreleased (account-page sections, purchase options on the product page, renewal recovery, 128 events)
+## v0.69.0 — 2026-11-18 (account-page sections, purchase options on the product page, renewal recovery, 128 events)
 
 Additive, and EXPERIMENTAL: the subscriptions plugin's "a view in the buyer's My Account" and the loyalty plugin's points
 tab (`docs/SHOP_ACCOUNT_SECTIONS.md`). Core relays it from the release built on this version, and stamps each answer's
