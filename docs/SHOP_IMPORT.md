@@ -1,6 +1,6 @@
 # shop.import/v1 — an old shop written into the shop by an import plugin (EXPERIMENTAL)
 
-Door D10 of the shop's plan (Core's `docs/plans/wordpress-m3-2026-11-04/D10-SHOP-IMPORT.md`). From plugin-sdk v0.70.0.
+Door D10 of the shop's plan (Core's `docs/plans/wordpress-m3-2026-11-04/D10-SHOP-IMPORT.md`). From plugin-sdk v0.71.0.
 The shop provides it; an import plugin (`site_import`) uses it, and must hold the `import` capability the owner granted
 AND name the contract under `uses` (with `service_consumer`).
 

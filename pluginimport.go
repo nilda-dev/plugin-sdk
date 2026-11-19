@@ -8,7 +8,7 @@ import (
 	"unicode/utf8"
 )
 
-// CORE'S DOORS FOR AN IMPORT PLUGIN (v0.70.0; core internal/pluginimport, REPLAN-plugin G4–G6, S4 and S5). A plugin holding the
+// CORE'S DOORS FOR AN IMPORT PLUGIN (v0.71.0; core internal/pluginimport, REPLAN-plugin G4–G6, S4 and S5). A plugin holding the
 // `import` capability (its token's manage:import scope) reaches exactly these, and no general import or settings power:
 //
 //   - LookupImported — POST /plugin-import/map/lookup: what an earlier import of the site made of the old site's things (a page,

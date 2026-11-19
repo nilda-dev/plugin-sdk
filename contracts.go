@@ -49,12 +49,12 @@ type ServiceContract struct {
 	// before the request is read, before any provider is asked, whatever the method: "import" (CapImport) for
 	// shop.import/v1, whose every method is the import's (a plugin that may not import may not plan, publish or undo an
 	// import either). Empty for a contract any consumer naming it under `uses` may call. A method marked Import needs
-	// the contract to say "import" here. From v0.70.0.
+	// the contract to say "import" here. From v0.71.0.
 	CallerCapability string `json:"caller_capability,omitempty"`
 	// Closed is a contract whose every object is CLOSED (additionalProperties: false): a member neither side declared is
 	// refused, so a request cannot carry "KIND" beside "kind" — encoding/json matches a key without regard to case, and
 	// would decode the one the schema never checked. Such a contract grows by a new major version, not within one. For a
-	// contract that carries an outside party's data (an old shop's records). From v0.70.0.
+	// contract that carries an outside party's data (an old shop's records). From v0.71.0.
 	Closed bool `json:"closed,omitempty"`
 }
 
@@ -114,7 +114,7 @@ type ContractMethod struct {
 	// mail, webhook or notice) and counted on the job's own rate bucket, sized from the planned count; asks ONE provider
 	// (the one named, or the only one); and never answers it from a cache. Core takes its request up to
 	// MaxImportInputBytes. ParseContract holds it to: answered by the provider, fallback block, idempotent, agent none,
-	// and an input that requires an `import` object requiring id and planned. From v0.70.0.
+	// and an input that requires an `import` object requiring id and planned. From v0.71.0.
 	Import bool `json:"import,omitempty"`
 
 	in, out *jsonschema.Resolved

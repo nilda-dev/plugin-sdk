@@ -3291,7 +3291,7 @@ text with `nilda.BodyText(body)` (a heading, a list item, a quote each its own b
 words), and check one before a write, or in a test, with `nilda.CheckBody(body)` — Core's own rule (`ErrNotABody`).
 
 Words that come as HTML — an old shop's product description, a feed's article — become a body with
-`nilda.HTMLBody(html, picture)` (v0.70.0): headings, paragraphs and line breaks, bold, italic, underline, strikethrough,
+`nilda.HTMLBody(html, picture)` (v0.71.0): headings, paragraphs and line breaks, bold, italic, underline, strikethrough,
 code, links (http, https, mailto, tel or a path on the site), bullet and numbered lists, quotes, code blocks, rules, tables
 and pictures, in the node vocabulary Core's editor and renderer use. Text is only ever text on a text node. `picture`
 answers each `nilda.HTMLImage` (its `Src`, `Alt` and `Class` — WordPress names its library file there, `wp-image-<id>`)
@@ -3563,7 +3563,7 @@ every provider's with `Services.AccountSections` (or `AccountSectionsFrom`) into
 `ProvidedAccountSection`s, each path held by `UnderRoutePrefix` to the `ServiceAnswer.RoutePrefix` Core stamped.
 `nildatest.Services.RoutePrefix` gives a test provider its prefix.
 
-### Core's doors for an import plugin (`/plugin-import`, v0.70.0)
+### Core's doors for an import plugin (`/plugin-import`, v0.71.0)
 
 A plugin holding `import` reaches Core's import doors through the typed client (`pluginimport.go`; Core's
 `internal/pluginimport`), and nothing broader: `api.LookupImported(ctx, source, ids)` answers what an earlier import of the
@@ -3598,7 +3598,7 @@ of ONE kind of `ShopImportRecord`s → a `ShopImportAnswer` of `ShopImportResult
 `Services.PutShopImportRecords`, `Services.ShopImportRecords`, `Services.PlanShopImport`, `Services.ShopImportPrices`,
 `Services.ApplyShopImport` and `Services.UndoShopImport`.
 
-`records.put`, `publish.apply` and `publish.undo` are IMPORT CALLS (`ContractMethod.Import`; the act since v0.70.0, so its
+`records.put`, `publish.apply` and `publish.undo` are IMPORT CALLS (`ContractMethod.Import`; the act since v0.71.0, so its
 page edits are quiet as Core's own import publish is): each request carries an `ImportCall` (the job's id and planned
 records; `ReadImportCall` reads and checks it), Core relays it only for a plugin holding `import`, under a marker of its own
 that makes the shop's callbacks quiet, to one shop, never from a cache, up to `MaxImportInputBytes`. EVERY method of the
