@@ -1,0 +1,2886 @@
+{
+  "name": "shop.import/v1",
+  "description": "An old shop written into this one by an import plugin (SHOP_IMPORT.md): the plugin reads WooCommerce, later Shopify or Wix, and sends the shop's own NEUTRAL records one kind a batch — categories, tags, attributes, products, variants, links, reviews, coupons; the shop writes drafts only, quietly, keyed by where each came from so a batch sent again changes nothing, converts money only at the owner's rate, holds what cannot be published yet, and later publishes the import on the owner's act and takes that act back.",
+  "methods": [
+    {
+      "name": "settings.answer",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. What the shop would do with an old shop's settings: the money decision (same, adopt, convert, no_prices, or ask when the currencies differ and the owner has not answered), the ECB's rate for the pair, whether the two shops' prices_include_tax differ, this shop's currency and whether it is empty.",
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the import plugin's own abilities are the door: they keep the job, preview first and ask the owner before the act",
+      "input": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(woocommerce|shopify|wix|squarespace|csv):[^|\\s]+$"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "woocommerce",
+              "shopify",
+              "wix",
+              "squarespace",
+              "csv"
+            ]
+          },
+          "locale": {
+            "type": "string",
+            "maxLength": 35,
+            "pattern": "^[A-Za-z0-9-]*$"
+          },
+          "settings": {
+            "type": "object",
+            "properties": {
+              "currency": {
+                "type": "string",
+                "pattern": "^([A-Z]{3})?$"
+              },
+              "prices_include_tax": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              },
+              "weight_unit": {
+                "type": "string",
+                "enum": [
+                  "",
+                  "kg",
+                  "g",
+                  "lbs",
+                  "oz"
+                ]
+              },
+              "dimension_unit": {
+                "type": "string",
+                "enum": [
+                  "",
+                  "m",
+                  "cm",
+                  "mm",
+                  "in",
+                  "yd"
+                ]
+              },
+              "from": {
+                "type": "string",
+                "enum": [
+                  "",
+                  "site",
+                  "owner"
+                ]
+              },
+              "money": {
+                "type": "string",
+                "enum": [
+                  "",
+                  "same",
+                  "adopt",
+                  "convert",
+                  "no_prices"
+                ]
+              },
+              "convert": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "to": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "rate": {
+                    "type": "string",
+                    "pattern": "^[0-9]{1,18}(\\.[0-9]{1,18})?$"
+                  },
+                  "rate_day": {
+                    "type": "string",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                  },
+                  "rate_source": {
+                    "type": "string",
+                    "enum": [
+                      "ecb",
+                      "owner"
+                    ]
+                  },
+                  "ending": {
+                    "type": "string",
+                    "enum": [
+                      "exact",
+                      "99",
+                      "95",
+                      "00"
+                    ]
+                  },
+                  "tax_class_rates": {
+                    "type": "object",
+                    "maxProperties": 100,
+                    "additionalProperties": {
+                      "type": "string",
+                      "pattern": "^[0-9]{1,3}(\\.[0-9]{1,4})?$"
+                    }
+                  }
+                },
+                "required": [
+                  "to",
+                  "rate",
+                  "rate_day",
+                  "rate_source",
+                  "ending"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "currency",
+              "prices_include_tax",
+              "weight_unit",
+              "dimension_unit",
+              "from",
+              "money"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "source",
+          "platform",
+          "settings"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "same",
+              "adopt",
+              "convert",
+              "no_prices",
+              "ask"
+            ]
+          },
+          "ecb_rate": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "rate": {
+                "type": "string",
+                "pattern": "^[0-9]{1,18}(\\.[0-9]{1,18})?$"
+              },
+              "day": {
+                "type": "string",
+                "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+              },
+              "source": {
+                "type": "string",
+                "enum": [
+                  "ecb"
+                ]
+              }
+            },
+            "required": [
+              "rate",
+              "day",
+              "source"
+            ],
+            "additionalProperties": false
+          },
+          "tax_include_differs": {
+            "type": "boolean"
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^([A-Z]{3})?$"
+          },
+          "empty": {
+            "type": "boolean"
+          },
+          "losses": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                },
+                "sentence": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "fields": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                  },
+                  "maxItems": 200
+                }
+              },
+              "required": [
+                "code",
+                "count",
+                "sentence"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "decision",
+          "tax_include_differs",
+          "currency",
+          "empty",
+          "losses"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "records.put",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. One batch of ONE kind of an old shop's records, an import call: drafts only, no mail, webhook, notice or catalogue event; keyed by source, kind and source id, so a batch sent again answers already (the same record and money), kept (changed here since: never overwritten) or updated. apply false is the preview: nothing is written. Each record's answer names what was made, why it is held, and what it lost.",
+      "budget_ms": 15000,
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the import plugin's own abilities are the door: they keep the job, preview first and ask the owner before the act",
+      "input": {
+        "type": "object",
+        "properties": {
+          "import": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9._:-]{1,200}$"
+              },
+              "planned": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000
+              }
+            },
+            "required": [
+              "id",
+              "planned"
+            ],
+            "additionalProperties": false
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(woocommerce|shopify|wix|squarespace|csv):[^|\\s]+$"
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "woocommerce",
+              "shopify",
+              "wix",
+              "squarespace",
+              "csv"
+            ]
+          },
+          "apply": {
+            "type": "boolean"
+          },
+          "locale": {
+            "type": "string",
+            "maxLength": 35,
+            "pattern": "^[A-Za-z0-9-]*$"
+          },
+          "settings": {
+            "type": "object",
+            "properties": {
+              "currency": {
+                "type": "string",
+                "pattern": "^([A-Z]{3})?$"
+              },
+              "prices_include_tax": {
+                "type": [
+                  "null",
+                  "boolean"
+                ]
+              },
+              "weight_unit": {
+                "type": "string",
+                "enum": [
+                  "",
+                  "kg",
+                  "g",
+                  "lbs",
+                  "oz"
+                ]
+              },
+              "dimension_unit": {
+                "type": "string",
+                "enum": [
+                  "",
+                  "m",
+                  "cm",
+                  "mm",
+                  "in",
+                  "yd"
+                ]
+              },
+              "from": {
+                "type": "string",
+                "enum": [
+                  "",
+                  "site",
+                  "owner"
+                ]
+              },
+              "money": {
+                "type": "string",
+                "enum": [
+                  "",
+                  "same",
+                  "adopt",
+                  "convert",
+                  "no_prices"
+                ]
+              },
+              "convert": {
+                "type": [
+                  "null",
+                  "object"
+                ],
+                "properties": {
+                  "to": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "rate": {
+                    "type": "string",
+                    "pattern": "^[0-9]{1,18}(\\.[0-9]{1,18})?$"
+                  },
+                  "rate_day": {
+                    "type": "string",
+                    "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+                  },
+                  "rate_source": {
+                    "type": "string",
+                    "enum": [
+                      "ecb",
+                      "owner"
+                    ]
+                  },
+                  "ending": {
+                    "type": "string",
+                    "enum": [
+                      "exact",
+                      "99",
+                      "95",
+                      "00"
+                    ]
+                  },
+                  "tax_class_rates": {
+                    "type": "object",
+                    "maxProperties": 100,
+                    "additionalProperties": {
+                      "type": "string",
+                      "pattern": "^[0-9]{1,3}(\\.[0-9]{1,4})?$"
+                    }
+                  }
+                },
+                "required": [
+                  "to",
+                  "rate",
+                  "rate_day",
+                  "rate_source",
+                  "ending"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "currency",
+              "prices_include_tax",
+              "weight_unit",
+              "dimension_unit",
+              "from",
+              "money"
+            ],
+            "additionalProperties": false
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "category",
+              "tag",
+              "attribute",
+              "product",
+              "variant",
+              "links",
+              "review",
+              "coupon"
+            ]
+          },
+          "records": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "source_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300,
+                  "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                },
+                "parent_source_id": {
+                  "type": "string",
+                  "maxLength": 300,
+                  "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "",
+                    "published",
+                    "draft",
+                    "pending",
+                    "private",
+                    "scheduled"
+                  ]
+                },
+                "data": true,
+                "unmapped": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                  },
+                  "maxItems": 200
+                }
+              },
+              "required": [
+                "source_id",
+                "data"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 800
+          }
+        },
+        "required": [
+          "import",
+          "source",
+          "platform",
+          "settings",
+          "kind",
+          "records"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "category"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "records": {
+                  "items": {
+                    "properties": {
+                      "data": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "slug": {
+                            "type": "string",
+                            "maxLength": 200,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "parent": {
+                            "type": "string",
+                            "maxLength": 300,
+                            "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                          },
+                          "description": {
+                            "type": "string",
+                            "maxLength": 65536
+                          },
+                          "image_media_id": {
+                            "type": "string",
+                            "maxLength": 100,
+                            "pattern": "^[A-Za-z0-9-]*$"
+                          },
+                          "position": {
+                            "type": "integer",
+                            "minimum": -1000000000,
+                            "maximum": 1000000000
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "slug"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "tag"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "records": {
+                  "items": {
+                    "properties": {
+                      "data": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "slug": {
+                            "type": "string",
+                            "maxLength": 200,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "description": {
+                            "type": "string",
+                            "maxLength": 65536
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "slug"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "attribute"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "records": {
+                  "items": {
+                    "properties": {
+                      "data": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "slug": {
+                            "type": "string",
+                            "maxLength": 200,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "terms": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 500,
+                                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                                },
+                                "slug": {
+                                  "type": "string",
+                                  "maxLength": 200,
+                                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                                },
+                                "position": {
+                                  "type": "integer",
+                                  "minimum": -1000000000,
+                                  "maximum": 1000000000
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "slug"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "maxItems": 1000
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "slug",
+                          "terms"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "product"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "records": {
+                  "items": {
+                    "properties": {
+                      "data": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "maxLength": 500,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "slug": {
+                            "type": "string",
+                            "maxLength": 200,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "simple",
+                              "variable",
+                              "digital",
+                              "external",
+                              "grouped"
+                            ]
+                          },
+                          "featured": {
+                            "type": "boolean"
+                          },
+                          "visibility": {
+                            "type": "string",
+                            "enum": [
+                              "everywhere",
+                              "catalog",
+                              "search",
+                              "hidden"
+                            ]
+                          },
+                          "password_protected": {
+                            "type": "boolean"
+                          },
+                          "body": true,
+                          "excerpt": {
+                            "type": "string",
+                            "maxLength": 65536
+                          },
+                          "sku": {
+                            "type": "string",
+                            "maxLength": 100,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "gtin": {
+                            "type": "string",
+                            "maxLength": 100,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "mpn": {
+                            "type": "string",
+                            "maxLength": 100,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "regular_price": {
+                            "type": "string",
+                            "pattern": "^(-?[0-9]{1,15}(\\.[0-9]{1,6})?)?$"
+                          },
+                          "sale_price": {
+                            "type": "string",
+                            "pattern": "^(-?[0-9]{1,15}(\\.[0-9]{1,6})?)?$"
+                          },
+                          "sale_from": {
+                            "type": "string",
+                            "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z)?$"
+                          },
+                          "sale_to": {
+                            "type": "string",
+                            "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z)?$"
+                          },
+                          "tax_status": {
+                            "type": "string",
+                            "enum": [
+                              "",
+                              "taxable",
+                              "shipping_only",
+                              "none"
+                            ]
+                          },
+                          "tax_class": {
+                            "type": "string",
+                            "maxLength": 200,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "manage_stock": {
+                            "type": "boolean"
+                          },
+                          "stock_quantity": {
+                            "type": "integer",
+                            "minimum": -1000000000,
+                            "maximum": 1000000000
+                          },
+                          "stock_status": {
+                            "type": "string",
+                            "enum": [
+                              "",
+                              "in",
+                              "out",
+                              "backorder"
+                            ]
+                          },
+                          "backorders": {
+                            "type": "string",
+                            "enum": [
+                              "",
+                              "no",
+                              "notify",
+                              "yes"
+                            ]
+                          },
+                          "low_stock_at": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000000
+                          },
+                          "virtual": {
+                            "type": "boolean"
+                          },
+                          "weight": {
+                            "type": "string",
+                            "pattern": "^([0-9]{1,9}(\\.[0-9]{1,6})?)?$"
+                          },
+                          "length": {
+                            "type": "string",
+                            "pattern": "^([0-9]{1,9}(\\.[0-9]{1,6})?)?$"
+                          },
+                          "width": {
+                            "type": "string",
+                            "pattern": "^([0-9]{1,9}(\\.[0-9]{1,6})?)?$"
+                          },
+                          "height": {
+                            "type": "string",
+                            "pattern": "^([0-9]{1,9}(\\.[0-9]{1,6})?)?$"
+                          },
+                          "shipping_class": {
+                            "type": "string",
+                            "maxLength": 500,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "sold_individually": {
+                            "type": "boolean"
+                          },
+                          "reviews_allowed": {
+                            "type": "boolean"
+                          },
+                          "purchase_note": {
+                            "type": "string",
+                            "maxLength": 65536
+                          },
+                          "position": {
+                            "type": "integer",
+                            "minimum": -1000000000,
+                            "maximum": 1000000000
+                          },
+                          "categories": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300,
+                              "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                            },
+                            "maxItems": 10000
+                          },
+                          "tags": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300,
+                              "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                            },
+                            "maxItems": 10000
+                          },
+                          "brands": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500,
+                              "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                            },
+                            "maxItems": 100
+                          },
+                          "images": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "media_id": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 100,
+                                  "pattern": "^[A-Za-z0-9-]*$"
+                                },
+                                "alt": {
+                                  "type": "string",
+                                  "maxLength": 500,
+                                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                                }
+                              },
+                              "required": [
+                                "media_id"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "maxItems": 100
+                          },
+                          "axes": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "name": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 500,
+                                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                                },
+                                "slug": {
+                                  "type": "string",
+                                  "maxLength": 200,
+                                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                                },
+                                "attribute": {
+                                  "type": "string",
+                                  "maxLength": 300,
+                                  "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                                },
+                                "position": {
+                                  "type": "integer",
+                                  "minimum": -1000000000,
+                                  "maximum": 1000000000
+                                },
+                                "visible": {
+                                  "type": "boolean"
+                                },
+                                "values": {
+                                  "type": [
+                                    "null",
+                                    "array"
+                                  ],
+                                  "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 500,
+                                    "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                                  },
+                                  "maxItems": 1000
+                                }
+                              },
+                              "required": [
+                                "name",
+                                "values"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "maxItems": 100
+                          },
+                          "default_choice": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "axis": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 500,
+                                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "maxLength": 500,
+                                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                                }
+                              },
+                              "required": [
+                                "axis",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "maxItems": 100
+                          },
+                          "downloads": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "media_id": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 100,
+                                  "pattern": "^[A-Za-z0-9-]*$"
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "maxLength": 500,
+                                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                                }
+                              },
+                              "required": [
+                                "media_id"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "maxItems": 100
+                          },
+                          "download_limit": {
+                            "type": "integer",
+                            "minimum": -1,
+                            "maximum": 1000000000
+                          },
+                          "download_days": {
+                            "type": "integer",
+                            "minimum": -1,
+                            "maximum": 1000000000
+                          },
+                          "external_url": {
+                            "type": "string",
+                            "maxLength": 2048,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "button_text": {
+                            "type": "string",
+                            "maxLength": 500,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "permalink": {
+                            "type": "string",
+                            "maxLength": 2048,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z)?$"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "slug",
+                          "kind",
+                          "visibility"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "variant"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "records": {
+                  "items": {
+                    "properties": {
+                      "data": {
+                        "type": "object",
+                        "properties": {
+                          "sku": {
+                            "type": "string",
+                            "maxLength": 100,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "gtin": {
+                            "type": "string",
+                            "maxLength": 100,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "description": {
+                            "type": "string",
+                            "maxLength": 65536
+                          },
+                          "regular_price": {
+                            "type": "string",
+                            "pattern": "^(-?[0-9]{1,15}(\\.[0-9]{1,6})?)?$"
+                          },
+                          "sale_price": {
+                            "type": "string",
+                            "pattern": "^(-?[0-9]{1,15}(\\.[0-9]{1,6})?)?$"
+                          },
+                          "sale_from": {
+                            "type": "string",
+                            "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z)?$"
+                          },
+                          "sale_to": {
+                            "type": "string",
+                            "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z)?$"
+                          },
+                          "tax_status": {
+                            "type": "string",
+                            "enum": [
+                              "",
+                              "taxable",
+                              "shipping_only",
+                              "none"
+                            ]
+                          },
+                          "tax_class": {
+                            "type": "string",
+                            "maxLength": 200,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "manage_stock": {
+                            "type": "boolean"
+                          },
+                          "stock_quantity": {
+                            "type": "integer",
+                            "minimum": -1000000000,
+                            "maximum": 1000000000
+                          },
+                          "stock_status": {
+                            "type": "string",
+                            "enum": [
+                              "",
+                              "in",
+                              "out",
+                              "backorder"
+                            ]
+                          },
+                          "backorders": {
+                            "type": "string",
+                            "enum": [
+                              "",
+                              "no",
+                              "notify",
+                              "yes"
+                            ]
+                          },
+                          "low_stock_at": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000000
+                          },
+                          "virtual": {
+                            "type": "boolean"
+                          },
+                          "weight": {
+                            "type": "string",
+                            "pattern": "^([0-9]{1,9}(\\.[0-9]{1,6})?)?$"
+                          },
+                          "length": {
+                            "type": "string",
+                            "pattern": "^([0-9]{1,9}(\\.[0-9]{1,6})?)?$"
+                          },
+                          "width": {
+                            "type": "string",
+                            "pattern": "^([0-9]{1,9}(\\.[0-9]{1,6})?)?$"
+                          },
+                          "height": {
+                            "type": "string",
+                            "pattern": "^([0-9]{1,9}(\\.[0-9]{1,6})?)?$"
+                          },
+                          "shipping_class": {
+                            "type": "string",
+                            "maxLength": 500,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "image_media_id": {
+                            "type": "string",
+                            "maxLength": 100,
+                            "pattern": "^[A-Za-z0-9-]*$"
+                          },
+                          "choice": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "axis": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 500,
+                                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                                },
+                                "value": {
+                                  "type": "string",
+                                  "maxLength": 500,
+                                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                                }
+                              },
+                              "required": [
+                                "axis",
+                                "value"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "maxItems": 100
+                          },
+                          "downloads": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "media_id": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 100,
+                                  "pattern": "^[A-Za-z0-9-]*$"
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "maxLength": 500,
+                                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                                }
+                              },
+                              "required": [
+                                "media_id"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "maxItems": 100
+                          },
+                          "download_limit": {
+                            "type": "integer",
+                            "minimum": -1,
+                            "maximum": 1000000000
+                          },
+                          "download_days": {
+                            "type": "integer",
+                            "minimum": -1,
+                            "maximum": 1000000000
+                          },
+                          "position": {
+                            "type": "integer",
+                            "minimum": -1000000000,
+                            "maximum": 1000000000
+                          }
+                        },
+                        "required": [
+                          "enabled",
+                          "choice"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "links"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "records": {
+                  "items": {
+                    "properties": {
+                      "data": {
+                        "type": "object",
+                        "properties": {
+                          "upsells": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300,
+                              "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                            },
+                            "maxItems": 10000
+                          },
+                          "cross_sells": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300,
+                              "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                            },
+                            "maxItems": 10000
+                          },
+                          "grouped": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300,
+                              "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                            },
+                            "maxItems": 10000
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "review"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "records": {
+                  "items": {
+                    "properties": {
+                      "data": {
+                        "type": "object",
+                        "properties": {
+                          "product": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300,
+                            "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "approved",
+                              "pending"
+                            ]
+                          },
+                          "author": {
+                            "type": "string",
+                            "maxLength": 500,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "body": {
+                            "type": "string",
+                            "maxLength": 65536
+                          },
+                          "rating": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 5
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z)?$"
+                          },
+                          "replies": {
+                            "type": "integer",
+                            "minimum": -1,
+                            "maximum": 1000000000
+                          }
+                        },
+                        "required": [
+                          "product",
+                          "status"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "coupon"
+                }
+              },
+              "required": [
+                "kind"
+              ]
+            },
+            "then": {
+              "properties": {
+                "records": {
+                  "items": {
+                    "properties": {
+                      "data": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200,
+                            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "percent",
+                              "fixed_order",
+                              "fixed_unit"
+                            ]
+                          },
+                          "amount": {
+                            "type": "string",
+                            "pattern": "^(-?[0-9]{1,15}(\\.[0-9]{1,6})?)?$"
+                          },
+                          "free_shipping": {
+                            "type": "boolean"
+                          },
+                          "expires_at": {
+                            "type": "string",
+                            "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z)?$"
+                          },
+                          "used": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000000
+                          },
+                          "usage_limit": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000000
+                          },
+                          "usage_limit_per_customer": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000000
+                          },
+                          "max_items": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 1000000000
+                          },
+                          "combinable": {
+                            "type": "boolean"
+                          },
+                          "products": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300,
+                              "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                            },
+                            "maxItems": 10000
+                          },
+                          "excluded_products": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300,
+                              "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                            },
+                            "maxItems": 10000
+                          },
+                          "categories": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300,
+                              "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                            },
+                            "maxItems": 10000
+                          },
+                          "excluded_categories": {
+                            "type": [
+                              "null",
+                              "array"
+                            ],
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 300,
+                              "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                            },
+                            "maxItems": 10000
+                          },
+                          "exclude_sale_items": {
+                            "type": "boolean"
+                          },
+                          "min_spend": {
+                            "type": "string",
+                            "pattern": "^(-?[0-9]{1,15}(\\.[0-9]{1,6})?)?$"
+                          },
+                          "max_spend": {
+                            "type": "string",
+                            "pattern": "^(-?[0-9]{1,15}(\\.[0-9]{1,6})?)?$"
+                          },
+                          "description": {
+                            "type": "string",
+                            "maxLength": 65536
+                          },
+                          "had_email_restriction": {
+                            "type": "boolean"
+                          },
+                          "kind_uncertain": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "enabled",
+                          "kind",
+                          "amount"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "category",
+              "tag",
+              "attribute",
+              "product",
+              "variant",
+              "links",
+              "review",
+              "coupon"
+            ]
+          },
+          "results": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "source_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300,
+                  "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                },
+                "outcome": {
+                  "type": "string",
+                  "enum": [
+                    "created",
+                    "updated",
+                    "kept",
+                    "already",
+                    "refused"
+                  ]
+                },
+                "refs": {
+                  "type": "object",
+                  "properties": {
+                    "content_id": {
+                      "type": "string",
+                      "maxLength": 100,
+                      "pattern": "^[A-Za-z0-9-]*$"
+                    },
+                    "content_type": {
+                      "type": "string",
+                      "maxLength": 100,
+                      "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                    },
+                    "slug": {
+                      "type": "string",
+                      "maxLength": 200,
+                      "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                    },
+                    "term_id": {
+                      "type": "string",
+                      "maxLength": 100,
+                      "pattern": "^[A-Za-z0-9-]*$"
+                    },
+                    "taxonomy": {
+                      "type": "string",
+                      "maxLength": 100,
+                      "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                    },
+                    "pair_content_id": {
+                      "type": "string",
+                      "maxLength": 100,
+                      "pattern": "^[A-Za-z0-9-]*$"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "hold": {
+                  "type": "string",
+                  "enum": [
+                    "",
+                    "no_price",
+                    "currency",
+                    "download_missing",
+                    "hidden",
+                    "password",
+                    "external_url",
+                    "page_missing",
+                    "coupon_restricted",
+                    "sku_taken"
+                  ]
+                },
+                "losses": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100,
+                        "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                      },
+                      "count": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000000
+                      },
+                      "sentence": {
+                        "type": "string",
+                        "maxLength": 2000
+                      },
+                      "fields": {
+                        "type": [
+                          "null",
+                          "array"
+                        ],
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200,
+                          "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                        },
+                        "maxItems": 200
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "count",
+                      "sentence"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 1000
+                }
+              },
+              "required": [
+                "source_id",
+                "outcome",
+                "refs",
+                "losses"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 800
+          },
+          "debug": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "core_requests": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "records": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              }
+            },
+            "required": [
+              "core_requests",
+              "records"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "kind",
+          "results"
+        ],
+        "additionalProperties": false
+      },
+      "import": true
+    },
+    {
+      "name": "records.list",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. What imports brought into the shop, held, paired with the owner's products and converted, with the old prices as they were read, a page at a time.",
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "read",
+      "input": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "maxLength": 300,
+            "pattern": "^((woocommerce|shopify|wix|squarespace|csv):[^|\\s]+)?$"
+          },
+          "import_id": {
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[A-Za-z0-9._:-]{0,200}$"
+          },
+          "filter": {
+            "type": "string",
+            "enum": [
+              "held",
+              "pairs",
+              "converted",
+              "all"
+            ]
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "locale": {
+            "type": "string",
+            "maxLength": 35,
+            "pattern": "^[A-Za-z0-9-]*$"
+          }
+        },
+        "required": [
+          "filter"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "category",
+                    "tag",
+                    "attribute",
+                    "product",
+                    "variant",
+                    "links",
+                    "review",
+                    "coupon"
+                  ]
+                },
+                "source": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300,
+                  "pattern": "^(woocommerce|shopify|wix|squarespace|csv):[^|\\s]+$"
+                },
+                "source_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300,
+                  "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                },
+                "outcome": {
+                  "type": "string",
+                  "enum": [
+                    "created",
+                    "updated",
+                    "kept",
+                    "already",
+                    "refused"
+                  ]
+                },
+                "hold": {
+                  "type": "string",
+                  "enum": [
+                    "",
+                    "no_price",
+                    "currency",
+                    "download_missing",
+                    "hidden",
+                    "password",
+                    "external_url",
+                    "page_missing",
+                    "coupon_restricted",
+                    "sku_taken"
+                  ]
+                },
+                "sentence": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "pair": {
+                  "type": [
+                    "null",
+                    "object"
+                  ],
+                  "properties": {
+                    "theirs": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "maxLength": 500,
+                          "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                        },
+                        "sku": {
+                          "type": "string",
+                          "maxLength": 100,
+                          "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                        },
+                        "content_id": {
+                          "type": "string",
+                          "maxLength": 100,
+                          "pattern": "^[A-Za-z0-9-]*$"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "sku",
+                        "content_id"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "ours": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "maxLength": 500,
+                          "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                        },
+                        "sku": {
+                          "type": "string",
+                          "maxLength": 100,
+                          "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                        },
+                        "content_id": {
+                          "type": "string",
+                          "maxLength": 100,
+                          "pattern": "^[A-Za-z0-9-]*$"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "sku",
+                        "content_id"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "theirs",
+                    "ours"
+                  ],
+                  "additionalProperties": false
+                },
+                "source_money": {
+                  "type": [
+                    "null",
+                    "object"
+                  ],
+                  "properties": {
+                    "currency": {
+                      "type": "string",
+                      "pattern": "^([A-Z]{3})?$"
+                    },
+                    "prices": {
+                      "type": "object",
+                      "maxProperties": 16,
+                      "additionalProperties": {
+                        "type": "string",
+                        "pattern": "^(-?[0-9]{1,15}(\\.[0-9]{1,6})?)?$"
+                      }
+                    },
+                    "rate": {
+                      "type": "string",
+                      "pattern": "^([0-9]{1,18}(\\.[0-9]{1,18})?)?$"
+                    },
+                    "rate_day": {
+                      "type": "string",
+                      "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2})?$"
+                    },
+                    "rate_source": {
+                      "type": "string",
+                      "enum": [
+                        "",
+                        "ecb",
+                        "owner"
+                      ]
+                    },
+                    "ending": {
+                      "type": "string",
+                      "enum": [
+                        "",
+                        "exact",
+                        "99",
+                        "95",
+                        "00"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "currency",
+                    "prices"
+                  ],
+                  "additionalProperties": false
+                },
+                "published_by": {
+                  "type": "string",
+                  "maxLength": 200,
+                  "pattern": "^[A-Za-z0-9._:-]{0,200}$"
+                }
+              },
+              "required": [
+                "kind",
+                "source",
+                "source_id",
+                "outcome"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 100
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+          }
+        },
+        "required": [
+          "rows"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "publish.plan",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. What publishing an old shop's import would do now: its counts, its groups (converted products, used once-per-customer codes, SKU pairs, sales starting within 30 days) and the shop's settings it would replace.",
+      "budget_ms": 15000,
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the import plugin's own abilities are the door: they keep the job, preview first and ask the owner before the act",
+      "input": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(woocommerce|shopify|wix|squarespace|csv):[^|\\s]+$"
+          },
+          "locale": {
+            "type": "string",
+            "maxLength": 35,
+            "pattern": "^[A-Za-z0-9-]*$"
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "counts": {
+            "type": "object",
+            "properties": {
+              "products": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "coupons": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "held": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "kept": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "converted": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "per_person": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "sku_pairs": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              }
+            },
+            "required": [
+              "products",
+              "coupons",
+              "held",
+              "kept",
+              "converted",
+              "per_person",
+              "sku_pairs"
+            ],
+            "additionalProperties": false
+          },
+          "groups": {
+            "type": "object",
+            "properties": {
+              "converted": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "per_person": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "per_person_uses": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "sku_pairs": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "source_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300,
+                      "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                    },
+                    "theirs": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "maxLength": 500,
+                          "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                        },
+                        "sku": {
+                          "type": "string",
+                          "maxLength": 100,
+                          "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                        },
+                        "content_id": {
+                          "type": "string",
+                          "maxLength": 100,
+                          "pattern": "^[A-Za-z0-9-]*$"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "sku",
+                        "content_id"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "ours": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "maxLength": 500,
+                          "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                        },
+                        "sku": {
+                          "type": "string",
+                          "maxLength": 100,
+                          "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                        },
+                        "content_id": {
+                          "type": "string",
+                          "maxLength": 100,
+                          "pattern": "^[A-Za-z0-9-]*$"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "sku",
+                        "content_id"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "looks_same": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "source_id",
+                    "theirs",
+                    "ours",
+                    "looks_same"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 1000
+              },
+              "sale_soon": {
+                "type": [
+                  "null",
+                  "array"
+                ],
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "source_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 300,
+                      "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                    },
+                    "name": {
+                      "type": "string",
+                      "maxLength": 500,
+                      "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                    },
+                    "starts": {
+                      "type": "string",
+                      "pattern": "^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z)?$"
+                    }
+                  },
+                  "required": [
+                    "source_id",
+                    "name",
+                    "starts"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 1000
+              }
+            },
+            "required": [
+              "converted",
+              "per_person",
+              "per_person_uses",
+              "sku_pairs",
+              "sale_soon"
+            ],
+            "additionalProperties": false
+          },
+          "settings_before": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "currency": {
+                "type": "string",
+                "pattern": "^([A-Z]{3})?$"
+              },
+              "prices_include_tax": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "currency",
+              "prices_include_tax"
+            ],
+            "additionalProperties": false
+          },
+          "losses": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                },
+                "sentence": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "fields": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                  },
+                  "maxItems": 200
+                }
+              },
+              "required": [
+                "code",
+                "count",
+                "sentence"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "counts",
+          "groups",
+          "losses"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "publish.prices",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. A page of the converted products' old and new prices, for the owner to check before the act.",
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the import plugin's own abilities are the door: they keep the job, preview first and ask the owner before the act",
+      "input": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(woocommerce|shopify|wix|squarespace|csv):[^|\\s]+$"
+          },
+          "locale": {
+            "type": "string",
+            "maxLength": 35,
+            "pattern": "^[A-Za-z0-9-]*$"
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "source_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300,
+                  "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 500,
+                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                },
+                "sku": {
+                  "type": "string",
+                  "maxLength": 100,
+                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                },
+                "old": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                },
+                "new": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                },
+                "sale_old": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                },
+                "sale_new": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                }
+              },
+              "required": [
+                "source_id",
+                "name",
+                "old",
+                "new"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 100
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+          }
+        },
+        "required": [
+          "rows"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "publish.apply",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. The owner's act, one page at a time under the act's marker, an import call of the job whose records it publishes: publishes what was public at the old shop and is not held, with the owner's choices, quietly (no webhook, automation or notice per product); a page asked again changes nothing.",
+      "budget_ms": 15000,
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the import plugin's own abilities are the door: they keep the job, preview first and ask the owner before the act",
+      "input": {
+        "type": "object",
+        "properties": {
+          "import": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9._:-]{1,200}$"
+              },
+              "planned": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000
+              }
+            },
+            "required": [
+              "id",
+              "planned"
+            ],
+            "additionalProperties": false
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(woocommerce|shopify|wix|squarespace|csv):[^|\\s]+$"
+          },
+          "marker": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._:-]{1,200}$"
+          },
+          "settings": {
+            "type": [
+              "null",
+              "object"
+            ],
+            "properties": {
+              "currency": {
+                "type": "string",
+                "pattern": "^([A-Z]{3})?$"
+              },
+              "prices_include_tax": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "currency",
+              "prices_include_tax"
+            ],
+            "additionalProperties": false
+          },
+          "choices": {
+            "type": "object",
+            "properties": {
+              "publish_converted": {
+                "type": "boolean"
+              },
+              "switch_on_per_person": {
+                "type": "boolean"
+              },
+              "sku_pairs": {
+                "type": "object",
+                "maxProperties": 1000,
+                "additionalProperties": {
+                  "type": "string",
+                  "enum": [
+                    "keep_mine",
+                    "keep_both"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "publish_converted",
+              "switch_on_per_person"
+            ],
+            "additionalProperties": false
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+          },
+          "locale": {
+            "type": "string",
+            "maxLength": 35,
+            "pattern": "^[A-Za-z0-9-]*$"
+          }
+        },
+        "required": [
+          "import",
+          "source",
+          "marker",
+          "choices"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "done": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+          },
+          "products": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "coupons": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "held": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "kept": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "losses": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                },
+                "sentence": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "fields": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                  },
+                  "maxItems": 200
+                }
+              },
+              "required": [
+                "code",
+                "count",
+                "sentence"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 100
+          },
+          "live": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "product",
+                    "category"
+                  ]
+                },
+                "source_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300,
+                  "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000,
+                  "pattern": "^/[^\\s\\x00-\\x1F\\x7F]*$"
+                }
+              },
+              "required": [
+                "kind",
+                "source_id",
+                "path"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "done",
+          "products",
+          "coupons",
+          "held",
+          "kept",
+          "failed",
+          "losses"
+        ],
+        "additionalProperties": false
+      },
+      "import": true
+    },
+    {
+      "name": "publish.undo",
+      "answered_by": "provider",
+      "description": "EXPERIMENTAL. Takes an act back, one page at a time, from what each record held before it; an import call, quiet as the act.",
+      "budget_ms": 15000,
+      "retry_class": "failure",
+      "fallback": "block",
+      "idempotent": true,
+      "agent": "none",
+      "agent_reason": "the import plugin's own abilities are the door: they keep the job, preview first and ask the owner before the act",
+      "input": {
+        "type": "object",
+        "properties": {
+          "import": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9._:-]{1,200}$"
+              },
+              "planned": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000
+              }
+            },
+            "required": [
+              "id",
+              "planned"
+            ],
+            "additionalProperties": false
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^(woocommerce|shopify|wix|squarespace|csv):[^|\\s]+$"
+          },
+          "marker": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._:-]{1,200}$"
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+          },
+          "locale": {
+            "type": "string",
+            "maxLength": 35,
+            "pattern": "^[A-Za-z0-9-]*$"
+          }
+        },
+        "required": [
+          "import",
+          "source",
+          "marker"
+        ],
+        "additionalProperties": false
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "done": {
+            "type": "boolean"
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 200,
+            "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+          },
+          "products": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "coupons": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "held": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "kept": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "losses": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 1000000000
+                },
+                "sentence": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "fields": {
+                  "type": [
+                    "null",
+                    "array"
+                  ],
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^[^\\x00-\\x1F\\x7F]*$"
+                  },
+                  "maxItems": 200
+                }
+              },
+              "required": [
+                "code",
+                "count",
+                "sentence"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 100
+          },
+          "live": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "product",
+                    "category"
+                  ]
+                },
+                "source_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300,
+                  "pattern": "^[^|\\x00-\\x1F\\x7F]*$"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000,
+                  "pattern": "^/[^\\s\\x00-\\x1F\\x7F]*$"
+                }
+              },
+              "required": [
+                "kind",
+                "source_id",
+                "path"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 100
+          }
+        },
+        "required": [
+          "done",
+          "products",
+          "coupons",
+          "held",
+          "kept",
+          "failed",
+          "losses"
+        ],
+        "additionalProperties": false
+      },
+      "import": true
+    }
+  ],
+  "status": "experimental",
+  "caller_capability": "import",
+  "closed": true
+}

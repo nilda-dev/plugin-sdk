@@ -110,6 +110,7 @@ func TestEveryExportedProviderInterfaceIsInTheTable(t *testing.T) {
 		"SubscriptionsProvider":     "Serve answers it through SubscriptionsMethods; Core subscribes it from provides — SHOP_SUBSCRIPTIONS.md",
 		"SubscriptionLinksProvider": "an optional half of SubscriptionsProvider: SubscriptionsMethods answers it when the shop implements it — SHOP_SUBSCRIPTIONS.md",
 		"AccountSectionsProvider":   "Serve answers it through AccountSectionsMethods; Core subscribes it from provides — SHOP_ACCOUNT_SECTIONS.md",
+		"ShopImportProvider":        "Serve answers it through ShopImportMethods; Core subscribes it from provides — SHOP_IMPORT.md",
 		"CredentialPayer":           "rides on PaymentGateway: payment.start, which its row subscribes, carries the credential",
 	}
 	wired := map[string]bool{}

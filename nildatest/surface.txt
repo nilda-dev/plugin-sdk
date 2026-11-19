@@ -51,6 +51,10 @@ field Event.Data []byte
 field Event.Type string
 field Host.EmailRefusal error
 field Host.Fail error
+field ImportRule.From string
+field ImportRule.ID string
+field ImportRule.To string
+field KeyGivenTwice.At string
 field Payments.Now func() time.Time
 field Payments.Site *Site
 field Payments.SiteURL string
@@ -60,9 +64,12 @@ field Revocation.Subject string
 field ServiceCallLog.Caller string
 field ServiceCallLog.Contract string
 field ServiceCallLog.IdempotencyKey string
+field ServiceCallLog.ImportMarker string
+field ServiceCallLog.ImportPlanned int
 field ServiceCallLog.Input json.RawMessage
 field ServiceCallLog.Method string
 field ServiceCallLog.Provider string
+field ServiceCallLog.RequestID string
 field ShopEvent.Data map[string]any
 field ShopEvent.Type string
 field SitePage.Body json.RawMessage
@@ -122,6 +129,7 @@ func ManifestVisitorTools(testing.TB, string, []nilda.VisitorTool)
 func MobilePreview(testing.TB, string, string)
 func New(string, ...string) (*nilda.Core, *Host)
 func NewAttributeShop(*Services) (*AttributeShop)
+func NewImports() (*Imports)
 func NewLicence() (*Licence)
 func NewPayments() (*Payments)
 func NewReference() (*Reference)
@@ -167,6 +175,16 @@ method (*Host) SendTemplatedEmail(context.Context, *contract.SendTemplatedEmailR
 method (*Host) SetSessionsPerIdentity(int)
 method (*Host) SwitchOffTemplate(string)
 method (*Host) UseEmailTemplates([]nilda.EmailTemplateDecl)
+method (*Imports) Checkpoints() (int)
+method (*Imports) Core(string, ...string) (*nilda.Core, *Host, *httptest.Server)
+method (*Imports) Handler(string, *Host) (http.Handler)
+method (*Imports) Lookups() (int)
+method (*Imports) Map(string, string, string, string)
+method (*Imports) Redirects() ([]ImportRule)
+method (*Imports) RefuseCheckpoints(bool)
+method (*Imports) Serve(string)
+method (*KeyGivenTwice) Error() (string)
+method (*KeyGivenTwice) Unwrap() (error)
 method (*Licence) BindFails()
 method (*Licence) BindGrants(nilda.Licence)
 method (*Licence) BindRefuses(string)
@@ -213,9 +231,11 @@ method (*Secrets) Uninstall(string)
 method (*Services) Ask(context.Context, string, string, any, nilda.ServiceCallOptions) (nilda.ServiceResult, error)
 method (*Services) Calls() ([]ServiceCallLog)
 method (*Services) Core(string, ...string) (*nilda.Core, *Host, *httptest.Server)
+method (*Services) ImportPlugin(string, ...string) (*nilda.Core, *Host, *httptest.Server)
 method (*Services) Provider(string, nilda.ServiceProvider)
 method (*Services) RoutePrefix(string, string)
 method (*Services) SetAgentTier(string, nilda.AgentTier)
+method (*Services) SetImportEnabled(bool)
 method (*ShopEvents) Deliver(context.Context, nilda.Handler, nilda.ShopOrderEvent) (error)
 method (*ShopEvents) Events() ([]nilda.ShopOrderEvent)
 method (*ShopEvents) Record(nilda.ShopOrderEvent) (nilda.ShopOrderEvent, error)
@@ -282,6 +302,9 @@ type Email
 type Event
 type HookFunc
 type Host
+type ImportRule
+type Imports
+type KeyGivenTwice
 type Licence
 type Payments
 type Reference
@@ -302,6 +325,10 @@ type Visitor
 var ErrAddressesNotOffered
 var ErrAttributeNeedsKey
 var ErrAttributeNotThroughCore
+var ErrImportNotGranted
+var ErrImportOff
+var ErrKeyGivenTwice
 var ErrNotSubscribed
+var ErrProviderNotNamed
 var ErrServiceBlocked
 var SessionsPerIdentity

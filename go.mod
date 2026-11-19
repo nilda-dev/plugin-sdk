@@ -20,6 +20,7 @@ retract (
 require (
 	github.com/google/jsonschema-go v0.4.3
 	github.com/hashicorp/go-plugin v1.8.0
+	golang.org/x/net v0.60.0
 	golang.org/x/text v0.42.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa
 	google.golang.org/grpc v1.83.2
@@ -34,6 +35,5 @@ require (
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/oklog/run v1.1.0 // indirect
-	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 )

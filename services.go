@@ -210,11 +210,23 @@ type ServiceMethod struct {
 	// Handle answers one call. CallOf(ctx) says who asked, with which idempotency key. An error is the provider
 	// failing, or saying no where the method's retry class is "answer".
 	Handle func(ctx context.Context, input json.RawMessage) (any, error)
+	// checked: Handle checks its input against the method's schema itself (Serves), so DispatchServiceHook does not
+	// check it twice.
+	checked bool
 }
 
 // Serves is a ServiceMethod with typed input and output.
 func Serves[In, Out any](contract, method string, fn func(ctx context.Context, in In) (Out, error)) ServiceMethod {
-	return ServiceMethod{Contract: contract, Method: method, Handle: func(ctx context.Context, raw json.RawMessage) (any, error) {
+	return ServiceMethod{Contract: contract, Method: method, checked: true, Handle: func(ctx context.Context, raw json.RawMessage) (any, error) {
+		// The request is checked against the method's schema HERE, before it is decoded, whoever calls Handle: a member
+		// the schema never checked must not reach the provider through encoding/json's case-blind matching.
+		m, err := relayedMethodOf(contract, method)
+		if err != nil {
+			return nil, err
+		}
+		if err := m.ValidateInput(raw); err != nil {
+			return nil, err
+		}
 		var in In
 		if err := json.Unmarshal(raw, &in); err != nil {
 			return nil, fmt.Errorf("nilda: the request of %s %s does not decode: %w", contract, method, err)
@@ -225,9 +237,9 @@ func Serves[In, Out any](contract, method string, fn func(ctx context.Context, i
 
 // serviceProviderOf is what answers a plugin's service hooks: its own ServiceMethods, or — for a plugin that
 // implements Carrier, CatalogProvider, OrdersProvider, DeliverablesProvider, AttributeProvider, AttributeValuesProvider,
-// ShopEventsProvider, RewardsProvider, SubscriptionsProvider or AccountSectionsProvider and wrote no ServiceMethods — their
+// ShopEventsProvider, RewardsProvider, SubscriptionsProvider, AccountSectionsProvider or ShopImportProvider and wrote no ServiceMethods — their
 // methods (CarrierMethods, CatalogMethods, OrdersMethods, DeliverablesMethods, AttributeMethods, AttributeValuesMethods,
-// ShopEventsMethods, RewardsMethods, SubscriptionsMethods, AccountSectionsMethods), so a provider that forgot the one line is still answered rather than failing
+// ShopEventsMethods, RewardsMethods, SubscriptionsMethods, AccountSectionsMethods, ShopImportMethods), so a provider that forgot the one line is still answered rather than failing
 // every call. A plugin may be several.
 func serviceProviderOf(h Handler) ServiceProvider {
 	if sp, is := h.(ServiceProvider); is {
@@ -264,6 +276,9 @@ func serviceProviderOf(h Handler) ServiceProvider {
 	if c, is := h.(AccountSectionsProvider); is {
 		methods = append(methods, AccountSectionsMethods(c)...)
 	}
+	if c, is := h.(ShopImportProvider); is {
+		methods = append(methods, ShopImportMethods(c)...)
+	}
 	if methods == nil {
 		return nil
 	}
@@ -290,8 +305,10 @@ func DispatchServiceHook(ctx context.Context, p ServiceProvider, hook string, pa
 		if err != nil {
 			return nil, true, err
 		}
-		if err := m.ValidateInput(payload); err != nil {
-			return nil, true, err
+		if !sm.checked { // a method made with Serves checks its own input, before it decodes it
+			if err := m.ValidateInput(payload); err != nil {
+				return nil, true, err
+			}
 		}
 		answer, err := sm.Handle(ctx, payload)
 		if err != nil {

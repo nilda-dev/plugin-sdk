@@ -202,6 +202,7 @@ const ContractShopAttributes
 const ContractShopCatalog
 const ContractShopDeliverables
 const ContractShopEvents
+const ContractShopImport
 const ContractShopOrders
 const ContractShopRewards
 const ContractShopSubscriptions
@@ -438,6 +439,11 @@ const MaxCommerceSearchSuggestions
 const MaxCommerceSearchText
 const MaxDisputesPerSession
 const MaxExtraFormFields
+const MaxImportBatch
+const MaxImportCallID
+const MaxImportInputBytes
+const MaxImportPlanned
+const MaxImportReason
 const MaxListFilters
 const MaxManifestAbilityDefinitionBytes
 const MaxManifestAbilityDescriptionLen
@@ -550,6 +556,13 @@ const MaxRowStateColumns
 const MaxServicePoints
 const MaxSetupSteps
 const MaxShopEventsRead
+const MaxShopImportListPage
+const MaxShopImportName
+const MaxShopImportPairs
+const MaxShopImportRecords
+const MaxShopImportRefs
+const MaxShopImportText
+const MaxShopImportUnmapped
 const MaxSubscriptionCycles
 const MaxSubscriptionLines
 const MaxSubscriptionSKUs
@@ -725,6 +738,57 @@ const SettingTextarea
 const SettingURL
 const SetupStatusHook
 const ShopEventsRead
+const ShopImportAlready
+const ShopImportAttribute
+const ShopImportCSV
+const ShopImportCategory
+const ShopImportCoupon
+const ShopImportCreated
+const ShopImportDraft
+const ShopImportHoldCouponRestricted
+const ShopImportHoldCurrency
+const ShopImportHoldDownloadMissing
+const ShopImportHoldExternalURL
+const ShopImportHoldHidden
+const ShopImportHoldNoPrice
+const ShopImportHoldPageMissing
+const ShopImportHoldPassword
+const ShopImportHoldSKUTaken
+const ShopImportKeepBoth
+const ShopImportKeepMine
+const ShopImportKept
+const ShopImportLinks
+const ShopImportListAll
+const ShopImportListConverted
+const ShopImportListHeld
+const ShopImportListPairs
+const ShopImportMoneyAdopt
+const ShopImportMoneyAsk
+const ShopImportMoneyConvert
+const ShopImportMoneyNoPrices
+const ShopImportMoneySame
+const ShopImportPending
+const ShopImportPrivate
+const ShopImportProduct
+const ShopImportPublishApply
+const ShopImportPublishPlan
+const ShopImportPublishPrices
+const ShopImportPublishUndo
+const ShopImportPublished
+const ShopImportRecordsList
+const ShopImportRecordsPut
+const ShopImportRefused
+const ShopImportReview
+const ShopImportScheduled
+const ShopImportSettingsAnswer
+const ShopImportShopify
+const ShopImportSquarespace
+const ShopImportTag
+const ShopImportUnmappedField
+const ShopImportUpdated
+const ShopImportVariant
+const ShopImportWix
+const ShopImportWooCommerce
 const SiteFieldChoice
 const SiteFieldFile
 const SiteFieldSecret
@@ -1319,6 +1383,7 @@ field ContractMethod.Description string json:description
 field ContractMethod.Fallback string json:fallback
 field ContractMethod.Hook string json:hook
 field ContractMethod.Idempotent bool json:idempotent
+field ContractMethod.Import bool json:import
 field ContractMethod.Input json.RawMessage json:input
 field ContractMethod.Name string json:name
 field ContractMethod.Output json.RawMessage json:output
@@ -1517,6 +1582,11 @@ field FormSection.Key string json:key
 field FormSection.Label string json:label
 field FormSection.Side bool json:side
 field GRPCPlugin.Impl contract.PluginServiceServer
+field HTMLBodyLeft.Parts []string
+field HTMLBodyLeft.Pictures int
+field HTMLImage.Alt string
+field HTMLImage.Class string
+field HTMLImage.Src string
 field HTTPOptions.MaxBodyBytes int64
 field HTTPOptions.WriteTimeout time.Duration
 field HeadMeta.Canonical string json:canonical
@@ -1538,6 +1608,22 @@ field HoldingPage.ID string json:id
 field HoldingPage.Slug string json:slug
 field HoldingPage.Status string json:status
 field HoldingPage.Type string json:type
+field ImportCall.ID string json:id
+field ImportCall.Planned int json:planned
+field ImportFound.ExternalID string json:external_id
+field ImportFound.Found bool json:found
+field ImportFound.Kind string json:kind
+field ImportFound.TargetID string json:target_id
+field ImportRedirect.From string json:from
+field ImportRedirect.To string json:to
+field ImportRedirectRemoval.From string json:from
+field ImportRedirectRemoval.ID string json:id
+field ImportRedirectRemoval.To string json:to
+field ImportRedirectResult.ID string json:id
+field ImportRedirectResult.Refused string json:refused
+field ImportRedirectResult.Written bool json:written
+field ImportSafetyCopy.ID string json:id
+field ImportSafetyCopy.Reused bool json:reused
 field InitResult.Abilities []Ability
 field InitResult.Events []string
 field InitResult.Hooks []string
@@ -2185,6 +2271,8 @@ field ServiceAnswer.Provider string json:provider
 field ServiceAnswer.RoutePrefix string json:route_prefix
 field ServiceCallOptions.IdempotencyKey string
 field ServiceCallOptions.Provider string
+field ServiceContract.CallerCapability string json:caller_capability
+field ServiceContract.Closed bool json:closed
 field ServiceContract.Description string json:description
 field ServiceContract.Methods []ContractMethod json:methods
 field ServiceContract.Name string json:name
@@ -2261,6 +2349,268 @@ field ShopEventsAnswer.Events []ShopOrderEvent json:events
 field ShopEventsAnswer.More bool json:more
 field ShopEventsRequest.AfterSequence int64 json:after_sequence
 field ShopEventsRequest.Limit int json:limit
+field ShopImportActPage.Coupons int json:coupons
+field ShopImportActPage.Cursor string json:cursor
+field ShopImportActPage.Done bool json:done
+field ShopImportActPage.Failed int json:failed
+field ShopImportActPage.Held int json:held
+field ShopImportActPage.Kept int json:kept
+field ShopImportActPage.Live []ShopImportLive json:live
+field ShopImportActPage.Losses []ShopImportLoss json:losses
+field ShopImportActPage.Products int json:products
+field ShopImportActRequest.Cursor string json:cursor
+field ShopImportActRequest.Locale string json:locale
+field ShopImportActRequest.Source string json:source
+field ShopImportAnswer.Debug *ShopImportDebug json:debug
+field ShopImportAnswer.Kind string json:kind
+field ShopImportAnswer.Results []ShopImportResult json:results
+field ShopImportApplyRequest.Choices ShopImportChoices json:choices
+field ShopImportApplyRequest.Cursor string json:cursor
+field ShopImportApplyRequest.Import ImportCall json:import
+field ShopImportApplyRequest.Locale string json:locale
+field ShopImportApplyRequest.Marker string json:marker
+field ShopImportApplyRequest.Settings *ShopImportShopSettings json:settings
+field ShopImportApplyRequest.Source string json:source
+field ShopImportAttributeData.Name string json:name
+field ShopImportAttributeData.Slug string json:slug
+field ShopImportAttributeData.Terms []ShopImportAttributeTerm json:terms
+field ShopImportAttributeTerm.Name string json:name
+field ShopImportAttributeTerm.Position int json:position
+field ShopImportAttributeTerm.Slug string json:slug
+field ShopImportAxis.Attribute string json:attribute
+field ShopImportAxis.Name string json:name
+field ShopImportAxis.Position int json:position
+field ShopImportAxis.Slug string json:slug
+field ShopImportAxis.Values []string json:values
+field ShopImportAxis.Visible bool json:visible
+field ShopImportBatch.Apply bool json:apply
+field ShopImportBatch.Import ImportCall json:import
+field ShopImportBatch.Kind string json:kind
+field ShopImportBatch.Locale string json:locale
+field ShopImportBatch.Platform string json:platform
+field ShopImportBatch.Records []ShopImportRecord json:records
+field ShopImportBatch.Settings ShopImportSettings json:settings
+field ShopImportBatch.Source string json:source
+field ShopImportCategoryData.Description string json:description
+field ShopImportCategoryData.ImageMediaID string json:image_media_id
+field ShopImportCategoryData.Name string json:name
+field ShopImportCategoryData.Parent string json:parent
+field ShopImportCategoryData.Position int json:position
+field ShopImportCategoryData.Slug string json:slug
+field ShopImportChoice.Axis string json:axis
+field ShopImportChoice.Value string json:value
+field ShopImportChoices.PublishConverted bool json:publish_converted
+field ShopImportChoices.SKUPairs map[string]string json:sku_pairs
+field ShopImportChoices.SwitchOnPerPerson bool json:switch_on_per_person
+field ShopImportConvert.Ending string json:ending
+field ShopImportConvert.Rate string json:rate
+field ShopImportConvert.RateDay string json:rate_day
+field ShopImportConvert.RateSource string json:rate_source
+field ShopImportConvert.TaxClassRates map[string]string json:tax_class_rates
+field ShopImportConvert.To string json:to
+field ShopImportCounts.Converted int json:converted
+field ShopImportCounts.Coupons int json:coupons
+field ShopImportCounts.Held int json:held
+field ShopImportCounts.Kept int json:kept
+field ShopImportCounts.PerPerson int json:per_person
+field ShopImportCounts.Products int json:products
+field ShopImportCounts.SKUPairs int json:sku_pairs
+field ShopImportCouponData.Amount string json:amount
+field ShopImportCouponData.Categories []string json:categories
+field ShopImportCouponData.Code string json:code
+field ShopImportCouponData.Combinable bool json:combinable
+field ShopImportCouponData.Description string json:description
+field ShopImportCouponData.Enabled bool json:enabled
+field ShopImportCouponData.ExcludeSaleItems bool json:exclude_sale_items
+field ShopImportCouponData.ExcludedCategories []string json:excluded_categories
+field ShopImportCouponData.ExcludedProducts []string json:excluded_products
+field ShopImportCouponData.ExpiresAt string json:expires_at
+field ShopImportCouponData.FreeShipping bool json:free_shipping
+field ShopImportCouponData.HadEmailRestriction bool json:had_email_restriction
+field ShopImportCouponData.Kind string json:kind
+field ShopImportCouponData.KindUncertain bool json:kind_uncertain
+field ShopImportCouponData.MaxItems int json:max_items
+field ShopImportCouponData.MaxSpend string json:max_spend
+field ShopImportCouponData.MinSpend string json:min_spend
+field ShopImportCouponData.Products []string json:products
+field ShopImportCouponData.UsageLimit int json:usage_limit
+field ShopImportCouponData.UsageLimitPerCustomer int json:usage_limit_per_customer
+field ShopImportCouponData.Used int json:used
+field ShopImportDebug.CoreRequests int json:core_requests
+field ShopImportDebug.Records int json:records
+field ShopImportDownload.MediaID string json:media_id
+field ShopImportDownload.Name string json:name
+field ShopImportGroups.Converted int json:converted
+field ShopImportGroups.PerPerson int json:per_person
+field ShopImportGroups.PerPersonUses int json:per_person_uses
+field ShopImportGroups.SKUPairs []ShopImportSKUPair json:sku_pairs
+field ShopImportGroups.SaleSoon []ShopImportSaleSoon json:sale_soon
+field ShopImportImage.Alt string json:alt
+field ShopImportImage.MediaID string json:media_id
+field ShopImportLinksData.CrossSells []string json:cross_sells
+field ShopImportLinksData.Grouped []string json:grouped
+field ShopImportLinksData.Upsells []string json:upsells
+field ShopImportListAnswer.Cursor string json:cursor
+field ShopImportListAnswer.Rows []ShopImportRow json:rows
+field ShopImportListRequest.Cursor string json:cursor
+field ShopImportListRequest.Filter string json:filter
+field ShopImportListRequest.ImportID string json:import_id
+field ShopImportListRequest.Limit int json:limit
+field ShopImportListRequest.Locale string json:locale
+field ShopImportListRequest.Source string json:source
+field ShopImportLive.Kind string json:kind
+field ShopImportLive.Path string json:path
+field ShopImportLive.SourceID string json:source_id
+field ShopImportLoss.Code string json:code
+field ShopImportLoss.Count int json:count
+field ShopImportLoss.Fields []string json:fields
+field ShopImportLoss.Sentence string json:sentence
+field ShopImportPair.Ours ShopImportProductRef json:ours
+field ShopImportPair.Theirs ShopImportProductRef json:theirs
+field ShopImportParcel.Height string json:height
+field ShopImportParcel.Length string json:length
+field ShopImportParcel.ShippingClass string json:shipping_class
+field ShopImportParcel.Virtual bool json:virtual
+field ShopImportParcel.Weight string json:weight
+field ShopImportParcel.Width string json:width
+field ShopImportPlan.Counts ShopImportCounts json:counts
+field ShopImportPlan.Groups ShopImportGroups json:groups
+field ShopImportPlan.Losses []ShopImportLoss json:losses
+field ShopImportPlan.SettingsBefore *ShopImportShopSettings json:settings_before
+field ShopImportPriceRow.Name string json:name
+field ShopImportPriceRow.New string json:new
+field ShopImportPriceRow.Old string json:old
+field ShopImportPriceRow.SKU string json:sku
+field ShopImportPriceRow.SaleNew string json:sale_new
+field ShopImportPriceRow.SaleOld string json:sale_old
+field ShopImportPriceRow.SourceID string json:source_id
+field ShopImportPrices.Cursor string json:cursor
+field ShopImportPrices.Rows []ShopImportPriceRow json:rows
+field ShopImportPricing.RegularPrice string json:regular_price
+field ShopImportPricing.SaleFrom string json:sale_from
+field ShopImportPricing.SalePrice string json:sale_price
+field ShopImportPricing.SaleTo string json:sale_to
+field ShopImportPricing.TaxClass string json:tax_class
+field ShopImportPricing.TaxStatus string json:tax_status
+field ShopImportProductData.Axes []ShopImportAxis json:axes
+field ShopImportProductData.Body json.RawMessage json:body
+field ShopImportProductData.Brands []string json:brands
+field ShopImportProductData.ButtonText string json:button_text
+field ShopImportProductData.Categories []string json:categories
+field ShopImportProductData.CreatedAt string json:created_at
+field ShopImportProductData.DefaultChoice []ShopImportChoice json:default_choice
+field ShopImportProductData.DownloadDays int json:download_days
+field ShopImportProductData.DownloadLimit int json:download_limit
+field ShopImportProductData.Downloads []ShopImportDownload json:downloads
+field ShopImportProductData.Excerpt string json:excerpt
+field ShopImportProductData.ExternalURL string json:external_url
+field ShopImportProductData.Featured bool json:featured
+field ShopImportProductData.GTIN string json:gtin
+field ShopImportProductData.Images []ShopImportImage json:images
+field ShopImportProductData.Kind string json:kind
+field ShopImportProductData.MPN string json:mpn
+field ShopImportProductData.Name string json:name
+field ShopImportProductData.PasswordProtected bool json:password_protected
+field ShopImportProductData.Permalink string json:permalink
+field ShopImportProductData.Position int json:position
+field ShopImportProductData.PurchaseNote string json:purchase_note
+field ShopImportProductData.ReviewsAllowed bool json:reviews_allowed
+field ShopImportProductData.SKU string json:sku
+field ShopImportProductData.Slug string json:slug
+field ShopImportProductData.SoldIndividually bool json:sold_individually
+field ShopImportProductData.Tags []string json:tags
+field ShopImportProductData.Visibility string json:visibility
+field ShopImportProductRef.ContentID string json:content_id
+field ShopImportProductRef.Name string json:name
+field ShopImportProductRef.SKU string json:sku
+field ShopImportRate.Day string json:day
+field ShopImportRate.Rate string json:rate
+field ShopImportRate.Source string json:source
+field ShopImportRecord.Data json.RawMessage json:data
+field ShopImportRecord.ParentSourceID string json:parent_source_id
+field ShopImportRecord.SourceID string json:source_id
+field ShopImportRecord.Status string json:status
+field ShopImportRecord.Unmapped []string json:unmapped
+field ShopImportRefs.ContentID string json:content_id
+field ShopImportRefs.ContentType string json:content_type
+field ShopImportRefs.PairContentID string json:pair_content_id
+field ShopImportRefs.Slug string json:slug
+field ShopImportRefs.Taxonomy string json:taxonomy
+field ShopImportRefs.TermID string json:term_id
+field ShopImportResult.Hold string json:hold
+field ShopImportResult.Losses []ShopImportLoss json:losses
+field ShopImportResult.Outcome string json:outcome
+field ShopImportResult.Refs ShopImportRefs json:refs
+field ShopImportResult.SourceID string json:source_id
+field ShopImportReviewData.Author string json:author
+field ShopImportReviewData.Body string json:body
+field ShopImportReviewData.CreatedAt string json:created_at
+field ShopImportReviewData.Product string json:product
+field ShopImportReviewData.Rating int json:rating
+field ShopImportReviewData.Replies int json:replies
+field ShopImportReviewData.Status string json:status
+field ShopImportRow.Hold string json:hold
+field ShopImportRow.Kind string json:kind
+field ShopImportRow.Outcome string json:outcome
+field ShopImportRow.Pair *ShopImportPair json:pair
+field ShopImportRow.PublishedBy string json:published_by
+field ShopImportRow.Sentence string json:sentence
+field ShopImportRow.Source string json:source
+field ShopImportRow.SourceID string json:source_id
+field ShopImportRow.SourceMoney *ShopImportSourceMoney json:source_money
+field ShopImportSKUPair.LooksSame bool json:looks_same
+field ShopImportSKUPair.SourceID string json:source_id
+field ShopImportSaleSoon.Name string json:name
+field ShopImportSaleSoon.SourceID string json:source_id
+field ShopImportSaleSoon.Starts string json:starts
+field ShopImportSettings.Convert *ShopImportConvert json:convert
+field ShopImportSettings.Currency string json:currency
+field ShopImportSettings.DimensionUnit string json:dimension_unit
+field ShopImportSettings.From string json:from
+field ShopImportSettings.Money string json:money
+field ShopImportSettings.PricesIncludeTax *bool json:prices_include_tax
+field ShopImportSettings.WeightUnit string json:weight_unit
+field ShopImportSettingsRequest.Locale string json:locale
+field ShopImportSettingsRequest.Platform string json:platform
+field ShopImportSettingsRequest.Settings ShopImportSettings json:settings
+field ShopImportSettingsRequest.Source string json:source
+field ShopImportSettingsResult.Currency string json:currency
+field ShopImportSettingsResult.Decision string json:decision
+field ShopImportSettingsResult.ECBRate *ShopImportRate json:ecb_rate
+field ShopImportSettingsResult.Empty bool json:empty
+field ShopImportSettingsResult.Losses []ShopImportLoss json:losses
+field ShopImportSettingsResult.TaxIncludeDiffers bool json:tax_include_differs
+field ShopImportShopSettings.Currency string json:currency
+field ShopImportShopSettings.PricesIncludeTax bool json:prices_include_tax
+field ShopImportSourceMoney.Currency string json:currency
+field ShopImportSourceMoney.Ending string json:ending
+field ShopImportSourceMoney.Prices map[string]string json:prices
+field ShopImportSourceMoney.Rate string json:rate
+field ShopImportSourceMoney.RateDay string json:rate_day
+field ShopImportSourceMoney.RateSource string json:rate_source
+field ShopImportStock.Backorders string json:backorders
+field ShopImportStock.LowStockAt int64 json:low_stock_at
+field ShopImportStock.ManageStock bool json:manage_stock
+field ShopImportStock.StockQuantity int64 json:stock_quantity
+field ShopImportStock.StockStatus string json:stock_status
+field ShopImportTagData.Description string json:description
+field ShopImportTagData.Name string json:name
+field ShopImportTagData.Slug string json:slug
+field ShopImportUndoRequest.Cursor string json:cursor
+field ShopImportUndoRequest.Import ImportCall json:import
+field ShopImportUndoRequest.Locale string json:locale
+field ShopImportUndoRequest.Marker string json:marker
+field ShopImportUndoRequest.Source string json:source
+field ShopImportVariantData.Choice []ShopImportChoice json:choice
+field ShopImportVariantData.Description string json:description
+field ShopImportVariantData.DownloadDays int json:download_days
+field ShopImportVariantData.DownloadLimit int json:download_limit
+field ShopImportVariantData.Downloads []ShopImportDownload json:downloads
+field ShopImportVariantData.Enabled bool json:enabled
+field ShopImportVariantData.GTIN string json:gtin
+field ShopImportVariantData.ImageMediaID string json:image_media_id
+field ShopImportVariantData.Position int json:position
+field ShopImportVariantData.SKU string json:sku
 field ShopOrder.Currency string json:currency
 field ShopOrder.CustomerUserID string json:customer_user_id
 field ShopOrder.Email string json:email
@@ -2660,6 +3010,7 @@ func FilterPeriods() ([]string)
 func FormFieldTypes() ([]string)
 func FormatMinor(int64, string) (string, bool)
 func GuardRoute(http.Handler) (http.Handler)
+func HTMLBody(string, func(HTMLImage) (string, bool)) (json.RawMessage, HTMLBodyLeft)
 func HTTPClient(time.Duration) (*http.Client)
 func HostPluginMap() (map[int]plugin.PluginSet)
 func LabelIn(map[string]string, string) (string)
@@ -2688,6 +3039,7 @@ func ParseMinor(string, string) (int64, error)
 func PaymentCanMove(string, string) (bool)
 func PaymentMarks() ([]string)
 func ProtocolForSDK(string) (int, bool)
+func ReadImportCall([]byte) (ImportCall, error)
 func RefundCanMove(string, string) (bool)
 func RefundRefusalOf(error) (RefundRefusal, bool)
 func RegisterContractForTest(ServiceContract) (func())
@@ -2709,6 +3061,9 @@ func SetSettingsForTest(*Core, map[string]any)
 func SettingFieldTypes() ([]string)
 func ShopEventTypes() ([]string)
 func ShopEventsMethods(ShopEventsProvider) ([]ServiceMethod)
+func ShopImportKinds() ([]string)
+func ShopImportMethods(ShopImportProvider) ([]ServiceMethod)
+func ShopImportRecordOf(string, string, any) (ShopImportRecord, error)
 func ShowPricesIncludingTax(context.Context) (bool)
 func ShowsPricesIncludingTax(*http.Request) (bool)
 func SplitServiceHook(string) (string, string, bool)
@@ -2809,6 +3164,13 @@ imethod SearchProvider.Remove(context.Context, []string) (error)
 imethod SearchProvider.Truncate(context.Context) (error)
 imethod ServiceProvider.ServiceMethods() ([]ServiceMethod)
 imethod ShopEventsProvider.ShopEvents(context.Context, ShopEventsRequest) (ShopEventsAnswer, error)
+imethod ShopImportProvider.ApplyShopImport(context.Context, ShopImportApplyRequest) (ShopImportActPage, error)
+imethod ShopImportProvider.PlanShopImport(context.Context, ShopImportActRequest) (ShopImportPlan, error)
+imethod ShopImportProvider.PutShopImportRecords(context.Context, ShopImportBatch) (ShopImportAnswer, error)
+imethod ShopImportProvider.ShopImportPrices(context.Context, ShopImportActRequest) (ShopImportPrices, error)
+imethod ShopImportProvider.ShopImportRecords(context.Context, ShopImportListRequest) (ShopImportListAnswer, error)
+imethod ShopImportProvider.ShopImportSettings(context.Context, ShopImportSettingsRequest) (ShopImportSettingsResult, error)
+imethod ShopImportProvider.UndoShopImport(context.Context, ShopImportUndoRequest) (ShopImportActPage, error)
 imethod SubscriptionLinksProvider.MethodUpdateLink(context.Context, SubscriptionMethodLinkRequest) (SubscriptionLinkAnswer, error)
 imethod SubscriptionLinksProvider.RenewalPayLink(context.Context, SubscriptionPayLinkRequest) (SubscriptionLinkAnswer, error)
 imethod SubscriptionsProvider.PlaceRenewal(context.Context, SubscriptionRenewalRequest) (SubscriptionRenewalAnswer, error)
@@ -2822,6 +3184,7 @@ imethod SubscriptionsProvider.UndoRenewal(context.Context, UndoInput) (Subscript
 imethod SubscriptionsProvider.UndoSubscriptionPlan(context.Context, UndoInput) (SubscriptionWriteAnswer, error)
 imethod WidgetProvider.RenderWidget(context.Context, WidgetRenderRequest) (string, error)
 imethod WidgetProvider.Widgets() ([]WidgetDef)
+method (*API) AddImportRedirects(context.Context, []ImportRedirect) ([]ImportRedirectResult, error)
 method (*API) AddMenuItem(context.Context, string, NewMenuItem) (MenuItem, error)
 method (*API) AgentTier(context.Context, string) (AgentTier, error)
 method (*API) BindLicence(context.Context) (BindResult, error)
@@ -2834,9 +3197,11 @@ method (*API) Do(context.Context, string, string, any) (*http.Response, error)
 method (*API) Get(context.Context, string, url.Values, any) (error)
 method (*API) HasScope(string) (bool)
 method (*API) HoldingPages(context.Context, string) ([]HoldingPage, error)
+method (*API) ImportCheckpoint(context.Context, string) (ImportSafetyCopy, error)
 method (*API) JSON(context.Context, string, string, any, any) (error)
 method (*API) Licence(context.Context) (Licence, error)
 method (*API) LogValue() (slog.Value)
+method (*API) LookupImported(context.Context, string, []string) ([]ImportFound, error)
 method (*API) Media(context.Context, string) (MediaItem, error)
 method (*API) MediaFile(context.Context, string) (*MediaBytes, error)
 method (*API) Menu(context.Context, string) (MenuTree, error)
@@ -2848,6 +3213,7 @@ method (*API) PlanLimit(context.Context, string) (int64, bool, error)
 method (*API) Post(context.Context, string, any, any) (error)
 method (*API) PublishContent(context.Context, string, string) (PublishResult, error)
 method (*API) Reference() (*Reference)
+method (*API) RemoveImportRedirects(context.Context, []ImportRedirectRemoval) ([]bool, error)
 method (*API) Scopes() ([]string)
 method (*API) Secrets() (*Secrets)
 method (*API) Services() (*Services)
@@ -2859,6 +3225,7 @@ method (*API) TaxonomyTerms(context.Context, string, Paging) ([]Term, error)
 method (*API) TermContent(context.Context, string, TermContentQuery) ([]ContentRef, int64, error)
 method (*API) TermContents(context.Context, []string, TermContentQuery) (map[string]TermContentPage, error)
 method (*API) UploadMedia(context.Context, string, io.Reader, string, any) (error)
+method (*API) UploadPrivateMedia(context.Context, string, io.Reader, any) (error)
 method (*API) User(context.Context, string) (User, error)
 method (*API) Users(context.Context, UserQuery) ([]User, error)
 method (*API) WithIdempotencyKey(string) (*API)
@@ -2944,6 +3311,7 @@ method (*Secrets) Delete(context.Context, string) (bool, error)
 method (*Secrets) Get(context.Context, string) (string, bool, error)
 method (*Secrets) Set(context.Context, string, string) (error)
 method (*Services) AccountSections(context.Context, AccountSectionsRequest) (AccountSectionsResult, error)
+method (*Services) ApplyShopImport(context.Context, string, ShopImportApplyRequest) (ShopImportActPage, error)
 method (*Services) AttributeFields(context.Context) ([]AttributeFieldsAnswer, []ServiceMiss, error)
 method (*Services) AttributeValuesOf(context.Context, AttributeTarget) ([]AttributeValue, error)
 method (*Services) Call(context.Context, string, string, any, ServiceCallOptions) (ServiceResult, error)
@@ -2957,6 +3325,8 @@ method (*Services) IssueStoreCredit(context.Context, string, RewardCreditRequest
 method (*Services) MethodUpdateLink(context.Context, SubscriptionMethodLinkRequest) (SubscriptionLinkAnswer, error)
 method (*Services) OrderDeliverables(context.Context, DeliverablesRequest) ([]DeliveredItem, int, error)
 method (*Services) PlaceRenewal(context.Context, string, SubscriptionRenewalRequest) (SubscriptionRenewalAnswer, error)
+method (*Services) PlanShopImport(context.Context, string, ShopImportActRequest) (ShopImportPlan, error)
+method (*Services) PutShopImportRecords(context.Context, string, ShopImportBatch) (ShopImportAnswer, error)
 method (*Services) RenewalPayLink(context.Context, SubscriptionPayLinkRequest) (SubscriptionLinkAnswer, error)
 method (*Services) ResolveAddress(context.Context, string, AddressResolveRequest) (AddressResolveAnswer, error)
 method (*Services) SetAttribute(context.Context, string, AttributeSetRequest) (AttributeWriteAnswer, error)
@@ -2964,11 +3334,15 @@ method (*Services) ShippingDocuments(context.Context, string, DocumentsRequest) 
 method (*Services) ShippingRates(context.Context, RatesRequest, ServiceCallOptions) ([]CarrierRatesAnswer, []ServiceMiss, error)
 method (*Services) ShippingServicePoints(context.Context, string, ServicePointsRequest) (ServicePointsResult, error)
 method (*Services) ShopEvents(context.Context, ShopEventsRequest) (ShopEventsAnswer, error)
+method (*Services) ShopImportPrices(context.Context, string, ShopImportActRequest) (ShopImportPrices, error)
+method (*Services) ShopImportRecords(context.Context, string, ShopImportListRequest) (ShopImportListAnswer, error)
+method (*Services) ShopImportSettings(context.Context, string, ShopImportSettingsRequest) (ShopImportSettingsResult, error)
 method (*Services) ShopOrder(context.Context, string) (ShopOrderResult, error)
 method (*Services) SuggestAddresses(context.Context, string, AddressSuggestRequest) (AddressSuggestAnswer, error)
 method (*Services) TrackShipment(context.Context, string, TrackRequest) (TrackResult, error)
 method (*Services) UndoAttribute(context.Context, string, string) (AttributeWriteAnswer, error)
 method (*Services) UndoReward(context.Context, string, string, string) (RewardWriteAnswer, error)
+method (*Services) UndoShopImport(context.Context, string, ShopImportUndoRequest) (ShopImportActPage, error)
 method (*Services) ValidateAttributes(context.Context, string, AttributeDescription, AttributeValidateRequest) (AttributeValidateAnswer, error)
 method (*Services) VoidShippingLabel(context.Context, string, VoidRequest) (VoidResult, error)
 method (API) Format(fmt.State, rune)
@@ -3035,6 +3409,8 @@ method (ExpressAnswer) Validate() (error)
 method (ExpressPayer) Validate() (error)
 method (ExpressRequest) Validate() (error)
 method (FormField) MarshalJSON() ([]byte, error)
+method (HTMLBodyLeft) Any() (bool)
+method (ImportCall) Validate() (error)
 method (LabelRequest) Validate() (error)
 method (LabelResult) Validate() (error)
 method (LabelResult) ValidateFor(LabelRequest) (error)
@@ -3097,6 +3473,12 @@ method (SetupStatus) Validate() (error)
 method (ShipAddress) Validate() (error)
 method (ShopEventsAnswer) ValidateFor(ShopEventsRequest) (error)
 method (ShopEventsRequest) Validate() (error)
+method (ShopImportActPage) Validate() (error)
+method (ShopImportAnswer) ValidateFor(ShopImportBatch) (error)
+method (ShopImportApplyRequest) Validate() (error)
+method (ShopImportBatch) Validate() (error)
+method (ShopImportRecord) Decode(any) (error)
+method (ShopImportSettings) Validate() (error)
 method (ShopOrder) Validate() (error)
 method (ShopOrderEvent) Validate() (error)
 method (ShopOrderRequest) Validate() (error)
@@ -3292,11 +3674,19 @@ type FormField
 type FormReplacement
 type FormSection
 type GRPCPlugin
+type HTMLBodyLeft
+type HTMLImage
 type HTTPOptions
 type Handler
 type HeadMeta
 type HeadlineMetric
 type HoldingPage
+type ImportCall
+type ImportFound
+type ImportRedirect
+type ImportRedirectRemoval
+type ImportRedirectResult
+type ImportSafetyCopy
 type InitResult
 type LabelRequest
 type LabelResult
@@ -3456,6 +3846,55 @@ type ShopEventLine
 type ShopEventsAnswer
 type ShopEventsProvider
 type ShopEventsRequest
+type ShopImportActPage
+type ShopImportActRequest
+type ShopImportAnswer
+type ShopImportApplyRequest
+type ShopImportAttributeData
+type ShopImportAttributeTerm
+type ShopImportAxis
+type ShopImportBatch
+type ShopImportCategoryData
+type ShopImportChoice
+type ShopImportChoices
+type ShopImportConvert
+type ShopImportCounts
+type ShopImportCouponData
+type ShopImportDebug
+type ShopImportDownload
+type ShopImportGroups
+type ShopImportImage
+type ShopImportLinksData
+type ShopImportListAnswer
+type ShopImportListRequest
+type ShopImportLive
+type ShopImportLoss
+type ShopImportPair
+type ShopImportParcel
+type ShopImportPlan
+type ShopImportPriceRow
+type ShopImportPrices
+type ShopImportPricing
+type ShopImportProductData
+type ShopImportProductRef
+type ShopImportProvider
+type ShopImportRate
+type ShopImportRecord
+type ShopImportRefs
+type ShopImportResult
+type ShopImportReviewData
+type ShopImportRow
+type ShopImportSKUPair
+type ShopImportSaleSoon
+type ShopImportSettings
+type ShopImportSettingsRequest
+type ShopImportSettingsResult
+type ShopImportShopSettings
+type ShopImportSourceMoney
+type ShopImportStock
+type ShopImportTagData
+type ShopImportUndoRequest
+type ShopImportVariantData
 type ShopOrder
 type ShopOrderEvent
 type ShopOrderLine
@@ -3543,6 +3982,7 @@ type WriteAnswer
 var AccountVocabulary
 var ErrAddressSuggestLimited
 var ErrCycleNotHeld
+var ErrImportAnswer
 var ErrNotABody
 var ErrTemplateOff
 var Handshake

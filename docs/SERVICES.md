@@ -26,8 +26,27 @@ on it.
 - **Only the contracts this SDK ships exist.** Core reads the files of the SDK version it is built with; a manifest
   naming any other contract is refused at install. A new contract is a change to this module, reviewed like a
   protocol change, never something a plugin declares into being.
+- **An import call** (`"import": true`, from v0.71.0; `SHOP_IMPORT.md`) is one batch of a job an import plugin runs:
+  Core relays it only for a caller holding the `import` capability, reads the job's `import: {id, planned}` from the
+  checked request, opens it under a marker of Core's own so the provider's callbacks are quiet and counted on the job's
+  own allowance, asks one provider, never answers it from a cache, and takes its request up to 1 MiB.
+- **A contract may need a capability of EVERY caller** (`"caller_capability": "import"`, `ServiceContract.CallerCapability`,
+  from v0.71.0): Core refuses any call of any of its methods from a plugin the owner did not grant it, before the request
+  is read and before any provider is asked (403 `import_not_granted`; while the site's import switch is off, 409
+  `plugin_import_off`, not retried). Core's own call — the owner's assistant — reaches a method of it whose agent is `read`
+  and that is no import call, whatever the switch says. A contract with an import call must require `import`, so a plugin
+  that may not import can neither plan, publish nor undo one.
+- **One key, one spelling** (every contract): Core refuses a request in which an object names one key twice — 422
+  `key_given_twice`, `details.at` the object's JSON path — after the grant and before the schema. An exact repeat is
+  refused anywhere; a repeat that differs only by Unicode simple case folding (`strings.EqualFold`) only inside an object
+  whose schema declares `properties`, because encoding/json reads such keys as one field. The keys of a free-form map
+  (`additionalProperties: {schema}`) are data: `"abc"` and `"ABC"` are two. `nildatest.Services` refuses the same.
 - **Within a major, a contract only grows.** A schema never closes an object, so a field one side adds is never refused
-  by the other. A breaking change is a new major (`…/v2`), served beside the old one for a while.
+  by the other. A breaking change is a new major (`…/v2`), served beside the old one for a while. The one exception is a
+  CLOSED contract (`"closed": true`, `ServiceContract.Closed`, from v0.71.0; `shop.import/v1`): every object of it is
+  closed (`additionalProperties: false`), because it carries an outside party's data and encoding/json matches a key
+  without regard to case — `"KIND"` beside `"kind"` would pass an open schema and reach the provider decoded. It grows by
+  a new major only. `Serves` checks every request against its method's schema itself, before it decodes it.
 
 ## 2. The manifest
 

@@ -204,6 +204,11 @@ var up struct{ Data struct{ ID string `json:"id"` } `json:"data"` }
 err = api.UploadMedia(ctx, "kettle.jpg", file, "A copper kettle", &up)
 ```
 
+A file that is SOLD or handed over (a shop's download) goes in with `api.UploadPrivateMedia(ctx, name, file, &up)`
+instead: Core's `POST /media` with `private=true` makes it private in the insert, so it never has a public address —
+uploading it public and making it private afterwards leaves a moment in which it does. Only the site's own people and
+its plugins open it (`api.MediaFile`).
+
 **Check before you use it.** `core.API()` is `nil` when the manifest declared no capability that grants
 API access (and `core.HasCapability("email")` answers the same question for any one capability — a mirror
 of what Core enforces, never the enforcement):
@@ -3285,6 +3290,15 @@ Each capability a manifest may declare has its constant — `nilda.CapKV`, `CapT
 text with `nilda.BodyText(body)` (a heading, a list item, a quote each its own block; bold and links read as their
 words), and check one before a write, or in a test, with `nilda.CheckBody(body)` — Core's own rule (`ErrNotABody`).
 
+Words that come as HTML — an old shop's product description, a feed's article — become a body with
+`nilda.HTMLBody(html, picture)` (v0.71.0): headings, paragraphs and line breaks, bold, italic, underline, strikethrough,
+code, links (http, https, mailto, tel or a path on the site), bullet and numbered lists, quotes, code blocks, rules, tables
+and pictures, in the node vocabulary Core's editor and renderer use. Text is only ever text on a text node. `picture`
+answers each `nilda.HTMLImage` (its `Src`, `Alt` and `Class` — WordPress names its library file there, `wp-image-<id>`)
+with the address of Core's own copy, or false: a body never names a file Core does not hold. What it could not carry comes
+back in `nilda.HTMLBodyLeft` — the pictures not placed, and the kinds of markup left (`embed`, `form`, `script`,
+`shortcode`) — for the plugin to tell its owner.
+
 **A page's layout is a `nilda.LayoutTree`** — sections (`nilda.LayoutSection`) holding columns (`LayoutColumn`)
 holding widgets (`LayoutWidget`), each a `nilda.LayoutNode` with its `ID`, `Widget` key and `Config`. The shop's widget
 keys are constants — `nilda.WidgetProductLoop`, `WidgetCart`, `WidgetCheckout`, `WidgetAccount`, `WidgetAddToCart`,
@@ -3548,6 +3562,54 @@ section's own route reads the buyer from `CurrentUser` and answers with `WriteAc
 every provider's with `Services.AccountSections` (or `AccountSectionsFrom`) into an `AccountSectionsResult` of
 `ProvidedAccountSection`s, each path held by `UnderRoutePrefix` to the `ServiceAnswer.RoutePrefix` Core stamped.
 `nildatest.Services.RoutePrefix` gives a test provider its prefix.
+
+### Core's doors for an import plugin (`/plugin-import`, v0.71.0)
+
+A plugin holding `import` reaches Core's import doors through the typed client (`pluginimport.go`; Core's
+`internal/pluginimport`), and nothing broader: `api.LookupImported(ctx, source, ids)` answers what an earlier import of the
+site made of each id, one `ImportFound` per id in order (its `Kind` — content, term, media, menu or menu_item — and Core's
+`TargetID`); `api.AddImportRedirects(ctx, rules)` writes `ImportRedirect`s (old path → a page of this site, 301) and answers an
+`ImportRedirectResult` per rule — `Written` with the `ID` that takes it back, left as it was (already there, or an address the
+site serves), or `Refused` (`from_not_local`, `to_not_local`: a redirect never leaves the site); `api.RemoveImportRedirects(ctx, removals)`
+takes back `ImportRedirectRemoval`s only while each is still exactly the rule written; `api.ImportCheckpoint(ctx, reason)`
+asks for the site's safety copy (`ImportSafetyCopy`) and an error means none was made — do not start. Each call carries 1
+to `MaxImportBatch` ids or rules (a reason at most `MaxImportReason` characters), and an answer that is not one result per one
+asked is `ErrImportAnswer`. `nildatest.NewImports()` fakes the doors as Core answers them — `Map` what an earlier import made,
+`Serve` an address the site serves, then read `Redirects`, `Checkpoints` and `Lookups`, or `RefuseCheckpoints`; `Core` gives
+a plugin its own Core over them, `Handler` serves them beside other fakes.
+
+### An old shop written into the shop by an import plugin (`shop.import/v1`, experimental)
+
+`docs/SHOP_IMPORT.md` is the whole of it (`shopimport.go`), door D10. The shop implements `ShopImportProvider`;
+`ShopImportMethods` answers `settings.answer` (`ShopImportSettingsRequest` with the old shop's `ShopImportSettings` and
+their `ShopImportConvert` → `ShopImportSettingsResult`, with the ECB's `ShopImportRate`), `records.put` (a `ShopImportBatch`
+of ONE kind of `ShopImportRecord`s → a `ShopImportAnswer` of `ShopImportResult`s with their `ShopImportRefs`, holds and
+`ShopImportLoss`es, and a `ShopImportDebug`), `records.list` (`ShopImportListRequest` → `ShopImportListAnswer` of
+`ShopImportRow`s, each with its `ShopImportPair` of `ShopImportProductRef`s and `ShopImportSourceMoney`), `publish.plan`
+(`ShopImportActRequest` → `ShopImportPlan` of `ShopImportCounts`, `ShopImportGroups` with `ShopImportSKUPair`s and
+`ShopImportSaleSoon`s, and `ShopImportShopSettings`), `publish.prices` (→ `ShopImportPrices` of `ShopImportPriceRow`s),
+`publish.apply` (`ShopImportApplyRequest` with the owner's `ShopImportChoices`) and `publish.undo`
+(`ShopImportUndoRequest`), each answering a `ShopImportActPage` (an act's page names what it made live, `ShopImportLive`: kind, source id, public path). A record's data is its kind's, in the order
+`ShopImportKinds` lists them: `ShopImportCategoryData`, `ShopImportTagData`, `ShopImportAttributeData` (with
+`ShopImportAttributeTerm`s), `ShopImportProductData` (its `ShopImportPricing`, `ShopImportStock` and `ShopImportParcel`,
+`ShopImportImage`s, `ShopImportAxis`es, `ShopImportChoice`s, `ShopImportDownload`s), `ShopImportVariantData`,
+`ShopImportLinksData`, `ShopImportReviewData`, `ShopImportCouponData`; `ShopImportRecordOf` makes a record of one and
+`ShopImportRecord.Decode` reads it back. The import plugin asks with `Services.ShopImportSettings`,
+`Services.PutShopImportRecords`, `Services.ShopImportRecords`, `Services.PlanShopImport`, `Services.ShopImportPrices`,
+`Services.ApplyShopImport` and `Services.UndoShopImport`.
+
+`records.put`, `publish.apply` and `publish.undo` are IMPORT CALLS (`ContractMethod.Import`; the act since v0.71.0, so its
+page edits are quiet as Core's own import publish is): each request carries an `ImportCall` (the job's id and planned
+records; `ReadImportCall` reads and checks it), Core relays it only for a plugin holding `import`, under a marker of its own
+that makes the shop's callbacks quiet, to one shop, never from a cache, up to `MaxImportInputBytes`. EVERY method of the
+contract needs the grant (`ServiceContract.CallerCapability` `"import"`), and its objects are closed
+(`ServiceContract.Closed`). Test with `nildatest.Services.ImportPlugin`, which grants `import` as the owner would; a plugin
+made with `Core` is refused (`nildatest.ErrImportNotGranted`), as every call is while `Services.SetImportEnabled(false)`
+(`nildatest.ErrImportOff`, Core's 409 `plugin_import_off`); an import call with two shops and none named is
+`nildatest.ErrProviderNotNamed` (Core's 422 `provider_not_named`). A request whose object names one key twice is
+`nildatest.ErrKeyGivenTwice` on every contract (Core's 422 `key_given_twice`, `at` the object's path: an exact repeat
+anywhere, a repeat in another case inside a declared object, never two keys of a free-form map such as `sku_pairs`), asked
+after the grant and before the schema. `ShopImportApplyRequest.Validate` refuses an act whose settings name no currency.
 
 ### The shop's catalogue (`shop.catalog/v1`)
 

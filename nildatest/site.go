@@ -30,7 +30,8 @@ import (
 //     without the field its type needs, a term id that does not exist;
 //   - a layout written to a published page goes to its working version (written_to), and a write based on an old
 //     stamp is a 409;
-//   - a private media item (SetMediaPrivate) is "not found" on its public address and opens through MediaFile; making
+//   - a private media item (SetMediaPrivate, or an upload with private=true: POST /media takes the multipart upload
+//     UploadMedia and UploadPrivateMedia send) is "not found" on its public address and opens through MediaFile; making
 //     one the site shows (SetMediaUsedOn) private is a 422 naming where;
 //   - an id the fake does not have is a 404, one that is not even a uuid a 422 (Core parses every id).
 //
@@ -359,7 +360,7 @@ func (s *Site) serve(h *Host, w http.ResponseWriter, r *http.Request) {
 		need = "write:menus"
 	case route == "GET media/*", route == "GET media/*/file":
 		need = "read:media"
-	case route == "PATCH media/*":
+	case route == "PATCH media/*", route == "POST media":
 		need = "write:media"
 	case strings.HasPrefix(route, "GET content/"), route == "GET layouts/holding":
 		need = "read:content"
@@ -369,6 +370,10 @@ func (s *Site) serve(h *Host, w http.ResponseWriter, r *http.Request) {
 	}
 	if need != "" && !s.allowed(h, need) {
 		writeError(w, &apiError{http.StatusForbidden, "FORBIDDEN", "API token is missing the required scope: " + need})
+		return
+	}
+	if route == "POST media" { // a multipart upload, not JSON
+		s.upload(w, r)
 		return
 	}
 	var body map[string]json.RawMessage
@@ -668,6 +673,14 @@ func (s *Site) serve(h *Host, w http.ResponseWriter, r *http.Request) {
 			it.Body = raw
 		}
 		_ = json.Unmarshal(body["title"], &it.Title)
+		var status string
+		if json.Unmarshal(body["status"], &status) == nil && status != "" {
+			if status != "draft" && status != "published" {
+				writeError(w, invalid("status is draft or published, not %q", status))
+				return
+			}
+			it.Status = status // as Core's PATCH: a page published or put back to draft
+		}
 		var slug string
 		if json.Unmarshal(body["slug"], &slug) == nil && slug != "" {
 			it.Slug = s.uniqueSlug(it.Type, slug, it.ID)
@@ -747,6 +760,40 @@ func (s *Site) serve(h *Host, w http.ResponseWriter, r *http.Request) {
 	default:
 		writeError(w, notFound("no such route: %s %s", r.Method, r.URL.Path))
 	}
+}
+
+// upload is POST /media as Core's plugin API takes it (internal/api/rest uploadMedia): a multipart `file` (required), `alt`, and
+// `private=true` for a file that is sold — private in the insert, with no public address at any moment. Answers 201 with the item.
+// Core's type sniffing and allowlist are Core's; the bytes' type here is what the upload's part said, else what they look like.
+func (s *Site) upload(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		writeError(w, invalid("a multipart file field is required"))
+		return
+	}
+	f, fh, err := r.FormFile("file")
+	if err != nil {
+		writeError(w, invalid("a multipart file field is required"))
+		return
+	}
+	defer f.Close()
+	data, err := io.ReadAll(f)
+	if err != nil {
+		writeError(w, invalid("the file could not be read"))
+		return
+	}
+	contentType := fh.Header.Get("Content-Type")
+	if contentType == "" || contentType == "application/octet-stream" {
+		contentType = http.DetectContentType(data)
+	}
+	id := newID()
+	item := nilda.MediaItem{ID: id, Filename: fh.Filename, MimeType: contentType, Size: int64(len(data)), Status: "ready",
+		Alt: r.PostFormValue("alt"), Private: r.PostFormValue("private") == "true", URL: "/api/v1/media/" + id + "/file",
+		CreatedAt: s.tick()}
+	if item.Private {
+		item.URL = "/api/v1/media/" + id + "/private-file"
+	}
+	s.media[id] = &siteMedia{item: item, data: data}
+	answer(w, http.StatusCreated, item, nil)
 }
 
 func serveMediaBytes(w http.ResponseWriter, m *siteMedia) {
