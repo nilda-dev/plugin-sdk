@@ -86,8 +86,9 @@ const (
 
 	// MaxManifestTranslationLocales bounds the languages translations declares: a count.
 	MaxManifestTranslationLocales = 12
-	// MaxManifestTranslationStrings bounds one language's strings: a count.
-	MaxManifestTranslationStrings = 1500
+	// MaxManifestTranslationStrings bounds one language's strings: a count. Core raised it from 1,500 to 3,000 on
+	// 2026-11-21; the byte bounds below, which are what an admin downloads and what Core stores, did not move.
+	MaxManifestTranslationStrings = 3000
 	// MaxManifestTranslationLen bounds one string, its source and its translation each: characters.
 	MaxManifestTranslationLen = 500
 	// MaxManifestTranslationLocaleBytes bounds one language's sources and translations together — what an admin reading
