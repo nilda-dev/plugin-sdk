@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.72.0 — unreleased (a language may declare 3,000 translation strings)
+## v0.72.0 — 2026-11-21 (a language may declare 3,000 translation strings)
 
 Mirrors Core (2026-11-21, owner: "if we need to raise it, raise it"): the shop was at 1,484 strings in each of its five
 languages against 1,500. Nothing added to the surface; a bound relaxed, so a manifest that installed before still installs.
