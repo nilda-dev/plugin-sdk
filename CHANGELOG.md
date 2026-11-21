@@ -8,7 +8,21 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.71.0 — unreleased (the shop import: shop.import/v1, its import calls, private uploads, HTMLBody, Core's import doors)
+## v0.72.0 — unreleased (a language may declare 3,000 translation strings)
+
+Mirrors Core (2026-11-21, owner: "if we need to raise it, raise it"): the shop was at 1,484 strings in each of its five
+languages against 1,500. Nothing added to the surface; a bound relaxed, so a manifest that installed before still installs.
+
+Changed:
+
+- `MaxManifestTranslationStrings` is 3000 a language (was 1500). The byte bounds — `MaxManifestTranslationLocaleBytes`
+  (768 KiB a language, what an admin reading in it downloads) and `MaxManifestTranslationBytes` (3 MiB in all, what Core
+  stores) — and `MaxManifestTranslationLen` (500 characters) are unchanged, so a plugin at every bound costs what it did.
+  Past 3000 Core refuses the manifest at install in the same words, naming 3000 (`translations.<lang>: declares more than
+  3000 strings`). A Core older than the one that raised it still refuses past 1500: pin the Core release that carries it
+  before you ship more than 1,500 strings in a language.
+
+## v0.71.0 — 2026-11-19 (the shop import: shop.import/v1, its import calls, private uploads, HTMLBody, Core's import doors)
 
 Additive, and EXPERIMENTAL: door D10, `shop.import/v1` (`docs/SHOP_IMPORT.md`, `shopimport.go`), phase A — the
 catalogue, the owner's act and the read. The import plugin writes an old shop into the shop through it, in the shop's

@@ -779,7 +779,7 @@ locale code) is not here — the pattern is the rule, and `nilda plugin check` s
 | `MaxManifestPickSentenceLen` | 120 characters | the sentence a mobile.pick chip writes in the chat box |
 | `MaxManifestPickEffectLen` | 160 characters | a mobile.pick action's effect, what visitors will see change |
 | `MaxManifestTranslationLocales` | 12 | the languages translations declares |
-| `MaxManifestTranslationStrings` | 1,500 | one language's strings |
+| `MaxManifestTranslationStrings` | 3,000 | one language's strings |
 | `MaxManifestTranslationLen` | 500 characters | one string, its source and its translation each |
 | `MaxManifestTranslationLocaleBytes` | 768 KiB | one language's sources and translations together |
 | `MaxManifestTranslationBytes` | 3 MiB | every source and translation of every language together |
@@ -3138,7 +3138,7 @@ in, the stored value of a choice is still the declared one, and your section's p
 by your plugin key — so a translated name cannot scatter somebody's arrangement.
 
 Bounded, because an admin's browser receives its own language's table with your section on every admin page load
-(Core sends that one language, never the others): 12 languages, 1500 strings each, 500 characters a string, source
+(Core sends that one language, never the others): 12 languages, 3000 strings each, 500 characters a string, source
 or translation — 768 KiB a language, and 3 MiB for all of them together as stored. The string bound is counted in
 characters, not bytes: it is the longest text a page declares (a field's `help`), so whatever fits there fits its
 translation, a Persian or Arabic one as much as an English one. The 768 KiB and the 3 MiB (four times the largest plugin measured, Core #455) are counted in bytes,
