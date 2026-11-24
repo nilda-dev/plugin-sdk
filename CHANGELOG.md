@@ -10,8 +10,9 @@ section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` 
 
 ## v0.73.0 — unreleased (widget value limits, a widget's own render cap, widget.check)
 
-Additive. A widget that declares none of it is the bytes it was, on the wire and in Core. Core reads it from the release
-built on this version; an older Core ignores the new keys and never asks `widget.check`.
+Additive. A widget that declares none of it is the bytes it was, on the wire and in Core. SDK-first: Core does not read
+the new keys yet and never asks `widget.check` (they are on `aheadOfCore`), so until the Core release that mirrors them the
+limits are ignored, every widget renders under 64 KiB, and no warnings are shown.
 
 Added:
 
@@ -22,12 +23,13 @@ Added:
   `MaxWidgetFieldItemsCeiling` (1,000), `MaxWidgetFieldPatternLen` (500 bytes), the pattern compiles.
 - `WidgetDef.MaxHTMLBytes` (`max_html_bytes`): a widget's own render cap; 0 is `MaxWidgetHTMLBytes` (64 KiB), at most
   `MaxWidgetHTMLBytesCeiling` (256 KiB).
-- `WidgetDef.Validate`, which checks those declarations only. `Serve` drops a widget that fails it from the describe answer
-  and logs why.
+- `WidgetDef.Validate`, which checks those declarations only. `Serve` refuses Init for a plugin whose widgets fail it,
+  naming the widget and the field.
 - `HookWidgetCheck` (`widget.check`), `WidgetChecker`, `WidgetCheckRequest`, `WidgetWarning` (`path`, `code`, `message`),
   `ValidateWidgetWarnings` and its bounds `MaxWidgetCheckWarnings` (50), `MaxWidgetCheckMessageLen` (300 characters),
-  `MaxWidgetCheckPathLen` (200 characters). `Serve` subscribes and answers it for a `WidgetProvider` that implements
-  `WidgetChecker`; an answer past a bound is an error, not a list.
+  `MaxWidgetCheckPathLen` (200 characters); a message or path holding a control or bidi character is refused. Both are
+  plain text, which Core escapes and re-validates. `Serve` subscribes and answers it for a `WidgetProvider` that
+  implements `WidgetChecker`; an answer past a bound is an error, not a list.
 - `nildatest.Widgets` and `nildatest.CheckWidget`.
 
 ## v0.72.0 — 2026-11-21 (a language may declare 3,000 translation strings)

@@ -26,6 +26,19 @@ var aheadOfCore = map[string]struct {
 	// Core landed the session's risk (plan 10.3 F1) in core #181.
 
 	// Core landed the session's item lines and breakdown (plan 10.15) in core #223.
+
+	// The widget limits (v0.73.0, SDK #74): Core's plugin WidgetField mirrors the four keys, builderdata copies them
+	// into the field's Validation, and the render cap is read per widget.
+	"widget field max_length": {"Core mirrors WidgetField.MaxLength (v0.73.0)",
+		[]string{"internal", "plugin", "widgets.go"}, `json:"max_length`},
+	"widget field min_items": {"Core mirrors WidgetField.MinItems (v0.73.0)",
+		[]string{"internal", "plugin", "widgets.go"}, `json:"min_items`},
+	"widget field max_items": {"Core mirrors WidgetField.MaxItems (v0.73.0)",
+		[]string{"internal", "plugin", "widgets.go"}, `json:"max_items`},
+	"widget field pattern": {"Core mirrors WidgetField.Pattern (v0.73.0)",
+		[]string{"internal", "plugin", "widgets.go"}, `json:"pattern`},
+	"widget max_html_bytes": {"Core reads WidgetDef.MaxHTMLBytes as the widget's render cap (v0.73.0)",
+		[]string{"internal", "plugin", "widgets.go"}, `json:"max_html_bytes`},
 }
 
 // coreLacks reports whether item is SDK surface Core does not serve yet (aheadOfCore).
