@@ -371,6 +371,7 @@ const HookSearchIndex
 const HookSearchQuery
 const HookSearchRemove
 const HookSearchTruncate
+const HookWidgetCheck
 const HookWidgetDescribe
 const HookWidgetRender
 const InstrumentBankTransfer
@@ -570,6 +571,9 @@ const MaxTermsPerCall
 const MaxTrashID
 const MaxTrashKind
 const MaxTrashName
+const MaxWidgetCheckMessageLen
+const MaxWidgetCheckPathLen
+const MaxWidgetCheckWarnings
 const MaxWidgetFieldItemsCeiling
 const MaxWidgetFieldLengthCeiling
 const MaxWidgetFieldPatternLen
@@ -2920,6 +2924,9 @@ field WalletAddress.Region string json:region
 field WayBack.Args any json:args
 field WayBack.Target UndoTarget json:target
 field WayBack.Version string json:version
+field WidgetCheckRequest.Config map[string]any json:config
+field WidgetCheckRequest.Locale string json:locale
+field WidgetCheckRequest.Type string json:type
 field WidgetDef.Category string json:category
 field WidgetDef.Fields []WidgetField json:fields
 field WidgetDef.Label string json:label
@@ -2950,6 +2957,9 @@ field WidgetRenderRequest.SiteURL string json:site_url
 field WidgetRenderRequest.Title string json:title
 field WidgetRenderRequest.Type string json:type
 field WidgetRenderRequest.URL string json:url
+field WidgetWarning.Code string json:code
+field WidgetWarning.Message string json:message
+field WidgetWarning.Path string json:path
 field WindDownRequest.Reason string json:reason
 field WindDownResult.Remaining []Obligation json:remaining
 field WindDownResult.Told int64 json:told
@@ -3092,6 +3102,7 @@ func ValidAccountSectionPath(string) (error)
 func ValidPaymentMark(string) (bool)
 func ValidPriceGroup(string) (bool)
 func ValidateRecommendations([]Recommendation) (error)
+func ValidateWidgetWarnings([]WidgetWarning) (error)
 func VisitorConsent(*http.Request) (ConsentSnapshot, bool)
 func VisitorCountry(*http.Request) (string, bool)
 func VisitorKey(*http.Request) (string)
@@ -3191,6 +3202,7 @@ imethod SubscriptionsProvider.SubscriptionAgreement(context.Context, Subscriptio
 imethod SubscriptionsProvider.SubscriptionAgreements(context.Context, SubscriptionAgreementsRequest) (SubscriptionAgreementsAnswer, error)
 imethod SubscriptionsProvider.UndoRenewal(context.Context, UndoInput) (SubscriptionWriteAnswer, error)
 imethod SubscriptionsProvider.UndoSubscriptionPlan(context.Context, UndoInput) (SubscriptionWriteAnswer, error)
+imethod WidgetChecker.CheckWidget(context.Context, WidgetCheckRequest) ([]WidgetWarning, error)
 imethod WidgetProvider.RenderWidget(context.Context, WidgetRenderRequest) (string, error)
 imethod WidgetProvider.Widgets() ([]WidgetDef)
 method (*API) AddImportRedirects(context.Context, []ImportRedirect) ([]ImportRedirectResult, error)
@@ -3982,10 +3994,13 @@ type VoidRequest
 type VoidResult
 type WalletAddress
 type WayBack
+type WidgetCheckRequest
+type WidgetChecker
 type WidgetDef
 type WidgetField
 type WidgetProvider
 type WidgetRenderRequest
+type WidgetWarning
 type WindDownRequest
 type WindDownResult
 type WriteAnswer
