@@ -138,7 +138,8 @@ const (
 	// MaxWidgetsPerPlugin is how many widgets one plugin may contribute; the rest are ignored.
 	MaxWidgetsPerPlugin = 20
 	// MaxWidgetHTMLBytes caps one rendered widget. Larger output is not truncated: the widget draws as a
-	// failed one (see WidgetProvider.RenderWidget).
+	// failed one (see WidgetProvider.RenderWidget). A widget may declare its own cap, up to
+	// MaxWidgetHTMLBytesCeiling (WidgetDef.MaxHTMLBytes).
 	MaxWidgetHTMLBytes = 64 << 10
 	// MaxAssetsPerPlugin is how many scripts one plugin may add to a page.
 	MaxAssetsPerPlugin = 5
@@ -176,6 +177,17 @@ type WidgetField struct {
 	// name clearly enough — better there than in a README nobody reads while configuring a widget.
 	Placeholder string `json:"placeholder,omitempty"`
 	Help        string `json:"help,omitempty"`
+	// MaxLength and Pattern hold a text's value (FieldText, FieldTextarea, FieldEmail): at most MaxLength
+	// characters, and matching Pattern, a Go (RE2) regexp matched UNANCHORED as Core matches it — write ^…$ to
+	// hold the whole value. MinItems and MaxItems hold a list's (FieldRepeater's rows, FieldGallery,
+	// FieldMultiSelect, FieldCheckbox). Zero is unset. WidgetDef.Validate says which declarations are well formed
+	// (v0.73.0). CORE DOES NOT READ THEM YET: its plugin WidgetField has no such keys, so until the Core release that
+	// mirrors them (CHANGELOG v0.73.0) they reach Core and are ignored — declare them, and keep checking the value in
+	// RenderWidget.
+	MaxLength int    `json:"max_length,omitempty"`
+	MinItems  int    `json:"min_items,omitempty"`
+	MaxItems  int    `json:"max_items,omitempty"`
+	Pattern   string `json:"pattern,omitempty"`
 }
 
 // WidgetDef is one widget as the plugin offers it.
@@ -186,6 +198,10 @@ type WidgetDef struct {
 	Label    string        `json:"label"`
 	Category string        `json:"category,omitempty"`
 	Fields   []WidgetField `json:"fields,omitempty"`
+	// MaxHTMLBytes raises (or lowers) this widget's render cap: 0 is MaxWidgetHTMLBytes, and the most is
+	// MaxWidgetHTMLBytesCeiling (v0.73.0). Core does not read it yet: until the release that does, every widget is
+	// held to MaxWidgetHTMLBytes.
+	MaxHTMLBytes int `json:"max_html_bytes,omitempty"`
 }
 
 // FormReplacement declares that one of YOUR widgets replaces a form the site's template ships — the
@@ -312,13 +328,10 @@ func dispatchProvided(ctx context.Context, h Handler, hook string, payload []byt
 		if !is {
 			return nil, false, nil
 		}
-		defs := wp.Widgets()
-		if defs == nil {
-			// An explicit empty list, not null: Core unmarshals this, and `{"widgets":null}` and
-			// `{"widgets":[]}` are the same to it, but only one of them reads as an answer.
-			defs = []WidgetDef{}
-		}
-		raw, err := json.Marshal(widgetDescribeResponse{Widgets: defs})
+		// An explicit empty list, not null: Core unmarshals this, and `{"widgets":null}` and
+		// `{"widgets":[]}` are the same to it, but only one of them reads as an answer. A widget whose
+		// limits Core could not honour is dropped and logged (describedWidgets).
+		raw, err := json.Marshal(widgetDescribeResponse{Widgets: describedWidgets(wp.Widgets())})
 		return raw, true, err
 
 	case HookWidgetRender:
@@ -336,6 +349,9 @@ func dispatchProvided(ctx context.Context, h Handler, hook string, payload []byt
 		}
 		raw, err := json.Marshal(widgetRenderResponse{HTML: html})
 		return raw, true, err
+
+	case HookWidgetCheck:
+		return dispatchWidgetCheck(ctx, h, payload)
 
 	case HookRenderAssets:
 		ap, is := h.(AssetProvider)
@@ -455,6 +471,12 @@ var providerHooks = []struct {
 		[]string{HookRenderAssets}},
 	{"WidgetProvider", func(h Handler) bool { _, is := h.(WidgetProvider); return is },
 		[]string{HookWidgetDescribe, HookWidgetRender}},
+	// widget.check only for a widget provider that checks its widgets' settings (WidgetChecker, v0.73.0).
+	{"WidgetChecker", func(h Handler) bool {
+		_, wp := h.(WidgetProvider)
+		_, is := h.(WidgetChecker)
+		return wp && is
+	}, []string{HookWidgetCheck}},
 	// link.targets needs `route`, not `hooks`: the paths a target may name are the plugin's own.
 	{"LinkTargetProvider", func(h Handler) bool { _, is := h.(LinkTargetProvider); return is },
 		[]string{LinkTargetsHook}},

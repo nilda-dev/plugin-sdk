@@ -593,6 +593,55 @@ A render over `MaxWidgetHTMLBytes` is treated like an error from `RenderWidget`:
 and on the editor's canvas a box saying the widget could not be shown, so an author is not sent to fill in
 settings that were never the problem.
 
+**Limits on a widget's values, its own render cap, and `widget.check` (v0.73.0).** All three are optional; a
+widget that declares none of them is the widget it was, byte for byte.
+
+- A field may declare how its value is held, with Core's own validation names: `MaxLength` (characters, `max_length`) and `Pattern`
+  (a Go RE2 regexp, `pattern`, matched **unanchored** — write `^…$` to hold the whole value) on `FieldText`,
+  `FieldTextarea` and `FieldEmail`; `MinItems` and `MaxItems` (`min_items`, `max_items`) on a repeater's rows,
+  a gallery, a multiselect and a checkbox. Zero is unset. Each is non-negative, `MinItems` is not above a set
+  `MaxItems`, `MaxLength` is at most `nilda.MaxWidgetFieldLengthCeiling` (100,000), the counts at most
+  `nilda.MaxWidgetFieldItemsCeiling` (1,000), and a pattern compiles and is at most
+  `nilda.MaxWidgetFieldPatternLen` (500 bytes); a limit on any other type is refused, because Core would store it
+  and never apply it.
+- A widget may set its own render cap, `WidgetDef.MaxHTMLBytes` (`max_html_bytes`): 0 is `MaxWidgetHTMLBytes`,
+  the most is `nilda.MaxWidgetHTMLBytesCeiling` (256 KiB). A Core older than the one that reads it holds every
+  widget to 64 KiB.
+- **Core does not read these yet.** This SDK release declares them first; until the Core release that mirrors
+  them, they reach Core and are ignored, and every widget renders under 64 KiB. Keep checking a value in
+  `RenderWidget` meanwhile.
+- `WidgetDef.Validate()` checks those declarations (and nothing else). `Serve` refuses Init for a plugin whose
+  widgets fail it, naming the widget and the field; `nildatest.Widgets(t, provider)` fails your test earlier.
+
+```go
+fields := []nilda.WidgetField{
+	{Key: "title", Label: "Title", Type: nilda.FieldText, MaxLength: 80, Pattern: `^\S`},
+	{Key: "rows", Label: "Rows", Type: nilda.FieldRepeater, MinItems: 1, MaxItems: 12, Fields: rowFields},
+}
+```
+
+A widget provider that can look at its placed widgets' settings implements `nilda.WidgetChecker`; `Serve`
+subscribes `nilda.HookWidgetCheck` (`"widget.check"`, under `widget`) for it and answers. Core sends a
+`nilda.WidgetCheckRequest` (`type`, `config`, `locale`) and shows the answer's `nilda.WidgetWarning`s — `path`
+(a key, a row as `rows[2].title`, empty for the whole widget), `code` (`^[a-z][a-z0-9_]{0,63}$`) and `message` —
+where it checks a page: `widget_set`, `layout_check`, `publish_check`. A warning never stops a save or a publish.
+At most `nilda.MaxWidgetCheckWarnings` (50) warnings, a message of 1 to `nilda.MaxWidgetCheckMessageLen` (300)
+characters, a path of at most `nilda.MaxWidgetCheckPathLen` (200); `nilda.ValidateWidgetWarnings` holds an answer
+to them, and an answer past them reaches Core as a failed check, not as warnings. **A message and a path are plain
+text, never markup**: no control character (a newline, a tab, an escape) and no bidi embedding, override or isolate
+(U+202A–U+202E, U+2066–U+2069) — the SDK refuses them. Core must escape both wherever it shows them and run
+`nilda.ValidateWidgetWarnings` on the answer again itself: the plugin is the untrusted side of this seam.
+`nildatest.CheckWidget(t, checker, req)` asks the way Core does and fails on an error or a refused answer.
+
+```go
+func (s *Shop) CheckWidget(ctx context.Context, req nilda.WidgetCheckRequest) ([]nilda.WidgetWarning, error) {
+	if rows, _ := req.Config["rows"].([]any); len(rows) == 0 {
+		return []nilda.WidgetWarning{{Path: "rows", Code: "empty", Message: "Add at least one row."}}, nil
+	}
+	return nil, nil
+}
+```
+
 ---
 
 ## 5. Manifest

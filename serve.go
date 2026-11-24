@@ -304,6 +304,9 @@ func (s *pluginServer) wire(res InitResult) (*contract.InitResponse, error) {
 	if err := checkVisitorTools(res.VisitorTools); err != nil {
 		return nil, err
 	}
+	if err := checkWidgetLimits(s.handler); err != nil {
+		return nil, err
+	}
 	out := &contract.InitResponse{
 		RouteAddr: res.RouteAddr,
 		// Subscriptions the optional interfaces imply are added here rather than left to the author, because

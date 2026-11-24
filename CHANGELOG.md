@@ -8,6 +8,36 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.73.0 — unreleased (widget value limits, a widget's own render cap, widget.check)
+
+Additive. A widget that declares none of it is the bytes it was, on the wire and in Core. SDK-first: Core does not read
+the new keys yet and never asks `widget.check` (they are on `aheadOfCore`), so until the Core release that mirrors them the
+limits are ignored, every widget renders under 64 KiB, and no warnings are shown.
+
+Added:
+
+- `WidgetField.MaxLength` (`max_length`) and `Pattern` (`pattern`, a Go RE2 regexp, matched unanchored) on `text`,
+  `textarea` and `email`; `WidgetField.MinItems` / `MaxItems` (`min_items`, `max_items`) on a repeater's rows, a gallery,
+  a multiselect and a checkbox — Core's own validation names, held to Core's source by `TestTheWidgetFieldLimitsAreCores`.
+  Bounds: non-negative, `MinItems` not above a set `MaxItems`, `MaxWidgetFieldLengthCeiling` (100,000 characters),
+  `MaxWidgetFieldItemsCeiling` (1,000), `MaxWidgetFieldPatternLen` (500 bytes), the pattern compiles.
+- `WidgetDef.MaxHTMLBytes` (`max_html_bytes`): a widget's own render cap; 0 is `MaxWidgetHTMLBytes` (64 KiB), at most
+  `MaxWidgetHTMLBytesCeiling` (256 KiB).
+- `WidgetDef.Validate`, which checks those declarations only. `Serve` refuses Init for a plugin whose widgets fail it,
+  naming the widget and the field.
+- `HookWidgetCheck` (`widget.check`), `WidgetChecker`, `WidgetCheckRequest`, `WidgetWarning` (`path`, `code`, `message`),
+  `ValidateWidgetWarnings` and its bounds `MaxWidgetCheckWarnings` (50), `MaxWidgetCheckMessageLen` (300 characters),
+  `MaxWidgetCheckPathLen` (200 characters); a message or path holding a control or bidi character is refused. Both are
+  plain text, which Core escapes and re-validates. `Serve` subscribes and answers it for a `WidgetProvider` that
+  implements `WidgetChecker`; an answer past a bound is an error, not a list.
+- `nildatest.Widgets` and `nildatest.CheckWidget`.
+
+Security:
+
+- `golang.org/x/net` v0.62.0 (was v0.60.0; `x/text` v0.43.0 and `x/sys` v0.49.0 come with it): GO-2026-6860, quadratic
+  text-node coalescing in `x/net/html`, which `HTMLBody` reaches through `html.ParseFragment`. A plugin that pins this
+  release builds with at least x/net v0.62.0 (Go's minimal version selection).
+
 ## v0.72.0 — 2026-11-21 (a language may declare 3,000 translation strings)
 
 Mirrors Core (2026-11-21, owner: "if we need to raise it, raise it"): the shop was at 1,484 strings in each of its five
