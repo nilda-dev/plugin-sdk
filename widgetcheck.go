@@ -41,11 +41,12 @@ type WidgetCheckRequest struct {
 // checks a page (widget_set, layout_check, publish_check); a warning never stops a save or a publish.
 type WidgetWarning struct {
 	// Path names the setting: a field's key, a repeater row's as `rows[2].title`; empty for the widget as a whole.
-	// At most MaxWidgetCheckPathLen characters.
+	// Plain text, at most MaxWidgetCheckPathLen characters, with no control or bidi character.
 	Path string `json:"path,omitempty"`
 	// Code is a lowercase identifier (`^[a-z][a-z0-9_]{0,63}$`) a caller can match on, e.g. "too_long".
 	Code string `json:"code"`
-	// Message is the sentence the owner reads: not empty, at most MaxWidgetCheckMessageLen characters.
+	// Message is the sentence the owner reads: PLAIN TEXT (never markup — Core escapes it), not empty, at most
+	// MaxWidgetCheckMessageLen characters, with no control or bidi character.
 	Message string `json:"message"`
 }
 
@@ -58,7 +59,9 @@ type WidgetChecker interface {
 
 // ValidateWidgetWarnings reports whether Core accepts a widget.check answer: at most MaxWidgetCheckWarnings
 // warnings, each with a code matching `^[a-z][a-z0-9_]{0,63}$`, a message of 1 to MaxWidgetCheckMessageLen
-// characters and a path of at most MaxWidgetCheckPathLen.
+// characters and a path of at most MaxWidgetCheckPathLen, both plain text — no control character (a newline, a tab,
+// an escape) and no bidi embedding, override or isolate (U+202A–U+202E, U+2066–U+2069). Core treats both as text,
+// escapes them where it shows them, and runs this check again on its side: a plugin is not trusted with markup.
 func ValidateWidgetWarnings(ws []WidgetWarning) error {
 	if len(ws) > MaxWidgetCheckWarnings {
 		return fmt.Errorf("nilda: widget.check answered %d warnings; the bound is %d", len(ws), MaxWidgetCheckWarnings)
@@ -72,6 +75,14 @@ func ValidateWidgetWarnings(ws []WidgetWarning) error {
 		}
 		if n := utf8.RuneCountInString(w.Path); n > MaxWidgetCheckPathLen {
 			return fmt.Errorf("nilda: widget.check warning %d: its path is %d characters; the bound is %d", i, n, MaxWidgetCheckPathLen)
+		}
+		// Plain text an owner reads: no control character and no bidi embedding, override or isolate (plainLine,
+		// Core's rule). Core escapes it and re-validates; this is where the plugin's author hears it first.
+		if !plainLine(w.Message) {
+			return fmt.Errorf("nilda: widget.check warning %d: its message holds a control or bidi character", i)
+		}
+		if !plainLine(w.Path) {
+			return fmt.Errorf("nilda: widget.check warning %d: its path holds a control or bidi character", i)
 		}
 		if !widgetCheckCode.MatchString(w.Code) {
 			return fmt.Errorf("nilda: widget.check warning %d: its code %q is not %s", i, w.Code, widgetCheckCode)

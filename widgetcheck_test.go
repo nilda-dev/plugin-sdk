@@ -80,3 +80,20 @@ func TestWidgetWarningsAreBounded(t *testing.T) {
 		t.Errorf("a warning at the bounds: %v", err)
 	}
 }
+
+// A warning's message and path are plain text Core shows an owner: no control character (a newline forging a second
+// line, an escape) and no bidi embedding, override or isolate, which shows a sentence as something it is not (review
+// of #75). Persian text itself is fine.
+func TestAWidgetWarningIsPlainText(t *testing.T) {
+	for _, bad := range []string{"line\nforged", "tab\there", "\x1b[31mred", "a‮b", "a‪b", "a⁦b", "a⁩b", "a\x7fb"} {
+		if err := ValidateWidgetWarnings([]WidgetWarning{{Code: "x", Message: bad}}); err == nil || !strings.Contains(err.Error(), "message") {
+			t.Errorf("message %q: got %v, want a refusal naming the message", bad, err)
+		}
+		if err := ValidateWidgetWarnings([]WidgetWarning{{Code: "x", Message: "m", Path: bad}}); err == nil || !strings.Contains(err.Error(), "path") {
+			t.Errorf("path %q: got %v, want a refusal naming the path", bad, err)
+		}
+	}
+	if err := ValidateWidgetWarnings([]WidgetWarning{{Code: "x", Message: "یک ردیف اضافه کنید.", Path: "rows[0].عنوان"}}); err != nil {
+		t.Errorf("Persian text: %v", err)
+	}
+}

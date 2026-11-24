@@ -627,7 +627,10 @@ subscribes `nilda.HookWidgetCheck` (`"widget.check"`, under `widget`) for it and
 where it checks a page: `widget_set`, `layout_check`, `publish_check`. A warning never stops a save or a publish.
 At most `nilda.MaxWidgetCheckWarnings` (50) warnings, a message of 1 to `nilda.MaxWidgetCheckMessageLen` (300)
 characters, a path of at most `nilda.MaxWidgetCheckPathLen` (200); `nilda.ValidateWidgetWarnings` holds an answer
-to them, and an answer past them reaches Core as a failed check, not as warnings.
+to them, and an answer past them reaches Core as a failed check, not as warnings. **A message and a path are plain
+text, never markup**: no control character (a newline, a tab, an escape) and no bidi embedding, override or isolate
+(U+202A–U+202E, U+2066–U+2069) — the SDK refuses them. Core must escape both wherever it shows them and run
+`nilda.ValidateWidgetWarnings` on the answer again itself: the plugin is the untrusted side of this seam.
 `nildatest.CheckWidget(t, checker, req)` asks the way Core does and fails on an error or a refused answer.
 
 ```go

@@ -39,6 +39,13 @@ var aheadOfCore = map[string]struct {
 		[]string{"internal", "plugin", "widgets.go"}, `json:"pattern`},
 	"widget max_html_bytes": {"Core reads WidgetDef.MaxHTMLBytes as the widget's render cap (v0.73.0)",
 		[]string{"internal", "plugin", "widgets.go"}, `json:"max_html_bytes`},
+
+	// widget.check (v0.73.0, SDK #75): Core names the hook, asks a subscribed widget provider, and reads its answer
+	// {"warnings":[{path, code, message}]}, re-validated with ValidateWidgetWarnings.
+	"hook widget.check": {"Core asks widget.check of a subscribed widget provider (v0.73.0)",
+		[]string{"internal", "plugin", "widgets.go"}, `"widget.check"`},
+	"widget.check answer": {"Core reads the {\"warnings\":[...]} answer (v0.73.0)",
+		[]string{"internal", "plugin", "widgets.go"}, `json:"warnings"`},
 }
 
 // coreLacks reports whether item is SDK surface Core does not serve yet (aheadOfCore).
