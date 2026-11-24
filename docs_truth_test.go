@@ -982,9 +982,11 @@ func TestTheAssistantSavesSettingsThroughTheSectionsOwnSave(t *testing.T) {
 func TestTheAssistantTypesNoSecretIntoAForm(t *testing.T) {
 	flat := strings.Join(strings.Fields(coreSource(t, "internal", "plugin", "admintools.go")), " ")
 	for _, want := range []string{
-		"if field := formSecretGiven(form.Fields, in.Values); field != \"\" { return man, page, form, module.PersonsCredential(field, pluginPageScreen(man.Key, page.Key)) }",
-		"case f.Secret: if typed, isText := v.(string); !isText || strings.TrimSpace(typed) != \"\" { return f.Key }",
-		"if inner := formSecretGiven(f.Fields, row); inner != \"\" { return f.Key + \".\" + inner",
+		// formSecretGiven became formPersonsField (Core main of 2026-11-24), which also names a sign_in field; the secret rule is
+		// the same: first, naming the field and the screen, a repeater row's included.
+		"switch field, act := formPersonsField(form.Fields, in.Values); act { case module.EffectCredential: return man, page, form, module.PersonsCredential(field, pluginPageScreen(man.Key, page.Key))",
+		"case f.Secret: if typed, isText := v.(string); !isText || strings.TrimSpace(typed) != \"\" { return f.Key, module.EffectCredential }",
+		"if inner, act := formPersonsField(f.Fields, row); inner != \"\" { return f.Key + \".\" + inner, act",
 	} {
 		if !strings.Contains(flat, want) {
 			t.Errorf("core's plugin_form_save no longer has %q — re-read the guide's form bullet on secrets", want)

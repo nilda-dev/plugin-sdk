@@ -209,7 +209,9 @@ func TestBindPassesCentralsReasons(t *testing.T) {
 // from Core's source beside this module (internal/pluginlimits, internal/license, internal/license/connect).
 func TestTheLicenceClientMatchesCoresSource(t *testing.T) {
 	rest := coreSource(t, "internal", "pluginlimits", "rest.go")
-	for _, want := range []string{`rg.Group("/plugin-licence"`, `lic.GET("", h.licence)`, `lic.POST("/bind", h.bind)`} {
+	// Core mounts both routes on the /api/rest/v1 group itself (no sub-group, Core main of 2026-11-24), the read behind
+	// countFailedRead: the paths are the same.
+	for _, want := range []string{`rg.GET("/plugin-licence", `, `licenceOnly, h.licence)`, `rg.POST("/plugin-licence/bind", `, `licenceOnly, h.bind)`} {
 		if !strings.Contains(rest, want) {
 			t.Errorf("Core's internal/pluginlimits/rest.go no longer mounts %s — %s and %s read it", want,
 				licencePath, licenceBindPath)
@@ -219,7 +221,8 @@ func TestTheLicenceClientMatchesCoresSource(t *testing.T) {
 		t.Errorf("the client asks %s and %s", licencePath, licenceBindPath)
 	}
 	handler := coreSource(t, "internal", "pluginlimits", "licence.go")
-	for _, want := range []string{`gin.H{"data": h.licences.PluginLicence(`, `gin.H{"data": BindAnswer{`,
+	// TellPluginLicence (Core main of 2026-11-24) is PluginLicence that also notes what the plugin was told: the same standing.
+	for _, want := range []string{`gin.H{"data": h.licences.TellPluginLicence(`, `gin.H{"data": BindAnswer{`,
 		"Licence license.PluginLicenceStanding `json:\"licence\"`"} {
 		if !strings.Contains(handler, want) {
 			t.Errorf("Core's internal/pluginlimits/licence.go no longer has %s", want)
