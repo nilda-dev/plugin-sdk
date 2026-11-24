@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.73.0 — unreleased (widget value limits, a widget's own render cap, widget.check)
+## v0.73.0 — 2026-11-24 (widget value limits, a widget's own render cap, widget.check)
 
 Additive. A widget that declares none of it is the bytes it was, on the wire and in Core. SDK-first: Core does not read
 the new keys yet and never asks `widget.check` (they are on `aheadOfCore`), so until the Core release that mirrors them the
