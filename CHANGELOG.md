@@ -27,6 +27,12 @@ Added:
   naming the widget and the field.
 - `nildatest.Widgets`.
 
+Security:
+
+- `golang.org/x/net` v0.62.0 (was v0.60.0; `x/text` v0.43.0 and `x/sys` v0.49.0 come with it): GO-2026-6860, quadratic
+  text-node coalescing in `x/net/html`, which `HTMLBody` reaches through `html.ParseFragment`. A plugin that pins this
+  release builds with at least x/net v0.62.0 (Go's minimal version selection).
+
 ## v0.72.0 — 2026-11-21 (a language may declare 3,000 translation strings)
 
 Mirrors Core (2026-11-21, owner: "if we need to raise it, raise it"): the shop was at 1,484 strings in each of its five
