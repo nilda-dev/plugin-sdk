@@ -33,8 +33,9 @@ func widgetItemLimitTypes() []string {
 // Validate reports whether Core can honour what this widget declares about its values and its render: each
 // field's MaxLength, MinItems, MaxItems and Pattern (at every level) and the widget's MaxHTMLBytes. It checks
 // those and nothing else — Core's other bounds on a describe answer are §4.1's — so a widget that declares none of
-// them always passes. Serve drops a widget that fails it from the describe answer and logs why; call it in your
-// own test (nildatest.Widgets does) to hear it there instead.
+// them always passes. Serve refuses Init for a plugin whose widgets fail it, naming the widget and the field (and,
+// should Widgets change after Init, drops such a widget from the describe answer and logs why); call it in your own
+// test (nildatest.Widgets does) to hear it earlier.
 func (d WidgetDef) Validate() error {
 	if d.MaxHTMLBytes < 0 || d.MaxHTMLBytes > MaxWidgetHTMLBytesCeiling {
 		return fmt.Errorf("nilda: widget %q: max_html_bytes %d is negative or above %d", d.Type, d.MaxHTMLBytes, MaxWidgetHTMLBytesCeiling)
@@ -82,6 +83,22 @@ func validateWidgetFieldLimits(f WidgetField, parent string) error {
 	}
 	for _, sub := range f.Fields {
 		if err := validateWidgetFieldLimits(sub, path); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkWidgetLimits stops Init for a WidgetProvider whose widgets fail WidgetDef.Validate, with the sentence naming
+// the widget and the field: the author hears it when the plugin starts, not from a widget that never appears. A
+// provider declaring no limits always passes.
+func checkWidgetLimits(h Handler) error {
+	wp, is := h.(WidgetProvider)
+	if !is {
+		return nil
+	}
+	for _, d := range wp.Widgets() {
+		if err := d.Validate(); err != nil {
 			return err
 		}
 	}

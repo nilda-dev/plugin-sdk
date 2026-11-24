@@ -180,8 +180,10 @@ type WidgetField struct {
 	// MaxLength and Pattern hold a text's value (FieldText, FieldTextarea, FieldEmail): at most MaxLength
 	// characters, and matching Pattern, a Go (RE2) regexp matched UNANCHORED as Core matches it — write ^…$ to
 	// hold the whole value. MinItems and MaxItems hold a list's (FieldRepeater's rows, FieldGallery,
-	// FieldMultiSelect, FieldCheckbox). Zero is unset. Core holds a saved value to them, as it holds its own
-	// fields; WidgetDef.Validate says which declarations it can honour (v0.73.0).
+	// FieldMultiSelect, FieldCheckbox). Zero is unset. WidgetDef.Validate says which declarations are well formed
+	// (v0.73.0). CORE DOES NOT READ THEM YET: its plugin WidgetField has no such keys, so until the Core release that
+	// mirrors them (CHANGELOG v0.73.0) they reach Core and are ignored — declare them, and keep checking the value in
+	// RenderWidget.
 	MaxLength int    `json:"max_length,omitempty"`
 	MinItems  int    `json:"min_items,omitempty"`
 	MaxItems  int    `json:"max_items,omitempty"`
@@ -197,8 +199,8 @@ type WidgetDef struct {
 	Category string        `json:"category,omitempty"`
 	Fields   []WidgetField `json:"fields,omitempty"`
 	// MaxHTMLBytes raises (or lowers) this widget's render cap: 0 is MaxWidgetHTMLBytes, and the most is
-	// MaxWidgetHTMLBytesCeiling (v0.73.0). A Core older than the one that reads it holds every widget to
-	// MaxWidgetHTMLBytes.
+	// MaxWidgetHTMLBytesCeiling (v0.73.0). Core does not read it yet: until the release that does, every widget is
+	// held to MaxWidgetHTMLBytes.
 	MaxHTMLBytes int `json:"max_html_bytes,omitempty"`
 }
 

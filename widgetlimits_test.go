@@ -91,3 +91,19 @@ func (limitWidgets) Widgets() []WidgetDef {
 		{Type: "good", Label: "Good", Fields: []WidgetField{{Key: "k", Type: FieldText, Pattern: `^a`}}},
 	}
 }
+
+// Init refuses a widget whose limits Core could not honour, naming the widget and the field — the author hears it
+// when the plugin starts, not from a log line about a widget that quietly never appears (review of #74).
+func TestInitRefusesAWidgetWhoseLimitsAreInvalid(t *testing.T) {
+	s := &pluginServer{handler: limitWidgets{}}
+	_, err := s.wire(InitResult{})
+	if err == nil || !strings.Contains(err.Error(), `widget "bad"`) || !strings.Contains(err.Error(), `field "k"`) {
+		t.Fatalf("Init answered %v, want a refusal naming widget \"bad\" and field \"k\"", err)
+	}
+	// A provider whose widgets hold, and one declaring no limits at all, start as they always did.
+	for _, h := range []Handler{widgetOnly{}, &provider{}} {
+		if _, err := (&pluginServer{handler: h}).wire(InitResult{}); err != nil {
+			t.Errorf("%T: %v", h, err)
+		}
+	}
+}

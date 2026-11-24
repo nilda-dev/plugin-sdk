@@ -596,7 +596,7 @@ settings that were never the problem.
 **Limits on a widget's values, and its own render cap (v0.73.0).** Both are optional; a widget that declares
 neither is the widget it was, byte for byte.
 
-- A field may hold its value as Core holds its own fields: `MaxLength` (characters, `max_length`) and `Pattern`
+- A field may declare how its value is held, with Core's own validation names: `MaxLength` (characters, `max_length`) and `Pattern`
   (a Go RE2 regexp, `pattern`, matched **unanchored** — write `^…$` to hold the whole value) on `FieldText`,
   `FieldTextarea` and `FieldEmail`; `MinItems` and `MaxItems` (`min_items`, `max_items`) on a repeater's rows,
   a gallery, a multiselect and a checkbox. Zero is unset. Each is non-negative, `MinItems` is not above a set
@@ -607,8 +607,11 @@ neither is the widget it was, byte for byte.
 - A widget may set its own render cap, `WidgetDef.MaxHTMLBytes` (`max_html_bytes`): 0 is `MaxWidgetHTMLBytes`,
   the most is `nilda.MaxWidgetHTMLBytesCeiling` (256 KiB). A Core older than the one that reads it holds every
   widget to 64 KiB.
-- `WidgetDef.Validate()` checks those declarations (and nothing else). `Serve` drops a widget that fails it from
-  the describe answer and logs why; `nildatest.Widgets(t, provider)` fails your test instead.
+- **Core does not read these yet.** This SDK release declares them first; until the Core release that mirrors
+  them, they reach Core and are ignored, and every widget renders under 64 KiB. Keep checking a value in
+  `RenderWidget` meanwhile.
+- `WidgetDef.Validate()` checks those declarations (and nothing else). `Serve` refuses Init for a plugin whose
+  widgets fail it, naming the widget and the field; `nildatest.Widgets(t, provider)` fails your test earlier.
 
 ```go
 fields := []nilda.WidgetField{
