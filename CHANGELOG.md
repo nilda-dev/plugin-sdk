@@ -8,6 +8,38 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.74.0 — unreleased (the look quote: CommerceEndpoints.LookQuote, and a widget learns the shop's doors)
+
+Additive. SDK-first: Core does not keep `look_quote` among a shop's endpoints yet and sends no `shop` on a widget render
+(both on `aheadOfCore`), so until the Core release that mirrors them a widget's `req.Shop` is nil — no shop — and no
+widget asks a look quote.
+
+Added:
+
+- `CommerceEndpoints.LookQuote` (`look_quote`, EXPERIMENTAL): a POST taking `LookQuoteRequest` as JSON and answering
+  `LookQuoteAnswer`, or `LookQuoteRefusal`, same-origin from the visitor's browser (the basket cookie goes with it),
+  `Cache-Control: no-store`. What up to 12 of the shop's variants cost together as a basket of their own — each line at
+  the visitor's price, the shop's automatic discounts on that set and the total — before anything is in the basket.
+  Modelled on the shop's own door (plugin-commerce's `POST /shop/look/quote`). The answer is plain text, to be escaped;
+  a caller shows a saving only when the visitor's basket holds nothing else.
+- `LookQuoteRequest` / `LookQuoteLine` (1 to `MaxLookQuoteLines` = 12 lines, 1 to `MaxLookQuoteQty` = 10 of each, no SKU
+  twice), `DecodeLookQuoteRequest` (at most `MaxLookQuoteBody` = 4 KiB, no unknown field, nothing after the object);
+  `LookQuoteAnswer` / `LookQuoteAnswerLine` / `LookQuoteDiscount` with `Validate` (an ISO 4217 currency, the SDK's
+  availability words, no negative figure, subtotal = the lines, total = subtotal − the discounts, at most
+  `MaxLookQuoteDiscounts` = 20 discounts of at most `MaxLookQuoteLabel` = 200 characters of plain text) and
+  `ValidateFor(request)`; `LookQuoteRefusal` with `Validate` and `Status`, and its codes `LookQuoteUnavailable`,
+  `LookQuoteChoiceRequired`, `LookQuoteMixedCurrency` (409), `LookQuoteBadRequest` (400), `LookQuoteTooManyRequests`
+  (429), `LookQuoteError` (500).
+- `AvailabilityShort` (`short`): a look quote's line asking more units than the shop can sell now. Never in a catalogue
+  feed.
+- `WidgetRenderRequest.Shop` (`shop`): the active shop plugin's `CommerceEndpoints` as Core kept them, nil when no shop
+  is active — so a widget of any plugin calls the shop's `AddToCart`, `Cart` and `LookQuote` instead of hard-coding a
+  path that is the shop's private choice.
+- `nildatest.LookQuote`: asks a shop's route as a widget's script does and fails the test on a request or an answer the
+  types refuse, or an answer not marked `no-store`.
+- `TestTheShopsDoorsAndTheWidgetsPageAreCores`: every key of `CommerceEndpoints` and `WidgetRenderRequest` is on Core's
+  struct, or on `aheadOfCore`.
+
 ## v0.73.0 — 2026-11-24 (widget value limits, a widget's own render cap, widget.check)
 
 Additive. A widget that declares none of it is the bytes it was, on the wire and in Core. SDK-first: Core does not read

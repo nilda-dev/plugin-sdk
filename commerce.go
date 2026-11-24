@@ -457,6 +457,14 @@ type CommerceEndpoints struct {
 	// still forgives "candel". Answer in the visitor's language (VisitorLocale) and for the signed-in viewer's price
 	// group; never cache it shared. Empty, the box asks Core's search alone.
 	SearchSuggest string `json:"search_suggest,omitempty"`
+	// LookQuote is a POST taking a LookQuoteRequest as JSON and answering a LookQuoteAnswer as JSON, or a
+	// LookQuoteRefusal (v0.74.0, EXPERIMENTAL, commercelookquote.go): what up to MaxLookQuoteLines of your variants, by
+	// SKU, cost together as a basket of their own — each line at the visitor's price, your automatic discounts on that
+	// set and the total — before anything is put in the basket. A widget that sells pieces together (a lookbook's "shop
+	// the look", another plugin's) asks it from the visitor's browser, on your route, so your basket cookie and the
+	// visitor's sign-in go with it; it learns the path from WidgetRenderRequest.Shop. It changes nothing. Answer with
+	// Cache-Control: no-store, never cached shared. Empty, such a widget shows no look price.
+	LookQuote string `json:"look_quote,omitempty"`
 }
 
 // Commerce is the interface a shop plugin implements.

@@ -46,6 +46,14 @@ var aheadOfCore = map[string]struct {
 		[]string{"internal", "plugin", "widgets.go"}, `"widget.check"`},
 	"widget.check answer": {"Core reads the {\"warnings\":[...]} answer (v0.73.0)",
 		[]string{"internal", "plugin", "widgets.go"}, `json:"warnings"`},
+
+	// The look quote (v0.74.0): Core keeps the shop's LookQuote beside its other doors (CommerceEndpointSet, kept by
+	// sameOriginOnly under the shop's route), and hands a plugin widget the active shop's kept endpoints as `shop` on
+	// its render request (WidgetRenderRequest and RenderPage, filled where the page is rendered), nil with no shop.
+	"commerce endpoint look_quote": {"Core keeps CommerceEndpoints.LookQuote (v0.74.0)",
+		[]string{"internal", "plugin", "commerce.go"}, `json:"look_quote`},
+	"widget render shop": {"Core sends the active shop's endpoints on a widget render (v0.74.0)",
+		[]string{"internal", "plugin", "widgets.go"}, `json:"shop`},
 }
 
 // coreLacks reports whether item is SDK surface Core does not serve yet (aheadOfCore).
