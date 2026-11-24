@@ -593,8 +593,8 @@ A render over `MaxWidgetHTMLBytes` is treated like an error from `RenderWidget`:
 and on the editor's canvas a box saying the widget could not be shown, so an author is not sent to fill in
 settings that were never the problem.
 
-**Limits on a widget's values, and its own render cap (v0.73.0).** Both are optional; a widget that declares
-neither is the widget it was, byte for byte.
+**Limits on a widget's values, its own render cap, and `widget.check` (v0.73.0).** All three are optional; a
+widget that declares none of them is the widget it was, byte for byte.
 
 - A field may hold its value as Core holds its own fields: `MaxLength` (characters, `max_length`) and `Pattern`
   (a Go RE2 regexp, `pattern`, matched **unanchored** — write `^…$` to hold the whole value) on `FieldText`,
@@ -614,6 +614,25 @@ neither is the widget it was, byte for byte.
 fields := []nilda.WidgetField{
 	{Key: "title", Label: "Title", Type: nilda.FieldText, MaxLength: 80, Pattern: `^\S`},
 	{Key: "rows", Label: "Rows", Type: nilda.FieldRepeater, MinItems: 1, MaxItems: 12, Fields: rowFields},
+}
+```
+
+A widget provider that can look at its placed widgets' settings implements `nilda.WidgetChecker`; `Serve`
+subscribes `nilda.HookWidgetCheck` (`"widget.check"`, under `widget`) for it and answers. Core sends a
+`nilda.WidgetCheckRequest` (`type`, `config`, `locale`) and shows the answer's `nilda.WidgetWarning`s — `path`
+(a key, a row as `rows[2].title`, empty for the whole widget), `code` (`^[a-z][a-z0-9_]{0,63}$`) and `message` —
+where it checks a page: `widget_set`, `layout_check`, `publish_check`. A warning never stops a save or a publish.
+At most `nilda.MaxWidgetCheckWarnings` (50) warnings, a message of 1 to `nilda.MaxWidgetCheckMessageLen` (300)
+characters, a path of at most `nilda.MaxWidgetCheckPathLen` (200); `nilda.ValidateWidgetWarnings` holds an answer
+to them, and an answer past them reaches Core as a failed check, not as warnings.
+`nildatest.CheckWidget(t, checker, req)` asks the way Core does and fails on an error or a refused answer.
+
+```go
+func (s *Shop) CheckWidget(ctx context.Context, req nilda.WidgetCheckRequest) ([]nilda.WidgetWarning, error) {
+	if rows, _ := req.Config["rows"].([]any); len(rows) == 0 {
+		return []nilda.WidgetWarning{{Path: "rows", Code: "empty", Message: "Add at least one row."}}, nil
+	}
+	return nil, nil
 }
 ```
 

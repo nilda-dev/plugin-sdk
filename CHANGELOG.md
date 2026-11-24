@@ -8,10 +8,10 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.73.0 — unreleased (widget value limits, a widget's own render cap)
+## v0.73.0 — unreleased (widget value limits, a widget's own render cap, widget.check)
 
 Additive. A widget that declares none of it is the bytes it was, on the wire and in Core. Core reads it from the release
-built on this version; an older Core ignores the new keys.
+built on this version; an older Core ignores the new keys and never asks `widget.check`.
 
 Added:
 
@@ -24,7 +24,11 @@ Added:
   `MaxWidgetHTMLBytesCeiling` (256 KiB).
 - `WidgetDef.Validate`, which checks those declarations only. `Serve` drops a widget that fails it from the describe answer
   and logs why.
-- `nildatest.Widgets`.
+- `HookWidgetCheck` (`widget.check`), `WidgetChecker`, `WidgetCheckRequest`, `WidgetWarning` (`path`, `code`, `message`),
+  `ValidateWidgetWarnings` and its bounds `MaxWidgetCheckWarnings` (50), `MaxWidgetCheckMessageLen` (300 characters),
+  `MaxWidgetCheckPathLen` (200 characters). `Serve` subscribes and answers it for a `WidgetProvider` that implements
+  `WidgetChecker`; an answer past a bound is an error, not a list.
+- `nildatest.Widgets` and `nildatest.CheckWidget`.
 
 ## v0.72.0 — 2026-11-21 (a language may declare 3,000 translation strings)
 

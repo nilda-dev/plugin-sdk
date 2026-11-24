@@ -348,6 +348,9 @@ func dispatchProvided(ctx context.Context, h Handler, hook string, payload []byt
 		raw, err := json.Marshal(widgetRenderResponse{HTML: html})
 		return raw, true, err
 
+	case HookWidgetCheck:
+		return dispatchWidgetCheck(ctx, h, payload)
+
 	case HookRenderAssets:
 		ap, is := h.(AssetProvider)
 		if !is {
@@ -466,6 +469,12 @@ var providerHooks = []struct {
 		[]string{HookRenderAssets}},
 	{"WidgetProvider", func(h Handler) bool { _, is := h.(WidgetProvider); return is },
 		[]string{HookWidgetDescribe, HookWidgetRender}},
+	// widget.check only for a widget provider that checks its widgets' settings (WidgetChecker, v0.73.0).
+	{"WidgetChecker", func(h Handler) bool {
+		_, wp := h.(WidgetProvider)
+		_, is := h.(WidgetChecker)
+		return wp && is
+	}, []string{HookWidgetCheck}},
 	// link.targets needs `route`, not `hooks`: the paths a target may name are the plugin's own.
 	{"LinkTargetProvider", func(h Handler) bool { _, is := h.(LinkTargetProvider); return is },
 		[]string{LinkTargetsHook}},
