@@ -593,6 +593,30 @@ A render over `MaxWidgetHTMLBytes` is treated like an error from `RenderWidget`:
 and on the editor's canvas a box saying the widget could not be shown, so an author is not sent to fill in
 settings that were never the problem.
 
+**Limits on a widget's values, and its own render cap (v0.73.0).** Both are optional; a widget that declares
+neither is the widget it was, byte for byte.
+
+- A field may hold its value as Core holds its own fields: `MaxLength` (characters, `max_length`) and `Pattern`
+  (a Go RE2 regexp, `pattern`, matched **unanchored** — write `^…$` to hold the whole value) on `FieldText`,
+  `FieldTextarea` and `FieldEmail`; `MinItems` and `MaxItems` (`min_items`, `max_items`) on a repeater's rows,
+  a gallery, a multiselect and a checkbox. Zero is unset. Each is non-negative, `MinItems` is not above a set
+  `MaxItems`, `MaxLength` is at most `nilda.MaxWidgetFieldLengthCeiling` (100,000), the counts at most
+  `nilda.MaxWidgetFieldItemsCeiling` (1,000), and a pattern compiles and is at most
+  `nilda.MaxWidgetFieldPatternLen` (500 bytes); a limit on any other type is refused, because Core would store it
+  and never apply it.
+- A widget may set its own render cap, `WidgetDef.MaxHTMLBytes` (`max_html_bytes`): 0 is `MaxWidgetHTMLBytes`,
+  the most is `nilda.MaxWidgetHTMLBytesCeiling` (256 KiB). A Core older than the one that reads it holds every
+  widget to 64 KiB.
+- `WidgetDef.Validate()` checks those declarations (and nothing else). `Serve` drops a widget that fails it from
+  the describe answer and logs why; `nildatest.Widgets(t, provider)` fails your test instead.
+
+```go
+fields := []nilda.WidgetField{
+	{Key: "title", Label: "Title", Type: nilda.FieldText, MaxLength: 80, Pattern: `^\S`},
+	{Key: "rows", Label: "Rows", Type: nilda.FieldRepeater, MinItems: 1, MaxItems: 12, Fields: rowFields},
+}
+```
+
 ---
 
 ## 5. Manifest

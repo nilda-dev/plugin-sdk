@@ -8,6 +8,24 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.73.0 — unreleased (widget value limits, a widget's own render cap)
+
+Additive. A widget that declares none of it is the bytes it was, on the wire and in Core. Core reads it from the release
+built on this version; an older Core ignores the new keys.
+
+Added:
+
+- `WidgetField.MaxLength` (`max_length`) and `Pattern` (`pattern`, a Go RE2 regexp, matched unanchored) on `text`,
+  `textarea` and `email`; `WidgetField.MinItems` / `MaxItems` (`min_items`, `max_items`) on a repeater's rows, a gallery,
+  a multiselect and a checkbox — Core's own validation names, held to Core's source by `TestTheWidgetFieldLimitsAreCores`.
+  Bounds: non-negative, `MinItems` not above a set `MaxItems`, `MaxWidgetFieldLengthCeiling` (100,000 characters),
+  `MaxWidgetFieldItemsCeiling` (1,000), `MaxWidgetFieldPatternLen` (500 bytes), the pattern compiles.
+- `WidgetDef.MaxHTMLBytes` (`max_html_bytes`): a widget's own render cap; 0 is `MaxWidgetHTMLBytes` (64 KiB), at most
+  `MaxWidgetHTMLBytesCeiling` (256 KiB).
+- `WidgetDef.Validate`, which checks those declarations only. `Serve` drops a widget that fails it from the describe answer
+  and logs why.
+- `nildatest.Widgets`.
+
 ## v0.72.0 — 2026-11-21 (a language may declare 3,000 translation strings)
 
 Mirrors Core (2026-11-21, owner: "if we need to raise it, raise it"): the shop was at 1,484 strings in each of its five

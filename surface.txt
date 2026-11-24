@@ -570,7 +570,11 @@ const MaxTermsPerCall
 const MaxTrashID
 const MaxTrashKind
 const MaxTrashName
+const MaxWidgetFieldItemsCeiling
+const MaxWidgetFieldLengthCeiling
+const MaxWidgetFieldPatternLen
 const MaxWidgetHTMLBytes
+const MaxWidgetHTMLBytesCeiling
 const MaxWidgetsPerPlugin
 const MenuItemContent
 const MenuItemHome
@@ -2919,6 +2923,7 @@ field WayBack.Version string json:version
 field WidgetDef.Category string json:category
 field WidgetDef.Fields []WidgetField json:fields
 field WidgetDef.Label string json:label
+field WidgetDef.MaxHTMLBytes int json:max_html_bytes
 field WidgetDef.Type string json:type
 field WidgetField.Choices []string json:choices
 field WidgetField.Fields []WidgetField json:fields
@@ -2926,7 +2931,11 @@ field WidgetField.Help string json:help
 field WidgetField.Key string json:key
 field WidgetField.Label string json:label
 field WidgetField.Max *float64 json:max
+field WidgetField.MaxItems int json:max_items
+field WidgetField.MaxLength int json:max_length
 field WidgetField.Min *float64 json:min
+field WidgetField.MinItems int json:min_items
+field WidgetField.Pattern string json:pattern
 field WidgetField.Placeholder string json:placeholder
 field WidgetField.Required bool json:required
 field WidgetField.Rows []string json:rows
@@ -3513,6 +3522,7 @@ method (VisitorTool) Validate() (error)
 method (VoidRequest) Validate() (error)
 method (VoidResult) Validate() (error)
 method (WalletAddress) Validate() (error)
+method (WidgetDef) Validate() (error)
 method (WindDownResult) Validate() (error)
 type API
 type APIError
