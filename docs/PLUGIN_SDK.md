@@ -520,6 +520,14 @@ your own route, not in this string.
 Note what `WidgetRenderRequest` does *not* carry — no user, no session. Rendered pages are cached, so a
 widget that varied by viewer would serve one visitor's output to the next.
 
+**Calling the site's shop from your widget (v0.74.0).** `req.Shop` is the active shop plugin's `nilda.CommerceEndpoints`
+as Core kept them (same-origin paths under the shop's own route), or nil when the site has no shop. A widget of any
+plugin — a lookbook, a bundle builder — reads `req.Shop.AddToCart`, `req.Shop.Cart` and `req.Shop.LookQuote` from it,
+puts the ones it needs on its markup as `data-*` attributes (HTML-escaped), and its script calls them from the visitor's
+browser. Never hard-code another plugin's path (`/shop/...`): it is that plugin's private choice, and another shop serves
+another one. An empty path is a door that shop does not serve: draw nothing that needs it. Needs the Core release that
+sends it; an older Core sends none, which reads as no shop.
+
 **`render.assets` — your own script on every page.** Implement `nilda.AssetProvider`:
 
 ```go
@@ -2513,6 +2521,25 @@ complete to, and `Corrected`, the search you ran instead when a word was a typo 
 box scoped to your products asks it beside its own search, so a site without a typo-tolerant search engine still forgives
 "candel". `CommerceSearchAnswer.Validate` holds the bounds (`nilda.MaxCommerceSearchSuggestions`,
 `nilda.MaxCommerceSearchHits`, `nilda.MaxCommerceSearchText`); answer `Cache-Control: no-store`.
+
+**A look's price before any basket (v0.74.0, EXPERIMENTAL).** Name `LookQuote` in `Endpoints` — a POST on your route
+taking a `nilda.LookQuoteRequest` as JSON (1 to `nilda.MaxLookQuoteLines` `nilda.LookQuoteLine`s, each a variant's SKU and
+1 to `nilda.MaxLookQuoteQty` of it, no SKU twice; read it with `nilda.DecodeLookQuoteRequest`, at most
+`nilda.MaxLookQuoteBody` bytes) — and answer what those lines cost as a basket of their own: a `nilda.LookQuoteAnswer`
+with each `nilda.LookQuoteAnswerLine` at the visitor's price (`unit_minor`, `line_minor`, and an availability: one of the
+catalogue's words, or `nilda.AvailabilityShort` when you hold fewer than asked), your automatic discounts on that set
+(`nilda.LookQuoteDiscount`, at most `nilda.MaxLookQuoteDiscounts`, a label of at most `nilda.MaxLookQuoteLabel`
+characters), the subtotal and the total — `LookQuoteAnswer.Validate` holds that the total is the subtotal less the
+discounts and nothing is negative, `ValidateFor` that it prices exactly the lines asked. Refuse with a
+`nilda.LookQuoteRefusal` under its `Status()`: `nilda.LookQuoteUnavailable`, `nilda.LookQuoteChoiceRequired`,
+`nilda.LookQuoteMixedCurrency` (409), `nilda.LookQuoteBadRequest` (400), `nilda.LookQuoteTooManyRequests` (429),
+`nilda.LookQuoteError` (500). It changes nothing (no basket line, no cookie), and is answered `Cache-Control: no-store`.
+The widget that asks it is often another plugin's, which reads the path from `WidgetRenderRequest.Shop` and calls it
+from the visitor's browser, so your basket cookie and the visitor's sign-in go with it. **The answer is plain text**: a
+caller draws the SKU and the labels as text and formats the amounts itself. **The lines are priced alone**: a visitor
+whose basket holds other things may be charged differently at the checkout, so a caller shows a saving only when the
+basket holds nothing else. `nildatest.LookQuote` asks your route as such a widget does and fails your test on a broken
+answer.
 
 **Which product a page is (v0.39.0).** Implement `ProductForContent(ctx, contentID)` (the `nilda.CommerceProductPages`
 interface; the hook is `nilda.HookCommerceProductForContent`, `"commerce.product_for_content"`, which `Serve` subscribes

@@ -245,6 +245,13 @@ type WidgetRenderRequest struct {
 	// Preview is true when this render is the page builder's canvas or a share-link preview of a draft, not
 	// a visitor's page; a widget that records where it lives must skip it.
 	Preview bool `json:"preview,omitempty"`
+	// Shop is the site's shop's doors (v0.74.0): the active shop plugin's CommerceEndpoints as Core kept them — only
+	// same-origin paths under the shop's own route — so a widget of ANY plugin can call the shop from the visitor's
+	// browser (AddToCart, Cart, LookQuote) instead of hard-coding a path that is another plugin's private choice. Nil
+	// when no shop is active. The same for every visitor, so it is page-level like the rest of this request: put the
+	// paths you need on your markup (data-* attributes, HTML-escaped) and let your ScriptAsset call them. An empty path
+	// is a door that shop does not serve — draw nothing that needs it.
+	Shop *CommerceEndpoints `json:"shop,omitempty"`
 }
 
 // RenderAssetsRequest is what Core sends once per public page render to each `render.assets` subscriber.

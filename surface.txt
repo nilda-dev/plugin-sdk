@@ -74,6 +74,7 @@ const AvailabilityBackorder
 const AvailabilityInStock
 const AvailabilityOutOfStock
 const AvailabilityPreOrder
+const AvailabilityShort
 const BadgeBlue
 const BadgeGold
 const BadgeGreen
@@ -399,6 +400,12 @@ const LicenceTrial
 const LinkParamNumber
 const LinkParamSelect
 const LinkTargetsHook
+const LookQuoteBadRequest
+const LookQuoteChoiceRequired
+const LookQuoteError
+const LookQuoteMixedCurrency
+const LookQuoteTooManyRequests
+const LookQuoteUnavailable
 const MandatePreOrder
 const MandateSubscription
 const MandateUpdate
@@ -446,6 +453,11 @@ const MaxImportInputBytes
 const MaxImportPlanned
 const MaxImportReason
 const MaxListFilters
+const MaxLookQuoteBody
+const MaxLookQuoteDiscounts
+const MaxLookQuoteLabel
+const MaxLookQuoteLines
+const MaxLookQuoteQty
 const MaxManifestAbilityDefinitionBytes
 const MaxManifestAbilityDescriptionLen
 const MaxManifestAccountHostLen
@@ -1269,6 +1281,7 @@ field CommerceEndpoints.AddToCart string json:add_to_cart
 field CommerceEndpoints.Cart string json:cart
 field CommerceEndpoints.Checkout string json:checkout
 field CommerceEndpoints.Express string json:express
+field CommerceEndpoints.LookQuote string json:look_quote
 field CommerceEndpoints.PaymentMarks []string json:payment_marks
 field CommerceEndpoints.Reviews string json:reviews
 field CommerceEndpoints.SearchSuggest string json:search_suggest
@@ -1715,6 +1728,24 @@ field ListFilter.Label string json:label
 field ListFilter.Periods []string json:periods
 field ListRowState.Actions bool json:actions
 field ListRowState.Columns []ListColumn json:columns
+field LookQuoteAnswer.Currency string json:currency
+field LookQuoteAnswer.Discounts []LookQuoteDiscount json:discounts
+field LookQuoteAnswer.Lines []LookQuoteAnswerLine json:lines
+field LookQuoteAnswer.PricesIncludeTax bool json:prices_include_tax
+field LookQuoteAnswer.SubtotalMinor int64 json:subtotal_minor
+field LookQuoteAnswer.TotalMinor int64 json:total_minor
+field LookQuoteAnswerLine.Availability string json:availability
+field LookQuoteAnswerLine.LineMinor int64 json:line_minor
+field LookQuoteAnswerLine.Qty int64 json:qty
+field LookQuoteAnswerLine.SKU string json:sku
+field LookQuoteAnswerLine.UnitMinor int64 json:unit_minor
+field LookQuoteDiscount.AmountMinor int64 json:amount_minor
+field LookQuoteDiscount.Label string json:label
+field LookQuoteLine.Qty int64 json:qty
+field LookQuoteLine.SKU string json:sku
+field LookQuoteRefusal.Code string json:code
+field LookQuoteRefusal.SKU string json:sku
+field LookQuoteRequest.Lines []LookQuoteLine json:lines
 field MediaBytes.ContentType string
 field MediaBytes.Disposition string
 field MediaBytes.Item MediaItem
@@ -2953,6 +2984,7 @@ field WidgetRenderRequest.Kind string json:kind
 field WidgetRenderRequest.Locale string json:locale
 field WidgetRenderRequest.Preview bool json:preview
 field WidgetRenderRequest.RTL bool json:rtl
+field WidgetRenderRequest.Shop *CommerceEndpoints json:shop
 field WidgetRenderRequest.SiteURL string json:site_url
 field WidgetRenderRequest.Title string json:title
 field WidgetRenderRequest.Type string json:type
@@ -2998,6 +3030,7 @@ func ContractToolName(string, string) (string)
 func Contracts() ([]ServiceContract, error)
 func CurrentUser(*http.Request) (Viewer, bool)
 func DecodeExpressRequest(io.Reader) (ExpressRequest, error)
+func DecodeLookQuoteRequest(io.Reader) (LookQuoteRequest, error)
 func DecodeShopOrderEvent(string, []byte) (ShopOrderEvent, error)
 func DeliverablesMethods(DeliverablesProvider) ([]ServiceMethod)
 func DispatchAccount(context.Context, string, []byte, AccountHandler) ([]byte, bool, error)
@@ -3438,6 +3471,11 @@ method (LabelResult) ValidateFor(LabelRequest) (error)
 method (Licence) MarshalJSON() ([]byte, error)
 method (Licence) TakesRealMoney() (bool)
 method (LinkTarget) Validate(string) (error)
+method (LookQuoteAnswer) Validate() (error)
+method (LookQuoteAnswer) ValidateFor(LookQuoteRequest) (error)
+method (LookQuoteRefusal) Status() (int)
+method (LookQuoteRefusal) Validate() (error)
+method (LookQuoteRequest) Validate() (error)
 method (Obligation) Validate() (error)
 method (ObligationsAnswer) Validate() (error)
 method (Parcel) Validate() (error)
@@ -3725,6 +3763,12 @@ type LinkTargetsRequest
 type ListColumn
 type ListFilter
 type ListRowState
+type LookQuoteAnswer
+type LookQuoteAnswerLine
+type LookQuoteDiscount
+type LookQuoteLine
+type LookQuoteRefusal
+type LookQuoteRequest
 type MediaBytes
 type MediaItem
 type Menu
