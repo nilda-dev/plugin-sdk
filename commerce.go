@@ -465,6 +465,14 @@ type CommerceEndpoints struct {
 	// visitor's sign-in go with it; it learns the path from WidgetRenderRequest.Shop. It changes nothing. Answer with
 	// Cache-Control: no-store, never cached shared. Empty, such a widget shows no look price.
 	LookQuote string `json:"look_quote,omitempty"`
+	// Basket is a GET answering the visitor's basket as JSON — {"lines": [{"sku", "qty"}, ...]}, a BasketAnswer
+	// (v0.75.0, EXPERIMENTAL, commercebasket.go) — same-origin from the visitor's browser, so your basket cookie and the
+	// visitor's sign-in go with it. Spell the keys "sku" and "qty" exactly (a browser's script reads line.sku); more keys
+	// beside them are yours. Cart is the HTML to draw; this is the data a widget reads: to reconcile what its adds put
+	// in the basket, and to know whether the basket holds only a look (BasketAnswer.HoldsOnly), the one case where a
+	// LookQuote's saving is the checkout's. Answer with Cache-Control: no-store, never cached shared. Empty, a widget
+	// cannot read the basket and shows no look saving.
+	Basket string `json:"basket,omitempty"`
 }
 
 // Commerce is the interface a shop plugin implements.

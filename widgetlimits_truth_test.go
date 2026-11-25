@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -45,6 +47,21 @@ func TestTheWidgetFieldLimitsAreCores(t *testing.T) {
 	// The default render cap is Core's, and the ceiling is above it.
 	widgets := coreSource(t, "internal", "plugin", "widgets.go")
 	from(t, widgets, "const maxWidgetHTMLBytes = 64 << 10", "core/internal/plugin/widgets.go")
+	// A pattern's cost is Core's rule (patternsCostLittle): the same program (Perl syntax, simplified, compiled) and the
+	// same two numbers, so a widget the SDK passes at Init is one Core keeps in the describe answer.
+	from(t, widgets, "syntax.Parse(f.Pattern, syntax.Perl)", "core/internal/plugin/widgets.go")
+	from(t, widgets, "syntax.Compile(re.Simplify())", "core/internal/plugin/widgets.go")
+	for name, sdk := range map[string]int{"maxWidgetPatternInsts": MaxWidgetFieldPatternInsts,
+		"maxWidgetPatternWork": MaxWidgetFieldPatternWork} {
+		m := regexp.MustCompile(name + `\s*=\s*([0-9_]+)`).FindStringSubmatch(widgets)
+		if m == nil {
+			t.Errorf("core's internal/plugin/widgets.go no longer declares %s — repoint this guard", name)
+			continue
+		}
+		if core, _ := strconv.Atoi(strings.ReplaceAll(m[1], "_", "")); core != sdk {
+			t.Errorf("core's %s is %d, the SDK's is %d: a widget the SDK passes, Core drops (or the other way)", name, core, sdk)
+		}
+	}
 	if MaxWidgetHTMLBytesCeiling < MaxWidgetHTMLBytes {
 		t.Errorf("the ceiling %d is below the default %d", MaxWidgetHTMLBytesCeiling, MaxWidgetHTMLBytes)
 	}

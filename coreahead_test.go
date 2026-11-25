@@ -27,33 +27,13 @@ var aheadOfCore = map[string]struct {
 
 	// Core landed the session's item lines and breakdown (plan 10.15) in core #223.
 
-	// The widget limits (v0.73.0, SDK #74): Core's plugin WidgetField mirrors the four keys, builderdata copies them
-	// into the field's Validation, and the render cap is read per widget.
-	"widget field max_length": {"Core mirrors WidgetField.MaxLength (v0.73.0)",
-		[]string{"internal", "plugin", "widgets.go"}, `json:"max_length`},
-	"widget field min_items": {"Core mirrors WidgetField.MinItems (v0.73.0)",
-		[]string{"internal", "plugin", "widgets.go"}, `json:"min_items`},
-	"widget field max_items": {"Core mirrors WidgetField.MaxItems (v0.73.0)",
-		[]string{"internal", "plugin", "widgets.go"}, `json:"max_items`},
-	"widget field pattern": {"Core mirrors WidgetField.Pattern (v0.73.0)",
-		[]string{"internal", "plugin", "widgets.go"}, `json:"pattern`},
-	"widget max_html_bytes": {"Core reads WidgetDef.MaxHTMLBytes as the widget's render cap (v0.73.0)",
-		[]string{"internal", "plugin", "widgets.go"}, `json:"max_html_bytes`},
+	// Core landed the widget limits, widget.check, the look quote and the widget's shop (v0.73.0, v0.74.0) in core
+	// #608-#616.
 
-	// widget.check (v0.73.0, SDK #75): Core names the hook, asks a subscribed widget provider, and reads its answer
-	// {"warnings":[{path, code, message}]}, re-validated with ValidateWidgetWarnings.
-	"hook widget.check": {"Core asks widget.check of a subscribed widget provider (v0.73.0)",
-		[]string{"internal", "plugin", "widgets.go"}, `"widget.check"`},
-	"widget.check answer": {"Core reads the {\"warnings\":[...]} answer (v0.73.0)",
-		[]string{"internal", "plugin", "widgets.go"}, `json:"warnings"`},
-
-	// The look quote (v0.74.0): Core keeps the shop's LookQuote beside its other doors (CommerceEndpointSet, kept by
-	// sameOriginOnly under the shop's route), and hands a plugin widget the active shop's kept endpoints as `shop` on
-	// its render request (WidgetRenderRequest and RenderPage, filled where the page is rendered), nil with no shop.
-	"commerce endpoint look_quote": {"Core keeps CommerceEndpoints.LookQuote (v0.74.0)",
-		[]string{"internal", "plugin", "commerce.go"}, `json:"look_quote`},
-	"widget render shop": {"Core sends the active shop's endpoints on a widget render (v0.74.0)",
-		[]string{"internal", "plugin", "widgets.go"}, `json:"shop`},
+	// The basket door (v0.75.0): Core keeps the shop's Basket beside its other doors (CommerceEndpointSet, kept by
+	// sameOriginOnly under the shop's route), so a widget finds it on WidgetRenderRequest.Shop.
+	"commerce endpoint basket": {"Core keeps CommerceEndpoints.Basket (v0.75.0)",
+		[]string{"internal", "plugin", "commerce.go"}, `json:"basket`},
 }
 
 // coreLacks reports whether item is SDK surface Core does not serve yet (aheadOfCore).

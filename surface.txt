@@ -428,6 +428,9 @@ const MaxAttributeSKUs
 const MaxAttributeText
 const MaxAttributeTextarea
 const MaxAttributeValues
+const MaxBasketBody
+const MaxBasketLineQty
+const MaxBasketLines
 const MaxBulkActionFields
 const MaxBulkBatch
 const MaxBulkSelection
@@ -588,7 +591,9 @@ const MaxWidgetCheckPathLen
 const MaxWidgetCheckWarnings
 const MaxWidgetFieldItemsCeiling
 const MaxWidgetFieldLengthCeiling
+const MaxWidgetFieldPatternInsts
 const MaxWidgetFieldPatternLen
+const MaxWidgetFieldPatternWork
 const MaxWidgetHTMLBytes
 const MaxWidgetHTMLBytesCeiling
 const MaxWidgetsPerPlugin
@@ -1145,6 +1150,9 @@ field AuthStartRequest.Nonce string json:nonce
 field AuthStartRequest.Provider string json:provider
 field AuthStartRequest.RedirectURI string json:redirect_uri
 field AuthStartRequest.State string json:state
+field BasketAnswer.Lines []BasketLine json:lines
+field BasketLine.Qty int64 json:qty
+field BasketLine.SKU string json:sku
 field BindResult.Bound bool json:bound
 field BindResult.Licence Licence json:licence
 field BindResult.Reason string json:reason
@@ -1278,6 +1286,7 @@ field CommerceChoicePlan.Price string json:price
 field CommerceChoicePlan.UnitPrice string json:unit_price
 field CommerceEndpoints.Account string json:account
 field CommerceEndpoints.AddToCart string json:add_to_cart
+field CommerceEndpoints.Basket string json:basket
 field CommerceEndpoints.Cart string json:cart
 field CommerceEndpoints.Checkout string json:checkout
 field CommerceEndpoints.Express string json:express
@@ -3029,6 +3038,7 @@ func ContractNamed(string) (ServiceContract, bool)
 func ContractToolName(string, string) (string)
 func Contracts() ([]ServiceContract, error)
 func CurrentUser(*http.Request) (Viewer, bool)
+func DecodeBasketAnswer(io.Reader) (BasketAnswer, error)
 func DecodeExpressRequest(io.Reader) (ExpressRequest, error)
 func DecodeLookQuoteRequest(io.Reader) (LookQuoteRequest, error)
 func DecodeShopOrderEvent(string, []byte) (ShopOrderEvent, error)
@@ -3422,6 +3432,8 @@ method (AttributeTarget) Validate() (error)
 method (AttributeValidateAnswer) ValidateFor(AttributeDescription) (error)
 method (AttributeValidateRequest) Validate() (error)
 method (AttributeWriteAnswer) Validate() (error)
+method (BasketAnswer) HoldsOnly(LookQuoteRequest) (bool)
+method (BasketAnswer) Validate() (error)
 method (CarrierDescription) Validate() (error)
 method (CatalogDescription) Validate() (error)
 method (CatalogPage) Validate() (error)
@@ -3637,6 +3649,8 @@ type AuthCompleteRequest
 type AuthProvider
 type AuthProviderStatus
 type AuthStartRequest
+type BasketAnswer
+type BasketLine
 type BindResult
 type BulkAction
 type BulkOpen
