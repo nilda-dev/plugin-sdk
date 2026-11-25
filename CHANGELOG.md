@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.74.0 — unreleased (the look quote: CommerceEndpoints.LookQuote, and a widget learns the shop's doors)
+## v0.74.0 — 2026-11-25 (the look quote: CommerceEndpoints.LookQuote, and a widget learns the shop's doors)
 
 Additive. SDK-first: Core does not keep `look_quote` among a shop's endpoints yet and sends no `shop` on a widget render
 (both on `aheadOfCore`), so until the Core release that mirrors them a widget's `req.Shop` is nil — no shop — and no
