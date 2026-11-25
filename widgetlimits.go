@@ -3,6 +3,7 @@ package nilda
 import (
 	"fmt"
 	"regexp"
+	"regexp/syntax"
 	"slices"
 )
 
@@ -20,6 +21,13 @@ const (
 	MaxWidgetFieldItemsCeiling = 1000
 	// MaxWidgetFieldPatternLen bounds WidgetField.Pattern: bytes.
 	MaxWidgetFieldPatternLen = 500
+	// MaxWidgetFieldPatternInsts bounds the program WidgetField.Pattern compiles to (v0.75.0): instructions, counted as
+	// Core counts them (regexp/syntax, Perl flags, simplified). Go's regexp is linear in the text TIMES the program, so
+	// a short pattern can still be slow: `(?:\w|\s|\d){1000}z` is 19 bytes and about a thousand instructions.
+	MaxWidgetFieldPatternInsts = 2000
+	// MaxWidgetFieldPatternWork bounds a pattern's instructions times its field's MaxLength (v0.75.0): the steps one
+	// value's match may take, about 13 ms on Core. A pattern needs a MaxLength, so the text it runs on is bounded.
+	MaxWidgetFieldPatternWork = 1_000_000
 )
 
 // widgetTextLimitTypes are the types Core holds to max_length and pattern; widgetItemLimitTypes the ones it holds
@@ -66,6 +74,9 @@ func validateWidgetFieldLimits(f WidgetField, parent string) error {
 		if _, err := regexp.Compile(f.Pattern); err != nil {
 			return fmt.Errorf("field %q: its pattern does not compile as a Go (RE2) regexp: %v", path, err)
 		}
+		if err := patternCost(f, path); err != nil {
+			return err
+		}
 	}
 	for _, n := range []struct {
 		name string
@@ -85,6 +96,32 @@ func validateWidgetFieldLimits(f WidgetField, parent string) error {
 		if err := validateWidgetFieldLimits(sub, path); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// patternCost is Core's rule for what a field's pattern costs at match time (core internal/plugin/widgets.go,
+// patternsCostLittle, held to it by TestTheWidgetFieldLimitsAreCores): a program of at most MaxWidgetFieldPatternInsts
+// instructions, on a field with a MaxLength, whose instructions times MaxLength is at most MaxWidgetFieldPatternWork.
+// Checked in Core's order with Core's numbers, so a widget the SDK passes at Init is one Core keeps.
+func patternCost(f WidgetField, path string) error {
+	re, err := syntax.Parse(f.Pattern, syntax.Perl)
+	if err != nil {
+		return fmt.Errorf("field %q: its pattern does not parse: %v", path, err)
+	}
+	prog, err := syntax.Compile(re.Simplify())
+	if err != nil {
+		return fmt.Errorf("field %q: its pattern does not compile: %v", path, err)
+	}
+	switch n := len(prog.Inst); {
+	case n > MaxWidgetFieldPatternInsts:
+		return fmt.Errorf("field %q: its pattern compiles to %d instructions; the bound is %d", path, n, MaxWidgetFieldPatternInsts)
+	case f.MaxLength <= 0:
+		return fmt.Errorf("field %q: a pattern needs a max_length, so the text it is matched against is bounded", path)
+	case f.MaxLength*n > MaxWidgetFieldPatternWork:
+		return fmt.Errorf("field %q: its pattern (%d instructions) on a max_length of %d is %d steps a value; "+
+			"the bound is %d — lower max_length to %d or simplify the pattern",
+			path, n, f.MaxLength, f.MaxLength*n, MaxWidgetFieldPatternWork, MaxWidgetFieldPatternWork/n)
 	}
 	return nil
 }

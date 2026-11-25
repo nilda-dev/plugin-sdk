@@ -3,6 +3,7 @@ package nilda
 import (
 	"context"
 	"encoding/json"
+	"regexp/syntax"
 	"strings"
 	"testing"
 )
@@ -88,7 +89,7 @@ type limitWidgets struct{ widgetOnly }
 func (limitWidgets) Widgets() []WidgetDef {
 	return []WidgetDef{
 		{Type: "bad", Label: "Bad", Fields: []WidgetField{{Key: "k", Type: FieldText, Pattern: `(`}}},
-		{Type: "good", Label: "Good", Fields: []WidgetField{{Key: "k", Type: FieldText, Pattern: `^a`}}},
+		{Type: "good", Label: "Good", Fields: []WidgetField{{Key: "k", Type: FieldText, MaxLength: 40, Pattern: `^a`}}},
 	}
 }
 
@@ -104,6 +105,49 @@ func TestInitRefusesAWidgetWhoseLimitsAreInvalid(t *testing.T) {
 	for _, h := range []Handler{widgetOnly{}, &provider{}} {
 		if _, err := (&pluginServer{handler: h}).wire(InitResult{}); err != nil {
 			t.Errorf("%T: %v", h, err)
+		}
+	}
+}
+
+// A PATTERN COSTS ITS PROGRAM TIMES THE TEXT (Core's patternsCostLittle, security review 2026-11-25 M1). Go's regexp is
+// linear in the text TIMES the compiled program, so a 19-byte pattern can take 0.4 s on one long value — on every save.
+// Core refuses a pattern on a field with no max_length, one past MaxWidgetFieldPatternInsts instructions, and one whose
+// instructions times max_length is past MaxWidgetFieldPatternWork; the SDK refuses the same widgets at Init, naming the
+// field and the number, rather than letting Core drop the widget from the describe answer.
+func TestAWidgetPatternsCostIsBounded(t *testing.T) {
+	insts := func(pattern string) int {
+		re, err := syntax.Parse(pattern, syntax.Perl)
+		if err != nil {
+			t.Fatal(err)
+		}
+		prog, err := syntax.Compile(re.Simplify())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(prog.Inst)
+	}
+	const costly = `(?:\w|\s|\d){1000}z` // 19 bytes, about a thousand instructions
+	n := insts(costly)
+	ok := func(f WidgetField) WidgetDef { return WidgetDef{Type: "w", Label: "W", Fields: []WidgetField{f}} }
+	for name, good := range map[string]WidgetDef{
+		"at the bound": ok(WidgetField{Key: "k", Type: FieldText, MaxLength: MaxWidgetFieldPatternWork / n, Pattern: costly}),
+		"a cheap one":  ok(WidgetField{Key: "k", Type: FieldTextarea, MaxLength: MaxWidgetFieldLengthCeiling, Pattern: `^\S`}),
+	} {
+		if err := good.Validate(); err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	for want, bad := range map[string]WidgetDef{
+		"needs a max_length": ok(WidgetField{Key: "k", Type: FieldText, Pattern: `^a`}),
+		"instructions; the bound is 2000": ok(WidgetField{Key: "k", Type: FieldText, MaxLength: 10,
+			Pattern: `a{1000}b{1000}c{100}`}),
+		"lower max_length to": ok(WidgetField{Key: "k", Type: FieldText, MaxLength: MaxWidgetFieldPatternWork/n + 1, Pattern: costly}),
+		`field "rows.s"`: ok(WidgetField{Key: "rows", Type: FieldRepeater,
+			Fields: []WidgetField{{Key: "s", Type: FieldEmail, Pattern: `@`}}}),
+	} {
+		err := bad.Validate()
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%+v: got %v, want an error saying %q", bad, err, want)
 		}
 	}
 }

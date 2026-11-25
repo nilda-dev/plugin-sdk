@@ -524,7 +524,9 @@ widget that varied by viewer would serve one visitor's output to the next.
 as Core kept them (same-origin paths under the shop's own route), or nil when the site has no shop. A widget of any
 plugin — a lookbook, a bundle builder — reads `req.Shop.AddToCart`, `req.Shop.Cart` and `req.Shop.LookQuote` from it,
 puts the ones it needs on its markup as `data-*` attributes (HTML-escaped), and its script calls them from the visitor's
-browser. Never hard-code another plugin's path (`/shop/...`): it is that plugin's private choice, and another shop serves
+browser. `req.Shop.Basket` (v0.75.0) is the basket as data — `{"lines": [{"sku", "qty"}]}` — which a script asks after
+its adds to see what is in (an add can be refused, a tab closed half-way) and to know whether the basket holds only the
+look, the one case where a look quote's saving is the checkout's (`nilda.BasketAnswer.HoldsOnly` is that rule). Never hard-code another plugin's path (`/shop/...`): it is that plugin's private choice, and another shop serves
 another one. An empty path is a door that shop does not serve: draw nothing that needs it. Needs the Core release that
 sends it; an older Core sends none, which reads as no shop.
 
@@ -612,12 +614,18 @@ widget that declares none of them is the widget it was, byte for byte.
   `nilda.MaxWidgetFieldItemsCeiling` (1,000), and a pattern compiles and is at most
   `nilda.MaxWidgetFieldPatternLen` (500 bytes); a limit on any other type is refused, because Core would store it
   and never apply it.
+- **A pattern costs its program times its text (v0.75.0), and Core holds it to that.** Go's regexp is linear in
+  the text *times* the compiled program, so a short pattern can still be slow: `(?:\w|\s|\d){1000}z` is 19 bytes
+  and about a thousand instructions. A field with a `Pattern` needs a `MaxLength`; the pattern's program (as
+  `regexp/syntax` compiles it, Perl flags, simplified) is at most `nilda.MaxWidgetFieldPatternInsts` (2,000)
+  instructions; and instructions × `MaxLength` is at most `nilda.MaxWidgetFieldPatternWork` (1,000,000). These are
+  Core's own numbers: a widget past them is one Core drops from the describe answer, so the SDK refuses it at Init
+  with the field, the count and the `max_length` that would fit.
 - A widget may set its own render cap, `WidgetDef.MaxHTMLBytes` (`max_html_bytes`): 0 is `MaxWidgetHTMLBytes`,
   the most is `nilda.MaxWidgetHTMLBytesCeiling` (256 KiB). A Core older than the one that reads it holds every
   widget to 64 KiB.
-- **Core does not read these yet.** This SDK release declares them first; until the Core release that mirrors
-  them, they reach Core and are ignored, and every widget renders under 64 KiB. Keep checking a value in
-  `RenderWidget` meanwhile.
+- Core reads them (from core #608): an older Core ignores them and holds every widget to 64 KiB, so keep checking
+  a value in `RenderWidget` if your plugin must run on one.
 - `WidgetDef.Validate()` checks those declarations (and nothing else). `Serve` refuses Init for a plugin whose
   widgets fail it, naming the widget and the field; `nildatest.Widgets(t, provider)` fails your test earlier.
 
@@ -2540,6 +2548,22 @@ caller draws the SKU and the labels as text and formats the amounts itself. **Th
 whose basket holds other things may be charged differently at the checkout, so a caller shows a saving only when the
 basket holds nothing else. `nildatest.LookQuote` asks your route as such a widget does and fails your test on a broken
 answer.
+
+**The visitor's basket as data (v0.75.0, EXPERIMENTAL).** Name `Basket` in `Endpoints` — a GET on your route answering
+the visitor's basket as JSON, `Cache-Control: no-store`, same-origin from their browser (your basket cookie and their
+sign-in go with it), changing nothing. The answer is a `nilda.BasketAnswer`: an object whose `lines` is an array — `[]`
+for an empty basket, never `null` — of `nilda.BasketLine`s, each a variant's `sku` and its `qty`, at most
+`nilda.MaxBasketLines` (100) lines of 1 to `nilda.MaxBasketLineQty` (9,999) units; a SKU may stand on two lines (a
+one-time line and a subscription line). **Spell the keys `sku` and `qty` exactly**: the reader is a browser's script,
+and JavaScript does not forgive `"SKU"`, which is what Go writes for an untagged field. Keys beside them (a title, a
+price, a subtotal) are yours. `Cart` is the HTML to draw; `Basket` is what a widget reads — another plugin's lookbook or
+bundle builder, finding the path on `WidgetRenderRequest.Shop` — to **reconcile its adds** (after posting a look's
+pieces to `AddToCart`, which are in and how many) and to **know whether the basket holds only a look**: a look quote
+prices its lines as a basket of their own, so its saving is shown only while `BasketAnswer.HoldsOnly(look)` — every line
+one of the look's SKUs, each at the look's quantity. `nilda.DecodeBasketAnswer` reads an answer as such a script does
+(at most `nilda.MaxBasketBody` bytes, the keys as spelled) and `nildatest.Basket` asks your route and fails your test on
+an answer a browser could not read, or one not marked `no-store`. Needs the Core release that keeps it among your doors;
+an older Core drops it, and a widget then finds no basket door.
 
 **Which product a page is (v0.39.0).** Implement `ProductForContent(ctx, contentID)` (the `nilda.CommerceProductPages`
 interface; the hook is `nilda.HookCommerceProductForContent`, `"commerce.product_for_content"`, which `Serve` subscribes

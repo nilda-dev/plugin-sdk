@@ -8,6 +8,35 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.75.0 — 2026-11-25 (the basket door, and a widget pattern's cost)
+
+Additive, but for one rule Core already enforces: a widget field `Pattern` with no `MaxLength`, or one that costs too much,
+now fails `WidgetDef.Validate` (and Init) — Core drops such a widget from the describe answer since core #608, so the SDK
+says so when the plugin starts instead. SDK-first for the basket door: Core does not keep `basket` among a shop's
+endpoints yet (on `aheadOfCore`), so until the Core release that mirrors it `req.Shop.Basket` is empty.
+
+Added:
+
+- `CommerceEndpoints.Basket` (`basket`, EXPERIMENTAL): a GET answering the visitor's basket as JSON, `{"lines":
+  [{"sku", "qty"}, ...]}`, same-origin from the visitor's browser, `Cache-Control: no-store`, changing nothing. Modelled
+  on the shop's own door (plugin-commerce's `GET /shop/api/cart`). A widget asks it to reconcile its adds and to know
+  whether the basket holds only a look — the one case a look quote's saving is the checkout's.
+- `BasketAnswer` / `BasketLine` with `Validate` (at most `MaxBasketLines` = 100 lines, a plain SKU of at most
+  `MaxPaymentLineSKU` bytes, 1 to `MaxBasketLineQty` = 9,999 units; a SKU may stand on two lines) and
+  `HoldsOnly(LookQuoteRequest)`; `DecodeBasketAnswer` (at most `MaxBasketBody` = 256 KiB, one object, `lines` an array,
+  the keys `sku` and `qty` spelled exactly — a browser's script does not forgive Go's default `"SKU"` — the shop's other
+  keys ignored).
+- `nildatest.Basket`: asks a shop's route as a widget's script does and fails the test on an answer
+  `DecodeBasketAnswer` refuses or one not marked `no-store`.
+- `MaxWidgetFieldPatternInsts` (2,000) and `MaxWidgetFieldPatternWork` (1,000,000), Core's pattern-cost rule
+  (`patternsCostLittle`): a pattern needs a `MaxLength`, compiles to at most 2,000 instructions, and instructions ×
+  `MaxLength` is at most 1,000,000. Held to Core's constants by `TestTheWidgetFieldLimitsAreCores`.
+
+Changed:
+
+- `aheadOfCore` no longer lists the widget limits, `widget.check`, `look_quote` or the widget render's `shop`: Core has
+  them (core #608–#616), so every guard holds them again. `basket` is on it until Core keeps it.
+
 ## v0.74.0 — 2026-11-25 (the look quote: CommerceEndpoints.LookQuote, and a widget learns the shop's doors)
 
 Additive. SDK-first: Core does not keep `look_quote` among a shop's endpoints yet and sends no `shop` on a widget render
