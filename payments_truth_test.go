@@ -199,8 +199,11 @@ func TestThePaymentNumbersInTheGuideAreCores(t *testing.T) {
 	// sweep that closes it reads that clock).
 	for _, c := range []struct{ src, file, want string }{
 		{host, "internal/plugin/host.go", "callCtx, cancel := context.WithTimeout(ctx, hookBudget(hook, h.cfg.CallTimeout))"},
+		// Core's hookBudget also caps a row's `most` (widget.check's one second, core #608-#616); no payment row sets
+		// one — the rows below are matched whole — so a gateway hook still gets PaymentHookBudget when it is longer.
 		{calls, "internal/plugin/calltable.go", "func hookBudget(hook string, ordinary time.Duration) time.Duration { " +
-			"if r, _ := ruleFor(hook); r.budget > ordinary { return r.budget } return ordinary }"},
+			"r, _ := ruleFor(hook) if r.most > 0 && r.most < ordinary { return r.most } " +
+			"if r.budget > ordinary { return r.budget } return ordinary }"},
 		{calls, "internal/plugin/calltable.go", "gatewayCall = hookRule{budget: PaymentHookBudget}"},
 		{calls, "internal/plugin/calltable.go", "HookPaymentDescribe: gatewayCall, HookPaymentStart: gatewayCall,"},
 		{calls, "internal/plugin/calltable.go", "HookPaymentRefund: {budget: PaymentHookBudget, errorIsAnswer: true}, " +
