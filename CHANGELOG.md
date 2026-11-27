@@ -8,7 +8,7 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
-## v0.76.0 — unreleased (a money form names its button and asks before it saves)
+## v0.76.0 — 2026-11-27 (a money form names its button and asks before it saves)
 
 Additive. Core already reads both keys (core #709, SH-I7): a plugin form had one generic Save, and on a refund form
 that Save moved money at once.
