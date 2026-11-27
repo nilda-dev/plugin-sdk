@@ -1882,6 +1882,13 @@ and in the Nilda app, and the site's assistant gets it too** (Core's `plugin_for
 over MCP as well): it saves through your same hook, after the owner's yes, so whatever the owner can change on the
 screen, the assistant can — and your check answers both. Delete stays a row action, with its confirm.
 
+**A form whose save moves money says so** (`save_label`, `confirm`, v0.76.0). `"save_label": "Refund 3 items"` is the
+Save button's words (empty reads "Save"); `"confirm"` is a sentence the person confirms before the save runs (empty:
+no question of yours — on an `always_ask` form Core shows its own warning first and yours beside it). `save_label` is
+at most `nilda.MaxManifestLabelLen` characters and `confirm` at most `nilda.MaxManifestHelpLen`, neither with a
+control, invisible or direction-changing character; `PageForm.Validate` says so in your test, and a `PageForm` that
+breaks it does not marshal. An older Core ignores both keys and draws a plain Save.
+
 What the assistant's save means for your hook:
 
 - **It sends the fields it changes; Core fills in the rest** with the values your load answers, so your save still

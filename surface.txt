@@ -1814,11 +1814,13 @@ field ObligationsAnswer.Obligations []Obligation json:obligations
 field ObligationsRequest.For string json:for
 field ObligationsRequest.Locale string json:locale
 field PageForm.AlwaysAsk bool json:always_ask
+field PageForm.Confirm string json:confirm
 field PageForm.Create bool json:create
 field PageForm.CreateLabel string json:create_label
 field PageForm.Edit bool json:edit
 field PageForm.Fields []FormField json:fields
 field PageForm.Permission string json:permission
+field PageForm.SaveLabel string json:save_label
 field PageForm.Sections []FormSection json:sections
 field PageMobile.Hide bool json:hide
 field PageMobile.Pick *PagePick json:pick
@@ -3490,6 +3492,8 @@ method (LookQuoteRefusal) Validate() (error)
 method (LookQuoteRequest) Validate() (error)
 method (Obligation) Validate() (error)
 method (ObligationsAnswer) Validate() (error)
+method (PageForm) MarshalJSON() ([]byte, error)
+method (PageForm) Validate() (error)
 method (Parcel) Validate() (error)
 method (PaymentAddress) Validate() (error)
 method (PaymentAuthorization) Validate() (error)

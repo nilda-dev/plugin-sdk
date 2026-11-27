@@ -8,6 +8,23 @@ How a release is cut (additive only, one tag per milestone, security and money f
 section means "unreleased") is `docs/RELEASE_TRAIN.md`; `release_train_test.go` holds the dating rule.
 
 
+## v0.76.0 — 2026-11-27 (a money form names its button and asks before it saves)
+
+Additive. Core already reads both keys (core #709, SH-I7): a plugin form had one generic Save, and on a refund form
+that Save moved money at once.
+
+Added:
+
+- `PageForm.SaveLabel` (`save_label`): the Save button's words — "Refund 3 items". Empty reads "Save", as before.
+- `PageForm.Confirm` (`confirm`): a sentence the person confirms before the save runs. Empty: no question of the
+  plugin's. On an `always_ask` form Core shows its own warning first and this sentence beside it.
+- `PageForm.Validate`: Core's rule for the two, `save_label` at most `MaxManifestLabelLen` (120) characters and
+  `confirm` at most `MaxManifestHelpLen` (500, Core holds it to a help text's bound), neither holding a control,
+  invisible or direction-changing character (Core's `hiddenRune`; a Persian half-space is spelling and passes). A form
+  that sets neither always passes.
+- `PageForm.MarshalJSON`: refuses what `Validate` refuses, so a `plugin.json` written from Go cannot carry a value Core
+  refuses at install. The list of invisible characters is held to Core's by `TestTheFormsHiddenCharacterRuleIsCores`.
+
 ## v0.75.0 — 2026-11-25 (the basket door, and a widget pattern's cost)
 
 Additive, but for one rule Core already enforces: a widget field `Pattern` with no `MaxLength`, or one that costs too much,
