@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"unicode"
+	"unicode/utf8"
 )
 
 // EDIT FORMS: a list page that can also create and change its rows.
@@ -65,6 +67,14 @@ type PageForm struct {
 	Edit   bool `json:"edit,omitempty"`
 	// CreateLabel is the New button's words — "New product". Empty reads "New".
 	CreateLabel string `json:"create_label,omitempty"`
+	// SaveLabel is the Save button's words (v0.76.0) — "Refund 3 items", for a form whose save is not a "Save" because it
+	// moves money. Empty reads "Save". At most MaxManifestLabelLen characters, with no hidden character (Validate).
+	SaveLabel string `json:"save_label,omitempty"`
+	// Confirm is a sentence the person must confirm before the save runs (v0.76.0) — "The money goes back to the
+	// customer's card. This cannot be undone." Empty: no question of yours. On an AlwaysAsk form Core shows its own
+	// warning first and this sentence beside it, as the plugin's. At most MaxManifestHelpLen characters (Core holds it
+	// to a help text's bound), with no hidden character (Validate). An older Core ignores both keys.
+	Confirm string `json:"confirm,omitempty"`
 	// Sections group the fields, in order. A form with none is one section.
 	Sections []FormSection `json:"sections,omitempty"`
 	Fields   []FormField   `json:"fields"`
@@ -74,6 +84,84 @@ type PageForm struct {
 	// Permission is the key of one of your manifest's `permissions` a person needs to SAVE this form (v0.70.0);
 	// opening it is the page's. Empty: only those who may configure the whole plugin.
 	Permission string `json:"permission,omitempty"`
+}
+
+// Validate reports whether Core accepts the form's SaveLabel and Confirm (v0.76.0): Core's validateForm holds the first
+// to a label's bound (MaxManifestLabelLen) and the second to a help text's (MaxManifestHelpLen), both in characters, and
+// refuses either when it holds a control, invisible or direction-changing character — what the owner reads before money
+// moves must be what its bytes say. It checks those two and nothing else, so a form that sets neither always passes.
+// MarshalJSON calls it, so a plugin.json written from Go cannot carry a value Core refuses at install.
+func (f PageForm) Validate() error {
+	for _, w := range []struct {
+		key, v string
+		max    int
+	}{{"save_label", f.SaveLabel, MaxManifestLabelLen}, {"confirm", f.Confirm, MaxManifestHelpLen}} {
+		if n := utf8.RuneCountInString(w.v); n > w.max {
+			return fmt.Errorf("nilda: form %s is %d characters; Core's bound is %d", w.key, n, w.max)
+		}
+		if hiddenRune(w.v) {
+			return fmt.Errorf("nilda: form %s holds a control, invisible or direction-changing character — "+
+				"what the owner reads must be what it says", w.key)
+		}
+	}
+	return nil
+}
+
+// MarshalJSON writes the form as plugin.json declares it, refusing what Validate refuses.
+func (f PageForm) MarshalJSON() ([]byte, error) {
+	if err := f.Validate(); err != nil {
+		return nil, err
+	}
+	type plain PageForm // without this method
+	return json.Marshal(plain(f))
+}
+
+// hiddenRune is Core's hiddenRune (core internal/plugin/plaintext.go), the rule validateForm holds every word of a form
+// to: a control or format character, an invalid byte, or one of the invisible and direction-changing characters Core
+// lists — the line break and the zero-width non-joiner and joiner aside, which are spelling (Persian writes its
+// half-space with the first) — and a joiner sitting between two Latin letters or digits, where it changes nothing a
+// reader sees and splits a word. TestTheFormsHiddenCharacterRuleIsCores holds the list to Core's.
+func hiddenRune(s string) bool {
+	runes := []rune(s)
+	for i, r := range runes {
+		switch {
+		case r == '\n':
+		case isJoiner(r):
+			j := i
+			for j < len(runes) && isJoiner(runes[j]) {
+				j++
+			}
+			start := i
+			for start > 0 && isJoiner(runes[start-1]) {
+				start--
+			}
+			if start > 0 && j < len(runes) && isLatinWordRune(runes[start-1]) && isLatinWordRune(runes[j]) {
+				return true
+			}
+		case r == utf8.RuneError, unicode.Is(unicode.Cc, r), unicode.Is(unicode.Cf, r), isBidiOrInvisible(r):
+			return true
+		}
+	}
+	return false
+}
+
+// bidiOrInvisible are the characters Core's isBidiOrInvisible names beyond the control and format categories: the line
+// and paragraph separators, the interlinear annotation marks and the object replacement character, and the fillers and
+// blanks that draw as nothing.
+var bidiOrInvisible = map[rune]bool{
+	'\u2028': true, '\u2029': true, '\uFFF9': true, '\uFFFA': true, '\uFFFB': true, '\uFFFC': true,
+	'\u034F': true, '\u115F': true, '\u1160': true, '\u17B4': true, '\u17B5': true, '\u2800': true, '\u3164': true,
+	'\uFFA0': true,
+}
+
+func isBidiOrInvisible(r rune) bool { return bidiOrInvisible[r] }
+
+// isJoiner is the zero-width non-joiner or joiner.
+func isJoiner(r rune) bool { return r == '\u200C' || r == '\u200D' }
+
+// isLatinWordRune is a Latin letter or an ASCII digit: the characters a brand name is written with.
+func isLatinWordRune(r rune) bool {
+	return unicode.Is(unicode.Latin, r) && unicode.IsLetter(r) || r >= '0' && r <= '9'
 }
 
 // FormSection is one card of the form.
